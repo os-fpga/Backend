@@ -1,0 +1,55 @@
+name: Build Compatibility
+
+# Only run for pull requests as we care contribution to the master
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  compilation:
+    runs-on: ubuntu-latest
+    # Branch on different OS and settings
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: "Build Compatibility: GCC-8 (Ubuntu 18.04)"
+            cc: gcc-8
+            cxx: g++-8
+          - name: "Build Compatibility: GCC-9 (Ubuntu 18.04)"
+            cc: gcc-9
+            cxx: g++-9
+    # Define the steps to run the build job
+    env:
+      CC: ${{ matrix.config.cc }}
+      CXX: ${{ matrix.config.cxx }}
+    steps:
+      - name: Cancel previous
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Runner workspace path
+        run: |
+          echo "Cleaning up previous run"
+          rm -rf "${{ github.workspace }}"
+          mkdir -p "${{ github.workspace }}"
+
+      - name: Checkout repo
+        uses: actions/checkout@v2.4.0
+
+      - name: Install dependencies
+        run: |
+          source .github/workflows/install_dependencies_build.sh
+
+      - name: Checkout submodule
+        run: |
+          make checkout
+
+      - name: Build
+        run: |
+          make compile
