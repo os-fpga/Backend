@@ -13,5 +13,5 @@ set(CMAKE_PROJECT_VERSION ${VERSION_NUMBER})
 # 
 # Sub-projects
 #
-add_subdirectory(OpenFPGA)
 add_subdirectory(OpenSTA)
+add_subdirectory(OpenFPGA)

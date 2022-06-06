@@ -34,6 +34,7 @@ apt-get update && apt-get install -y \
     qt5-default \
     tcllib \
     tcl \
+    tcl-dev \
     tcl8.6-dev \
     texinfo \
     time \
