@@ -44,7 +44,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          .github/workflows/install_dependencies_build.sh
+          sudo .github/workflows/install_dependencies_build.sh
 
       - name: Checkout submodule
         run: |
