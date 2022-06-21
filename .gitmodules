@@ -4,3 +4,6 @@
 [submodule "OpenSTA"]
 	path = OpenSTA
 	url = https://github.com/The-OpenROAD-Project/OpenSTA.git
+[submodule "VprOpenSTA"]
+	path = VprOpenSTA
+	url = git@github.com:RapidSilicon/VprOpenSTA.git
