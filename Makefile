@@ -49,3 +49,6 @@ with open ('Makefile', 'r' ) as f:
         header, content = match[1], match[2]
         print(f"  {header:10} {content}")
 endef
+
+clean:
+	$(RM) -r build OpenSTA/app/sta
