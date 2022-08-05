@@ -1,6 +1,6 @@
-[submodule "OpenFPGA"]
-	path = OpenFPGA
+[submodule "fpga/OpenFPGA"]
+	path = fpga/OpenFPGA
 	url = https://github.com/lnis-uofu/OpenFPGA.git
-[submodule "OpenSTA"]
-	path = OpenSTA
+[submodule "sta/OpenSTA"]
+	path = sta/OpenSTA
 	url = https://github.com/The-OpenROAD-Project/OpenSTA.git

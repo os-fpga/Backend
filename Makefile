@@ -51,4 +51,4 @@ with open ('Makefile', 'r' ) as f:
 endef
 
 clean:
-	$(RM) -r build OpenSTA/app/sta
+	$(RM) -r build sta/OpenSTA/app/sta fpga/OpenFPGA/build

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-project("BACKEND" C CXX)
+project("FPGA" C CXX)
 
 # Version number
 file (STRINGS "VERSION.md" VERSION_NUMBER)
@@ -13,5 +13,6 @@ set(CMAKE_PROJECT_VERSION ${VERSION_NUMBER})
 # 
 # Sub-projects
 # 
-add_subdirectory(fpga)
-add_subdirectory(sta)
+# hide OpenFPGA for now to avoid conflict in raptor
+# will enable once OpenFPGA is ready to be merged in
+#add_subdirectory(OpenFPGA)
