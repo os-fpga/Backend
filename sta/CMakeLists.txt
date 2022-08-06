@@ -22,6 +22,6 @@ add_dependencies(test_sta sta)
 add_custom_command(TARGET test_sta POST_BUILD
   COMMAND echo "Copying sta to ${PROJECT_BINARY_DIR}/bin"
   COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/bin
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_BINARY_DIR}/../../sta/OpenSTA/app/sta ${PROJECT_BINARY_DIR}/bin/sta ${PROJECT_BINARY_DIR}/bin/.
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/OpenSTA/app/sta ${PROJECT_BINARY_DIR}/bin/sta ${PROJECT_BINARY_DIR}/bin/.
   )
 
