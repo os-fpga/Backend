@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-project("OPENFPGA_RS" C CXX)
+project("Backend_RS" C CXX)
 
 # Version number
 file (STRINGS "VERSION.md" VERSION_NUMBER)
@@ -13,5 +13,4 @@ set(CMAKE_PROJECT_VERSION ${VERSION_NUMBER})
 # 
 # Sub-projects
 #
-add_subdirectory(OpenSTA)
 add_subdirectory(OpenFPGA)
