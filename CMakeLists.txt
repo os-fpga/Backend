@@ -13,4 +13,7 @@ set(CMAKE_PROJECT_VERSION ${VERSION_NUMBER})
 # 
 # Sub-projects
 #
+set(OPENFPGA_WITH_TEST OFF FORCE)
+set(OPENFPGA_WITH_YOSYS OFF FORCE)
+set(WITH_ABC OFF CACHE BOOL "Enable building ABC in Verilog-to-Routing" FORCE)
 add_subdirectory(OpenFPGA)
