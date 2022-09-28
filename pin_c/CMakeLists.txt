@@ -14,7 +14,7 @@ file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
 files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
 
-file(GLOB_RECURSE BLIF_READ_HEADERS ../../vpr/src/base/*.h)
+file(GLOB_RECURSE BLIF_READ_HEADERS ../OpenFPGA/vtr-verilog-to-routing/vpr/src/base/*.h)
 files_to_dirs(BLIF_READ_HEADERS BLIF_READ_INCLUDE_DIRS)
 
 #Create the static library
@@ -26,18 +26,18 @@ add_library(libpinconst STATIC
 target_include_directories(libpinconst PUBLIC ${LIB_INCLUDE_DIRS} ${BLIF_READ_INCLUDE_DIRS})
 set_target_properties(libpinconst PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
-include_directories(${PROJECT_SOURCE_DIR}/../vpr/src/base/ ${PROJECT_SOURCE_DIR}/../libs/libarchfpga/src/ ${PROJECT_SOURCE_DIR}/../vpr/src/device
-  ${PROJECT_SOURCE_DIR}/../libs/EXTERNAL/libblifparse/src/)
+include_directories(${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/src/base/ ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/src/route/ ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga/src/ ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base/
+  ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/src/)
 
-set(VPRST_STATIC_LIB libvprst.a)
+set(VPRST_STATIC_LIB libvpr.a)
 add_library(vprst_static STATIC IMPORTED )
 set_target_properties(vprst_static PROPERTIES
-      IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../vpr/${VPRST_STATIC_LIB})
+  IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/${VPRST_STATIC_LIB})
 
 set(BLIF_PARSE_STATIC_LIB libblifparse.a)
 add_library(blif_parse_static STATIC IMPORTED )
 set_target_properties(blif_parse_static PROPERTIES
-      IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../libs/EXTERNAL/libblifparse/${BLIF_PARSE_STATIC_LIB})
+      IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/${BLIF_PARSE_STATIC_LIB})
 
 target_link_libraries(libpinconst PUBLIC blif_parse_static vprst_static libvtrutil libpugixml)
 
@@ -75,7 +75,6 @@ set(PROF_USE_FLAGS_TO_CHECK
 file(GLOB_RECURSE TEST_SOURCES test/*.cpp)
 add_executable(test_pin_c ${TEST_SOURCES})
 target_link_libraries(test_pin_c
-                        libcatch
                         libpinconst)
 
 add_dependencies(test_pin_c pin_c)
