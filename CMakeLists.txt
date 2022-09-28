@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
 
@@ -13,8 +13,8 @@ set(CMAKE_PROJECT_VERSION ${VERSION_NUMBER})
 # 
 # Sub-projects
 #
-set(OPENFPGA_WITH_TEST OFF FORCE)
-set(OPENFPGA_WITH_YOSYS OFF FORCE)
+set(OPENFPGA_WITH_YOSYS OFF CACHE BOOL "Disable building Yosys in OpenFPGA" FORCE)
+set(OPENFPGA_WITH_TEST OFF CACHE BOOL "Disable OpenFPGA tests" FORCE)
 set(WITH_ABC OFF CACHE BOOL "Enable building ABC in Verilog-to-Routing" FORCE)
 add_subdirectory(OpenFPGA)
 
