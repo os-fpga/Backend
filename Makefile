@@ -24,6 +24,9 @@ help:
 
 .PHONY: all checkout compile
 
+clean:
+	rm -rf build
+
 checkout: 
 # This command will checkout all the submodules when no other options are provided
 # Available variables
@@ -34,7 +37,7 @@ checkout:
 
 compile:
 # This command will compile the codebase
-	mkdir -p build && cd build && $(CMAKE_COMMAND) ${CMAKE_FLAGS} ..
+	mkdir -p build && cd build && $(CMAKE_COMMAND) -DOPENFPGA11541=$(OPENFPGA11541) ${CMAKE_FLAGS} ..
 	cd build && $(MAKE)
 
 all: checkout compile

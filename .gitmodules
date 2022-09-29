@@ -1,3 +1,6 @@
 [submodule "OpenFPGA"]
 	path = OpenFPGA
 	url = https://github.com/lnis-uofu/OpenFPGA.git
+[submodule "OpenFPGA11541/vtr-verilog-to-routing"]
+	path = OpenFPGA11541/vtr-verilog-to-routing
+	url = git@github.com:verilog-to-routing/vtr-verilog-to-routing.git
