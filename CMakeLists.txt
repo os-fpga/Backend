@@ -2,6 +2,14 @@ cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
 
+if (OPENFPGA11541)
+  set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA11541/vpr)
+  set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA11541/vpr)
+else()
+  set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
+  set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
+endif()
+
 # Version number
 file (STRINGS "VERSION.md" VERSION_NUMBER)
 string (REPLACE "." ";" VERSION_LIST ${VERSION_NUMBER})
@@ -18,20 +26,26 @@ set(OPENFPGA_WITH_TEST OFF CACHE BOOL "Disable OpenFPGA tests" FORCE)
 set(OPENFPGA_WITH_VERSION OFF CACHE BOOL "Disable OpenFPGA version check" FORCE)
 set(WITH_ABC OFF CACHE BOOL "Enable building ABC in Verilog-to-Routing" FORCE)
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/read_blif.cpp
-${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/read_blif.h
-${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/read_circuit.cpp
-${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/read_circuit.h
-${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/read_options.cpp
-${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/read_options.h
-DESTINATION
-${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base/
+file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
+  ${VPR_SRC_DIR}/src/base/read_blif.h
+  ${VPR_SRC_DIR}/src/base/read_circuit.cpp
+  ${VPR_SRC_DIR}/src/base/read_circuit.h
+  ${VPR_SRC_DIR}/src/base/read_options.cpp
+  DESTINATION
+  ${VPR_DEST_DIR}/src/base/
+)
+
+file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
+  DESTINATION
+  ${VPR_DEST_DIR}/
 )
 
 if (OPENFPGA11541)
+  message(STATUS "I am in 11541")
   set(VPR_ENABLE_INTERCHANGE OFF CACHE BOOL "Interchange" FORCE)
   add_subdirectory(OpenFPGA11541)
 else()
+  message(STATUS "I am not in 11541")
   add_subdirectory(OpenFPGA)
 endif()
 
