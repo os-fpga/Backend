@@ -41,11 +41,9 @@ file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
 )
 
 if (OPENFPGA11541)
-  message(STATUS "I am in 11541")
   set(VPR_ENABLE_INTERCHANGE OFF CACHE BOOL "Interchange" FORCE)
   add_subdirectory(OpenFPGA11541)
 else()
-  message(STATUS "I am not in 11541")
   add_subdirectory(OpenFPGA)
 endif()
 
