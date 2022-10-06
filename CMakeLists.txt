@@ -4,10 +4,18 @@ project("Backend_RS" C CXX)
 
 if (OPENFPGA11541)
   set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA11541/vpr)
+  set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA11541/in_pugi_xml)
+  set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA11541/arch_fpga_src)
   set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA11541/vpr)
+  set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA11541/libs/libarchfpga)
+  set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA11541/libs/libpugiutil)
 else()
   set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
+  set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
+  set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
   set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
+  set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga)
+  set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil)
 endif()
 
 # Version number
@@ -33,13 +41,53 @@ if (OPENFPGA1.2 OR OPENFPGA11541)
     ${VPR_SRC_DIR}/src/base/read_circuit.h
     ${VPR_SRC_DIR}/src/base/read_options.cpp
     DESTINATION
-    ${VPR_DEST_DIR}/src/base/
-  )
+    ${VPR_DEST_DIR}/src/base/)
 
 file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
   DESTINATION
   ${VPR_DEST_DIR}/
 )
+endif()
+if (OPENFPGA11541)
+  file(COPY ${PUGI_SRC}/pugixml_loc.cpp
+  ${PUGI_SRC}/pugixml_loc.hpp
+  ${PUGI_SRC}/pugixml_util.cpp
+  ${PUGI_SRC}/aes.h
+  ${PUGI_SRC}/function.h
+  ${PUGI_SRC}/obfuscate.h
+  DESTINATION
+  ${PUGI_DEST}/src)
+else()
+  file(COPY ${PUGI_SRC}/pugixml_loc.cpp
+  ${PUGI_SRC}/pugixml_loc.hpp
+  ${PUGI_SRC}/pugixml_util.cpp
+  ${PUGI_SRC}/aes.h
+  ${PUGI_SRC}/function.h
+  ${PUGI_SRC}/obfuscate.h
+  DESTINATION
+  ${PUGI_DEST}/src
+ )
+endif()
+if (OPENFPGA11541)
+  file(COPY ${ARCH_FPGA_SRC}/read_xml_arch_file.cpp
+    DESTINATION
+    ${ARCH_FPGA_DEST}/src)
+else()
+  file(COPY ${ARCH_FPGA_SRC}/read_xml_arch_file.cpp
+  DESTINATION
+  ${ARCH_FPGA_DEST}/src 
+ )
+endif()
+
+if (OPENFPGA11541)
+  file(COPY ${PUGI_SRC}/CMakeLists.txt
+    DESTINATION
+    ${PUGI_DEST}/)
+else()
+  file(COPY ${PUGI_SRC}/CMakeLists.txt
+  DESTINATION
+  ${PUGI_DEST}/
+ )
 endif()
 
 if (OPENFPGA11541)
