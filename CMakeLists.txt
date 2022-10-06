@@ -26,19 +26,21 @@ set(OPENFPGA_WITH_TEST OFF CACHE BOOL "Disable OpenFPGA tests" FORCE)
 set(OPENFPGA_WITH_VERSION OFF CACHE BOOL "Disable OpenFPGA version check" FORCE)
 set(WITH_ABC OFF CACHE BOOL "Enable building ABC in Verilog-to-Routing" FORCE)
 
-file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
-  ${VPR_SRC_DIR}/src/base/read_blif.h
-  ${VPR_SRC_DIR}/src/base/read_circuit.cpp
-  ${VPR_SRC_DIR}/src/base/read_circuit.h
-  ${VPR_SRC_DIR}/src/base/read_options.cpp
-  DESTINATION
-  ${VPR_DEST_DIR}/src/base/
-)
+if (OPENFPGA1.2 OR OPENFPGA11541)
+  file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
+    ${VPR_SRC_DIR}/src/base/read_blif.h
+    ${VPR_SRC_DIR}/src/base/read_circuit.cpp
+    ${VPR_SRC_DIR}/src/base/read_circuit.h
+    ${VPR_SRC_DIR}/src/base/read_options.cpp
+    DESTINATION
+    ${VPR_DEST_DIR}/src/base/
+  )
 
 file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
   DESTINATION
   ${VPR_DEST_DIR}/
 )
+endif()
 
 if (OPENFPGA11541)
   set(VPR_ENABLE_INTERCHANGE OFF CACHE BOOL "Interchange" FORCE)
