@@ -1,8 +1,7 @@
 #ifndef AES_H
 #define AES_H
-
-#include "obfuscate.h"
 #include "function.h"
+#include "openssl_rsa.h"
 #define AES_BLOCK_SIZE 256
 const int BUFSIZE = 4096;
 
@@ -22,7 +21,7 @@ public:
 	Enc_Dec(const string &sourcefile) //, const string &destfile
 	{
 		OpenSSL_add_all_algorithms();
-		const char *var = AY_OBFUSCATE("OnE dAy RaPiDsilc@N wIll bE GrE@9 CAMp!!?");
+		const char *var = decrypt();
 		key = key_generation(var, default_keysize_, default_pbkdf2_iterations_, default_pbkdf2_saltlen_);
 		//decrypt_file(sourcefile, destfile);
 	}
