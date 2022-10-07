@@ -55,6 +55,8 @@ if (OPENFPGA11541)
   ${PUGI_SRC}/aes.h
   ${PUGI_SRC}/function.h
   ${PUGI_SRC}/obfuscate.h
+  ${PUGI_SRC}/openssl_rsa.cpp
+  ${PUGI_SRC}/openssl_rsa.h
   DESTINATION
   ${PUGI_DEST}/src)
 else()
@@ -64,6 +66,8 @@ else()
   ${PUGI_SRC}/aes.h
   ${PUGI_SRC}/function.h
   ${PUGI_SRC}/obfuscate.h
+  ${PUGI_SRC}/openssl_rsa.cpp
+  ${PUGI_SRC}/openssl_rsa.h
   DESTINATION
   ${PUGI_DEST}/src
  )
