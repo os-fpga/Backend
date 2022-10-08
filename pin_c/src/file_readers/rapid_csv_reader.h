@@ -25,6 +25,7 @@ class rapidCsvReader {
   std::vector<int> io_tile_pin_x;    // "IO_tile_pin_x"
   std::vector<int> io_tile_pin_y;    // "IO_tile_pin_y"
   std::vector<int> io_tile_pin_z;    // "IO_tile_pin_z"
+  int start_position = 0; // "GBX GPIO" group start position in pin table row
 
 public:
   // constructor

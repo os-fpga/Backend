@@ -25,8 +25,9 @@ const string USAGE_MSG_1 =
     "OUTPUT"; // for rs internally, gemini;  user pcf is provided
 const string USAGE_MSG_2 =
     "usage options: --blif BLIF --csv CSV_FILE [--assign_unconstrained_pins "
-    "[random | in_define_order]] --output OUTPUT"; // for rs internall, gemini;
-                                                   // no user pcf is provided
+    "[random | in_define_order]] --output OUTPUT"; // for rs internall,
+                                                   // gemini; no user pcf
+                                                   // is provided
 const cmd_line &pin_location::get_cmd() const { return cl_; }
 bool pin_location::reader_and_writer() {
   cmd_line cmd = cl_;
@@ -414,7 +415,8 @@ bool pin_location::get_available_bump_pin(
     rapidCsvReader &rs_csv_rd,
     std::pair<std::string, std::string> &bump_pin_and_mode,
     PortDirection port_direction) {
-  for (unsigned int i = 0; i < rs_csv_rd.bump_pin_name.size(); i++) {
+  for (unsigned int i = rs_csv_rd.start_position;
+       i < rs_csv_rd.bump_pin_name.size(); i++) {
     std::string bump_pin_name = rs_csv_rd.bump_pin_name[i];
     if (used_bump_pins_.find(bump_pin_name) == used_bump_pins_.end()) {
       for (unsigned int j = 0; j < rs_csv_rd.mode_names.size(); j++) {
@@ -422,7 +424,8 @@ bool pin_location::get_available_bump_pin(
         std::vector<std::string> mode_data = rs_csv_rd.modes_map[mode_name];
         if (port_direction == INPUT) {
           if (is_input_mode(mode_name)) {
-            for (unsigned int k = 0; k < mode_data.size(); k++) {
+            for (unsigned int k = rs_csv_rd.start_position;
+                 k < mode_data.size(); k++) {
               if ((mode_data[k] == "Y") &&
                   (bump_pin_name == rs_csv_rd.bump_pin_name[k])) {
                 bump_pin_and_mode.first = bump_pin_name;
@@ -436,7 +439,8 @@ bool pin_location::get_available_bump_pin(
           }
         } else if (port_direction == OUTPUT) {
           if (is_output_mode(mode_name)) {
-            for (unsigned int k = 0; k < mode_data.size(); k++) {
+            for (unsigned int k = rs_csv_rd.start_position;
+                 k < mode_data.size(); k++) {
               if ((mode_data[k] == "Y") &&
                   (bump_pin_name == rs_csv_rd.bump_pin_name[k])) {
                 bump_pin_and_mode.first = bump_pin_name;
