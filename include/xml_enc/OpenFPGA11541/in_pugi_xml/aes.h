@@ -2,10 +2,9 @@
 #define AES_H
 #include "function.h"
 #include "openssl_rsa.h"
+#include "pugixml_util.hpp"
 #define AES_BLOCK_SIZE 256
 const int BUFSIZE = 4096;
-
-// using namespace std;
 
 const string default_encryption_cipher_ = "aes";
 const int default_keysize_ = 256;
@@ -23,7 +22,7 @@ public:
 		OpenSSL_add_all_algorithms();
 		const char *var = decrypt();
 		key = key_generation(var, default_keysize_, default_pbkdf2_iterations_, default_pbkdf2_saltlen_);
-		//decrypt_file(sourcefile, destfile);
+		delete var;
 	}
 
 public:
@@ -44,22 +43,9 @@ public:
 		ifile.open(sourcefile.c_str(), ios::in | ios::binary);
 		if (!ifile.is_open())
 		{
-			cerr << "Cannot open input file " << sourcefile << endl;
+		throw pugiutil::XmlError("Cannot open input file :",sourcefile);
 			return "0";
 		}
-
-		// 2. Check that input file is of the type we expect
-		//    by checking for magic string at header of file
-		// char magic[128] = {0};
-
-		// 2. Check that output file can be opened and written to
-		//ofile.open(destfile, ios::out | ios::binary | ios::trunc);
-		//if (!ofile.is_open())
-		//{
-		//	cerr << "Cannot open input file " << sourcefile << endl;
-	//		return rc;
-	//	}
-
 		// 3. Derive key from passphrase, create salt and IV
 		// unsigned char salt_value[default_pbkdf2_saltlen_];
 
@@ -69,14 +55,14 @@ public:
 				 default_keysize_, default_encryption_mode_.c_str()); // FIXME
 		if (!(ciph = EVP_get_cipherbyname(ciphername)))
 		{
-			cerr << "Cannot find algorithm " << ciphername << endl;
+			throw pugiutil::XmlError("Error to find the method");
 			goto free_data;
 		}
 		EVP_CIPHER_CTX_init(dec_ctx);
 		if (!EVP_DecryptInit_ex(dec_ctx, ciph, NULL, key, iv))
 		{
-			// returns 0 for failure (wtf?)
-			cerr << "Cannot initialize decryption cipher " << ciphername << endl;
+			// No need to mention this in the final data. This may help the hacker 
+			//cerr << "Cannot initialize decryption cipher " << ciphername << endl;
 			goto free_data;
 		}
 
@@ -90,16 +76,15 @@ public:
 				if (!EVP_DecryptUpdate(dec_ctx, outbuf, &bytes_decrypted,
 									   inbuf, bytes_read))
 				{
-					cerr << "Error decrypting chunk at byte " << total_bytes_decrypted << endl;
+					// No need to mention this in the final data. This may help the hacker 
+					//cerr << "Error decrypting chunk at byte " << total_bytes_decrypted << endl;
 					goto free_data;
 				}
 				//            assert(bytes_decrypted > 0); // this is not necessarily true
 				if (bytes_decrypted > 0){
-					//ofile.write((char *)outbuf, bytes_decrypted);
 					 std::string str1( outbuf, outbuf+bytes_decrypted );
 					 final =final+str1;
 				}
-
 				total_bytes_read += bytes_read;
 				total_bytes_decrypted = bytes_decrypted;
 			}
@@ -109,23 +94,15 @@ public:
 		EVP_DecryptFinal_ex(dec_ctx, outbuf, &bytes_decrypted);
 		if (bytes_decrypted > 0)
 		{
-			//ofile.write((char *)outbuf, bytes_decrypted);
 			std::string str1( outbuf, outbuf+bytes_decrypted );
 			final =final+str1;
 		}
-
 		ifile.close();
 		rc = 0;
 	free_data:
 		delete[] key;
 		delete[] iv;
 		return final;
-	}
-
-	int usage(const char *programname)
-	{
-		cerr << "Usage: " << programname << "  Requires file for Encryption or Decryption" << endl;
-		return 1;
 	}
 };
 

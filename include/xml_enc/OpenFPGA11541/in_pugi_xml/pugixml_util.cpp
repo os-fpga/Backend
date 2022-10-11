@@ -20,7 +20,6 @@ loc_data load_xml(pugi::xml_document& doc,      //Document object to be loaded w
 		size_t buffersize =  fn_file.size();
 		char* final = new char[buffersize];
 		strcpy(final,fn_file.c_str() );
-		//cout<< final;
 		auto location_data = loc_data(final,buffersize);
 		auto load_result = doc.load_buffer(final,buffersize);
 		if (!load_result) {
@@ -33,10 +32,8 @@ loc_data load_xml(pugi::xml_document& doc,      //Document object to be loaded w
 		  		    }
 		delete (final);
 		return location_data;
-
 	}
-
-	//auto location_data = loc_data(end_result_fname);
+    else {
 		auto location_data = loc_data(filename);
 		    auto load_result = doc.load_file(filename.c_str());
 		    if (!load_result) {
@@ -48,6 +45,7 @@ loc_data load_xml(pugi::xml_document& doc,      //Document object to be loaded w
 		                       filename.c_str(), line);
 		    }
 		    return location_data;
+    }
 }
 
 //Gets the first child element of the given name and returns it.
