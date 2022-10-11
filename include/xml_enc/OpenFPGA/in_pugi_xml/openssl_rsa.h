@@ -3,31 +3,16 @@
 
 #define KEY_LENGTH       2048
 #define PUBLIC_EXPONENT  59     //Public exponent should be a prime number.
-#define PUBLIC_KEY_PEM   1
-#define PRIVATE_KEY_PEM  0
-
-#define LOG(x)               \
-        cout << x << endl;   \
 
 /*
- * @brief   create_RSA function creates public key and private key file
- *
- */
-
-
- RSA * read_RSA(RSA *keypair, int pem_type, char *file_name);
-
-
-/*
- * @brief   private_decrypt function decrypt data.
- * @return  If It is fail, 
+ * @brief   private_decrypt function decrypt data present in "from array" of length flen and stores the data in "to".
+ * @return  1 if it fails, 
  */
  int private_decrypt(int flen, unsigned char* from, unsigned char *to, RSA* key, int padding);
-
 /*
- * @brief   create_ecrypted_file function creates .bin file. It contains encrypted data.
+ * @brief  The decrypt function reads the hard coded file named vpr_e.bin and the priviate key embeded in the code.
+ * @return  decrypted key back
  */
- void create_encrypted_file(char* encrypted, RSA * key_pair);
  
  char* decrypt();
 
