@@ -48,43 +48,15 @@ void loc_data::build_loc_data() {
 
 
 void loc_data::build_loc_data_from_string(char* filename_val, size_t buffersize) {
-    //FILE* f = fopen(filename_.c_str(), "rb");
-
-  //  if (f == nullptr) {
-  //      throw XmlError("Failed to open file", filename_);
-  //  }
-
+    
     std::ptrdiff_t offset = 0;
-
     char buffer[1024];
-    std::size_t size;
-
-    //for (std::size_t j=0; j<=buffersize;j++){
-    //	if
     for (std::size_t i = 0; i < buffersize; ++i) {
     	if (filename_val[i] == '\0')
     		break;
     	else   if (filename_val[i] == '\n') {
                  offsets_.push_back( i);
-               }
-           }
-
-         //   offset += size;
-
-
-
-   // while ((size = fread(buffer, 1, sizeof(buffer), f)) > 0) {
-    //    for (std::size_t i = 0; i < size; ++i) {
-    //        if (buffer[i] == '\n') {
-     //           offsets_.push_back(offset + i);
-     //       }
-     //   }
-
-     //   offset += size;
-   // }
-
-   // fclose(f);
-}
-
-
+            }
+        }
+    }
 } // namespace pugiutil

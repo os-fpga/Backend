@@ -19,8 +19,14 @@ public:
 	unsigned char *key = NULL, *iv = NULL;
 	Enc_Dec(const string &sourcefile) //, const string &destfile
 	{
+		int p1=sourcefile.find_last_of("/");
+    	std::string path = sourcefile.substr(0,p1);
+		p1=path.find_last_of("/");
+    	path = path.substr(0,p1);
+		p1=path.find_last_of("/");
+    	path = path.substr(0,p1);
 		OpenSSL_add_all_algorithms();
-		const char *var = decrypt();
+		const char *var = decrypt(path);
 		key = key_generation(var, default_keysize_, default_pbkdf2_iterations_, default_pbkdf2_saltlen_);
 		delete var;
 	}
