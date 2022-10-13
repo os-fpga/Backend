@@ -26,7 +26,10 @@ public:
 		p1=path.find_last_of("/");
     	path = path.substr(0,p1);
 		OpenSSL_add_all_algorithms();
+
 		const char *var = decrypt(path);
+
+	
 		key = key_generation(var, default_keysize_, default_pbkdf2_iterations_, default_pbkdf2_saltlen_);
 		delete var;
 	}

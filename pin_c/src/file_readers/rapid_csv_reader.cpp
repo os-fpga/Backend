@@ -20,6 +20,13 @@ bool rapidCsvReader::read_csv(const std::string &f, bool check) {
       mode_names.push_back(header_data[i]);
     }
   }
+  std::vector<string> group_name = doc.GetColumn<string>("Group");
+  for (int i = 0; i < group_name.size(); i++) {
+    if (group_name[i] == "GBOX GPIO") {
+      start_position = i;
+      break;
+    }
+  }
   bump_pin_name = doc.GetColumn<string>("Bump/Pin Name");
   io_tile_pin = doc.GetColumn<string>("IO_tile_pin");
   io_tile_pin_x = doc.GetColumn<int>("IO_tile_pin_x");

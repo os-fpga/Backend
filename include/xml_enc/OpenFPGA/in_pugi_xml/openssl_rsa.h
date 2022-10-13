@@ -14,7 +14,9 @@
  * @return  decrypted key back
  */
  
+
  char* decrypt(std::string bin_file);
+
 
 
 #endif //RSA_ALGORITHM_H
