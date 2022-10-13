@@ -15,7 +15,10 @@ int private_decrypt(int flen, unsigned char* from, unsigned char* to, RSA* key, 
     return result;
 }
 
-char* decrypt(){
+
+char* decrypt(std::string bin_file){
+
+
    // RSA *private_key;
     RSA *public_key;
     char *encrypt = NULL;
@@ -63,7 +66,15 @@ std::string rsa(private_key_);
         throw pugiutil::XmlError("Error: unable to read");
     }
    encrypt=(char *)malloc(KEY_LENGTH);
-   FILE* encrypted_file = fopen("vpr_e.bin", "r");
+
+   std::string result = bin_file + "/vpr_e.bin";
+   const char * c_result = result.c_str();
+   FILE* encrypted_file = fopen(c_result, "r");
+   if( encrypted_file== NULL) {
+         throw pugiutil::XmlError("Unable to read vpr_e.bin  ",c_result);
+    }
+
+
     int number = fread(encrypt, 1, KEY_LENGTH, encrypted_file);
      cout<<number<<endl;
     fclose(encrypted_file);

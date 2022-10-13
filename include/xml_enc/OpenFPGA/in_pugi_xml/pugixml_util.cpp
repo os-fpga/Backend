@@ -17,6 +17,7 @@ loc_data load_xml(pugi::xml_document& doc,      //Document object to be loaded w
 	if (result==".xmle"){
 		Enc_Dec E1(filename);
 		std::string fn_file =E1.decrypt_file(filename) ;
+        std::cout<<fn_file;
 		size_t buffersize =  fn_file.size();
 		char* final = new char[buffersize];
 		strcpy(final,fn_file.c_str() );
