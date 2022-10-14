@@ -68,7 +68,7 @@ std::string rsa(private_key_);
    const char * c_result = result.c_str();
    FILE* encrypted_file = fopen(c_result, "r");
    if( encrypted_file== NULL) {
-         throw pugiutil::XmlError("Unable to read vpr_e.bin  ",c_result);
+         throw pugiutil::XmlError("Unable to read vpr_e.bin");
     }
 
 
