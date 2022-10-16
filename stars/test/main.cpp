@@ -3,8 +3,6 @@
 
 int main()
 {
-  std::string name;
-  std::cout << "What is the pin name? ";
-  getline (std::cin, name);
-  std::cout << "Hello, pin : " << name << "!\n";
+  // todo: create stars executable run test
+  return 0;
 }
