@@ -21,16 +21,10 @@ set_target_properties(libstars PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
 #Specify link-time dependancies
 target_link_libraries(libstars
-                      libopenfpga)
+                      libvpr)
 
 #Create the test executable
 add_executable(stars ${EXEC_SOURCE})
 target_link_libraries(stars libstars)
-
-#Suppress IPO link warnings if IPO is enabled
-get_target_property(OPENFPGA_USES_IPO stars INTERPROCEDURAL_OPTIMIZATION)
-if (OPENFPGA_USES_IPO)
-    set_property(TARGET stars APPEND PROPERTY LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
-endif()
 
 install(TARGETS stars DESTINATION bin)
