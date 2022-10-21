@@ -114,5 +114,5 @@ set_target_properties(libpinconst pin_c
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pin_c")
 
 # Sub-project stars (Static Timing Analysis Rapid Silicon)
-#add_subdirectory(stars)
-#add_dependencies(stars vpr)
+add_subdirectory(stars)
+add_dependencies(stars vpr)

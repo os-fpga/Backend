@@ -10,7 +10,7 @@ on:
       - main
 
 jobs:
-  compilation:
+  linux-gcc:
     runs-on: ubuntu-latest
     # Branch on different OS and settings
     strategy:
@@ -44,7 +44,55 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo .github/workflows/install_dependencies_build.sh
+          bash .github/workflows/install_ubuntu_dependencies_build.sh
+
+      - name: Checkout submodule
+        run: |
+          make checkout
+
+      - name: Build
+        run: |
+          make compile
+
+  centos7-gcc:
+    runs-on: ubuntu-latest
+    container:
+      image: centos:7
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: "Build Compatibility: GCC-9 (CentOs)"
+            cc: gcc-9
+            cxx: g++-9
+    # Define the steps to run the build job
+    env:
+      CC: ${{ matrix.config.cc }}
+      CXX: ${{ matrix.config.cxx }}
+    steps:
+      - name: Cancel previous
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Runner workspace path
+        run: |
+          echo "Cleaning up previous run"
+          rm -rf "${{ github.workspace }}"
+          mkdir -p "${{ github.workspace }}"
+
+      - name: Checkout repo
+        uses: actions/checkout@v2.4.0
+
+      - name: Install dependencies
+        run: |
+          yum install -y openssh-server openssh-clients
+          yum-config-manager --enable rhel-server-rhscl-7-rpms
+          yum install -y https://repo.ius.io/ius-release-el7.rpm
+          yum install -y centos-release-scl
+          yum install -y devtoolset-9
+          yum install -y devtoolset-9-toolchain
+          bash .github/workflows/install_centos_dependencies_build.sh
 
       - name: Checkout submodule
         run: |

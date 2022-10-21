@@ -2,7 +2,15 @@ cmake_minimum_required(VERSION 3.9)
 
 project("stars")
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -flto")
+#
+# We require c++14 support minimum
+#
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF) #No compiler specific extensions
+
+
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 
 file(GLOB_RECURSE EXEC_SOURCE src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
@@ -19,12 +27,14 @@ add_library(libstars STATIC
 target_include_directories(libstars PUBLIC ${LIB_INCLUDE_DIRS})
 set_target_properties(libstars PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
+set(CMAKE_EXE_LINKER_FLAGS -flto)  
+
 #Specify link-time dependancies
 target_link_libraries(libstars
                       libvpr)
 
 #Create the test executable
 add_executable(stars ${EXEC_SOURCE})
-target_link_libraries(stars libstars)
+target_link_libraries(stars libstars libvpr)
 
 install(TARGETS stars DESTINATION bin)
