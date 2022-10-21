@@ -97,14 +97,14 @@ jobs:
           yum install -y https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
           yum install -y git
 
-    - name: Show shell configuration
+     - name: Show shell configuration
       run: |
         env
         source /opt/rh/devtoolset-9/enable
         which gcc 
         which g++ 
 
-    - name: Configure shell
+     - name: Configure shell
       run: |
         source /opt/rh/devtoolset-9/enable
         echo 'CC=/opt/rh/devtoolset-9/root/usr/bin/gcc' >> $GITHUB_ENV
