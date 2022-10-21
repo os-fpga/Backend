@@ -50,34 +50,3 @@ yum install -y gtk3-devel
 yum install -y openssl-devel
 
 ln -s $PWD/cmake-3.15.7-Linux-x86_64/bin/ctest /usr/bin/ctest
-echo 'QMAKE_CC=/opt/rh/devtoolset-9/root/usr/bin/gcc' >> $GITHUB_ENV
-echo 'QMAKE_CXX=/opt/rh/devtoolset-9/root/usr/bin/g++' >> $GITHUB_ENV
-echo 'PATH=/usr/local/Qt-5.15.0/bin:/usr/lib/ccache:'"$PATH" >> $GITHUB_ENV
-
-if [ -f buildqt5-centos7-gcc.tgz ]
-then
-  echo "Found QT build artifact, untarring..."
-  tar xvzf buildqt5-centos7-gcc.tgz
-fi
-
-echo "Downloading QT..."
-curl -L http://download.qt.io/official_releases/qt/5.15/5.15.0/single/qt-everywhere-src-5.15.0.tar.xz --output qt-everywhere-src-5.15.0.tar.xz
-tar -xf qt-everywhere-src-5.15.0.tar.xz
-
-if [ -d "buildqt5" ] 
-then
-  echo "Installing QT..."
-  cd buildqt5  
-  make install
-  cd ..
-else
-  echo "Building QT..."
-  mkdir buildqt5
-  cd buildqt5
-  source /opt/rh/devtoolset-9/enable
-  ../qt-everywhere-src-5.15.0/configure -opensource -confirm-license -xcb -xcb-xlib -bundled-xcb-xinput -no-compile-examples -nomake examples
-  make -j 2
-  echo "Installing QT..."
-  make install
-  cd ..
-fi
