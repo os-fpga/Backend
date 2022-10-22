@@ -1,6 +1,0 @@
-##########################################################
-# Metrics to check for VTR benchmark bitstream generation
-##########################################################
-metric
-mult_blocks
-memory_blocks

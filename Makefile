@@ -37,7 +37,7 @@ checkout:
 
 compile:
 # This command will compile the codebase
-	mkdir -p build && cd build && $(CMAKE_COMMAND) -DOPENFPGA11541=$(OPENFPGA11541) ${CMAKE_FLAGS} ..
+	mkdir -p build && cd build && $(CMAKE_COMMAND) ${CMAKE_FLAGS} ..
 	cd build && $(MAKE)
 
 all: checkout compile
