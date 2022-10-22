@@ -124,9 +124,7 @@ jobs:
       - name: Build
         run: |
           echo $PWD
-          ls
+          ls -all
           git submodule init 
           git submodule update --init --recursive
-          echo $PWD
-          ls
           make compile
