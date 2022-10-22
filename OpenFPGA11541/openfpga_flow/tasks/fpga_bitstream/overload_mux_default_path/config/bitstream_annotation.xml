@@ -1,3 +1,0 @@
-<openfpga_bitstream_setting>
-  <interconnect name="io[physical].mux1" default_path="ff.Q"/>
-</openfpga_bitstream_setting>

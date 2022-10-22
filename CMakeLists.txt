@@ -2,21 +2,12 @@ cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
 
-if (OPENFPGA11541)
-  set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA11541/vpr)
-  set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA11541/in_pugi_xml)
-  set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA11541/arch_fpga_src)
-  set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA11541/vpr)
-  set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA11541/libs/libarchfpga)
-  set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA11541/libs/libpugiutil)
-else()
-  set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
-  set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
-  set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
-  set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
-  set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga)
-  set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil)
-endif()
+set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
+set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
+set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
+set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
+set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga)
+set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil)
 
 # Version number
 file (STRINGS "VERSION.md" VERSION_NUMBER)
@@ -34,7 +25,7 @@ set(OPENFPGA_WITH_TEST OFF CACHE BOOL "Disable OpenFPGA tests" FORCE)
 set(OPENFPGA_WITH_VERSION OFF CACHE BOOL "Disable OpenFPGA version check" FORCE)
 set(WITH_ABC OFF CACHE BOOL "Enable building ABC in Verilog-to-Routing" FORCE)
 
-if (OPENFPGA1.2 OR OPENFPGA11541)
+if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
     ${VPR_SRC_DIR}/src/base/read_blif.h
     ${VPR_SRC_DIR}/src/base/read_circuit.cpp
@@ -48,19 +39,8 @@ file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
   ${VPR_DEST_DIR}/
 )
 endif()
-if (OPENFPGA11541)
-  file(COPY ${PUGI_SRC}/pugixml_loc.cpp
-  ${PUGI_SRC}/pugixml_loc.hpp
-  ${PUGI_SRC}/pugixml_util.cpp
-  ${PUGI_SRC}/aes.h
-  ${PUGI_SRC}/function.h
-  ${PUGI_SRC}/obfuscate.h
-  ${PUGI_SRC}/openssl_rsa.cpp
-  ${PUGI_SRC}/openssl_rsa.h
-  DESTINATION
-  ${PUGI_DEST}/src)
-else()
-  file(COPY ${PUGI_SRC}/pugixml_loc.cpp
+
+file(COPY ${PUGI_SRC}/pugixml_loc.cpp
   ${PUGI_SRC}/pugixml_loc.hpp
   ${PUGI_SRC}/pugixml_util.cpp
   ${PUGI_SRC}/aes.h
@@ -71,36 +51,18 @@ else()
   DESTINATION
   ${PUGI_DEST}/src
  )
-endif()
-if (OPENFPGA11541)
-  file(COPY ${ARCH_FPGA_SRC}/read_xml_arch_file.cpp
-    DESTINATION
-    ${ARCH_FPGA_DEST}/src)
-else()
-  file(COPY ${ARCH_FPGA_SRC}/read_xml_arch_file.cpp
+
+file(COPY ${ARCH_FPGA_SRC}/read_xml_arch_file.cpp
   DESTINATION
   ${ARCH_FPGA_DEST}/src 
  )
-endif()
 
-if (OPENFPGA11541)
-  file(COPY ${PUGI_SRC}/CMakeLists.txt
-    DESTINATION
-    ${PUGI_DEST}/)
-else()
-  file(COPY ${PUGI_SRC}/CMakeLists.txt
+file(COPY ${PUGI_SRC}/CMakeLists.txt
   DESTINATION
   ${PUGI_DEST}/
  )
-endif()
 
-if (OPENFPGA11541)
-  set(VPR_ENABLE_INTERCHANGE OFF CACHE BOOL "Interchange" FORCE)
-  add_subdirectory(OpenFPGA11541)
-else()
-  add_subdirectory(OpenFPGA)
-endif()
-
+add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
 
