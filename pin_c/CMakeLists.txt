@@ -14,11 +14,7 @@ file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
 files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
 
-if (OPENFPGA11541)
-  file(GLOB_RECURSE BLIF_READ_HEADERS ../OpenFPGA11541/vpr/src/base/*.h)
-else()
-  file(GLOB_RECURSE BLIF_READ_HEADERS ../OpenFPGA/vtr-verilog-to-routing/vpr/src/base/*.h)
-endif()
+file(GLOB_RECURSE BLIF_READ_HEADERS ../OpenFPGA/vtr-verilog-to-routing/vpr/src/base/*.h)
 
 files_to_dirs(BLIF_READ_HEADERS BLIF_READ_INCLUDE_DIRS)
 
@@ -31,46 +27,25 @@ add_library(libpinconst STATIC
 target_include_directories(libpinconst PUBLIC ${LIB_INCLUDE_DIRS} ${BLIF_READ_INCLUDE_DIRS})
 set_target_properties(libpinconst PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
-if (OPENFPGA11541)
-  include_directories(
-    ${PROJECT_SOURCE_DIR}/../OpenFPGA11541/vpr/src/base/
-    ${PROJECT_SOURCE_DIR}/../OpenFPGA11541/vpr/src/route/
-    ${PROJECT_SOURCE_DIR}/../OpenFPGA11541/libs/libarchfpga/src/
-    ${PROJECT_SOURCE_DIR}/../OpenFPGA11541/libs/librrgraph/src/base/
-    ${PROJECT_SOURCE_DIR}/../OpenFPGA11541/vpr/src/device/
-    ${PROJECT_SOURCE_DIR}/../OpenFPGA11541/libs/EXTERNAL/libblifparse/src/
-    )
-else()
-  include_directories(
+include_directories(
     ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/src/base/
     ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/src/route/
     ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga/src/
     ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base/
     ${PROJECT_SOURCE_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/src/
   )
-endif()
 
 set(VPRST_STATIC_LIB libvpr.a)
 add_library(vprst_static STATIC IMPORTED )
 
-if (OPENFPGA11541)
-  set_target_properties(vprst_static PROPERTIES
-    IMPORTED_LOCATION  ${PROJECT_SOURCE_DIR}/../OpenFPGA11541/vpr/${VPRST_STATIC_LIB})
-else()
-  set_target_properties(vprst_static PROPERTIES
-    IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/${VPRST_STATIC_LIB})      
-endif()
+set_target_properties(vprst_static PROPERTIES
+  IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/${VPRST_STATIC_LIB})      
 
 set(BLIF_PARSE_STATIC_LIB libblifparse.a)
 add_library(blif_parse_static STATIC IMPORTED )
 
-if (OPENFPGA11541)
-  set_target_properties(blif_parse_static PROPERTIES
-      IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA11541/libs/EXTERNAL/libblifparse/${BLIF_PARSE_STATIC_LIB})
-else()
-  set_target_properties(blif_parse_static PROPERTIES
-      IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/${BLIF_PARSE_STATIC_LIB})
-endif()
+set_target_properties(blif_parse_static PROPERTIES
+  IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/${BLIF_PARSE_STATIC_LIB})
 
 target_link_libraries(libpinconst PUBLIC blif_parse_static vprst_static libvtrutil libpugixml)
 
