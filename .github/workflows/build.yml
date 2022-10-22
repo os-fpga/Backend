@@ -126,6 +126,7 @@ jobs:
           echo $PWD
           ls -all
           ls -all OpenFPGA/
+          export GIT_DISCOVERY_ACROSS_FILESYSTEM=1
           git submodule init 
           git submodule update --init --recursive
           make compile
