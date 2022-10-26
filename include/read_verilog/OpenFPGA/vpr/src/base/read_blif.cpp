@@ -389,11 +389,11 @@ struct BlifAllocCallback : public blifparse::Callback {
         }
 
         // Validate the parameter value
-        bool is_valid = is_string_param(value) || is_binary_param(value) || is_real_param(value);
+        //bool is_valid = is_string_param(value) || is_binary_param(value) || is_real_param(value);
 
-        if (!is_valid) {
-            parse_error(lineno_, ".param", "Incorrect parameter value specification");
-        }
+        //if (!is_valid) {
+        //    parse_error(lineno_, ".param", "Incorrect parameter value specification");
+        //}
 
         curr_model().set_block_param(curr_block(), name, value);
     }
