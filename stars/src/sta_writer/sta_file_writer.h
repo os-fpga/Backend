@@ -7,7 +7,7 @@
 
 namespace stars {
 // API
-bool create_sta_files();
+bool create_sta_files(int argc, const char **argv);
 
 class sta_file_writer {
 private:
@@ -16,7 +16,7 @@ private:
 
 public:
   sta_file_writer() { design_name_ = g_vpr_ctx.atom().nlist.netlist_name(); }
-  bool write_sta_files();
+  bool write_sta_files(int argc, const char **argv);
 };
 
 } // end namespace stars

@@ -12,9 +12,9 @@ int main(int argc, const char *argv[]) {
   std::cout << "STARS: Preparing design data ... " << std::endl;
   vpr::vpr(argc, (char **)argv);
 
-  // 1. write the lib file on fly
+  // 1. write files for opensta
   std::cout << "STARS: Creating sta files ... " << std::endl;
-  if (!stars::create_sta_files()) {
+  if (!stars::create_sta_files(argc, argv)) {
     std::cerr << "STARS: Creating sta files failed." << std::endl;
     status = false;
   } else {

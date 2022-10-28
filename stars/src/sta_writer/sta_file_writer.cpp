@@ -2207,7 +2207,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 // class methods
 ////////////////////////////////////////////////////////////////////////////////
-bool sta_file_writer::write_sta_files() {
+bool sta_file_writer::write_sta_files(int argc, const char **argv) {
 
   // vpr context
   auto &atom_ctx = g_vpr_ctx.atom();
@@ -2219,9 +2219,11 @@ bool sta_file_writer::write_sta_files() {
   std::string lib_filename = design_name_ + "_stars.lib";
   std::string verilog_filename = design_name_ + "_stars.v";
   std::string sdf_filename = design_name_ + "_stars.sdf";
+  std::string sdc_filename = design_name_ + "_stars.sdc";
   std::ofstream lib_os(lib_filename);
   std::ofstream verilog_os(verilog_filename);
   std::ofstream sdf_os(sdf_filename);
+  std::ofstream sdc_os(sdc_filename);
 
   // timing data preparation
   auto &cluster_ctx = g_vpr_ctx.clustering();
@@ -2237,13 +2239,32 @@ bool sta_file_writer::write_sta_files() {
   NetlistWalker nl_walker(visitor);
   nl_walker.walk();
 
+  // sdc file
+  // sdc file is a copy of sdc file which is used by vpr
+  // more and complete sdc file should be developed later
+  for (int i = 0; i < argc; i++) {
+    if (std::strcmp(argv[i], "--sdc_file") == 0) {
+      std::ifstream in_file(argv[i + 1]);
+      std::string line;
+      if (in_file) {
+        while (getline(in_file, line)) {
+          sdc_os << line << std::endl;
+        }
+      }
+      in_file.close();
+      break;
+    }
+  }
+
   // close io
   lib_os.close();
   verilog_os.close();
   sdf_os.close();
+  sdc_os.close();
 
   std::cout << "STARS: Created files <" << lib_filename << ">, <"
-            << verilog_filename << ">, <" << sdf_filename << ">." << std::endl;
+            << verilog_filename << ">, <" << sdf_filename << ">, <"
+            << sdc_filename << ">." << std::endl;
 
   return true;
 };
@@ -2251,9 +2272,9 @@ bool sta_file_writer::write_sta_files() {
 ////////////////////////////////////////////////////////////////////////////////
 // API methods
 ////////////////////////////////////////////////////////////////////////////////
-bool create_sta_files() {
+bool create_sta_files(int argc, const char **argv) {
   sta_file_writer sta_writer;
-  return sta_writer.write_sta_files();
+  return sta_writer.write_sta_files(argc, argv);
 };
 
 } // namespace stars
