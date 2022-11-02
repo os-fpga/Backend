@@ -24,8 +24,29 @@ help:
 
 .PHONY: all checkout compile
 
+release: run-cmake-release
+	cmake --build build -j $(CPU_CORES)
+
+release_no_tcmalloc: run-cmake-release_no_tcmalloc
+	cmake --build build -j $(CPU_CORES)
+
+debug: run-cmake-debug
+	cmake --build dbuild -j $(CPU_CORES)
+
+run-cmake-release:
+	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$(PREFIX) -DCMAKE_RULE_MESSAGES=$(RULE_MESSAGES) -DPRODUCTION_BUILD=$(PRODUCTION_BUILD) -DUPDATE_SUBMODULES=$(UPDATE_SUBMODULES) $(ADDITIONAL_CMAKE_OPTIONS) -S . -B build
+
+run-cmake-release_no_tcmalloc:
+	cmake -DNO_TCMALLOC=On -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$(PREFIX) -DCMAKE_RULE_MESSAGES=$(RULE_MESSAGES) -DUPDATE_SUBMODULES=$(UPDATE_SUBMODULES) $(ADDITIONAL_CMAKE_OPTIONS) -S . -B build
+
+run-cmake-debug:
+	cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$(PREFIX) -DCMAKE_RULE_MESSAGES=$(RULE_MESSAGES) -DPRODUCTION_BUILD=$(PRODUCTION_BUILD) -DNO_TCMALLOC=On -DUPDATE_SUBMODULES=$(UPDATE_SUBMODULES) $(ADDITIONAL_CMAKE_OPTIONS) -S . -B dbuild
+
+run-cmake-coverage:
+	cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$(PREFIX) -DCMAKE_RULE_MESSAGES=$(RULE_MESSAGES) -DMY_CXX_WARNING_FLAGS="--coverage" -DUPDATE_SUBMODULES=$(UPDATE_SUBMODULES) $(ADDITIONAL_CMAKE_OPTIONS) -S . -B coverage-build
+
 clean:
-	rm -rf build
+	$(RM) -r build dbuild coverage-build dist tests/TestInstall/build
 
 checkout: 
 # This command will checkout all the submodules when no other options are provided
