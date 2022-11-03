@@ -28,6 +28,7 @@ bool rapidCsvReader::read_csv(const std::string &f, bool check) {
     }
   }
   bump_pin_name = doc.GetColumn<string>("Bump/Pin Name");
+  gbox_name = doc.GetColumn<string>("GBOX_NAME");
   io_tile_pin = doc.GetColumn<string>("IO_tile_pin");
   io_tile_pin_x = doc.GetColumn<int>("IO_tile_pin_x");
   io_tile_pin_y = doc.GetColumn<int>("IO_tile_pin_y");
@@ -112,38 +113,50 @@ void rapidCsvReader::print_csv() {
 }
 
 // data query
-int rapidCsvReader::get_pin_x_by_bump_name(string mode, string bump_name) {
+int rapidCsvReader::get_pin_x_by_bump_name(string mode, string bump_name,
+                                           string gbox_pin_name) {
   if (modes_map.find(mode) == modes_map.end()) {
     return -1;
   }
   std::vector<string> mode_vector = modes_map[mode];
   for (unsigned int i = 0; i < bump_pin_name.size(); i++) {
     if ((bump_pin_name[i] == bump_name) && (mode_vector[i] == "Y")) {
-      return io_tile_pin_x[i];
+      if ((gbox_pin_name.length() == 0) ||
+          ((gbox_pin_name.length() > 0) && (gbox_name[i] == gbox_pin_name))) {
+        return io_tile_pin_x[i];
+      }
     }
   }
   return -1;
 }
-int rapidCsvReader::get_pin_y_by_bump_name(string mode, string bump_name) {
+int rapidCsvReader::get_pin_y_by_bump_name(string mode, string bump_name,
+                                           string gbox_pin_name) {
   if (modes_map.find(mode) == modes_map.end()) {
     return -1;
   }
   std::vector<string> mode_vector = modes_map[mode];
   for (unsigned int i = 0; i < bump_pin_name.size(); i++) {
     if ((bump_pin_name[i] == bump_name) && (mode_vector[i] == "Y")) {
-      return io_tile_pin_y[i];
+      if ((gbox_pin_name.length() == 0) ||
+          ((gbox_pin_name.length() > 0) && (gbox_name[i] == gbox_pin_name))) {
+        return io_tile_pin_y[i];
+      }
     }
   }
   return -1;
 }
-int rapidCsvReader::get_pin_z_by_bump_name(string mode, string bump_name) {
+int rapidCsvReader::get_pin_z_by_bump_name(string mode, string bump_name,
+                                           string gbox_pin_name) {
   if (modes_map.find(mode) == modes_map.end()) {
     return -1;
   }
   std::vector<string> mode_vector = modes_map[mode];
   for (unsigned int i = 0; i < bump_pin_name.size(); i++) {
     if ((bump_pin_name[i] == bump_name) && (mode_vector[i] == "Y")) {
-      return io_tile_pin_z[i];
+      if ((gbox_pin_name.length() == 0) ||
+          ((gbox_pin_name.length() > 0) && (gbox_name[i] == gbox_pin_name))) {
+        return io_tile_pin_z[i];
+      }
     }
   }
   return -1;

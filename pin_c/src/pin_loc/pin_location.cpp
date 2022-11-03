@@ -270,6 +270,13 @@ bool pin_location::create_place_file(rapidCsvReader &rs_csv_reader) {
 
     string user_design_pin_name = pin_cstr_v[1];
     string device_pin_name = pin_cstr_v[2];
+    string gbox_pin_name = std::string("");
+    for (int i = 0; i < pin_cstr_v.size(); i++) {
+      if (pin_cstr_v[i] == "-internal_pin") {
+        gbox_pin_name = pin_cstr_v[++i];
+        break;
+      }
+    }
     bool is_in_pin =
         std::find(user_design_inputs_.begin(), user_design_inputs_.end(),
                   user_design_pin_name) != user_design_inputs_.end();
@@ -303,9 +310,13 @@ bool pin_location::create_place_file(rapidCsvReader &rs_csv_reader) {
       out_file.close();
       return false;
     }
-    if (constrained_device_pins.find(device_pin_name) ==
+    // use device_pin_name + " " + gbox_pin_name as search name to check overlap
+    // pin in constraint
+    std::string search_name =
+        device_pin_name + std::string(" ") + gbox_pin_name;
+    if (constrained_device_pins.find(search_name) ==
         constrained_device_pins.end()) {
-      constrained_device_pins.insert(device_pin_name);
+      constrained_device_pins.insert(search_name);
     } else {
       CERROR << error_messages[OVERLAP_PIN_IN_CONSTRAINT] << ": <"
              << device_pin_name << ">" << std::endl;
@@ -319,14 +330,14 @@ bool pin_location::create_place_file(rapidCsvReader &rs_csv_reader) {
     }
     string mode = pin_cstr_v[4];
     out_file << user_design_pin_name << "\t"
-             << std::to_string(
-                    rs_csv_reader.get_pin_x_by_bump_name(mode, device_pin_name))
+             << std::to_string(rs_csv_reader.get_pin_x_by_bump_name(
+                    mode, device_pin_name, gbox_pin_name))
              << "\t"
-             << std::to_string(
-                    rs_csv_reader.get_pin_y_by_bump_name(mode, device_pin_name))
+             << std::to_string(rs_csv_reader.get_pin_y_by_bump_name(
+                    mode, device_pin_name, gbox_pin_name))
              << "\t"
-             << std::to_string(
-                    rs_csv_reader.get_pin_z_by_bump_name(mode, device_pin_name))
+             << std::to_string(rs_csv_reader.get_pin_z_by_bump_name(
+                    mode, device_pin_name, gbox_pin_name))
              << endl;
   }
 
