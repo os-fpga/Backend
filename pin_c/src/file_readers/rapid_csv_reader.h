@@ -21,6 +21,7 @@ class rapidCsvReader {
   // this is a little bit ugly, we can have a more beautiful data structure at a
   // cost of memory
   std::vector<string> bump_pin_name; // "Bump/Pin Name"
+  std::vector<string> gbox_name;     // "GBOX_NAME"
   std::vector<string> io_tile_pin;   // "IO_tile_pin"
   std::vector<int> io_tile_pin_x;    // "IO_tile_pin_x"
   std::vector<int> io_tile_pin_y;    // "IO_tile_pin_y"
@@ -37,9 +38,12 @@ public:
   void print_csv();
 
   // data query
-  int get_pin_x_by_bump_name(string mode, string bump_name);
-  int get_pin_y_by_bump_name(string mode, string bump_name);
-  int get_pin_z_by_bump_name(string mode, string bump_name);
+  int get_pin_x_by_bump_name(string mode, string bump_name,
+                             string gbox_pin_name);
+  int get_pin_y_by_bump_name(string mode, string bump_name,
+                             string gbox_pin_name);
+  int get_pin_z_by_bump_name(string mode, string bump_name,
+                             string gbox_pin_name);
   int get_pin_x_by_pin_name(string mode, string pin_name);
   int get_pin_y_by_pin_name(string mode, string pin_name);
   int get_pin_z_by_pin_name(string mode, string pin_name);
