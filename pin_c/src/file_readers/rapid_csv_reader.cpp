@@ -12,12 +12,18 @@ bool rapidCsvReader::read_csv(const std::string &f, bool check) {
       rapidcsv::LabelParams() /*label params - use default, no offset*/,
       rapidcsv::SeparatorParams() /*separator params - use default ","*/, rapidcsv::ConverterParams(true /*user default number for non-numberical strings*/, 0.0 /* default float*/, -1 /*default integer*/), rapidcsv::LineReaderParams() /*skip lines with specified prefix, use default "false"*/);
   std::vector<string> header_data = doc.GetRow<string>(-1);
+  bool has_gbox_name = false;
   for (unsigned int i = 0; i < header_data.size(); i++) {
     if (header_data[i].find("Mode_") != std::string::npos) {
       std::vector<string> mode_data = doc.GetColumn<string>(header_data[i]);
       modes_map.insert(
           std::pair<string, std::vector<string>>(header_data[i], mode_data));
       mode_names.push_back(header_data[i]);
+    }
+    if (!has_gbox_name) {
+      if (header_data[i] == "GBOX_NAME") {
+        has_gbox_name = true;
+      }
     }
   }
   std::vector<string> group_name = doc.GetColumn<string>("Group");
@@ -28,7 +34,9 @@ bool rapidCsvReader::read_csv(const std::string &f, bool check) {
     }
   }
   bump_pin_name = doc.GetColumn<string>("Bump/Pin Name");
-  gbox_name = doc.GetColumn<string>("GBOX_NAME");
+  if (has_gbox_name) {
+    gbox_name = doc.GetColumn<string>("GBOX_NAME");
+  }
   io_tile_pin = doc.GetColumn<string>("IO_tile_pin");
   io_tile_pin_x = doc.GetColumn<int>("IO_tile_pin_x");
   io_tile_pin_y = doc.GetColumn<int>("IO_tile_pin_y");
