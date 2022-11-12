@@ -14,6 +14,8 @@
 #include "netlist_walker.h"
 #include "read_blif.h"
 #include "sta_file_writer.h"
+#include "sta_lib_data.h"
+#include "sta_lib_writer.h"
 #include "stars_global.h"
 #include "vpr_main.h"
 #include "vpr_types.h"
@@ -98,7 +100,7 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
       return create_unconn_net(unconn_count);
     case e_post_synth_netlist_unconn_handling::UNCONNECTED:
     default:
-      return std::string("1'bX");
+      return std::string("1'bx");
     }
   };
 
@@ -280,7 +282,9 @@ public:
   virtual void print_verilog(std::ostream &os, size_t &unconn_count,
                              int depth = 0) = 0;
   virtual void print_sdf(std::ostream &os, int depth = 0) = 0;
-  virtual void print_lib(std::ostream &os, int depth = 0) = 0;
+  virtual void print_lib(stars::sta_lib_writer &lib_writer,
+                         std::ostream &os) = 0;
+  virtual std::string get_type_name() = 0;
 };
 
 ///@brief An instance representing a Look-Up Table
@@ -305,11 +309,40 @@ public: ///< Public methods
   std::string type() { return type_; }
 
 public: // Instance interface method implementations
-  void print_lib(std::ostream &os, int depth) override {
-    os << indent(depth) << "LIBERTY INFO: TO BE IMPLEMENTED\n";
-    os << indent(depth + 1) << "(CELLTYPE \"" << type() << "\")\n";
-    os << indent(depth + 1) << "(INSTANCE "
-       << escape_sdf_identifier(instance_name()) << ")\n";
+  std::string get_type_name() override { return "LUT_K"; }
+  void print_lib(stars::sta_lib_writer &lib_writer, std::ostream &os) override {
+
+    // lut only contains "in" and "out"
+    VTR_ASSERT(port_conns_.count("in"));
+    VTR_ASSERT(port_conns_.count("out"));
+    VTR_ASSERT(port_conns_.size() == 2);
+
+    // count bus width to set bus type properly
+    int in_bus_width = port_conns_["in"].size();
+    int out_bus_width = port_conns_["out"].size();
+
+    // create cell info
+    lib_cell cell;
+    cell.name(type_);
+    cell.type(LUT);
+    lib_pin pin_in;
+    pin_in.name("in");
+    pin_in.direction(INPUT);
+    pin_in.timing_sense(POSITIVE);
+    pin_in.bus_width(in_bus_width);
+    cell.add_pin(pin_in, INPUT);
+    lib_pin pin_out;
+    pin_out.name("out");
+    pin_out.direction(OUTPUT);
+    pin_out.timing_sense(POSITIVE);
+    pin_out.add_related_pin(pin_in);
+    pin_out.bus_width(out_bus_width);
+    cell.add_pin(pin_out, OUTPUT);
+
+    // write cell lib
+    lib_writer.write_cell(os, cell);
+
+    return;
   }
   void print_sdf(std::ostream &os, int depth) override {
     os << indent(depth) << "(CELL\n";
@@ -349,19 +382,6 @@ public: // Instance interface method implementations
   void print_verilog(std::ostream &os, size_t &unconn_count,
                      int depth) override {
     os << indent(depth) << type_ << "\n";
-    // no mask parameter for opensta
-#if 0
-    // Instantiate the lut
-    os << indent(depth) << type_ << " #(\n";
-
-    os << indent(depth + 1) << ".K(" << lut_size_ << "),\n";
-
-    std::stringstream param_ss;
-    param_ss << lut_mask_;
-    os << indent(depth + 1) << ".LUT_MASK(" << param_ss.str() << ")\n";
-    os << indent(depth) << ") " << escape_verilog_identifier(inst_name_)
-#endif
-
     os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
     VTR_ASSERT(port_conns_.count("in"));
@@ -446,9 +466,13 @@ public:
       : instance_name_(inst_name), port_connections_(port_conns), type_(type),
         initial_value_(init_value), tcq_(tcq), tsu_(tsu), thld_(thld) {}
 
-  void print_lib(std::ostream &os, int depth = 0) override {
+  std::string get_type_name() override { return "DFF"; }
+
+  void print_lib(stars::sta_lib_writer &lib_writer, std::ostream &os) override {
+    /*
     os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
        << escape_sdf_identifier(instance_name_) << ")\n";
+       */
   }
   void print_sdf(std::ostream &os, int depth = 0) override {
     VTR_ASSERT(type_ == Type::RISING_EDGE);
@@ -574,9 +598,73 @@ public:
         ports_tsu_(ports_tsu), ports_thld_(ports_thld), ports_tcq_(ports_tcq),
         opts_(opts) {}
 
-  void print_lib(std::ostream &os, int depth = 0) override {
-    os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
-       << escape_sdf_identifier(inst_name_) << ")\n";
+  void print_lib(stars::sta_lib_writer &lib_writer, std::ostream &os) override {
+
+    // create cell info
+    lib_cell cell;
+    cell.name(type_name_);
+    if (ports_tcq_.size()) {
+      cell.type(FLIPFLOP);
+
+      for (auto kv : ports_tcq_) {
+
+        // clock
+        lib_pin pin_clk;
+        pin_clk.name(kv.second.second);
+        pin_clk.direction(INPUT);
+        pin_clk.timing_sense(POSITIVE);
+        pin_clk.type(CLOCK);
+        cell.add_pin(pin_clk, INPUT);
+
+        // q
+        lib_pin pin_q;
+        pin_q.name(kv.first);
+        pin_q.direction(OUTPUT);
+        pin_q.timing_sense(POSITIVE);
+        pin_q.add_related_pin(pin_clk);
+
+        // data and control pins
+        for (auto tsu_kv : ports_tsu_) {
+          lib_pin pin_in;
+          pin_in.name(tsu_kv.first);
+          pin_in.direction(INPUT);
+          // have to use name map for now
+          if (tsu_kv.first == "D") {
+            pin_in.type(DATA);
+            pin_in.timing_sense(POSITIVE);
+          } else if (pin_in.name() == "R") {
+            pin_in.type(RESET);
+            pin_in.timing_sense(POSITIVE);
+            pin_q.add_related_pin(pin_in);
+          } else if (pin_in.name() == "S") {
+            pin_in.type(SET);
+            pin_in.timing_sense(POSITIVE);
+            pin_q.add_related_pin(pin_in);
+          } else if (pin_in.name() == "E") {
+            pin_in.timing_sense(POSITIVE);
+            pin_in.type(ENABLE);
+          } else {
+            std::cerr << "STARS: Unrecognized pin <" << pin_in.name()
+                      << "> for flip-flop <" << cell.name() << ">.\n";
+          }
+          pin_in.add_related_pin(pin_clk);
+          cell.add_pin(pin_in, INPUT);
+        }
+
+        cell.add_pin(pin_q, OUTPUT);
+
+        break; // no need to repeat this on other timing settings since they
+               // are different only on timing data
+      }
+    } else {
+      std::cerr << "STARS: NYI - Create cell for blackbox.\n";
+      return;
+    }
+
+    // write cell lib
+    lib_writer.write_cell(os, cell);
+
+    return;
   }
   void print_sdf(std::ostream &os, int depth = 0) override {
     if (!timing_arcs_.empty() || !ports_tcq_.empty() || !ports_tsu_.empty() ||
@@ -598,8 +686,8 @@ public:
           delay_triple << "(" << delay_ps << ":" << delay_ps << ":" << delay_ps
                        << ")";
 
-          // Note that we explicitly do not escape the last array indexing so an
-          // SDF reader will treat the ports as multi-bit
+          // Note that we explicitly do not escape the last array indexing so
+          // an SDF reader will treat the ports as multi-bit
           //
           // We also only put the last index in if the port has multiple bits
           os << indent(depth + 3) << "(IOPATH ";
@@ -669,27 +757,10 @@ public:
   void print_verilog(std::ostream &os, size_t &unconn_count,
                      int depth = 0) override {
     // Instance type
-    os << indent(depth) << type_name_ << " #(\n";
-
-    // Verilog parameters
-    for (auto iter = params_.begin(); iter != params_.end(); ++iter) {
-      /* Prepend a prefix if needed */
-      std::stringstream prefix;
-      if (is_binary_param(iter->second)) {
-        prefix << iter->second.length() << "'b";
-      }
-
-      os << indent(depth + 1) << "." << iter->first << "(" << prefix.str()
-         << iter->second << ")";
-      if (iter != --params_.end()) {
-        os << ",";
-      }
-      os << "\n";
-    }
+    os << indent(depth) << type_name_ << "\n";
 
     // Instance name
-    os << indent(depth) << ") " << escape_verilog_identifier(inst_name_)
-       << " (\n";
+    os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
     // Input Port connections
     for (auto iter = input_port_conns_.begin(); iter != input_port_conns_.end();
@@ -736,6 +807,8 @@ public:
 
     return -1; // Suppress warning
   }
+
+  std::string get_type_name() override { return type_name_; }
 
 private:
   std::string type_name_;
@@ -966,34 +1039,47 @@ protected:
 
 private: // Internal Helper functions
   void print_lib(int depth = 0) {
-    lib_os_ << "(LIBERTY HEADER INFO: TO BE IMPLEMENTED \n\n";
+    std::set<std::string> written_cells;
+
+    sta_lib_writer lib_writer;
+    lib_writer.write_header(lib_os_);
+
+    // this is hard coded, need to be re-written
+    lib_writer.write_bus_type(lib_os_, 0, 4, false);
+
     // Interconnect
-    for (const auto &kv : logical_net_sinks_) {
-      auto atom_net_id = kv.first;
-      auto driver_iter = logical_net_drivers_.find(atom_net_id);
-      VTR_ASSERT(driver_iter != logical_net_drivers_.end());
-      auto driver_wire = driver_iter->second.first;
-      auto driver_tnode = driver_iter->second.second;
+    // create cell info
+    lib_cell cell;
+    cell.name("fpga_interconnect");
+    cell.type(INTERCONNECT);
+    lib_pin pin_in;
+    pin_in.name("datain");
+    pin_in.bus_width(1);
+    pin_in.direction(INPUT);
+    pin_in.timing_sense(POSITIVE);
+    cell.add_pin(pin_in, INPUT);
+    lib_pin pin_out;
+    pin_out.name("dataout");
+    pin_out.bus_width(1);
+    pin_out.direction(OUTPUT);
+    pin_out.timing_sense(POSITIVE);
+    pin_out.add_related_pin(pin_in);
+    cell.add_pin(pin_out, OUTPUT);
+    lib_writer.write_cell(lib_os_, cell);
+    written_cells.insert("fpga_interconnect");
 
-      for (auto &sink_wire_tnode_pair : kv.second) {
-        auto sink_wire = sink_wire_tnode_pair.first;
-        auto sink_tnode = sink_wire_tnode_pair.second;
-
-        lib_os_ << indent(depth + 1) << "LIBERTY INFO: TO BE IMPLEMENTED\n";
-        lib_os_ << indent(depth + 2) << "(CELLTYPE \"fpga_interconnect\")\n";
-        lib_os_ << indent(depth + 2) << "(INSTANCE "
-                << escape_sdf_identifier(
-                       interconnect_name(driver_wire, sink_wire))
-                << ")\n";
+    // cells
+    for (const auto &inst : cell_instances_) {
+      if (written_cells.find(inst->get_type_name()) == written_cells.end()) {
+        inst->print_lib(lib_writer, lib_os_);
+        written_cells.insert(inst->get_type_name());
       }
     }
 
-    // Cells
-    for (const auto &inst : cell_instances_) {
-      inst->print_lib(lib_os_, depth + 1);
-    }
+    // footer
+    lib_writer.write_footer(lib_os_);
 
-    lib_os_ << indent(depth) << ")\n";
+    return;
   }
 
   ///@brief Writes out the SDF
@@ -1096,7 +1182,8 @@ private: // Internal Helper functions
       PortType wire_dir =
           (dir == PortType::INPUT) ? PortType::OUTPUT : PortType::INPUT;
 
-      // Look up the tnode associated with this pin (used for delay calculation)
+      // Look up the tnode associated with this pin (used for delay
+      // calculation)
       tatum::NodeId tnode_id = find_tnode(atom, cluster_pin_idx);
 
       auto wire_name =
@@ -1930,8 +2017,8 @@ private:
    * specification we need to figure out this permutation to reflect the
    * physical implementation connectivity.
    *
-   * We return a permutation map (which is a list of swaps from index to index)
-   * which is then applied to do the rotation of the lutmask.
+   * We return a permutation map (which is a list of swaps from index to
+   * index) which is then applied to do the rotation of the lutmask.
    *
    * The net in the atom netlist which was originally connected to pin i, is
    * connected to pin permute[i] in the implementation.
@@ -1977,8 +2064,8 @@ private:
           AtomNetId logical_net_id =
               atom_ctx.nlist.port_net(port_id, orig_index);
 
-          // Fatal error should be flagged when the net marked in implementation
-          // does not match the net marked in input netlist
+          // Fatal error should be flagged when the net marked in
+          // implementation does not match the net marked in input netlist
           if (impl_input_net_id != logical_net_id) {
             VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER,
                             "Unmatch:\n\tlogical net is '%s' at pin "
@@ -2028,7 +2115,8 @@ private:
 
   /**
    * @brief Helper function for load_lut_mask() which determines if the
-   *        names is encodeing the ON (returns true) or OFF (returns false) set.
+   *        names is encodeing the ON (returns true) or OFF (returns false)
+   * set.
    */
   bool names_encodes_on_set(vtr::t_linked_vptr *names_row_ptr) {
     // Determine the truth (output value) for this row
@@ -2049,8 +2137,8 @@ private:
       //
       //  In blif, the 'output values' of a .names must be either '1' or '0',
       //  and must be consistent within a single .names -- that is a single
-      //  .names can encode either the ON or OFF set (of which only one will be
-      //  encoded in a single .names)
+      //  .names can encode either the ON or OFF set (of which only one will
+      //  be encoded in a single .names)
       //
       const std::string names_first_row =
           (const char *)names_row_ptr->data_vptr;
