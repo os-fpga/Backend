@@ -14,6 +14,8 @@ private:
   // design info
   std::string design_name_;
 
+  // utilities
+
 public:
   sta_file_writer() { design_name_ = g_vpr_ctx.atom().nlist.netlist_name(); }
   bool write_sta_files(int argc, const char **argv);
