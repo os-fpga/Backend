@@ -39,6 +39,7 @@
 #include "echo_files.h"
 #include "hash.h"
 #include "simple_netlist.h"
+#include "edif_blif.h"
 
 vtr::LogicValue to_vtr_logic_value(blifparse::LogicValue);
 

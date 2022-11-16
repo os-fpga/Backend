@@ -63,7 +63,7 @@ file(GLOB_RECURSE EXEC_SOURCES src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
 list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/simple_netlist.h)
-list (APPEND LIB_HEADERS ${READ_EDIF_SRC_DIR}/src/read_edif/src/src.h)
+list (APPEND LIB_HEADERS ${READ_EDIF_SRC_DIR}/src/cpp_files/data.h)
 files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
 
 if(${VTR_ENABLE_CAPNPROTO})
