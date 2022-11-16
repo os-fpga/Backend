@@ -52,7 +52,8 @@ struct BlifAllocCallback : public blifparse::Callback {
         , blif_format_(blif_format) {
         VTR_ASSERT(blif_format_ == e_circuit_format::BLIF
                    || blif_format_ == e_circuit_format::EBLIF
-                   || blif_format_ == e_circuit_format::VERILOG);
+                   || blif_format_ == e_circuit_format::VERILOG
+                   || blif_format_ == e_circuit_format::EDIF);
         inpad_model_ = find_model(MODEL_INPUT);
         outpad_model_ = find_model(MODEL_OUTPUT);
 
@@ -772,6 +773,35 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
         // Parse the file
         blif_parse_file(infile, alloc_callback, blif_file);
 
+        std::fclose(infile);
+    }
+    else
+    {
+        // blif_error_wrap(alloc_callback, 0, "", "Could not open file '%s'.\n", blif_file);
+    }
+
+    return netlist;
+}
+AtomNetlist read_blif_from_edif(e_circuit_format circuit_format,
+                                  const char *blif_file,
+                                  const t_model *user_models,
+                                  const t_model *library_models)
+{
+    AtomNetlist netlist;
+    std::string netlist_id = vtr::secure_digest_file(blif_file);
+
+    BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
+
+    FILE *infile = tmpfile();
+
+   edif_bilf (blif_file,infile);
+
+    rewind(infile);
+    if (infile != NULL)
+    {
+        // Parse the file
+    	std::cout<< "The input file is not empty "<<std::endl;
+        blif_parse_file(infile, alloc_callback, blif_file);
         std::fclose(infile);
     }
     else
