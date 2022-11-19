@@ -107,12 +107,14 @@ void sta_lib_writer::write_cell(std::ostream &os, const lib_cell &cell) {
         break;
       }
     }
+    /*
     os << INDENT2 << "ff (\"" << q_name << "\") {\n";
     os << INDENT3 << "cocked_on: " << clk_name << ";\n";
     os << INDENT3 << "clear: " << reset_name << ";\n";
     os << INDENT3 << "set: " << set_name << ";\n";
     os << INDENT3 << "enable: " << enable_name << ";\n";
     os << INDENT2 << "}\n";
+    */
   }
 
   // 2. pin
