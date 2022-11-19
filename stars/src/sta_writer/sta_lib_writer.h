@@ -17,8 +17,8 @@ class sta_lib_writer {
 #define INDENT3 "\t\t\t"
 #define INDENT4 "\t\t\t\t"
 #define INDENT5 "\t\t\t\t\t"
-#define SEPERATOR "\t:\t"
-#define TAILER ";\n"
+#define SEPARATOR "\t:\t"
+#define TRAILER ";\n"
 
 private:
   std::map<std::string, std::string> lib_header;

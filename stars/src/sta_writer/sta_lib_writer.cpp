@@ -18,27 +18,27 @@ void sta_lib_writer::write_header(std::ostream &os) {
 
   // lib info
   for (auto const &field : lib_info) {
-    os << INDENT1 << field.first << SEPERATOR << field.second << TAILER;
+    os << INDENT1 << field.first << SEPARATOR << field.second << TRAILER;
   }
 
   // lib unit
   for (auto const &field : lib_unit) {
-    os << INDENT1 << field.first << SEPERATOR << field.second << TAILER;
+    os << INDENT1 << field.first << SEPARATOR << field.second << TRAILER;
   }
 
   // lib cap load
   for (auto const &field : lib_cap_load) {
-    os << INDENT1 << field.first << INDENT1 << field.second << TAILER;
+    os << INDENT1 << field.first << INDENT1 << field.second << TRAILER;
   }
 
   // lib feature
   for (auto const &field : lib_feature) {
-    os << INDENT1 << field.first << INDENT1 << field.second << TAILER;
+    os << INDENT1 << field.first << INDENT1 << field.second << TRAILER;
   }
 
   // lib data settings
   for (auto const &field : lib_data_setting) {
-    os << INDENT1 << field.first << SEPERATOR << field.second << TAILER;
+    os << INDENT1 << field.first << SEPARATOR << field.second << TRAILER;
   }
 
   // lib operating conditions
@@ -46,14 +46,14 @@ void sta_lib_writer::write_header(std::ostream &os) {
     os << INDENT1 << "operation_conditions(" << condition.first << ")"
        << INDENT1 << "{\n";
     for (auto const &field : condition.second) {
-      os << INDENT2 << field.first << SEPERATOR << field.second << TAILER;
+      os << INDENT2 << field.first << SEPARATOR << field.second << TRAILER;
     }
     os << INDENT1 << "}\n";
   }
 
   // bus type
   for (auto const &field : lib_bus_type) {
-    os << INDENT1 << field.first << SEPERATOR << field.second << TAILER;
+    os << INDENT1 << field.first << SEPARATOR << field.second << TRAILER;
   }
 
   return;
@@ -68,14 +68,14 @@ void sta_lib_writer::write_bus_type(std::ostream &os, int from, int to,
     width = to - from + 1;
   }
   os << INDENT1 << "type(bus" << width << ") {\n";
-  os << INDENT2 << "base_type" << SEPERATOR << "array" << TAILER;
-  os << INDENT2 << "data_type" << SEPERATOR << "bit" << TAILER;
-  os << INDENT2 << "bit_width" << SEPERATOR << width << TAILER;
-  os << INDENT2 << "bit_from" << SEPERATOR << from << TAILER;
-  os << INDENT2 << "bit_to" << SEPERATOR << to << TAILER;
-  os << INDENT2 << "down_to" << SEPERATOR << (down_to ? "true" : "false")
-     << TAILER;
-  os << INDENT1 << "}" << TAILER;
+  os << INDENT2 << "base_type" << SEPARATOR << "array" << TRAILER;
+  os << INDENT2 << "data_type" << SEPARATOR << "bit" << TRAILER;
+  os << INDENT2 << "bit_width" << SEPARATOR << width << TRAILER;
+  os << INDENT2 << "bit_from" << SEPARATOR << from << TRAILER;
+  os << INDENT2 << "bit_to" << SEPARATOR << to << TRAILER;
+  os << INDENT2 << "down_to" << SEPARATOR << (down_to ? "true" : "false")
+     << TRAILER;
+  os << INDENT1 << "}" << TRAILER;
   return;
 };
 
@@ -107,14 +107,14 @@ void sta_lib_writer::write_cell(std::ostream &os, const lib_cell &cell) {
         break;
       }
     }
-    /*
+    
     os << INDENT2 << "ff (\"" << q_name << "\") {\n";
-    os << INDENT3 << "cocked_on: " << clk_name << ";\n";
-    os << INDENT3 << "clear: " << reset_name << ";\n";
-    os << INDENT3 << "set: " << set_name << ";\n";
-    os << INDENT3 << "enable: " << enable_name << ";\n";
+    os << INDENT3 << "clocked_on: " << clk_name << ";\n";
+    if (!reset_name.empty()) os << INDENT3 << "clear: " << reset_name << ";\n";
+    if (!set_name.empty()) os << INDENT3 << "set: " << set_name << ";\n";
+    if (!enable_name.empty()) os << INDENT3 << "enable: " << enable_name << ";\n";
     os << INDENT2 << "}\n";
-    */
+    
   }
 
   // 2. pin
