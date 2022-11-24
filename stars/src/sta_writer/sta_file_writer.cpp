@@ -656,6 +656,41 @@ public:
         break; // no need to repeat this on other timing settings since they
                // are different only on timing data
       }
+    } else if (!timing_arcs_.empty()) {
+      // just write out timing arcs
+      cell.name(type_name_);
+      cell.type(BLACKBOX);
+      std::map<std::string, lib_pin> written_in_pins;
+      for (auto &arc : timing_arcs_) {
+        std::string in_pin_name = arc.source_name();
+        if (find_port_size(in_pin_name) > 1) {
+          in_pin_name += std::string("[") + std::to_string(arc.source_ipin()) +
+                         std::string("]");
+        }
+        if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
+          lib_pin pin_in;
+          pin_in.name(in_pin_name);
+          pin_in.bus_width(1);
+          pin_in.direction(INPUT);
+          pin_in.timing_sense(POSITIVE);
+          cell.add_pin(pin_in, INPUT);
+          written_in_pins.insert(
+              std::pair<std::string, lib_pin>(in_pin_name, pin_in));
+        }
+
+        lib_pin pin_out;
+        std::string out_pin_name = arc.sink_name();
+        if (find_port_size(out_pin_name) > 1) {
+          out_pin_name += std::string("[") + std::to_string(arc.sink_ipin()) +
+                          std::string("]");
+        }
+        pin_out.name(out_pin_name);
+        pin_out.bus_width(1);
+        pin_out.direction(OUTPUT);
+        pin_out.timing_sense(POSITIVE);
+        pin_out.add_related_pin(written_in_pins[in_pin_name]);
+        cell.add_pin(pin_out, OUTPUT);
+      }
     } else {
       std::cerr << "STARS: NYI - Create cell for blackbox.\n";
       return;
@@ -1045,7 +1080,9 @@ private: // Internal Helper functions
     lib_writer.write_header(lib_os_);
 
     // this is hard coded, need to be re-written
+    lib_writer.write_bus_type(lib_os_, 0, 3, false);
     lib_writer.write_bus_type(lib_os_, 0, 4, false);
+    lib_writer.write_bus_type(lib_os_, 0, 5, false);
 
     // Interconnect
     // create cell info
