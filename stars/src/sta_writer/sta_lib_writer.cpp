@@ -107,14 +107,16 @@ void sta_lib_writer::write_cell(std::ostream &os, const lib_cell &cell) {
         break;
       }
     }
-    
+
     os << INDENT2 << "ff (\"" << q_name << "\") {\n";
     os << INDENT3 << "clocked_on: " << clk_name << ";\n";
-    if (!reset_name.empty()) os << INDENT3 << "clear: " << reset_name << ";\n";
-    if (!set_name.empty()) os << INDENT3 << "set: " << set_name << ";\n";
-    if (!enable_name.empty()) os << INDENT3 << "enable: " << enable_name << ";\n";
+    if (!reset_name.empty())
+      os << INDENT3 << "clear: " << reset_name << ";\n";
+    if (!set_name.empty())
+      os << INDENT3 << "set: " << set_name << ";\n";
+    if (!enable_name.empty())
+      os << INDENT3 << "enable: " << enable_name << ";\n";
     os << INDENT2 << "}\n";
-    
   }
 
   // 2. pin
@@ -204,6 +206,12 @@ void sta_lib_writer::write_timing_relation(std::ostream &os,
       os << INDENT4 << "cell_fall(scalar) {\n";
       os << INDENT5 << "values(\"0\");\n";
       os << INDENT4 << "}\n";
+      os << INDENT4 << "rise_transition(scalar) {\n";
+      os << INDENT5 << "values(\"0\");\n";
+      os << INDENT4 << "}\n";
+      os << INDENT4 << "fall_transition(scalar) {\n";
+      os << INDENT5 << "values(\"0\");\n";
+      os << INDENT4 << "}\n";
     } else if (related_pin.type() == SET) {
       os << INDENT4 << "timing_type: clear;\n";
       os << INDENT4 << "timing_sense: "
@@ -214,6 +222,12 @@ void sta_lib_writer::write_timing_relation(std::ostream &os,
       os << INDENT5 << "values(\"0\");\n";
       os << INDENT4 << "}\n";
       os << INDENT4 << "cell_fall(scalar) {\n";
+      os << INDENT5 << "values(\"0\");\n";
+      os << INDENT4 << "}\n";
+      os << INDENT4 << "rise_transition(scalar) {\n";
+      os << INDENT5 << "values(\"0\");\n";
+      os << INDENT4 << "}\n";
+      os << INDENT4 << "fall_transition(scalar) {\n";
       os << INDENT5 << "values(\"0\");\n";
       os << INDENT4 << "}\n";
     } else if (related_pin.type() == CLOCK) {

@@ -661,6 +661,7 @@ public:
       cell.name(type_name_);
       cell.type(BLACKBOX);
       std::map<std::string, lib_pin> written_in_pins;
+      std::map<std::string, lib_pin> written_out_pins;
       for (auto &arc : timing_arcs_) {
         std::string in_pin_name = arc.source_name();
         if (find_port_size(in_pin_name) > 1) {
@@ -673,23 +674,40 @@ public:
           pin_in.bus_width(1);
           pin_in.direction(INPUT);
           pin_in.timing_sense(POSITIVE);
-          cell.add_pin(pin_in, INPUT);
+          // cell.add_pin(pin_in, INPUT);
           written_in_pins.insert(
               std::pair<std::string, lib_pin>(in_pin_name, pin_in));
         }
 
-        lib_pin pin_out;
         std::string out_pin_name = arc.sink_name();
         if (find_port_size(out_pin_name) > 1) {
           out_pin_name += std::string("[") + std::to_string(arc.sink_ipin()) +
                           std::string("]");
         }
-        pin_out.name(out_pin_name);
-        pin_out.bus_width(1);
-        pin_out.direction(OUTPUT);
-        pin_out.timing_sense(POSITIVE);
-        pin_out.add_related_pin(written_in_pins[in_pin_name]);
-        cell.add_pin(pin_out, OUTPUT);
+        if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
+          lib_pin pin_out;
+          pin_out.name(out_pin_name);
+          pin_out.bus_width(1);
+          pin_out.direction(OUTPUT);
+          pin_out.timing_sense(POSITIVE);
+          pin_out.add_related_pin(written_in_pins[in_pin_name]);
+          // cell.add_pin(pin_out, OUTPUT);
+          written_out_pins.insert(
+              std::pair<std::string, lib_pin>(out_pin_name, pin_out));
+        } else {
+          written_out_pins[out_pin_name].add_related_pin(
+              written_in_pins[in_pin_name]);
+        }
+      }
+      for (std::map<std::string, lib_pin>::iterator itr =
+               written_in_pins.begin();
+           itr != written_in_pins.end(); itr++) {
+        cell.add_pin(itr->second, INPUT);
+      }
+      for (std::map<std::string, lib_pin>::iterator itr =
+               written_out_pins.begin();
+           itr != written_out_pins.end(); itr++) {
+        cell.add_pin(itr->second, OUTPUT);
       }
     } else {
       std::cerr << "STARS: NYI - Create cell for blackbox.\n";
