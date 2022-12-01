@@ -9,7 +9,9 @@ add_definitions(-DPRODUCTION_BUILD)
 message("FLEX: "  ${FLEX_LM_SRC_DIR})
 endif(PRODUCTION_BUILD)
 
-add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
+if (NOT RAPTOR)
+	add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
+endif()
 
 set(VPR_EXECUTION_ENGINE "auto" CACHE STRING "Specify the framework for (potential) parallel execution")
 set_property(CACHE VPR_EXECUTION_ENGINE PROPERTY STRINGS auto serial tbb)
