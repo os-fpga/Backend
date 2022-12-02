@@ -3,68 +3,100 @@
 #include "blifparse.hpp"
 #include "blif_reader.h"
 
-// blif parser callback
- using namespace blifparse;
- class BlifParserCallback : public Callback {
-     public:
-         void start_parse() override {}
+#include "pinc_log.h"
 
-         void filename(std::string /*fname*/) override {}
-         void lineno(int /*line_num*/) override {}
+using namespace blifparse;
+using namespace std;
 
-         void begin_model(std::string /*model_name*/) override {}
-         void inputs(std::vector<std::string> input_ports) override {
-             for (auto input_port : input_ports) {
-                 inputs_.push_back(input_port);
-             }
-         }
-         void outputs(std::vector<std::string> output_ports) override {
-             for (auto output_port : output_ports) {
-                 outputs_.push_back(output_port);
-             }
-         }
+ // blif parser callback
+ struct BlifParserCallback : public blifparse::Callback
+ {
+        void start_parse() override {}
 
-         void names(std::vector<std::string> /*nets*/, std::vector<std::               vector<LogicValue>> /*so_cover*/) override {}
-         void latch(std::string /*input*/, std::string /*output*/, LatchType /*        type*/, std::string /*control*/,            LogicValue /*init*/) override {}
-         void subckt(std::string /*model*/, std::vector<std::string> /*ports*/, std::  vector<std::string> /*nets*/)         override {}
-         void blackbox() override {}
+        void filename(string /*fname*/) override {}
+        void lineno(int /*line_num*/) override {}
 
-         void end_model() override {}
+        void begin_model(string /*model_name*/) override {}
 
-         void finish_parse() override {}
+        void inputs(vector<string> input_ports) override {
+            // join inputs_ and input_ports
+            inputs_.insert(inputs_.end(), input_ports.cbegin(), input_ports.cend());
+        }
 
-         void parse_error(const int curr_lineno, const std::string& near_text, const   std::string& msg) override {
-              fprintf(stderr, "Custom Error at line %d near '%s': %s\n", curr_lineno,  near_text.c_str(), msg.c_str());
-              had_error_ = true;
-         }
+        void outputs(vector<string> output_ports) override {
+            // join outputs_ and output_ports
+            outputs_.insert(outputs_.end(), output_ports.cbegin(), output_ports.cend());
+        }
 
-         bool had_error() { return had_error_ == true; }
-         std::vector<std::string> get_inputs() { return inputs_;}
-         std::vector<std::string> get_outputs() { return outputs_;}
-     private:
+        void names(vector<string> /*nets*/, vector<vector<LogicValue>> /*so_cover*/) override {}
+
+        void latch(string /*input*/, string /*output*/,
+            LatchType /*   type*/, string /*control*/,   LogicValue /*init*/) override {}
+
+        void subckt(string /*model*/, vector<string> /*ports*/, vector<string> /*nets*/)  override {}
+
+        void blackbox() override {}
+
+        void end_model() override {}
+
+        void finish_parse() override {}
+
+        void parse_error(const int curr_lineno, const string& near_text, const   string& msg) override {
+             fprintf(stderr, "Custom Error at line %d near '%s': %s\n", curr_lineno,  near_text.c_str(), msg.c_str());
+             had_error_ = true;
+        }
+
+        bool had_error() const { return had_error_; }
+        vector<string> get_inputs() { return inputs_;}
+        vector<string> get_outputs() { return outputs_;}
+
+     //DATA:
          bool had_error_ = false;
-         std::vector<std::string> inputs_;
-         std::vector<std::string> outputs_;
-};
+         vector<string> inputs_;
+         vector<string> outputs_;
+ };
+
+namespace pinc {
 
 // read port info from blif file
-bool BlifReader::read_blif(const std::string &blif_file_name)
+bool BlifReader::read_blif(const string& blif_file_name)
 {
+    uint16_t tr = ltrace();
+    auto& ls = lout();
+    if (tr >= 2)
+        ls << "BlifReader::read_blif( " << blif_file_name << " ) ..." << endl;
+
     e_circuit_format circuit_format;
+
     auto name_ext = vtr::split_ext(blif_file_name);
-    if (name_ext[1] == ".blif") {
+    const string& ext = name_ext[1];
+    if (tr >= 2)
+        ls << "\t ext= " << ext << endl;
+
+    if (ext == ".blif") {
         circuit_format = e_circuit_format::BLIF;
-    } else if (name_ext[1] == ".eblif") {
+    } else if (ext == ".eblif") {
         circuit_format = e_circuit_format::EBLIF;
     } else {
+        ls << "  (EE) expected file extension .blif or .eblif" << endl;
         return false;
     }
+
+    if (tr >= 2)
+        ls << "\t circuit_format= " << int(circuit_format) << endl;
+
     BlifParserCallback callback;
     blif_parse_filename(blif_file_name, callback);
+
     if (callback.had_error()) {
+        ls << "  (EE) callback.had_error()" << endl;
         return false;
     }
-    inputs = callback.get_inputs();
-    outputs = callback.get_outputs();
+
+    inputs_ = std::move(callback.inputs_);
+    outputs_ = std::move(callback.outputs_);
     return true;
 }
+
+} // namespace pinc
+

@@ -1,12 +1,20 @@
 #include "cmd_line.h"
 
-cmd_line::cmd_line(int argc, const char *argv[])
+namespace pinc {
+
+using namespace std;
+
+cmd_line::cmd_line(int argc, const char** argv)
 {
+    assert(argc > 0 && argv);
+
     bool needVal = false;
-    string key;
+    string key, s;
+
     for (int i = 1; i < argc; ++i)
     {
-        string s(argv[i]);
+        assert(argv[i]);
+        s = argv[i];
         if (s.size() < 2)
         {
             cout << "Warning: Not a valid flag  \"" << s << "\" discarding" << endl;
@@ -23,7 +31,7 @@ cmd_line::cmd_line(int argc, const char *argv[])
             }
             else
             { // flag
-                flags.insert(s);
+                flags_.insert(s);
                 if (needVal)
                     cout << "Warning: Key " << key << " did not get a value" << endl;
                 needVal = false;
@@ -33,7 +41,7 @@ cmd_line::cmd_line(int argc, const char *argv[])
         { // param value
             if (needVal)
             {
-                params[key] = s;
+                params_[key] = s;
                 needVal = false;
             }
             else
@@ -44,34 +52,34 @@ cmd_line::cmd_line(int argc, const char *argv[])
     }
 }
 
-bool cmd_line::is_flag_set(string &fl)
+void cmd_line::set_flag(const string &fl)
 {
-    return (flags.find(fl) != end(flags));
-}
-
-string cmd_line::get_param(const string &key)
-{
-    if (params.find(key) != end(params))
-        return params[key];
-    return "";
-}
-
-void cmd_line::set_flag(string &fl)
-{
-    flags.insert(fl);
+    flags_.insert(fl);
 }
 
 void cmd_line::set_param_value(string &key, string &val)
 {
-    params[key] = val;
+    params_[key] = val;
 }
 
 void cmd_line::print_options() const
 {
     cout << "Flags :\n";
-    for (auto &f : flags)
+    for (const auto& f : flags_)
         cout << "\t" << f << endl;
-    cout << "Params :\n";
-    for (auto &p : params)
-        cout << "\t" << p.first << "\t" << p.second << endl;
+    cout << "Params :" << endl;
+
+    // sort by name
+    vector<pair<string, string>> V;
+    V.reserve(params_.size());
+    for (const auto& p : params_)
+        V.emplace_back(p.first, p.second);
+
+    std::sort(V.begin(), V.end());
+
+    for (const auto& p : V)
+        cout << '\t' << p.first << '\t' << p.second << endl;
 }
+
+}
+
