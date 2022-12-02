@@ -39,7 +39,7 @@
 #include "echo_files.h"
 #include "hash.h"
 #include "simple_netlist.h"
-#include "edif_blif.h"
+#include "edif_blif.hpp"
 
 vtr::LogicValue to_vtr_logic_value(blifparse::LogicValue);
 
@@ -795,7 +795,7 @@ AtomNetlist read_blif_from_edif(e_circuit_format circuit_format,
 
     FILE *infile = tmpfile();
 
-   edif_bilf (blif_file,infile);
+   edif_blif(blif_file,infile);
 
     rewind(infile);
     if (infile != NULL)
