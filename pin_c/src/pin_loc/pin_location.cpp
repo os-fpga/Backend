@@ -30,6 +30,7 @@ const string USAGE_MSG_2 =
                                                    // is provided
 const cmd_line &pin_location::get_cmd() const { return cl_; }
 bool pin_location::reader_and_writer() {
+
   cmd_line cmd = cl_;
   string xml_name = cmd.get_param("--xml");
   string csv_name = cmd.get_param("--csv");
