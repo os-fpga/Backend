@@ -4,7 +4,6 @@ apt-get update && apt-get install -y \
     bison \
     ccache \
     cmake \
-    ctags \
     curl \
     doxygen \
     flex \
@@ -40,5 +39,4 @@ apt-get update && apt-get install -y \
     valgrind \
     wget \
     zip \
-    g++-8 \
     g++-9
