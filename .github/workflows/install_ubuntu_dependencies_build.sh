@@ -31,7 +31,6 @@ apt-get update && apt-get install -y \
     python3-setuptools \
     python3-lxml \
     python3-pip \
-    qt5-default \
     tcllib \
     tcl \
     tcl-dev \
