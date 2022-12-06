@@ -17,9 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: "Build Compatibility: GCC-8 (Ubuntu 18.04)"
-            cc: gcc-8
-            cxx: g++-8
           - name: "Build Compatibility: GCC-9 (Ubuntu 18.04)"
             cc: gcc-9
             cxx: g++-9

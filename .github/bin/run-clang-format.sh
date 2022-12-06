@@ -19,9 +19,14 @@ FORMAT_OUT=${TMPDIR:-/tmp}/clang-format-diff.out
 # TODO: have generator scripts run clang-format on their
 #   output as well as last step, then we can exclude less
 #   files here.
-find src -name "*.h" -o -name "*.cpp"  \
+find stars -name "*.h" -o -name "*.cpp"  \
     | grep -v "path_to_skip" \
     | xargs clang-format --style=Google -i
+
+find pin_c -name "*.h" -o -name "*.cpp"  \
+    | grep -v "path_to_skip" \
+    | xargs clang-format --style=Google -i
+
 
 # Check if we got any diff, then print it out in in the CI.
 # TODO: make these suggested diffs in the pull request.

@@ -4,7 +4,6 @@ apt-get update && apt-get install -y \
     bison \
     ccache \
     cmake \
-    ctags \
     curl \
     doxygen \
     flex \
@@ -31,7 +30,6 @@ apt-get update && apt-get install -y \
     python3-setuptools \
     python3-lxml \
     python3-pip \
-    qt5-default \
     tcllib \
     tcl \
     tcl-dev \
@@ -41,5 +39,4 @@ apt-get update && apt-get install -y \
     valgrind \
     wget \
     zip \
-    g++-8 \
     g++-9
