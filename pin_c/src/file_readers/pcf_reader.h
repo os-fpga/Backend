@@ -1,5 +1,4 @@
-#ifndef PCF_READER_H
-#define PCF_READER_H
+#pragma once
 
 #include <fstream>
 #include <iostream>
@@ -8,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "pinc_log.h"
 
 /*
 Supported PCF commands:
@@ -19,19 +20,27 @@ eFPGA pinout.
   Every tile where <net> is present will be constrained to use a given global
 clock.
 */
-using namespace std;
-class PcfReader {
-  vector<vector<string>> commands;
+
+namespace pinc {
+
+using std::string;
+using std::vector;
+
+struct PcfReader {
+  vector<vector<string>> commands_;
   // std::map<string, string> pcf_pin_map;
 
-public:
-  PcfReader() {}
-  PcfReader(const std::string &f) { read_pcf(f); }
-  bool read_pcf(const std::string &f);
-  bool read_os_pcf(const std::string &f);
-  const vector<vector<string>> &get_commands() const { return commands; }
-  // const unordered_map<string, string>& get_pcf_pin_map()const { return
-  // pcf_pin_map;}
+  PcfReader() = default;
+
+  PcfReader(const string& f) { read_pcf(f); }
+
+  bool read_pcf(const string& f);
+  bool read_os_pcf(const string& f);
+
+  const vector<vector<string>>& get_commands() const { return commands_; }
+
+  // unordered_map<string, string>& get_pcf_pin_map()const { return pcf_pin_map;
+  // }
 };
 
-#endif
+}  // namespace pinc
