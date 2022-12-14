@@ -57,12 +57,13 @@ static string USAGE_MSG_0 =
     "OUTPUT";  // for open source; and MPW1
 
 static string USAGE_MSG_1 =
-    "usage options: --pcf PCF --blif BLIF --csv CSV_FILE "
+    "usage options: --pcf PCF (--blif BLIF | --port_info JSON) --csv CSV_FILE "
     "[--assign_unconstrained_pins [random | in_define_order]] --output "
     "OUTPUT";  // for rs internally, gemini;  user pcf is provided
 
 static string USAGE_MSG_2 =
-    "usage options: --blif BLIF --csv CSV_FILE [--assign_unconstrained_pins "
+    "usage options: (--blif BLIF | --port_info JSON) --csv CSV_FILE "
+    "[--assign_unconstrained_pins "
     "[random | in_define_order]] --output OUTPUT";  // for rs internall,
                                                     // gemini; no user pcf is
                                                     // provided
@@ -97,18 +98,22 @@ bool pin_location::reader_and_writer() {
   string csv_name = cmd.get_param("--csv");
   string pcf_name = cmd.get_param("--pcf");
   string blif_name = cmd.get_param("--blif");
+  string json_name = cmd.get_param("--port_info");
   string output_name = cmd.get_param("--output");
 
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) {
-    lputs("  pin_location::reader_and_writer()");
-    ls << "    xml_name (--xml) : " << xml_name << endl;
-    ls << "    csv_name (--csv) : " << csv_name << endl;
-    ls << "    pcf_name (--pcf) : " << pcf_name << endl;
-    ls << "  blif_name (--blif) : " << blif_name << endl;
+    lputs("\n  pin_location::reader_and_writer()");
+    ls << "        xml_name (--xml) : " << xml_name << endl;
+    ls << "        csv_name (--csv) : " << csv_name << endl;
+    ls << "        pcf_name (--pcf) : " << pcf_name << endl;
+    ls << "      blif_name (--blif) : " << blif_name << endl;
+    ls << " json_name (--port_info) : " << json_name << endl;
     ls << "    output_name (--output) : " << output_name << endl;
   }
+
+  bool no_blif_no_json = blif_name.empty() && json_name.empty();
 
   // --1. check option selection
   string assign_method = cl_.get_param("--assign_unconstrained_pins");
@@ -132,14 +137,14 @@ bool pin_location::reader_and_writer() {
   // in such case we need to provide a pcf to prevent vpr using all pins freely
 
   // usage 0: classical flow form opensource community - device MPW1
-  bool usage_requirement_0 = !((xml_name == "") || (csv_name == "") ||
-                               (blif_name == "") || (output_name == ""));
+  bool usage_requirement_0 = !(xml_name.empty() || csv_name.empty() ||
+                               no_blif_no_json || output_name.empty());
 
   // usage 1: rs only - specify csv (which contains coordinate data described in
   // pinmap xml info), pcf, blif, and output files
-  bool usage_requirement_1 = (!((csv_name == "") || (pcf_name == "") ||
-                                (blif_name == "") || (output_name == ""))) &&
-                             (xml_name == "");
+  bool usage_requirement_1 = !(csv_name.empty() || pcf_name.empty() ||
+                               no_blif_no_json || output_name.empty()) &&
+                             xml_name.empty();
 
   // usage 2: rs only - user dose not provide a pcf (this is really rare in
   // meaningfull on-board implementation, but could be true in test or
@@ -147,8 +152,8 @@ bool pin_location::reader_and_writer() {
   //          in such case, we need to make sure a constraint file is properly
   //          generated to guide VPR use LEGAL pins only.
   bool usage_requirement_2 =
-      (!((csv_name == "") || (blif_name == "") || (output_name == ""))) &&
-      (pcf_name == "");
+      !(csv_name.empty() || no_blif_no_json || output_name.empty()) &&
+      pcf_name.empty();
 
   if (tr >= 2) {
     ls << "\t usage_requirement_0 : " << boolalpha << usage_requirement_0
@@ -450,7 +455,7 @@ bool pin_location::create_place_file(rapidCsvReader& rs_csv_reader) {
     const string& user_design_pin_name = pcf_cmd[1];
     const string& device_pin_name = pcf_cmd[2];
 
-    if (tr >= 3) {
+    if (tr >= 4) {
       logVec(pcf_cmd, "    cur pcf_cmd:");
       ls << "\t user_design_pin_name=  " << user_design_pin_name
          << "  -->  device_pin_name=  " << device_pin_name << endl;
@@ -518,7 +523,7 @@ bool pin_location::create_place_file(rapidCsvReader& rs_csv_reader) {
     // look for coordinates and write constrain
     if (is_out_pin) {
       out_file << "out:";
-      if (tr >= 3) ls << "out:";
+      if (tr >= 4) ls << "out:";
     }
 
     string mode = pcf_cmd[4];
@@ -530,13 +535,63 @@ bool pin_location::create_place_file(rapidCsvReader& rs_csv_reader) {
     assert(xyz.valid());
 
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_ << endl;
-
     out_file.flush();
+
+    if (tr >= 4) {
+      ls << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_ << endl;
+      ls.flush();
+    }
   }
 
   if (tr >= 2) ls << "\nwritten " << out_fn << endl;
 
   return true;
+
+#if 0
+  // assign other un-constrained user pins (if any) to legal io tile pin in fpga
+  if (constrained_user_pins.size() <
+      (user_design_inputs_.size() + user_design_outputs_.size())) {
+    vector<int> left_available_device_pin_idx;
+    collect_left_available_device_pins(
+        constrained_device_pins, left_available_device_pin_idx, rs_csv_reader);
+    if (pin_assign_method_ == ASSIGN_IN_RANDOM) {
+      shuffle_candidates(left_available_device_pin_idx);
+    }
+    int assign_pin_idx = 0;
+    for (auto user_input_pin_name : user_design_inputs_) {
+      if (constrained_user_pins.find(user_input_pin_name) ==
+          constrained_user_pins.end()) { // input pins not specified in pcf
+        out_file << user_input_pin_name << "\t"
+                 << std::to_string(rs_csv_reader.get_pin_x_by_pin_idx(
+                        left_available_device_pin_idx[assign_pin_idx]))
+                 << "\t"
+                 << std::to_string(rs_csv_reader.get_pin_y_by_pin_idx(
+                        left_available_device_pin_idx[assign_pin_idx]))
+                 << "\t"
+                 << std::to_string(rs_csv_reader.get_pin_z_by_pin_idx(
+                        left_available_device_pin_idx[assign_pin_idx]))
+                 << endl;
+        assign_pin_idx++;
+      }
+    }
+    for (auto user_output_pin_name : user_design_outputs_) {
+      if (constrained_user_pins.find(user_output_pin_name) ==
+          constrained_user_pins.end()) { // output pins not specified in pcf
+        out_file << "out:" << user_output_pin_name << "\t"
+                 << std::to_string(rs_csv_reader.get_pin_x_by_pin_idx(
+                        left_available_device_pin_idx[assign_pin_idx]))
+                 << "\t"
+                 << std::to_string(rs_csv_reader.get_pin_y_by_pin_idx(
+                        left_available_device_pin_idx[assign_pin_idx]))
+                 << "\t"
+                 << std::to_string(rs_csv_reader.get_pin_z_by_pin_idx(
+                        left_available_device_pin_idx[assign_pin_idx]))
+                 << endl;
+        assign_pin_idx++;
+      }
+    }
+  }
+#endif  // 0
 }
 
 bool pin_location::read_csv_file(rapidCsvReader& rs_csv_rd) {
@@ -633,6 +688,9 @@ bool pin_location::create_temp_constrain_file(rapidCsvReader& rs_csv_rd) {
   string key = "--pcf";
   temp_pcf_file_name_ = ".temp_pcf";
   cl_.set_param_value(key, temp_pcf_file_name_);
+
+  if (ltrace() >= 2)
+    lprintf("create_temp_constrain_file() : %s\n", temp_pcf_file_name_.c_str());
 
   vector<int> input_idx;
   vector<int> output_idx;
