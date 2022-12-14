@@ -41,7 +41,7 @@ bool PcfReader::read_pcf(const string& f) {
       has_internal_pin = true;
     }
 
-    if (tr >= 3) ls << "(pcf line) " << line << endl;
+    if (tr >= 4) ls << "(pcf line) " << line << endl;
 
     if (has_internal_pin) {
       if (!(iss >> set_io_cmd >> user_pin >> bump_pin >> dash_mode >>
@@ -57,10 +57,9 @@ bool PcfReader::read_pcf(const string& f) {
       }
     }
 
-    if (tr >= 3) {
+    if (tr >= 4) {
       ls << "    user_pin:" << user_pin << "  bump_pin:" << bump_pin
-         << "  mode_name:" << mode_name;
-      ls << endl;
+         << "  mode_name:" << mode_name << endl;
     }
 
     commands_.emplace_back();
