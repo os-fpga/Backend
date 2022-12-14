@@ -114,11 +114,11 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
     }
   };
 
-  // Port name
-  os << indent(depth) << "." << port_name << "(";
-
   // Pins
   if (nets.size() == 1) {
+    // Port name
+    os << indent(depth) << "." << port_name << "(";
+
     // Single-bit port
     if (nets[0].empty()) {
       // Disconnected
@@ -132,6 +132,7 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
       // Connected
       os << escape_verilog_identifier(nets[0]);
     }
+    os << ")";
   } else {
     // Check if all pins are unconnected
     bool all_unconnected = true;
@@ -150,11 +151,11 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
       // Empty connection
     } else {
       // Individual bits
-      os << "{"
-         << "\n";
       for (int ipin = (int)nets.size() - 1; ipin >= 0;
            --ipin) { // Reverse order to match endianess
-        os << indent(depth + 1);
+        // Port name
+        os << indent(depth) << "." << port_name << "[" << ipin << "]"
+           << "(";
         if (nets[ipin].empty()) {
           // Disconnected
           if (type == PortType::INPUT || type == PortType::CLOCK) {
@@ -170,15 +171,13 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
           // Connected
           os << escape_verilog_identifier(nets[ipin]);
         }
+        os << " )";
         if (ipin != 0) {
-          os << ",";
+          os << ",\n";
         }
-        os << "\n";
       }
-      os << indent(depth) + " }";
     }
   }
-  os << ")";
 }
 
 ///@brief Returns true if c is categorized as a special character in SDF
@@ -724,6 +723,7 @@ public:
         !ports_thld_.empty()) {
       os << indent(depth) << "(CELL\n";
       os << indent(depth + 1) << "(CELLTYPE \"" << type_name_ << "\")\n";
+      // instance name needs to match print_verilog
       os << indent(depth + 1) << "(INSTANCE "
          << escape_sdf_identifier(inst_name_) << ")\n";
       os << indent(depth + 1) << "(DELAY\n";
