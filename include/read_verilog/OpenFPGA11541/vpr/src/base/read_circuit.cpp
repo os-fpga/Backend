@@ -62,7 +62,7 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format,
                 break;
             case e_circuit_format::VERILOG:
                 circuit_format = e_circuit_format::EBLIF;
-                netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models);
+                netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models,vpr_setup);
                 break;
             default:
                 VPR_FATAL_ERROR(VPR_ERROR_ATOM_NETLIST,

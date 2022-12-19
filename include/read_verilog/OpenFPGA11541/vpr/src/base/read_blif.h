@@ -16,6 +16,7 @@ AtomNetlist read_blif(e_circuit_format circuit_format,
 AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                       const char* blif_file,
                       const t_model* user_models,
-                      const t_model* library_models);
+                      const t_model* library_models,
+                      t_vpr_setup& vpr_setup);
 
 #endif /*READ_BLIF_H*/

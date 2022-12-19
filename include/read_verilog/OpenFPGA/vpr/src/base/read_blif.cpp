@@ -751,7 +751,8 @@ AtomNetlist read_blif(e_circuit_format circuit_format,
 AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                                   const char *blif_file,
                                   const t_model *user_models,
-                                  const t_model *library_models)
+                                  const t_model *library_models,
+                                  t_vpr_setup& vpr_setup)
 {
     AtomNetlist netlist;
     std::string netlist_id = vtr::secure_digest_file(blif_file);
@@ -777,6 +778,9 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     else
     {
         // blif_error_wrap(alloc_callback, 0, "", "Could not open file '%s'.\n", blif_file);
+    }
+        if(n_l.encrypted){
+        vpr_setup.AnalysisOpts.gen_post_synthesis_netlist=false;
     }
 
     return netlist;
