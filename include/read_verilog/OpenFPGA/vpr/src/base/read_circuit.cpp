@@ -62,7 +62,7 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
                 break;
             case e_circuit_format::VERILOG:
                 circuit_format = e_circuit_format::EBLIF;
-                netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models);
+                netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models,vpr_setup);
                 break;
             case e_circuit_format::FPGA_INTERCHANGE:
                 netlist = read_interchange_netlist(circuit_file, arch);
