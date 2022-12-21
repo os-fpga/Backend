@@ -49,6 +49,8 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
             circuit_format = e_circuit_format::EDIF;
         }  else if (name_ext[1] == ".edn") {
             circuit_format = e_circuit_format::EDIF;
+        }  else if (name_ext[1] == ".edf") {
+            circuit_format = e_circuit_format::EDIF;
         }  else {
             VPR_FATAL_ERROR(VPR_ERROR_ATOM_NETLIST, "Failed to determine file format for '%s' expected .blif or .eblif extension",
                             circuit_file);
