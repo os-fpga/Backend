@@ -12,6 +12,7 @@ endif(PRODUCTION_BUILD)
 if (NOT RAPTOR)
 	add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
 endif()
+    add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
 
 set(VPR_EXECUTION_ENGINE "auto" CACHE STRING "Specify the framework for (potential) parallel execution")
 set_property(CACHE VPR_EXECUTION_ENGINE PROPERTY STRINGS auto serial tbb)
@@ -64,6 +65,7 @@ file(GLOB_RECURSE EXEC_SOURCES src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
 list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/simple_netlist.h)
+list (APPEND LIB_HEADERS ${READ_EDIF_SRC_DIR}/src/edif_blif.hpp)
 files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
 
 if(${VTR_ENABLE_CAPNPROTO})
@@ -79,6 +81,7 @@ add_library(libvpr STATIC
 
 target_include_directories(libvpr PUBLIC ${LIB_INCLUDE_DIRS})
 target_include_directories(libvpr PUBLIC ${READ_VERILOG_SRC_DIR})
+target_include_directories(libvpr PUBLIC ${READ_EDIF_SRC_DIR})
 
 #VPR_ANALYTIC_PLACE is inisitalized in the root CMakeLists
 #Check Eigen dependency
@@ -113,6 +116,7 @@ if (PRODUCTION_BUILD)
                             libpugixml
                             librrgraph
                             libreadver
+                            libreadedif
                             rs_licenseManager
                             ${OPENSSL_LIBRARIES})
 else()
@@ -127,6 +131,7 @@ else()
                             libpugixml
                             librrgraph
                             libreadver
+                            libreadedif
                             ${OPENSSL_LIBRARIES})
 endif(PRODUCTION_BUILD)
 
