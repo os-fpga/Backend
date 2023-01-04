@@ -11,8 +11,9 @@ endif(PRODUCTION_BUILD)
 
 if (NOT RAPTOR)
 	add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
+	add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
 endif()
-    add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
+ 
 
 set(VPR_EXECUTION_ENGINE "auto" CACHE STRING "Specify the framework for (potential) parallel execution")
 set_property(CACHE VPR_EXECUTION_ENGINE PROPERTY STRINGS auto serial tbb)
