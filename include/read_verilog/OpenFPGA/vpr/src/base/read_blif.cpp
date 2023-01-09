@@ -765,7 +765,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
 
     FILE *infile = tmpfile();
     simple_netlist n_l;
-    parse_verilog(blif_file, n_l);
+    parse_verilog(blif_file, n_l, key_file);
     {
         std::stringstream ss;
         n_l.b_print(ss);
@@ -775,7 +775,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     if (infile != NULL)
     {
         // Parse the file
-        blif_parse_file(infile, alloc_callback, blif_file, key_file);
+        blif_parse_file(infile, alloc_callback, blif_file);
 
         std::fclose(infile);
     }
