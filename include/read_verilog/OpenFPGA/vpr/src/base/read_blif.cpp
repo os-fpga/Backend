@@ -761,6 +761,8 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
 
     BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
 
+    const char* key_file = "private_key.pem";
+
     FILE *infile = tmpfile();
     simple_netlist n_l;
     parse_verilog(blif_file, n_l);
@@ -773,7 +775,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     if (infile != NULL)
     {
         // Parse the file
-        blif_parse_file(infile, alloc_callback, blif_file);
+        blif_parse_file(infile, alloc_callback, blif_file, key_file);
 
         std::fclose(infile);
     }
