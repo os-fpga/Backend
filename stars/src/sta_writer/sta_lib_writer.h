@@ -94,8 +94,7 @@ public:
   void write_bus_type(std::ostream &os, int from, int to, bool down_to);
   void write_cell(std::ostream &os, const lib_cell &cell);
   void write_cell_pin(std::ostream &os, const lib_cell &cell);
-  void write_timing_relation(std::ostream &os, const lib_pin &related_pin,
-                             bool is_ff_out = false, bool is_ff_in = false);
+  void write_timing_relation(std::ostream &os, const timing_arch &timing);
   void write_footer(std::ostream &os);
 };
 

@@ -85,7 +85,7 @@ void sta_lib_writer::write_cell(std::ostream &os, const lib_cell &cell) {
   // 1. cell name
   os << INDENT1 << "cell (" << cell.name() << ") {\n";
   // ff needs pre-fix
-  if (cell.type() == FLIPFLOP) {
+  if (cell.type() == SEQUENTIAL) {
     std::string q_name, clk_name, reset_name, set_name, enable_name;
     for (auto const &out_pin : cell.get_pins(OUTPUT)) {
       q_name = out_pin.name();
@@ -131,12 +131,11 @@ void sta_lib_writer::write_cell(std::ostream &os, const lib_cell &cell) {
 void sta_lib_writer::write_cell_pin(std::ostream &os, const lib_cell &cell) {
   // 1. output
   for (auto const &out_pin : cell.get_pins(OUTPUT)) {
-    if (cell.type() == FLIPFLOP) {
+    if (cell.type() == SEQUENTIAL) {
       os << INDENT2 << "pin(" << out_pin.name() << ") {\n";
       os << INDENT3 << "direction: output;\n";
-      for (auto const &related_pin : out_pin.get_related_pins()) {
-        write_timing_relation(os, related_pin, true /*is_ff_out*/,
-                              false /*is_ff_in*/);
+      for (auto const &timing_arch : out_pin.get_timing_arch()) {
+        write_timing_relation(os, timing_arch);
       }
     } else {
       if (out_pin.bus_width() > 1) {
@@ -146,15 +145,15 @@ void sta_lib_writer::write_cell_pin(std::ostream &os, const lib_cell &cell) {
         os << INDENT2 << "pin(" << out_pin.name() << ") {\n";
       }
       os << INDENT3 << "direction: output;\n";
-      for (auto const &related_pin : out_pin.get_related_pins()) {
-        write_timing_relation(os, related_pin);
+      for (auto const &timing_arch : out_pin.get_timing_arch()) {
+        write_timing_relation(os, timing_arch);
       }
     }
     os << INDENT2 << "}\n";
   }
   // 2. input
   for (auto const &in_pin : cell.get_pins(INPUT)) {
-    if (cell.type() == FLIPFLOP) {
+    if (cell.type() == SEQUENTIAL) {
       os << INDENT2 << "pin(" << in_pin.name() << ") {\n";
       if (in_pin.type() == CLOCK) {
         os << INDENT3 << "min_pulse_width_low: 0.600;\n";
@@ -164,9 +163,8 @@ void sta_lib_writer::write_cell_pin(std::ostream &os, const lib_cell &cell) {
         os << INDENT3 << "clock: true;\n";
       } else {
         os << INDENT3 << "direction: input;\n";
-        for (auto const &related_pin : in_pin.get_related_pins()) {
-          write_timing_relation(os, related_pin, false /*is_ff_out*/,
-                                true /*is_ff_in*/);
+        for (auto const &timing_arch : in_pin.get_timing_arch()) {
+          write_timing_relation(os, timing_arch);
         }
       }
       os << INDENT2 << "}\n";
@@ -178,8 +176,8 @@ void sta_lib_writer::write_cell_pin(std::ostream &os, const lib_cell &cell) {
         os << INDENT2 << "pin(" << in_pin.name() << ") {\n";
       }
       os << INDENT3 << "direction: input;\n";
-      for (auto const &related_pin : in_pin.get_related_pins()) {
-        write_timing_relation(os, related_pin);
+      for (auto const &timing_arch : in_pin.get_timing_arch()) {
+        write_timing_relation(os, timing_arch);
       }
       os << INDENT2 << "}\n";
     }
@@ -189,102 +187,14 @@ void sta_lib_writer::write_cell_pin(std::ostream &os, const lib_cell &cell) {
 };
 
 void sta_lib_writer::write_timing_relation(std::ostream &os,
-                                           const lib_pin &related_pin,
-                                           bool is_ff_out, bool is_ff_in) {
-  if (is_ff_out) {
-    os << INDENT3 << "timing() {\n";
-    os << INDENT4 << "related_pin: \"" << related_pin.name() << "\";\n";
-    if (related_pin.type() == RESET) {
-      os << INDENT4 << "timing_type: clear;\n";
-      os << INDENT4 << "timing_sense: "
-         << ((related_pin.timing_sense() == POSITIVE) ? "positive_unate"
-                                                      : "negative_unate")
-         << ";\n";
-      os << INDENT4 << "cell_rise(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "cell_fall(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "rise_transition(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "fall_transition(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-    } else if (related_pin.type() == SET) {
-      os << INDENT4 << "timing_type: clear;\n";
-      os << INDENT4 << "timing_sense: "
-         << ((related_pin.timing_sense() == POSITIVE) ? "positive_unate"
-                                                      : "negative_unate")
-         << ";\n";
-      os << INDENT4 << "cell_rise(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "cell_fall(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "rise_transition(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "fall_transition(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-    } else if (related_pin.type() == CLOCK) {
-      os << INDENT4 << "timing_type: "
-         << ((related_pin.timing_sense() == POSITIVE) ? "rising_edge"
-                                                      : "falling_edge")
-         << ";\n";
-      os << INDENT4 << "cell_rise(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "cell_fall(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "rise_transition(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "fall_transition(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-    }
-    os << INDENT3 << "}\n";
-  } else if (is_ff_in) {
-    if (related_pin.type() == CLOCK) {
-      // setup
-      os << INDENT3 << "timing() {\n";
-      os << INDENT4 << "related_pin: \"" << related_pin.name() << "\";\n";
-      os << INDENT4 << "timing_type: "
-         << ((related_pin.timing_sense() == POSITIVE) ? "setup_rising"
-                                                      : "setup_fall")
-         << ";\n";
-      os << INDENT4 << "rise_constraint(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "fall_constraint(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT3 << "}\n";
-      // hold
-      os << INDENT3 << "timing() {\n";
-      os << INDENT4 << "timing_type: "
-         << ((related_pin.timing_sense() == POSITIVE) ? "hold_rising"
-                                                      : "hold_fall")
-         << ";\n";
-      os << INDENT4 << "rise_constraint(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT4 << "fall_constraint(scalar) {\n";
-      os << INDENT5 << "values(\"0\");\n";
-      os << INDENT4 << "}\n";
-      os << INDENT3 << "}\n";
-    }
-  } else {
-    os << INDENT3 << "timing() {\n";
-    os << INDENT4 << "related_pin: \"" << related_pin.name() << "\";\n";
+                                           const timing_arch &timing) {
+  lib_pin related_pin = timing.related_pin();
+  os << INDENT3 << "timing() {\n";
+  os << INDENT4 << "related_pin: \"" << related_pin.name() << "\";\n";
+  if (related_pin.type() == RESET) {
+    os << INDENT4 << "timing_type: clear;\n";
     os << INDENT4 << "timing_sense: "
-       << ((related_pin.timing_sense() == POSITIVE) ? "positive_unate"
-                                                    : "negative_unate")
+       << ((timing.sense() == POSITIVE) ? "positive_unate" : "negative_unate")
        << ";\n";
     os << INDENT4 << "cell_rise(scalar) {\n";
     os << INDENT5 << "values(\"0\");\n";
@@ -298,8 +208,57 @@ void sta_lib_writer::write_timing_relation(std::ostream &os,
     os << INDENT4 << "fall_transition(scalar) {\n";
     os << INDENT5 << "values(\"0\");\n";
     os << INDENT4 << "}\n";
-    os << INDENT3 << "}\n";
+  } else if (related_pin.type() == SET) {
+    os << INDENT4 << "timing_type: clear;\n";
+    os << INDENT4 << "timing_sense: "
+       << ((timing.sense() == POSITIVE) ? "positive_unate" : "negative_unate")
+       << ";\n";
+    os << INDENT4 << "cell_rise(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "cell_fall(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "rise_transition(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "fall_transition(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+  } else if (related_pin.type() == CLOCK) {
+    os << INDENT4 << "timing_type: "
+       << ((timing.sense() == POSITIVE) ? "rising_edge" : "falling_edge")
+       << ";\n";
+    os << INDENT4 << "cell_rise(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "cell_fall(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "rise_transition(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "fall_transition(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+  } else {
+    os << INDENT4 << "timing_sense: "
+       << ((timing.sense() == POSITIVE) ? "positive_unate" : "negative_unate")
+       << ";\n";
+    os << INDENT4 << "cell_rise(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "cell_fall(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "rise_transition(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
+    os << INDENT4 << "fall_transition(scalar) {\n";
+    os << INDENT5 << "values(\"0\");\n";
+    os << INDENT4 << "}\n";
   }
+  os << INDENT3 << "}\n";
 
   return;
 };

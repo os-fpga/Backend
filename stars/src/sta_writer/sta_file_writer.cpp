@@ -327,14 +327,16 @@ public: // Instance interface method implementations
     lib_pin pin_in;
     pin_in.name("in");
     pin_in.direction(INPUT);
-    pin_in.timing_sense(POSITIVE);
     pin_in.bus_width(in_bus_width);
     cell.add_pin(pin_in, INPUT);
     lib_pin pin_out;
     pin_out.name("out");
     pin_out.direction(OUTPUT);
-    pin_out.timing_sense(POSITIVE);
-    pin_out.add_related_pin(pin_in);
+    timing_arch timing;
+    timing.sense(POSITIVE);
+    timing.type(TRANSITION);
+    timing.related_pin(pin_in);
+    pin_out.add_timing_arch(timing);
     pin_out.bus_width(out_bus_width);
     cell.add_pin(pin_out, OUTPUT);
 
@@ -602,65 +604,195 @@ public:
     // create cell info
     lib_cell cell;
     cell.name(type_name_);
-    if (ports_tcq_.size()) {
-      cell.type(FLIPFLOP);
 
-      for (auto kv : ports_tcq_) {
+    // to make memory management simple, we are using static memory for each
+    // objects here
+    std::map<std::string, lib_pin> written_in_pins;
+    std::map<std::string, lib_pin> written_out_pins;
 
-        // clock
-        lib_pin pin_clk;
-        pin_clk.name(kv.second.second);
-        pin_clk.direction(INPUT);
-        pin_clk.timing_sense(POSITIVE);
-        pin_clk.type(CLOCK);
-        cell.add_pin(pin_clk, INPUT);
+    // create pin and annotate with timing info
+    if (ports_tcq_.size() || ports_tsu_.size() || ports_thld_.size()) {
+      cell.type(SEQUENTIAL);
 
-        // q
-        lib_pin pin_q;
-        pin_q.name(kv.first);
-        pin_q.direction(OUTPUT);
-        pin_q.timing_sense(POSITIVE);
-        pin_q.add_related_pin(pin_clk);
+      // for debug
+      int i = 0;
 
-        // data and control pins
-        for (auto tsu_kv : ports_tsu_) {
-          lib_pin pin_in;
-          pin_in.name(tsu_kv.first);
-          pin_in.direction(INPUT);
-          // have to use name map for now
-          if (tsu_kv.first == "D") {
-            pin_in.type(DATA);
-            pin_in.timing_sense(POSITIVE);
-          } else if (pin_in.name() == "R") {
-            pin_in.type(RESET);
-            pin_in.timing_sense(POSITIVE);
-            pin_q.add_related_pin(pin_in);
-          } else if (pin_in.name() == "S") {
-            pin_in.type(SET);
-            pin_in.timing_sense(POSITIVE);
-            pin_q.add_related_pin(pin_in);
-          } else if (pin_in.name() == "E") {
-            pin_in.timing_sense(POSITIVE);
-            pin_in.type(ENABLE);
-          } else {
-            std::cerr << "STARS: Unrecognized pin <" << pin_in.name()
-                      << "> for flip-flop <" << cell.name() << ">.\n";
-          }
-          pin_in.add_related_pin(pin_clk);
-          cell.add_pin(pin_in, INPUT);
+      // clock arch
+      for (auto tcq_kv : ports_tcq_) {
+
+        std::string pin_name = tcq_kv.second.second;
+        lib_pin related_pin;
+        if (written_in_pins.find(pin_name) == written_in_pins.end()) {
+          related_pin.name(pin_name);
+          related_pin.bus_width(1);
+          related_pin.direction(INPUT);
+          related_pin.type(CLOCK);
+          written_in_pins.insert(
+              std::pair<std::string, lib_pin>(pin_name, related_pin));
+        } else {
+          related_pin = written_in_pins[pin_name];
         }
 
-        cell.add_pin(pin_q, OUTPUT);
+        pin_name = tcq_kv.first;
+        int port_size = find_port_size(pin_name);
+        for (int port_idex = 0; port_idex < port_size; port_idex++) {
+          std::string out_pin_name = pin_name;
+          if (port_size > 1) {
+            out_pin_name +=
+                std::string("[") + std::to_string(port_idex) + std::string("]");
+          }
 
-        break; // no need to repeat this on other timing settings since they
-               // are different only on timing data
+          lib_pin pin_out;
+          if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
+            pin_out.type(DATA);
+            pin_out.name(out_pin_name);
+            pin_out.direction(OUTPUT);
+            written_out_pins.insert(
+                std::pair<std::string, lib_pin>(out_pin_name, pin_out));
+          } else {
+            pin_out = written_out_pins[out_pin_name];
+          }
+          timing_arch timing;
+          timing.sense(POSITIVE);
+          timing.type(TRANSITION);
+          timing.related_pin(related_pin);
+          pin_out.add_timing_arch(timing);
+          // update pin_out
+          written_out_pins[out_pin_name] = pin_out;
+
+          // debug info
+          std::cout << "STARS DEBUG:\tNo. <" << i++
+                    << "> clock to q:" << std::endl;
+          std::cout << "STARS DEBUG:\t\tPin <" << tcq_kv.first
+                    << "> Port Index <" << port_idex << ">" << std::endl;
+          std::cout << "STARS DEBUG:\t\tTiming <" << tcq_kv.second.first << ">"
+                    << std::endl;
+          std::cout << "STARS DEBUG:\t\tRelative pin <" << tcq_kv.second.second
+                    << ">" << std::endl;
+        }
+      }
+
+      // setup arch
+      i = 0;
+      for (auto tsu_kv : ports_tsu_) {
+        std::string pin_name = tsu_kv.second.second;
+        lib_pin related_pin;
+        if (written_in_pins.find(pin_name) == written_in_pins.end()) {
+          related_pin.name(pin_name);
+          related_pin.bus_width(1);
+          related_pin.direction(INPUT);
+          related_pin.type(CLOCK);
+          written_in_pins.insert(
+              std::pair<std::string, lib_pin>(pin_name, related_pin));
+        } else {
+          related_pin = written_in_pins[pin_name];
+        }
+
+        pin_name = tsu_kv.first;
+        int port_size = find_port_size(pin_name);
+        for (int port_idex = 0; port_idex < port_size; port_idex++) {
+          std::string in_pin_name = pin_name;
+          if (port_size > 1) {
+            in_pin_name +=
+                std::string("[") + std::to_string(port_idex) + std::string("]");
+          }
+          lib_pin pin_in;
+          if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
+            pin_in.name(in_pin_name);
+            pin_in.bus_width(1);
+            pin_in.direction(INPUT);
+            pin_in.type(DATA);
+            written_in_pins.insert(
+                std::pair<std::string, lib_pin>(in_pin_name, pin_in));
+          } else {
+            pin_in = written_in_pins[in_pin_name];
+          }
+          timing_arch timing;
+          timing.sense(POSITIVE);
+          timing.type(SETUP);
+          timing.related_pin(related_pin);
+          pin_in.add_timing_arch(timing);
+          written_in_pins[in_pin_name] = pin_in;
+
+          std::cout << "STARS DEBUG:\tNo. <" << i++
+                    << "> setup timing:" << std::endl;
+          std::cout << "STARS DEBUG:\t\tPin <" << tsu_kv.first
+                    << "> Port Index <" << port_idex << ">" << std::endl;
+          std::cout << "STARS DEBUG:\t\tTiming <" << tsu_kv.second.first << ">"
+                    << std::endl;
+          std::cout << "STARS DEBUG:\t\tRelative pin <" << tsu_kv.second.second
+                    << ">" << std::endl;
+        }
+      }
+
+      // hold arch
+      i = 0;
+      for (auto thld_kv : ports_thld_) {
+        std::string pin_name = thld_kv.second.second;
+        lib_pin related_pin;
+        if (written_in_pins.find(pin_name) == written_in_pins.end()) {
+          related_pin.name(pin_name);
+          related_pin.bus_width(1);
+          related_pin.direction(INPUT);
+          related_pin.type(CLOCK);
+          written_in_pins.insert(
+              std::pair<std::string, lib_pin>(pin_name, related_pin));
+        } else {
+          related_pin = written_in_pins[pin_name];
+        }
+
+        pin_name = thld_kv.first;
+        int port_size = find_port_size(pin_name);
+        for (int port_idex = 0; port_idex < port_size; port_idex++) {
+          std::string in_pin_name = pin_name;
+          if (port_size > 1) {
+            in_pin_name +=
+                std::string("[") + std::to_string(port_idex) + std::string("]");
+          }
+          lib_pin pin_in;
+          if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
+            pin_in.name(in_pin_name);
+            pin_in.bus_width(1);
+            pin_in.direction(INPUT);
+            pin_in.type(DATA);
+            written_in_pins.insert(
+                std::pair<std::string, lib_pin>(in_pin_name, pin_in));
+          } else {
+            pin_in = written_in_pins[in_pin_name];
+          }
+          timing_arch timing;
+          timing.sense(POSITIVE);
+          timing.type(HOLD);
+          timing.related_pin(related_pin);
+          pin_in.add_timing_arch(timing);
+          written_in_pins[in_pin_name] = pin_in;
+
+          std::cout << "STARS DEBUG:\tNo. <" << i++
+                    << "> hold timing:" << std::endl;
+          std::cout << "STARS DEBUG:\t\tPin <" << thld_kv.first
+                    << "> Port Index <" << port_idex << "> " << std::endl;
+          std::cout << "STARS DEBUG:\t\tTiming <" << thld_kv.second.first << ">"
+                    << std::endl;
+          std::cout << "STARS DEBUG:\t\tRelative pin <" << thld_kv.second.second
+                    << ">" << std::endl;
+        }
+      }
+
+      // add pins to cell
+      for (std::map<std::string, lib_pin>::iterator itr =
+               written_in_pins.begin();
+           itr != written_in_pins.end(); itr++) {
+        cell.add_pin(itr->second, INPUT);
+      }
+      for (std::map<std::string, lib_pin>::iterator itr =
+               written_out_pins.begin();
+           itr != written_out_pins.end(); itr++) {
+        cell.add_pin(itr->second, OUTPUT);
       }
     } else if (!timing_arcs_.empty()) {
       // just write out timing arcs
       cell.name(type_name_);
       cell.type(BLACKBOX);
-      std::map<std::string, lib_pin> written_in_pins;
-      std::map<std::string, lib_pin> written_out_pins;
       for (auto &arc : timing_arcs_) {
         std::string in_pin_name = arc.source_name();
         if (find_port_size(in_pin_name) > 1) {
@@ -672,30 +804,34 @@ public:
           pin_in.name(in_pin_name);
           pin_in.bus_width(1);
           pin_in.direction(INPUT);
-          pin_in.timing_sense(POSITIVE);
+          pin_in.type(DATA);
           // cell.add_pin(pin_in, INPUT);
           written_in_pins.insert(
               std::pair<std::string, lib_pin>(in_pin_name, pin_in));
         }
 
+        // todo: add timing arch
         std::string out_pin_name = arc.sink_name();
         if (find_port_size(out_pin_name) > 1) {
           out_pin_name += std::string("[") + std::to_string(arc.sink_ipin()) +
                           std::string("]");
         }
+        timing_arch timing;
+        timing.sense(POSITIVE);
+        timing.type(TRANSITION);
+        timing.related_pin(written_in_pins[in_pin_name]);
         if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
           lib_pin pin_out;
           pin_out.name(out_pin_name);
           pin_out.bus_width(1);
           pin_out.direction(OUTPUT);
-          pin_out.timing_sense(POSITIVE);
-          pin_out.add_related_pin(written_in_pins[in_pin_name]);
+          pin_out.type(DATA);
+          pin_out.add_timing_arch(timing);
           // cell.add_pin(pin_out, OUTPUT);
           written_out_pins.insert(
               std::pair<std::string, lib_pin>(out_pin_name, pin_out));
         } else {
-          written_out_pins[out_pin_name].add_related_pin(
-              written_in_pins[in_pin_name]);
+          written_out_pins[out_pin_name].add_timing_arch(timing);
         }
       }
       for (std::map<std::string, lib_pin>::iterator itr =
@@ -875,7 +1011,7 @@ private:
   std::map<std::string, sequential_port_delay_pair> ports_thld_;
   std::map<std::string, sequential_port_delay_pair> ports_tcq_;
   struct t_analysis_opts opts_;
-};
+}; // namespace stars
 
 /**
  * @brief Assignment represents the logical connection between two nets
@@ -1111,14 +1247,18 @@ private: // Internal Helper functions
     pin_in.name("datain");
     pin_in.bus_width(1);
     pin_in.direction(INPUT);
-    pin_in.timing_sense(POSITIVE);
+    pin_in.type(DATA);
     cell.add_pin(pin_in, INPUT);
     lib_pin pin_out;
     pin_out.name("dataout");
     pin_out.bus_width(1);
     pin_out.direction(OUTPUT);
-    pin_out.timing_sense(POSITIVE);
-    pin_out.add_related_pin(pin_in);
+    pin_out.type(DATA);
+    timing_arch timing;
+    timing.sense(POSITIVE);
+    timing.type(TRANSITION);
+    timing.related_pin(pin_in);
+    pin_out.add_timing_arch(timing);
     cell.add_pin(pin_out, OUTPUT);
     lib_writer.write_cell(lib_os_, cell);
     written_cells.insert("fpga_interconnect");
