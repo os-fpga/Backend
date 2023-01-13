@@ -1,0 +1,290 @@
+
+.model lut6_bram_function
+
+.inputs in0 in1 in2 in3 in4 in5 clk reset
+#.outputs out0 out1 out2 out3 out4 out5 out6 out7 
+
+.names in0 in1 in2 in3 in4 in5 out0
+001000 1
+111011 1
+
+.names in0 in1 in2 in3 in4 in5 out1
+100101 1
+011010 1
+
+.names in0 in1 in2 in3 in4 in5 out2
+001010 1
+110101 1
+
+.names in0 in1 in2 in3 in4 in5 out3
+010011 1
+
+.names in0 in1 in2 in3 in4 in5 out4
+110011 1
+
+.names in0 in1 in2 in3 in4 in5 out5
+010101 1
+101000 1
+
+.names in0 in1 in2 in3 in4 in5 out6
+101000 1
+011011 1
+
+.names in0 in1 in2 in3 in4 in5 out7
+101001 1
+
+
+###BEGIN BRAM HERE
+
+.names tielow
+0
+
+.names tiehigh
+1
+
+
+.outputs \
+data_out0 data_out1 data_out2 data_out3 data_out4 data_out5 data_out6 data_out7 data_out8 data_out9 data_out10 \
+data_out11 data_out12 data_out13 data_out14 data_out15 data_out16 data_out17 data_out18 data_out19 data_out20 \
+data_out21 data_out22 data_out23 data_out24 data_out25 data_out26 data_out27 data_out28 data_out29 data_out30 \
+data_out31 data_out32 data_out33 data_out34 data_out35 data_out36 data_out37 data_out38 data_out39 data_out40 \
+data_out41 data_out42 data_out43 data_out44 data_out45 data_out46 data_out47 data_out48 data_out49 data_out50 \
+data_out51 data_out52 data_out53 data_out54 data_out55 data_out56 data_out57 data_out58 data_out59 data_out60 \
+data_out61 data_out62 data_out63 data_out64 data_out65 data_out66 data_out67 data_out68 data_out69 data_out70 \
+data_out71 
+
+
+.subckt RS_TDP36K \
+RDATA_A1[0]=data_out0 \
+RDATA_A1[1]=data_out1 \
+RDATA_A1[2]=data_out2 \
+RDATA_A1[3]=data_out3 \
+RDATA_A1[4]=data_out4 \
+RDATA_A1[5]=data_out5 \
+RDATA_A1[6]=data_out6 \
+RDATA_A1[7]=data_out7 \
+RDATA_A1[8]=data_out8 \
+RDATA_A1[9]=data_out9 \
+RDATA_A1[10]=data_out10 \
+RDATA_A1[11]=data_out11 \
+RDATA_A1[12]=data_out12 \
+RDATA_A1[13]=data_out13 \
+RDATA_A1[14]=data_out14 \
+RDATA_A1[15]=data_out15 \
+RDATA_A1[16]=data_out16 \
+RDATA_A1[17]=data_out17 \
+RDATA_A2[0]=data_out18 \
+RDATA_A2[1]=data_out19 \
+RDATA_A2[2]=data_out20 \
+RDATA_A2[3]=data_out21 \
+RDATA_A2[4]=data_out22 \
+RDATA_A2[5]=data_out23 \
+RDATA_A2[6]=data_out24 \
+RDATA_A2[7]=data_out25 \
+RDATA_A2[8]=data_out26 \
+RDATA_A2[9]=data_out27 \
+RDATA_A2[10]=data_out28 \
+RDATA_A2[11]=data_out29 \
+RDATA_A2[12]=data_out30 \
+RDATA_A2[13]=data_out31 \
+RDATA_A2[14]=data_out32 \
+RDATA_A2[15]=data_out33 \
+RDATA_A2[16]=data_out34 \
+RDATA_A2[17]=data_out35 \
+RDATA_B1[0]=data_out36 \
+RDATA_B1[1]=data_out37 \
+RDATA_B1[2]=data_out38 \
+RDATA_B1[3]=data_out39 \
+RDATA_B1[4]=data_out40 \
+RDATA_B1[5]=data_out41 \
+RDATA_B1[6]=data_out42 \
+RDATA_B1[7]=data_out43 \
+RDATA_B1[8]=data_out44 \
+RDATA_B1[9]=data_out45 \
+RDATA_B1[10]=data_out46 \
+RDATA_B1[11]=data_out47 \
+RDATA_B1[12]=data_out48 \
+RDATA_B1[13]=data_out49 \
+RDATA_B1[14]=data_out50 \
+RDATA_B1[15]=data_out51 \
+RDATA_B1[16]=data_out52 \
+RDATA_B1[17]=data_out53 \
+RDATA_B2[0]=data_out54 \
+RDATA_B2[1]=data_out55 \
+RDATA_B2[2]=data_out56 \
+RDATA_B2[3]=data_out57 \
+RDATA_B2[4]=data_out58 \
+RDATA_B2[5]=data_out59 \
+RDATA_B2[6]=data_out60 \
+RDATA_B2[7]=data_out61 \
+RDATA_B2[8]=data_out62 \
+RDATA_B2[9]=data_out63 \
+RDATA_B2[10]=data_out64 \
+RDATA_B2[11]=data_out65 \
+RDATA_B2[12]=data_out66 \
+RDATA_B2[13]=data_out67 \
+RDATA_B2[14]=data_out68 \
+RDATA_B2[15]=data_out69 \
+RDATA_B2[16]=data_out70 \
+RDATA_B2[17]=d_in \
+WDATA_A1[0]=out1 \
+WDATA_A1[1]=out2 \
+WDATA_A1[2]=out3 \
+WDATA_A1[3]=out4 \
+WDATA_A1[4]=out5 \
+WDATA_A1[5]=out6 \
+WDATA_A1[6]=out7 \
+WDATA_A1[7]=out1 \
+WDATA_A1[8]=out2 \
+WDATA_A1[9]=out3 \
+WDATA_A1[10]=out4 \
+WDATA_A1[11]=out5 \
+WDATA_A1[12]=out6 \
+WDATA_A1[13]=out7 \
+WDATA_A1[14]=out1 \
+WDATA_A1[15]=out2 \
+WDATA_A1[16]=out3 \
+WDATA_A1[17]=out4 \
+WDATA_A2[0]=out5 \
+WDATA_A2[1]=out6 \
+WDATA_A2[2]=out7 \
+WDATA_A2[3]=out1 \
+WDATA_A2[4]=out2 \
+WDATA_A2[5]=out3 \
+WDATA_A2[6]=out4 \
+WDATA_A2[7]=out5 \
+WDATA_A2[8]=out6 \
+WDATA_A2[9]=out7 \
+WDATA_A2[10]=out1 \
+WDATA_A2[11]=out2 \
+WDATA_A2[12]=out3 \
+WDATA_A2[13]=out4 \
+WDATA_A2[14]=out5 \
+WDATA_A2[15]=out6 \
+WDATA_A2[16]=out7 \
+WDATA_A2[17]=out0 \
+WDATA_B1[0]=out1 \
+WDATA_B1[1]=out2 \
+WDATA_B1[2]=out3 \
+WDATA_B1[3]=out4 \
+WDATA_B1[4]=out5 \
+WDATA_B1[5]=out6 \
+WDATA_B1[6]=out7 \
+WDATA_B1[7]=out0 \
+WDATA_B1[8]=out1 \
+WDATA_B1[9]=out2 \
+WDATA_B1[10]=out3 \
+WDATA_B1[11]=out4 \
+WDATA_B1[12]=out5 \
+WDATA_B1[13]=out6 \
+WDATA_B1[14]=out7 \
+WDATA_B1[15]=out0 \
+WDATA_B1[16]=out1 \
+WDATA_B1[17]=out2 \
+WDATA_B2[0]=out3 \
+WDATA_B2[1]=out4 \
+WDATA_B2[2]=out5 \
+WDATA_B2[3]=out6 \
+WDATA_B2[4]=out7 \
+WDATA_B2[5]=out0 \
+WDATA_B2[6]=out1 \
+WDATA_B2[7]=out2 \
+WDATA_B2[8]=out3 \
+WDATA_B2[9]=out4 \
+WDATA_B2[10]=out5 \
+WDATA_B2[11]=out6 \
+WDATA_B2[12]=out7 \
+WDATA_B2[13]=out0 \
+WDATA_B2[14]=out0 \
+WDATA_B2[15]=out1 \
+WDATA_B2[16]=out2 \
+WDATA_B2[17]=out3 \
+ADDR_A1[0]=out0 \
+ADDR_A1[1]=out1 \
+ADDR_A1[2]=out2 \
+ADDR_A1[3]=out3 \
+ADDR_A1[4]=out4 \
+ADDR_A1[5]=out5 \
+ADDR_A1[6]=out6 \
+ADDR_A1[7]=out7 \
+ADDR_A1[8]=out0 \
+ADDR_A1[9]=out1 \
+ADDR_A1[10]=out2 \
+ADDR_A1[11]=out3 \
+ADDR_A1[12]=out4 \
+ADDR_A1[13]=out5 \
+ADDR_A1[14]=out6 \
+ADDR_A2[0]=out7 \
+ADDR_A2[1]=out0 \
+ADDR_A2[2]=out1 \
+ADDR_A2[3]=out2 \
+ADDR_A2[4]=out3 \
+ADDR_A2[5]=out4 \
+ADDR_A2[6]=out5 \
+ADDR_A2[7]=out6 \
+ADDR_A2[8]=out7 \
+ADDR_A2[9]=out0 \
+ADDR_A2[10]=out1 \
+ADDR_A2[11]=out2 \
+ADDR_A2[12]=out3 \
+ADDR_A2[13]=out4 \
+ADDR_B1[0]=out5 \
+ADDR_B1[1]=out6 \
+ADDR_B1[2]=out7 \
+ADDR_B1[3]=out0 \
+ADDR_B1[4]=out1 \
+ADDR_B1[5]=out2 \
+ADDR_B1[6]=out3 \
+ADDR_B1[7]=out4 \
+ADDR_B1[8]=out5 \
+ADDR_B1[9]=out6 \
+ADDR_B1[10]=out7 \
+ADDR_B1[11]=out0 \
+ADDR_B1[12]=out1 \
+ADDR_B1[13]=out2 \
+ADDR_B1[14]=out3 \
+ADDR_B2[0]=out4 \
+ADDR_B2[1]=out5 \
+ADDR_B2[2]=out6 \
+ADDR_B2[3]=out7 \
+ADDR_B2[4]=out0 \
+ADDR_B2[5]=out1 \
+ADDR_B2[6]=out2 \
+ADDR_B2[7]=out3 \
+ADDR_B2[8]=out4 \
+ADDR_B2[9]=out5 \
+ADDR_B2[10]=out6 \
+ADDR_B2[11]=out7 \
+ADDR_B2[12]=out0 \
+ADDR_B2[13]=out1 \
+CLK_A1=clk \
+CLK_A2=clk \
+REN_A1=tiehigh \
+REN_A2=tiehigh \
+WEN_A1=tielow \
+WEN_A2=tielow \
+BE_A1[0]=tiehigh \
+BE_A1[1]=tiehigh \
+BE_A2[0]=tiehigh \
+BE_A2[1]=tiehigh \
+FLUSH1=reset \
+CLK_B1=clk \
+CLK_B2=clk \
+REN_B1=tiehigh \
+REN_B2=tiehigh \
+WEN_B1=tielow \
+WEN_B2=tielow \
+BE_B1[0]=tiehigh \
+BE_B1[1]=tiehigh \
+BE_B2[0]=tiehigh \
+BE_B2[1]=tiehigh \
+FLUSH2=reset 
+
+.subckt sdff C=clk D=d_in Q=data_out71 R=c_dffsre_Q_R
+.names reset c_dffsre_Q_R
+0 1
+
+#END BRAM HERE
+
+
+.end

@@ -1,0 +1,9 @@
+read_liberty reg_and2_stars.lib
+read_verilog reg_and2_stars.v
+link_design reg_and2
+read_sdf reg_and2_stars.sdf
+read_sdc reg_and2_stars.sdc
+report_checks
+report_wns
+report_tns
+exit

@@ -1,0 +1,10 @@
+.model reg_and2
+.inputs in0 in1 clk
+.outputs out0
+
+.subckt dff C=clk D=d Q=out0
+.names in0 in1 d
+11 1
+
+.end
+

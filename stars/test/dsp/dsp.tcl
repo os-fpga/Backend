@@ -1,0 +1,9 @@
+read_liberty lut6_dsp_function_stars.lib
+read_verilog lut6_dsp_function_stars.v
+link_design lut6_dsp_function
+read_sdf lut6_dsp_function_stars.sdf
+read_sdc lut6_dsp_function_stars.sdc
+report_checks
+report_wns
+report_tns
+exit

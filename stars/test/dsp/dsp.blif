@@ -1,0 +1,139 @@
+
+.model lut6_dsp_function
+
+.inputs in0 in1 in2 in3 in4 in5 reset clk
+
+.names in0 in1 in2 in3 in4 in5 out0
+001000 1
+111011 1
+
+.names in0 in1 in2 in3 in4 in5 out1
+100101 1
+011010 1
+
+.names in0 in1 in2 in3 in4 in5 out2
+001010 1
+110101 1
+
+.names in0 in1 in2 in3 in4 in5 out3
+010011 1
+
+.names in0 in1 in2 in3 in4 in5 out4
+110011 1
+
+.names in0 in1 in2 in3 in4 in5 out5
+010101 1
+101000 1
+
+.names in0 in1 in2 in3 in4 in5 out6
+101000 1
+011011 1
+
+.names in0 in1 in2 in3 in4 in5 out7
+101001 1
+
+
+###BEGIN MULT HERE
+
+.names tielow
+0
+
+.names tiehigh
+1
+
+
+.outputs z[0] z[1] z[2] z[3] z[4] z[5] z[6] z[7] z[8] z[9] z[10] z[11] z[12] z[13] z[14] z[15] z[16] z[17] \
+z[18] z[19] z[20] z[21] z[22] z[23] z[24] z[25] z[26] z[27] z[28] z[29] z[30] z[31] z[32] z[33] z[34] z[35] z[36] z[37] 
+
+
+.subckt RS_DSP_MULT \
+unsigned_a = out0 \
+unsigned_b = out4 \
+feedback[0] = out1  \
+feedback[1] = out5  \
+feedback[2] = out1  \
+a[0] = out2 \
+a[1] = out2 \
+a[2] = out2 \
+a[3] = out2 \
+a[4] = out2 \
+a[5] = out2 \
+a[6] = out2 \
+a[7] = out2 \
+a[8] = out2 \
+a[9] = out2 \
+a[10] = out6 \
+a[11] = out6 \
+a[12] = out6 \
+a[13] = out6 \
+a[14] = out6 \
+a[15] = out6 \
+a[16] = out6 \
+a[17] = out6 \
+a[18] = out6 \
+a[19]= out6 \
+b[0] = out3 \
+b[1] = out3 \
+b[2] = out3 \
+b[3] = out3 \
+b[4] = out3 \
+b[5] = out3 \
+b[6] = out3 \
+b[7] = out3 \
+b[8] = out3 \
+b[9] = out3 \
+b[10] = out7 \
+b[11] = out7 \
+b[12] = out7 \
+b[13] = out7 \
+b[14] = out7 \
+b[15] = out7 \
+b[16] = out7 \
+b[17] = out7 \
+z[0] = z[0] \
+z[1] = z[1]  \
+z[2] = z[2]  \
+z[3] = z[3]  \
+z[4] = z[4]  \
+z[5] = z[5]  \
+z[6] = z[6]  \
+z[7] = z[7]  \
+z[8] = z[8]  \
+z[9] = z[9]  \
+z[10] = z[10]  \
+z[11] = z[11]  \
+z[12] = z[12]  \
+z[13] = z[13]  \
+z[14] = z[14]  \
+z[15] = z[15]  \
+z[16] = z[16]  \
+z[17] = z[17]  \
+z[18] = z[18]  \
+z[19] = z[19]  \
+z[20] = z[20]  \
+z[21] = z[21]  \
+z[22] = z[22]  \
+z[23] = z[23]  \
+z[24] = z[24]  \
+z[25] = z[25]  \
+z[26] = z[26]  \
+z[27] = z[27]  \
+z[28] = z[28]  \
+z[29] = z[29]  \
+z[30] = z[30]  \
+z[31] = z[31]  \
+z[32] = z[32]  \
+z[33] = z[33]  \
+z[34] = z[34]  \
+z[35] = z[35]  \
+z[36] = z[36]  \
+z[37] = d_in 
+
+.subckt sdff C=clk D=d_in Q=z[37] R=c_dffsre_Q_R
+.names reset c_dffsre_Q_R
+0 1
+
+#END MULT HERE
+
+
+.end
