@@ -647,6 +647,7 @@ public:
             pin_out.type(DATA);
             pin_out.name(out_pin_name);
             pin_out.direction(OUTPUT);
+            pin_out.bus_width(1);
             written_out_pins.insert(
                 std::pair<std::string, lib_pin>(out_pin_name, pin_out));
           } else {
@@ -659,16 +660,6 @@ public:
           pin_out.add_timing_arch(timing);
           // update pin_out
           written_out_pins[out_pin_name] = pin_out;
-
-          // debug info
-          std::cout << "STARS DEBUG:\tNo. <" << i++
-                    << "> clock to q:" << std::endl;
-          std::cout << "STARS DEBUG:\t\tPin <" << tcq_kv.first
-                    << "> Port Index <" << port_idex << ">" << std::endl;
-          std::cout << "STARS DEBUG:\t\tTiming <" << tcq_kv.second.first << ">"
-                    << std::endl;
-          std::cout << "STARS DEBUG:\t\tRelative pin <" << tcq_kv.second.second
-                    << ">" << std::endl;
         }
       }
 
@@ -713,15 +704,6 @@ public:
           timing.related_pin(related_pin);
           pin_in.add_timing_arch(timing);
           written_in_pins[in_pin_name] = pin_in;
-
-          std::cout << "STARS DEBUG:\tNo. <" << i++
-                    << "> setup timing:" << std::endl;
-          std::cout << "STARS DEBUG:\t\tPin <" << tsu_kv.first
-                    << "> Port Index <" << port_idex << ">" << std::endl;
-          std::cout << "STARS DEBUG:\t\tTiming <" << tsu_kv.second.first << ">"
-                    << std::endl;
-          std::cout << "STARS DEBUG:\t\tRelative pin <" << tsu_kv.second.second
-                    << ">" << std::endl;
         }
       }
 
@@ -766,15 +748,6 @@ public:
           timing.related_pin(related_pin);
           pin_in.add_timing_arch(timing);
           written_in_pins[in_pin_name] = pin_in;
-
-          std::cout << "STARS DEBUG:\tNo. <" << i++
-                    << "> hold timing:" << std::endl;
-          std::cout << "STARS DEBUG:\t\tPin <" << thld_kv.first
-                    << "> Port Index <" << port_idex << "> " << std::endl;
-          std::cout << "STARS DEBUG:\t\tTiming <" << thld_kv.second.first << ">"
-                    << std::endl;
-          std::cout << "STARS DEBUG:\t\tRelative pin <" << thld_kv.second.second
-                    << ">" << std::endl;
         }
       }
 
