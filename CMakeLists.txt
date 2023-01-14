@@ -22,9 +22,15 @@ set(CMAKE_PROJECT_VERSION ${VERSION_NUMBER})
 #
 set(OPENFPGA_WITH_YOSYS OFF CACHE BOOL "Disable building Yosys in OpenFPGA" FORCE)
 set(OPENFPGA_WITH_TEST OFF CACHE BOOL "Disable OpenFPGA tests" FORCE)
-set(OPENFPGA_WITH_VERSION ON CACHE BOOL "Disable OpenFPGA version check" FORCE)
+set(WITH_ABC OFF CACHE BOOL "Disable building ABC in Verilog-to-Routing" FORCE)
 set(OPENFPGA_WITH_SWIG OFF CACHE BOOL "Disable OpenFPGA swig" FORCE)
-set(WITH_ABC OFF CACHE BOOL "Enable building ABC in Verilog-to-Routing" FORCE)
+
+if (PRODUCTION_BUILD)
+  set(OPENFPGA_WITH_VERSION ON CACHE BOOL "Disable OpenFPGA version check" FORCE)
+else()
+  set(OPENFPGA_WITH_VERSION OFF CACHE BOOL "Disable OpenFPGA version check" FORCE)
+  set(OPENFPGA_IPO_BUILD OFF CACHE BOOL "Disable VTR/OpenFGPA IPO build - long linktime if on" FORCE)
+endif()
 
 if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
