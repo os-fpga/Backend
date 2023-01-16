@@ -604,13 +604,14 @@ namespace rapidcsv
           }
           else
           {
-            const std::string errStr = "requested column index " +
-              std::to_string(columnIdx - (mLabelParams.mRowNameIdx + 1)) + " >= " +
-              std::to_string(itRow->size() - (mLabelParams.mRowNameIdx + 1)) +
-              " (number of columns on row index " +
-              std::to_string(std::distance(mData.begin(), itRow) -
-                             (mLabelParams.mColumnNameIdx + 1)) + ")";
-            throw std::out_of_range(errStr);
+            // -- disabled exception for now (for pin_c only).
+            //const std::string errStr = "requested column index " +
+            //  std::to_string(columnIdx - (mLabelParams.mRowNameIdx + 1)) + " >= " +
+            //  std::to_string(itRow->size() - (mLabelParams.mRowNameIdx + 1)) +
+            //  " (number of columns on row index " +
+            //  std::to_string(std::distance(mData.begin(), itRow) -
+            //                 (mLabelParams.mColumnNameIdx + 1)) + ")";
+            //throw std::out_of_range(errStr);
           }
         }
       }

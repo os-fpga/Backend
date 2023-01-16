@@ -43,13 +43,45 @@ bool rapidCsvReader::read_csv(const string& fn, bool check) {
     }
   }
 
+  if (tr >= 3)
+    ls << "  num_rows= " << num_rows << "  start_position_= " << start_position_ << endl;
+
+  constexpr bool STRICT_FORMAT = false;
+
   bool has_gbox_name = false;
   vector<string> mode_data;
   for (uint i = 0; i < header_data.size(); i++) {
     const string& hdr_i = header_data[i];
     if (hdr_i.find("Mode_") != string::npos) {
-      mode_data = doc.GetColumn<string>(hdr_i);
-      assert(mode_data.size() == num_rows);
+      try {
+        mode_data = doc.GetColumn<string>(hdr_i);
+      }
+      catch (const std::out_of_range& e) {
+        if (STRICT_FORMAT) {
+          ls << "\nrapidCsvReader::read_csv() caught std::out_of_range"
+             << "  i= " << i << "  hdr_i= " << hdr_i << endl;
+          ls << "\t  what: " << e.what() << '\n' << endl;
+          return false;
+        } else {
+          continue;
+        }
+      }
+      catch (...) {
+        if (STRICT_FORMAT) {
+          ls << "\nrapidCsvReader::read_csv() caught excepttion"
+             << "  i= " << i << "  hdr_i= " << hdr_i << '\n' << endl;
+          return false;
+        } else {
+          continue;
+        }
+      }
+      assert(mode_data.size() <= num_rows);
+      if (mode_data.size() < num_rows) {
+        if (tr >= 4) {
+          ls << "!!! mode_data.size() < num_rows" << endl;
+        }
+        mode_data.resize(num_rows);
+      }
       modes_map_.emplace(hdr_i, mode_data);
       mode_names_.emplace_back(hdr_i);
     }
@@ -59,30 +91,27 @@ bool rapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   bump_pin_name_ = doc.GetColumn<string>("Bump/Pin Name");
-  assert(bump_pin_name_.size() == num_rows);
+  bump_pin_name_.resize(num_rows);
   if (has_gbox_name) {
     gbox_name_ = doc.GetColumn<string>("GBOX_NAME");
-    assert(gbox_name_.size() == num_rows);
+    gbox_name_.resize(num_rows);
   }
 
   io_tile_pin_ = doc.GetColumn<string>("IO_tile_pin");
-  assert(io_tile_pin_.size() == num_rows);
+  io_tile_pin_.resize(num_rows);
 
   vector<int> tmp = doc.GetColumn<int>("IO_tile_pin_x");
-  assert(tmp.size() == num_rows);
+  tmp.resize(num_rows);
   io_tile_pin_xyz_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].x_ = tmp[i];
 
   tmp = doc.GetColumn<int>("IO_tile_pin_y");
-  assert(tmp.size() == num_rows);
+  tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].y_ = tmp[i];
 
   tmp = doc.GetColumn<int>("IO_tile_pin_z");
-  assert(tmp.size() == num_rows);
+  tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].z_ = tmp[i];
-
-  assert(bump_pin_name_.size() == io_tile_pin_.size() &&
-         io_tile_pin_.size() == num_rows);
 
   // do a sanity check
   if (check) {
