@@ -871,19 +871,36 @@ public:
           // an SDF reader will treat the ports as multi-bit
           //
           // We also only put the last index in if the port has multiple bits
-          os << indent(depth + 3) << "(IOPATH ";
-          os << escape_sdf_identifier(arc.source_name());
-          if (find_port_size(arc.source_name()) > 1) {
-            os << "[" << arc.source_ipin() << "]";
+
+          // we need to blast it since all bus port has been blasted in print
+          // verilog else, OpenSTA issues warning on that
+          int src_port_size = find_port_size(arc.source_name());
+          for (int src_port_idex = 0; src_port_idex < src_port_size;
+               src_port_idex++) {
+            std::string source_name = arc.source_name();
+            if (src_port_size > 1) {
+              source_name += std::string("[") + std::to_string(src_port_idex) +
+                             std::string("]");
+            }
+            int snk_port_size = find_port_size(arc.sink_name());
+            for (int snk_port_idex = 0; snk_port_idex < snk_port_size;
+                 snk_port_idex++) {
+              std::string sink_name = arc.sink_name();
+              if (snk_port_size > 1) {
+                sink_name += std::string("[") + std::to_string(snk_port_idex) +
+                             std::string("]");
+              }
+              os << indent(depth + 3) << "(IOPATH ";
+              // os << escape_sdf_identifier(source_name);
+              os << source_name;
+              os << " ";
+              // os << escape_sdf_identifier(sink_name);
+              os << sink_name;
+              os << " ";
+              os << delay_triple.str();
+              os << ")\n";
+            }
           }
-          os << " ";
-          os << escape_sdf_identifier(arc.sink_name());
-          if (find_port_size(arc.sink_name()) > 1) {
-            os << "[" << arc.sink_ipin() << "]";
-          }
-          os << " ";
-          os << delay_triple.str();
-          os << ")\n";
         }
 
         // Clock-to-Q delays
@@ -894,44 +911,93 @@ public:
           delay_triple << "(" << clock_to_q_ps << ":" << clock_to_q_ps << ":"
                        << clock_to_q_ps << ")";
 
-          os << indent(depth + 3) << "(IOPATH (posedge "
-             << escape_sdf_identifier(kv.second.second) << ") "
-             << escape_sdf_identifier(kv.first) << " " << delay_triple.str()
-             << " " << delay_triple.str() << ")\n";
+          int src_port_size = find_port_size(kv.second.second);
+          for (int src_port_idex = 0; src_port_idex < src_port_size;
+               src_port_idex++) {
+            std::string source_name = kv.second.second;
+            if (src_port_size > 1) {
+              source_name += std::string("[") + std::to_string(src_port_idex) +
+                             std::string("]");
+            }
+            int snk_port_size = find_port_size(kv.first);
+            for (int snk_port_idex = 0; snk_port_idex < snk_port_size;
+                 snk_port_idex++) {
+              std::string sink_name = kv.first;
+              if (snk_port_size > 1) {
+                sink_name += std::string("[") + std::to_string(snk_port_idex) +
+                             std::string("]");
+              }
+              os << indent(depth + 3) << "(IOPATH (posedge " << source_name
+                 << ") " << sink_name << " " << delay_triple.str() << " "
+                 << delay_triple.str() << ")\n";
+            }
+          }
         }
         os << indent(depth + 2) << ")\n"; // ABSOLUTE
-      }
-      os << indent(depth + 1) << ")\n"; // DELAY
+        os << indent(depth + 1) << ")\n"; // DELAY
 
-      if (!ports_tsu_.empty() || !ports_thld_.empty()) {
-        // Setup checks
-        os << indent(depth + 1) << "(TIMINGCHECK\n";
-        for (auto kv : ports_tsu_) {
-          double setup_ps = get_delay_ps(kv.second.first);
+        if (!ports_tsu_.empty() || !ports_thld_.empty()) {
+          // Setup checks
+          os << indent(depth + 1) << "(TIMINGCHECK\n";
+          for (auto kv : ports_tsu_) {
+            double setup_ps = get_delay_ps(kv.second.first);
+            std::stringstream delay_triple;
+            delay_triple << "(" << setup_ps << ":" << setup_ps << ":"
+                         << setup_ps << ")";
+            int data_port_size = find_port_size(kv.first);
+            for (int data_port_idex = 0; data_port_idex < data_port_size;
+                 data_port_idex++) {
+              std::string data_name = kv.first;
+              if (data_port_size > 1) {
+                data_name += std::string("[") + std::to_string(data_port_idex) +
+                             std::string("]");
+              }
+              int clk_port_size = find_port_size(kv.second.second);
+              for (int clk_port_idex = 0; clk_port_idex < clk_port_size;
+                   clk_port_idex++) {
+                std::string clk_name = kv.second.second;
+                if (clk_port_size > 1) {
+                  clk_name += std::string("[") + std::to_string(clk_port_idex) +
+                              std::string("]");
+                }
+                os << indent(depth + 2) << "(SETUP " << data_name
+                   << " (posedge  " << clk_name << ") " << delay_triple.str()
+                   << ")\n";
+              }
+            }
+          }
+          for (auto kv : ports_thld_) {
+            double hold_ps = get_delay_ps(kv.second.first);
 
-          std::stringstream delay_triple;
-          delay_triple << "(" << setup_ps << ":" << setup_ps << ":" << setup_ps
-                       << ")";
+            std::stringstream delay_triple;
+            delay_triple << "(" << hold_ps << ":" << hold_ps << ":" << hold_ps
+                         << ")";
 
-          os << indent(depth + 2) << "(SETUP "
-             << escape_sdf_identifier(kv.first) << " (posedge  "
-             << escape_sdf_identifier(kv.second.second) << ") "
-             << delay_triple.str() << ")\n";
+            int data_port_size = find_port_size(kv.first);
+            for (int data_port_idex = 0; data_port_idex < data_port_size;
+                 data_port_idex++) {
+              std::string data_name = kv.first;
+              if (data_port_size > 1) {
+                data_name += std::string("[") + std::to_string(data_port_idex) +
+                             std::string("]");
+              }
+              int clk_port_size = find_port_size(kv.second.second);
+              for (int clk_port_idex = 0; clk_port_idex < clk_port_size;
+                   clk_port_idex++) {
+                std::string clk_name = kv.second.second;
+                if (clk_port_size > 1) {
+                  clk_name += std::string("[") + std::to_string(clk_port_idex) +
+                              std::string("]");
+                }
+                os << indent(depth + 2) << "(HOLD " << data_name << " (posedge "
+                   << clk_name << ") " << delay_triple.str() << ")\n";
+              }
+            }
+          }
+          os << indent(depth + 1) << ")\n"; // TIMINGCHECK
         }
-        for (auto kv : ports_thld_) {
-          double hold_ps = get_delay_ps(kv.second.first);
-
-          std::stringstream delay_triple;
-          delay_triple << "(" << hold_ps << ":" << hold_ps << ":" << hold_ps
-                       << ")";
-
-          os << indent(depth + 2) << "(HOLD " << escape_sdf_identifier(kv.first)
-             << " (posedge " << escape_sdf_identifier(kv.second.second) << ") "
-             << delay_triple.str() << ")\n";
-        }
-        os << indent(depth + 1) << ")\n"; // TIMINGCHECK
+        os << indent(depth) << ")\n"; // CELL
       }
-      os << indent(depth) << ")\n"; // CELL
     }
   }
 
