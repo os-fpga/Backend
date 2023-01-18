@@ -39,4 +39,4 @@ apt-get update && apt-get install -y \
     valgrind \
     wget \
     zip \
-    g++-9
+    g++-11

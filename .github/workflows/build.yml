@@ -17,9 +17,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: "Build Compatibility: GCC-9 (Ubuntu 18.04)"
-            cc: gcc-9
-            cxx: g++-9
+          - name: "Build Compatibility: GCC-11 (Ubuntu 18.04)"
+            cc: gcc-11
+            cxx: g++-11
     # Define the steps to run the build job
     env:
       CC: ${{ matrix.config.cc }}
@@ -62,9 +62,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: "Build Compatibility: GCC-9 (CentOs)"
-            cc: gcc-9
-            cxx: g++-9
+          - name: "Build Compatibility: GCC-11 (CentOs)"
+            cc: gcc-11
+            cxx: g++-11
     # Define the steps to run the build job
     env:
       CC: ${{ matrix.config.cc }}
@@ -87,8 +87,8 @@ jobs:
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
           yum install -y centos-release-scl
-          yum install -y devtoolset-9
-          yum install -y devtoolset-9-toolchain
+          yum install -y devtoolset-11
+          yum install -y devtoolset-11-toolchain
           yum remove -y git*
           yum install -y https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
           yum install -y git
@@ -103,15 +103,15 @@ jobs:
       - name: Show shell configuration
         run: |
           env
-          source /opt/rh/devtoolset-9/enable
+          source /opt/rh/devtoolset-11/enable
           which gcc 
           which g++ 
 
       - name: Configure shell
         run: |
-          source /opt/rh/devtoolset-9/enable
-          echo 'CC=/opt/rh/devtoolset-9/root/usr/bin/gcc' >> $GITHUB_ENV
-          echo 'CXX=/opt/rh/devtoolset-9/root/usr/bin/g++' >> $GITHUB_ENV
+          source /opt/rh/devtoolset-11/enable
+          echo 'CC=/opt/rh/devtoolset-11/root/usr/bin/gcc' >> $GITHUB_ENV
+          echo 'CXX=/opt/rh/devtoolset-11/root/usr/bin/g++' >> $GITHUB_ENV
           echo 'PATH=/usr/local/Qt-5.15.0/bin:/usr/lib/ccache:'"$PATH" >> $GITHUB_ENV
           echo 'PREFIX=/tmp/raptor_gui-install' >> $GITHUB_ENV
           echo "$PREFIX" >> $GITHUB_PATH
