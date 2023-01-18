@@ -149,6 +149,25 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
         opts.post_synth_netlist_unconn_output_handling ==
             e_post_synth_netlist_unconn_handling::UNCONNECTED) {
       // Empty connection
+      for (int ipin = (int)nets.size() - 1; ipin >= 0;
+           --ipin) { // Reverse order to match endianess
+        // Port name
+        os << indent(depth) << "." << port_name << "[" << ipin << "]"
+           << "(";
+        if (type == PortType::INPUT || type == PortType::CLOCK) {
+          os << unconn_inp_name();
+        } else {
+          VTR_ASSERT(type == PortType::OUTPUT);
+          // When concatenating output connection there cannot
+          // be an empty placeholder so we have to create a
+          // dummy net.
+          os << create_unconn_net(unconn_count);
+        }
+        os << " )";
+        if (ipin != 0) {
+          os << ",\n";
+        }
+      }
     } else {
       // Individual bits
       for (int ipin = (int)nets.size() - 1; ipin >= 0;
