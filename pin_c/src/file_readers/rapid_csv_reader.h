@@ -14,22 +14,21 @@ using std::vector;
 
 class pin_location;
 
-class rapidCsvReader {
-  std::map<string, vector<string>> modes_map_;
-  vector<string> mode_names_;
-
-  // vectors are indexed by csv row, size() == #rows
-
-  vector<string> bump_pin_name_;  // "Bump/Pin Name"
-  vector<string> gbox_name_;      // "GBOX_NAME"
-  vector<string> io_tile_pin_;    // "IO_tile_pin"
-
-  vector<XYZ> io_tile_pin_xyz_;  // "IO_tile_pin_x", "_y", "_z"
-
-  int start_position_ = 0;  // "GBX GPIO" group start position in pin table row
-
+class RapidCsvReader {
  public:
-  rapidCsvReader() = default;
+
+  struct BCD {
+    // columns B, C, D of the table
+    // --- 1-B  Bump/Pin Name
+    // --- 2-C  Ball Name
+    // --- 3-D  Ball ID
+    string bumpB_, ballNameC_, ball_ID_;
+    int row_ = 0;
+
+    BCD() noexcept = default;
+  };
+
+  RapidCsvReader() = default;
 
   // file i/o
   bool read_csv(const std::string& f, bool check);
@@ -62,7 +61,31 @@ class rapidCsvReader {
     return io_tile_pin_xyz_[i].z_;
   }
 
+ private:
+  std::map<string, vector<string>> modes_map_;
+  vector<string> mode_names_;
+
+  // vectors are indexed by csv row, size() == #rows
+
+  vector<string> bump_pin_name_;  // "Bump/Pin Name" - column B
+
+  vector<BCD> bcd_; // "Bump/Pin Name", "Ball Name", "Ball ID" - columns B, C, D
+
+  vector<string> gbox_name_;      // "GBOX_NAME"
+
+  vector<string> io_tile_pin_;    // "IO_tile_pin"
+
+  vector<XYZ> io_tile_pin_xyz_;  // "IO_tile_pin_x", "_y", "_z"
+
+  int start_position_ = 0;  // "GBX GPIO" group start position in pin table row
+
   friend class pin_location;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& p) {
+  os << "(bcd  " << p.bumpB_ << "  " << p.ballNameC_
+     << "  " << p.ball_ID_ << "  row:" << p.row_ << ')';
+  return os;
+}
 
 }  // namespace pinc

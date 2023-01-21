@@ -16,7 +16,7 @@
 
 namespace pinc {
 
-class rapidCsvReader;
+class RapidCsvReader;
 
 using std::string;
 using std::vector;
@@ -132,13 +132,13 @@ class pin_location {
   bool reader_and_writer();
 
   bool generate_csv_file_for_os_flow();
-  bool read_csv_file(rapidCsvReader&);
+  bool read_csv_file(RapidCsvReader&);
   bool read_user_design();
   bool read_user_pinloc_constrain_file();
 
-  bool create_place_file(rapidCsvReader&);
+  bool create_place_file(RapidCsvReader&);
 
-  bool create_temp_constrain_file(rapidCsvReader& rs_csv_rd);
+  bool create_temp_pcf_file(RapidCsvReader& rs_csv_rd);
 
   static void shuffle_candidates(vector<int>& v);
 
@@ -146,11 +146,11 @@ class pin_location {
   // &constrained_device_pins,
   //                                   vector<int>
   //                                   &left_available_device_pin_idx,
-  //                                   rapidCsvReader &rs_csv_reader);
+  //                                   RapidCsvReader &rs_csv_reader);
 
   bool convert_pcf_file_for_os_flow(string pcf_file_name);
 
-  bool get_available_bump_pin(rapidCsvReader& rs_csv_rd,
+  bool get_available_bump_pin(RapidCsvReader& rs_csv_rd,
                               std::pair<string, string>& bump_pin_and_mode,
                               PortDirection port_direction);
 
