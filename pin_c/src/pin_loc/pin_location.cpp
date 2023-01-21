@@ -86,7 +86,10 @@ pin_location::~pin_location() {
   }
 
   if (temp_pcf_file_name_.size()) {
-    if (remove(temp_pcf_file_name_.c_str())) {
+    const char* fn = temp_pcf_file_name_.c_str();
+    if (ltrace() >= 4) {
+      lprintf("keeping temp_pcf_file for debugging: %s\n", fn);
+    } else if (remove(fn)) {
       CERROR << error_messages[CLOSE_FILE_FAILURE] << endl;
     }
   }
@@ -200,7 +203,7 @@ bool pin_location::reader_and_writer() {
   }
 
   // --3. read info (pin-table) from csv file in new RS format
-  rapidCsvReader rs_csv_rd;
+  RapidCsvReader rs_csv_rd;
   if (!read_csv_file(rs_csv_rd)) {
     CERROR << error_messages[PIN_MAP_CSV_PARSE_ERROR] << endl;
     return false;
@@ -208,7 +211,7 @@ bool pin_location::reader_and_writer() {
 
   // usage 2: if no user constraint is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
-    if (!create_temp_constrain_file(rs_csv_rd)) {
+    if (!create_temp_pcf_file(rs_csv_rd)) {
       CERROR << error_messages[FAIL_TO_CREATE_TEMP_PCF] << endl;
       return false;
     }
@@ -320,10 +323,9 @@ bool pin_location::convert_pcf_file_for_os_flow(string pcf_file_name) {
 
 bool pin_location::read_user_design() {
   uint16_t tr = ltrace();
-  if (tr >= 2)
-    lprintf(
-        "pin_location::read_user_design() __ getting port info from "
-        "blif/json\n");
+  if (tr >= 2) {
+    lputs("\nread_user_design() __ getting port info .json");
+  }
 
   string port_info_fn = cl_.get_param("--port_info");
   // filesystem::path path;
@@ -411,7 +413,7 @@ static bool vec_contains(const vector<string>& V, const string& s) noexcept {
   return false;
 }
 
-bool pin_location::create_place_file(rapidCsvReader& rs_csv_reader) {
+bool pin_location::create_place_file(RapidCsvReader& rs_csv_reader) {
   string out_fn = cl_.get_param("--output");
   uint16_t tr = ltrace();
   auto& ls = lout();
@@ -594,9 +596,9 @@ bool pin_location::create_place_file(rapidCsvReader& rs_csv_reader) {
 #endif  // 0
 }
 
-bool pin_location::read_csv_file(rapidCsvReader& rs_csv_rd) {
+bool pin_location::read_csv_file(RapidCsvReader& rs_csv_rd) {
   uint16_t tr = ltrace();
-  if (tr >= 2) lputs("pin_location::read_csv_file() __ Reading new csv");
+  if (tr >= 2) lputs("\nread_csv_file() __ Reading new csv");
 
   string csv_name;
   if (temp_csv_file_name_.size()) {
@@ -633,17 +635,18 @@ bool pin_location::read_csv_file(rapidCsvReader& rs_csv_rd) {
 }
 
 bool pin_location::get_available_bump_pin(
-    rapidCsvReader& rs_csv_rd, std::pair<string, string>& bump_pin_and_mode,
+    RapidCsvReader& rs_csv_rd, std::pair<string, string>& bump_pin_and_mode,
     PortDirection port_direction) {
-  string bump_pin_name;
+  string bump_pin_name, mode_name;
+  vector<string> mode_data;
 
-  for (uint i = rs_csv_rd.start_position_; i < rs_csv_rd.bump_pin_name_.size();
-       i++) {
+  uint sz = rs_csv_rd.bump_pin_name_.size();
+  for (uint i = rs_csv_rd.start_position_; i < sz; i++) {
     bump_pin_name = rs_csv_rd.bump_pin_name_[i];
     if (used_bump_pins_.find(bump_pin_name) == used_bump_pins_.end()) {
       for (uint j = 0; j < rs_csv_rd.mode_names_.size(); j++) {
-        string mode_name = rs_csv_rd.mode_names_[j];
-        vector<string> mode_data = rs_csv_rd.modes_map_[mode_name];
+        mode_name = rs_csv_rd.mode_names_[j];
+        mode_data = rs_csv_rd.modes_map_[mode_name];
         if (port_direction == INPUT) {
           if (is_input_mode(mode_name)) {
             for (uint k = rs_csv_rd.start_position_; k < mode_data.size();
@@ -682,15 +685,14 @@ bool pin_location::get_available_bump_pin(
   return false;
 }
 
-bool pin_location::create_temp_constrain_file(rapidCsvReader& rs_csv_rd) {
-  // create a temp constraint file and internally specified that to down-flow
-  // functions
+// create a temporary pcf file and internally pass it to params
+bool pin_location::create_temp_pcf_file(RapidCsvReader& rs_csv_rd) {
   string key = "--pcf";
-  temp_pcf_file_name_ = ".temp_pcf";
+  temp_pcf_file_name_ = std::to_string(getpid()) + ".temp_pcf.pcf";
   cl_.set_param_value(key, temp_pcf_file_name_);
 
   if (ltrace() >= 2)
-    lprintf("create_temp_constrain_file() : %s\n", temp_pcf_file_name_.c_str());
+    lprintf("\ncreate_temp_pcf_file() : %s\n", temp_pcf_file_name_.c_str());
 
   vector<int> input_idx;
   vector<int> output_idx;
@@ -782,7 +784,7 @@ void pin_location::shuffle_candidates(vector<int>& v) {
 /*
 void pin_location::collect_left_available_device_pins(
     set<string> &constrained_device_pins,
-    vector<int> &left_available_device_pin_idx, rapidCsvReader &rs_csv_reader) {
+    vector<int> &left_available_device_pin_idx, RapidCsvReader &rs_csv_reader) {
   for (uint i = 0; i < rs_csv_reader.bump_pin_name.size(); i++) {
     if (rs_csv_reader.usable[i] == "Y" &&
         (constrained_device_pins.find(rs_csv_reader.bump_pin_name[i]) ==

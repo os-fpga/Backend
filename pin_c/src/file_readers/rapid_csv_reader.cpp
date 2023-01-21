@@ -9,11 +9,34 @@ namespace pinc {
 
 using namespace std;
 
-bool rapidCsvReader::read_csv(const string& fn, bool check) {
+// returns spreadsheet column label ("A", "B", "BC", etc) for column index 'i'
+static inline string label_column(int i) noexcept
+{
+    assert(i >= 0 && i < 1000);
+    string label;
+
+    if (i < 26) {
+      label.push_back('A' + i);
+      return label;
+    }
+
+    int j = i - 26;
+    if (j >= 26) {
+      j -= 26;
+      label.push_back('B');
+    } else {
+      label.push_back('A');
+    }
+    label.push_back('A' + j);
+
+    return label;
+}
+
+bool RapidCsvReader::read_csv(const string& fn, bool check) {
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2)
-    ls << "rapidCsvReader::read_csv( " << fn << " )  Reading data ..." << endl;
+    ls << "RapidCsvReader::read_csv( " << fn << " )  Reading data ..." << endl;
 
   rapidcsv::Document doc(
       fn,
@@ -30,6 +53,14 @@ bool rapidCsvReader::read_csv(const string& fn, bool check) {
     assert(header_data.size() > 2);
     ls << "  header_data.size()= " << header_data.size() << "  ["
        << header_data.front() << " ... " << header_data.back() << ']' << endl;
+    if (tr >= 4) {
+      for (uint i = 0; i < header_data.size(); i++) {
+        string col_label = label_column(i);
+        const string& hdr_i = header_data[i];
+        ls << "--- " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
+      }
+      ls << endl;
+    }
   }
 
   vector<string> group_name = doc.GetColumn<string>("Group");
@@ -43,64 +74,137 @@ bool rapidCsvReader::read_csv(const string& fn, bool check) {
     }
   }
 
-  if (tr >= 3)
-    ls << "  num_rows= " << num_rows << "  start_position_= " << start_position_ << endl;
+  if (tr >= 3) {
+    ls << "  num_rows= " << num_rows << "  num_cols= " << header_data.size()
+       << "  start_position_= " << start_position_ << '\n' << endl;
+  }
 
   constexpr bool STRICT_FORMAT = false;
 
   bool has_gbox_name = false;
   vector<string> mode_data;
+  mode_names_.reserve(num_rows + 1);
   for (uint i = 0; i < header_data.size(); i++) {
+    string col_label = label_column(i);
     const string& hdr_i = header_data[i];
-    if (hdr_i.find("Mode_") != string::npos) {
-      try {
-        mode_data = doc.GetColumn<string>(hdr_i);
-      }
-      catch (const std::out_of_range& e) {
-        if (STRICT_FORMAT) {
-          ls << "\nrapidCsvReader::read_csv() caught std::out_of_range"
-             << "  i= " << i << "  hdr_i= " << hdr_i << endl;
-          ls << "\t  what: " << e.what() << '\n' << endl;
-          return false;
-        } else {
-          continue;
-        }
-      }
-      catch (...) {
-        if (STRICT_FORMAT) {
-          ls << "\nrapidCsvReader::read_csv() caught excepttion"
-             << "  i= " << i << "  hdr_i= " << hdr_i << '\n' << endl;
-          return false;
-        } else {
-          continue;
-        }
-      }
-      assert(mode_data.size() <= num_rows);
-      if (mode_data.size() < num_rows) {
-        if (tr >= 4) {
-          ls << "!!! mode_data.size() < num_rows" << endl;
-        }
-        mode_data.resize(num_rows);
-      }
-      modes_map_.emplace(hdr_i, mode_data);
-      mode_names_.emplace_back(hdr_i);
+
+    if (!has_gbox_name && hdr_i == "GBOX_NAME")
+      has_gbox_name = true;
+
+    if (hdr_i.find("Mode_") == string::npos)
+      continue;
+
+    if (tr >= 4)
+      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
+
+    try {
+      mode_data = doc.GetColumn<string>(hdr_i);
     }
-    if (!has_gbox_name) {
-      if (hdr_i == "GBOX_NAME") has_gbox_name = true;
+    catch (const std::out_of_range& e) {
+      if (STRICT_FORMAT) {
+        ls << "\nRapidCsvReader::read_csv() caught std::out_of_range"
+           << "  i= " << i << "  hdr_i= " << hdr_i << endl;
+        ls << "\t  what: " << e.what() << '\n' << endl;
+        return false;
+      } else {
+        continue;
+      }
+    }
+    catch (...) {
+      if (STRICT_FORMAT) {
+        ls << "\nRapidCsvReader::read_csv() caught excepttion"
+           << "  i= " << i << "  hdr_i= " << hdr_i << '\n' << endl;
+        return false;
+      } else {
+        continue;
+      }
+    }
+    assert(mode_data.size() <= num_rows);
+    if (mode_data.size() < num_rows) {
+      if (tr >= 4)
+        ls << "!!! mode_data.size() < num_rows" << endl;
+      mode_data.resize(num_rows);
+    }
+    modes_map_.emplace(hdr_i, mode_data);
+    mode_names_.emplace_back(hdr_i);
+  }
+
+  if (tr >= 2) {
+    if (tr >= 4) ls << endl;
+    ls << "  mode_names_.size()= " << mode_names_.size() << endl;
+    if (tr >= 3) {
+      logVec(mode_names_, "  mode_names_ ");
+      ls << endl;
     }
   }
 
   bump_pin_name_ = doc.GetColumn<string>("Bump/Pin Name");
+  assert(bump_pin_name_.size() > 1);
+  assert(bump_pin_name_.size() <= num_rows);
   bump_pin_name_.resize(num_rows);
+
+  if (tr >= 4) {
+    ls << endl;
+    if (num_rows > 3000) {
+      const string* A = bump_pin_name_.data();
+      logArray(A, 80u, "  bump_pin_name_ ");
+      ls << " ..." << endl;
+      logArray(A + 202u, 100u, "    ");
+      ls << " ..." << endl;
+      logArray(A + 303u, 100u, "    ");
+      ls << " ..." << endl;
+      logArray(A + 707u, 100u, "    ");
+      ls << " ... @ 909" << endl;
+      logArray(A + 909u, 100u, "    ");
+      ls << " ... @ 1200" << endl;
+      logArray(A + 1200u, 100u, "    ");
+    } else {
+      logVec(bump_pin_name_, "  bump_pin_name_ ");
+    }
+    ls << "num_rows= " << num_rows << '\n' << endl;
+  }
+
+  vector<int> tmp;
+  bcd_.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    bcd_[i].bumpB_ = bump_pin_name_[i];
+    bcd_[i].row_ = i;
+  }
+
+  vector<string> S_tmp = doc.GetColumn<string>("Ball Name");
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++)
+    bcd_[i].ballNameC_ = S_tmp[i];
+
+  S_tmp = doc.GetColumn<string>("Ball ID");
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++)
+    bcd_[i].ball_ID_ = S_tmp[i];
+
+  if (tr >= 5) {
+    ls << "+++ BCD dump::: Bump/Pin Name , Ball Name , Ball ID :::" << endl;
+    for (uint i = 0; i < num_rows; i++) {
+      const BCD& bcd = bcd_[i];
+      ls << "\t " << bcd << endl;
+    }
+    ls << "--- BCD dump^^^" << '\n' << endl;
+  }
+
   if (has_gbox_name) {
     gbox_name_ = doc.GetColumn<string>("GBOX_NAME");
+    assert(gbox_name_.size() > 1);
+    assert(gbox_name_.size() <= num_rows);
     gbox_name_.resize(num_rows);
   }
 
   io_tile_pin_ = doc.GetColumn<string>("IO_tile_pin");
   io_tile_pin_.resize(num_rows);
 
-  vector<int> tmp = doc.GetColumn<int>("IO_tile_pin_x");
+  tmp = doc.GetColumn<int>("IO_tile_pin_x");
   tmp.resize(num_rows);
   io_tile_pin_xyz_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].x_ = tmp[i];
@@ -117,7 +221,7 @@ bool rapidCsvReader::read_csv(const string& fn, bool check) {
   if (check) {
     bool check_ok = sanity_check(doc);
     if (!check_ok) {
-      cout << "\nWARNING: !check_ok" << endl;
+      ls << "\nWARNING: !check_ok" << endl;
       //      return false;
     }
   }
@@ -128,7 +232,7 @@ bool rapidCsvReader::read_csv(const string& fn, bool check) {
   return true;
 }
 
-bool rapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
+bool RapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
   // 1. check IO bump dangling (unused package pin)
   vector<string> group_name = doc.GetColumn<string>("Group");
   uint num_rows = group_name.size();
@@ -174,14 +278,14 @@ bool rapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
 }
 
 // file i/o
-void rapidCsvReader::write_csv(string file_name) const {
+void RapidCsvReader::write_csv(string file_name) const {
   // to do
   cout << "Not Implement Yet - Write content of interest to a csv file <"
        << file_name << ">" << endl;
   return;
 }
 
-void rapidCsvReader::print_csv() const {
+void RapidCsvReader::print_csv() const {
   cout << "Bump/Pin "
           "Name\tIO_tile_pin\tIO_tile_pin_x\tIO_tile_pin_y\tIO_tile_pin_z"
        << endl;
@@ -199,7 +303,7 @@ void rapidCsvReader::print_csv() const {
   cout << "Total Records: " << bump_pin_name_.size() << endl;
 }
 
-XYZ rapidCsvReader::get_pin_xyz_by_bump_name(
+XYZ RapidCsvReader::get_pin_xyz_by_bump_name(
     const string& mode, const string& bump_name,
     const string& gbox_pin_name) const {
   XYZ result;
