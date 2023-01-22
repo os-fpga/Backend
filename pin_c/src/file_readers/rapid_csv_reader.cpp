@@ -138,16 +138,17 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
   }
 
-  bump_pin_name_ = doc.GetColumn<string>("Bump/Pin Name");
-  assert(bump_pin_name_.size() > 1);
-  assert(bump_pin_name_.size() <= num_rows);
-  bump_pin_name_.resize(num_rows);
+  vector<string> S_tmp = doc.GetColumn<string>("Bump/Pin Name");
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  const vector<string>& bump_pin_name = S_tmp;
 
   if (tr >= 4) {
     ls << endl;
     if (num_rows > 3000) {
-      const string* A = bump_pin_name_.data();
-      logArray(A, 80u, "  bump_pin_name_ ");
+      const string* A = bump_pin_name.data();
+      logArray(A, 80u, "  bump_pin_name ");
       ls << " ..." << endl;
       logArray(A + 202u, 100u, "    ");
       ls << " ..." << endl;
@@ -159,19 +160,18 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       ls << " ... @ 1200" << endl;
       logArray(A + 1200u, 100u, "    ");
     } else {
-      logVec(bump_pin_name_, "  bump_pin_name_ ");
+      logVec(bump_pin_name, "  bump_pin_name ");
     }
     ls << "num_rows= " << num_rows << '\n' << endl;
   }
 
-  vector<int> tmp;
   bcd_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
-    bcd_[i].bumpB_ = bump_pin_name_[i];
+    bcd_[i].bumpB_ = bump_pin_name[i];
     bcd_[i].row_ = i;
   }
 
-  vector<string> S_tmp = doc.GetColumn<string>("Ball Name");
+  S_tmp = doc.GetColumn<string>("Ball Name");
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
@@ -204,7 +204,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   io_tile_pin_ = doc.GetColumn<string>("IO_tile_pin");
   io_tile_pin_.resize(num_rows);
 
-  tmp = doc.GetColumn<int>("IO_tile_pin_x");
+  vector<int> tmp = doc.GetColumn<int>("IO_tile_pin_x");
   tmp.resize(num_rows);
   io_tile_pin_xyz_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].x_ = tmp[i];
@@ -238,12 +238,13 @@ bool RapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
   uint num_rows = group_name.size();
   assert(num_rows);
   std::set<string> connected_bump_pins;
+  vector<string> connect_info;
   for (uint i = 0; i < num_rows; i++) {
     if (group_name[i] == "GBOX GPIO") {
-      vector<string> connect_info = doc.GetRow<string>(i);
+      connect_info = doc.GetRow<string>(i);
       for (uint j = 0; j < connect_info.size(); j++) {
         if (connect_info[j] == "Y") {
-          connected_bump_pins.insert(bump_pin_name_[i]);
+          connected_bump_pins.insert(bumpPinName(i));
           break;
         }
       }
@@ -255,12 +256,12 @@ bool RapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
   std::set<string> reported_unconnected_bump_pins;
   for (uint i = 0; i < group_name.size(); i++) {
     if (group_name[i] == "GBOX GPIO") {
-      if (connected_bump_pins.find(bump_pin_name_[i]) ==
+      if (connected_bump_pins.find(bumpPinName(i)) ==
               connected_bump_pins.end() &&
-          reported_unconnected_bump_pins.find(bump_pin_name_[i]) ==
+          reported_unconnected_bump_pins.find(bumpPinName(i)) ==
               reported_unconnected_bump_pins.end()) {
-        reported_unconnected_bump_pins.insert(bump_pin_name_[i]);
-        cout << "[Pin Table Check Warning] Bump pin <" << bump_pin_name_[i]
+        reported_unconnected_bump_pins.insert(bumpPinName(i));
+        cout << "[Pin Table Check Warning] Bump pin <" << bumpPinName(i)
              << "> is not connected to FABRIC through any bridge for user "
                 "design data IO."
              << endl;
@@ -292,15 +293,16 @@ void RapidCsvReader::print_csv() const {
   cout << "--------------------------------------------------------------------"
           "---------"
        << endl;
-  for (uint i = 0; i < bump_pin_name_.size(); i++) {
+  uint num_rows = numRows();
+  for (uint i = 0; i < num_rows; i++) {
     const XYZ& p = io_tile_pin_xyz_[i];
-    cout << i << "\t" << bump_pin_name_[i] << "\t" << io_tile_pin_[i] << "\t"
+    cout << i << "\t" << bumpPinName(i) << "\t" << io_tile_pin_[i] << "\t"
          << p.x_ << "\t" << p.y_ << "\t" << p.z_ << endl;
   }
   cout << "--------------------------------------------------------------------"
           "---------"
        << endl;
-  cout << "Total Records: " << bump_pin_name_.size() << endl;
+  cout << "Total Records: " << num_rows << endl;
 }
 
 XYZ RapidCsvReader::get_pin_xyz_by_bump_name(
@@ -312,13 +314,13 @@ XYZ RapidCsvReader::get_pin_xyz_by_bump_name(
 
   const vector<string>& mode_vector = fitr->second;
 
-  uint num_rows = bump_pin_name_.size();
+  uint num_rows = numRows();
   assert(num_rows > 1);
   assert(mode_vector.size() == num_rows);
   assert(io_tile_pin_xyz_.size() == num_rows);
 
   for (uint i = 0; i < num_rows; i++) {
-    if ((bump_pin_name_[i] == bump_name) && (mode_vector[i] == "Y")) {
+    if ((bumpPinName(i) == bump_name) && (mode_vector[i] == "Y")) {
       if (gbox_pin_name.length() == 0 ||
           ((gbox_pin_name.length() > 0) && (gbox_name_[i] == gbox_pin_name))) {
         // result.set3(io_tile_pin_x_[i], io_tile_pin_y_[i], io_tile_pin_z_[i]);

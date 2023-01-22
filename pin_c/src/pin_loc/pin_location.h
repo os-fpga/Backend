@@ -65,17 +65,8 @@ class pin_location {
 
   enum { ASSIGN_IN_RANDOM = 0, ASSIGN_IN_DEFINE_ORDER } pin_assign_method_;
 
-#define CERROR std::cerr << "[Error] "
-
   // port direction
   enum PortDirection { INPUT = 0, OUTPUT };
-
-// use fix to detemined A2F and F2A GBX mode
-#define INPUT_MODE_FIX "_RX"
-#define OUTPUT_MODE_FIX "_TX"
-
-// for mpw1  (no gearbox, a Mode_GPIO is created)
-#define GPIO_MODE_FIX "_GPIO"
 
   cmd_line cl_;
 
@@ -150,7 +141,7 @@ class pin_location {
 
   bool convert_pcf_file_for_os_flow(string pcf_file_name);
 
-  bool get_available_bump_pin(RapidCsvReader& rs_csv_rd,
+  bool get_available_bump_pin(const RapidCsvReader& rs_csv_rd,
                               std::pair<string, string>& bump_pin_and_mode,
                               PortDirection port_direction);
 
