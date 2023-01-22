@@ -41,6 +41,15 @@ namespace pinc {
 
 using namespace std;
 
+#define CERROR std::cerr << "[Error] "
+
+// use fix to detemined A2F and F2A GBX mode
+static constexpr const char* INPUT_MODE_FIX  = "_RX";
+static constexpr const char* OUTPUT_MODE_FIX = "_TX";
+
+// for mpw1  (no gearbox, a Mode_GPIO is created)
+static constexpr const char* GPIO_MODE_FIX   = "_GPIO";
+
 static bool fs_path_exists(const string& path) noexcept {
   if (path.length() < 1) return false;
 
@@ -383,9 +392,7 @@ bool pin_location::read_user_design() {
 bool pin_location::read_user_pinloc_constrain_file() {
   uint16_t tr = ltrace();
   if (tr >= 2)
-    lprintf(
-        "pin_location::read_user_pinloc_constrain_file() __ Reading user place "
-        "constrain\n");
+    lputs("\npin_location::read_user_pinloc_constrain_file()");
 
   string pcf_file_name;
   if (temp_os_pcf_file_name_.size()) {
@@ -635,54 +642,73 @@ bool pin_location::read_csv_file(RapidCsvReader& rs_csv_rd) {
 }
 
 bool pin_location::get_available_bump_pin(
-    RapidCsvReader& rs_csv_rd, std::pair<string, string>& bump_pin_and_mode,
-    PortDirection port_direction) {
+    const RapidCsvReader& rs_csv_rd,
+    std::pair<string, string>& bump_pin_and_mode,
+    PortDirection port_direction)
+{
   string bump_pin_name, mode_name;
   vector<string> mode_data;
 
-  uint sz = rs_csv_rd.bump_pin_name_.size();
-  for (uint i = rs_csv_rd.start_position_; i < sz; i++) {
-    bump_pin_name = rs_csv_rd.bump_pin_name_[i];
-    if (used_bump_pins_.find(bump_pin_name) == used_bump_pins_.end()) {
-      for (uint j = 0; j < rs_csv_rd.mode_names_.size(); j++) {
-        mode_name = rs_csv_rd.mode_names_[j];
-        mode_data = rs_csv_rd.modes_map_[mode_name];
-        if (port_direction == INPUT) {
-          if (is_input_mode(mode_name)) {
-            for (uint k = rs_csv_rd.start_position_; k < mode_data.size();
-                 k++) {
-              if ((mode_data[k] == "Y") &&
-                  (bump_pin_name == rs_csv_rd.bump_pin_name_[k])) {
-                bump_pin_and_mode.first = bump_pin_name;
-                bump_pin_and_mode.second = mode_name;
-                used_bump_pins_.insert(bump_pin_name);
-                return true;
-              }
+  static uint cnt = 0; cnt++;
+  uint16_t tr = ltrace();
+  if (tr >= 4)
+    lprintf("get_available_bump_pin()# %u  port_direction= %c\n",
+            cnt, (port_direction==INPUT ? 'I' : 'O'));
+
+  bool found = false;
+
+  uint num_rows = rs_csv_rd.numRows();
+  for (uint i = rs_csv_rd.start_position_; i < num_rows; i++) {
+    bump_pin_name = rs_csv_rd.bumpPinName(i);
+    if (used_bump_pins_.count(bump_pin_name))
+      continue;
+    for (uint j = 0; j < rs_csv_rd.mode_names_.size(); j++) {
+      mode_name = rs_csv_rd.mode_names_[j];
+      //mode_data = rs_csv_rd.modes_map_[mode_name];
+      mode_data = rs_csv_rd.getModeData(mode_name);
+      if (port_direction == INPUT) {
+        if (is_input_mode(mode_name)) {
+          for (uint k = rs_csv_rd.start_position_; k < mode_data.size(); k++) {
+            if ((mode_data[k] == "Y") &&
+                (bump_pin_name == rs_csv_rd.bumpPinName(k))) {
+              bump_pin_and_mode.first = bump_pin_name;
+              bump_pin_and_mode.second = mode_name;
+              used_bump_pins_.insert(bump_pin_name);
+              found = true;
+              goto ret;
             }
-          } else {
-            continue;
           }
-        } else if (port_direction == OUTPUT) {
-          if (is_output_mode(mode_name)) {
-            for (uint k = rs_csv_rd.start_position_; k < mode_data.size();
-                 k++) {
-              if ((mode_data[k] == "Y") &&
-                  (bump_pin_name == rs_csv_rd.bump_pin_name_[k])) {
-                bump_pin_and_mode.first = bump_pin_name;
-                bump_pin_and_mode.second = mode_name;
-                used_bump_pins_.insert(bump_pin_name);
-                return true;
-              }
+        } else {
+          continue;
+        }
+      } else if (port_direction == OUTPUT) {
+        if (is_output_mode(mode_name)) {
+          for (uint k = rs_csv_rd.start_position_; k < mode_data.size(); k++) {
+            if ((mode_data[k] == "Y") &&
+                (bump_pin_name == rs_csv_rd.bumpPinName(k))) {
+              bump_pin_and_mode.first = bump_pin_name;
+              bump_pin_and_mode.second = mode_name;
+              used_bump_pins_.insert(bump_pin_name);
+              found = true;
+              goto ret;
             }
-          } else {
-            continue;
           }
+        } else {
+          continue;
         }
       }
     }
   }
 
-  return false;
+ret:
+  if (tr >= 4) {
+    if (found)
+      lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pin_name.c_str(), mode_name.c_str());
+    else
+      lputs("\t  (WW) get_available_bump_pin() returns NOT_FOUND");
+  }
+
+  return found;
 }
 
 // create a temporary pcf file and internally pass it to params
@@ -691,7 +717,8 @@ bool pin_location::create_temp_pcf_file(RapidCsvReader& rs_csv_rd) {
   temp_pcf_file_name_ = std::to_string(getpid()) + ".temp_pcf.pcf";
   cl_.set_param_value(key, temp_pcf_file_name_);
 
-  if (ltrace() >= 2)
+  uint16_t tr = ltrace();
+  if (tr >= 2)
     lprintf("\ncreate_temp_pcf_file() : %s\n", temp_pcf_file_name_.c_str());
 
   vector<int> input_idx;
@@ -705,71 +732,68 @@ bool pin_location::create_temp_pcf_file(RapidCsvReader& rs_csv_rd) {
   if (pin_assign_method_ == ASSIGN_IN_RANDOM) {
     shuffle_candidates(input_idx);
     shuffle_candidates(output_idx);
+    if (tr >= 3)
+      lputs("  create_temp_pcf_file() randomized input_idx, output_idx");
+  } else if (tr >= 3) {
+      lputs("  input_idx, output_idx are indexing user_design_inputs_, user_design_outputs_");
+      lprintf("  input_idx.size()= %u  output_idx.size()= %u\n",
+              uint(input_idx.size()), uint(output_idx.size()));
   }
 
-  std::pair<string, string> bump_pin_and_mode;
-  std::ofstream outfile;
-  outfile.open(temp_pcf_file_name_, std::ifstream::out | std::ifstream::binary);
-  if (outfile.fail()) {
+  pair<string, string> bump_pin_and_mode;
+  ofstream temp_out;
+  temp_out.open(temp_pcf_file_name_, ifstream::out | ifstream::binary);
+  if (temp_out.fail()) {
+    lprintf("\n  !!! (ERROR) create_temp_pcf_file(): could not open %s for writing\n", temp_pcf_file_name_.c_str());
+    CERROR << "(EE) could not open " << temp_pcf_file_name_ << " for writing\n" << endl;
     return false;
   }
 
-  // if user specified "--write_pcf", this file will be generated there with
-  // same contents
-  string out_pcf_name = cl_.get_param("--write_pcf");
-  std::ofstream out_pcf_file;
-  bool write_out_pcf = false;
-  if (out_pcf_name.size()) {
-    out_pcf_file.open(out_pcf_name, std::ifstream::out | std::ifstream::binary);
-    if (out_pcf_file.fail()) {
-      // error message is printed at caller side
-      return false;
+  // if user specified "--write_pcf", 'user_out' will be a copy of 'temp_out'
+  ofstream user_out;
+  {
+    string user_pcf_name = cl_.get_param("--write_pcf");
+    if (user_pcf_name.size()) {
+      user_out.open(user_pcf_name, ifstream::out | ifstream::binary);
+      if (user_out.fail()) {
+        lprintf("\n  !!! (ERROR) create_temp_pcf_file(): failed to open user_out %s\n", user_pcf_name.c_str());
+        return false;
+      }
     }
-    write_out_pcf = true;
   }
 
   for (uint i = 0; i < input_idx.size(); i++) {
     if (get_available_bump_pin(rs_csv_rd, bump_pin_and_mode, INPUT)) {
-      outfile << "set_io " << user_design_inputs_[input_idx[i]] << " "
+      temp_out << "set_io " << user_design_inputs_[input_idx[i]] << " "
               << bump_pin_and_mode.first << " -mode "
               << bump_pin_and_mode.second << endl;
-      if (write_out_pcf) {
-        out_pcf_file << "set_io " << user_design_inputs_[input_idx[i]] << " "
+      if (user_out.is_open()) {
+        user_out << "set_io " << user_design_inputs_[input_idx[i]] << " "
                      << bump_pin_and_mode.first << " -mode "
                      << bump_pin_and_mode.second << endl;
       }
     } else {
       CERROR << error_messages[PIN_SOURCE_NO_SURFFICENT] << endl;
-      outfile.close();
-      if (write_out_pcf) {
-        out_pcf_file.close();
-      }
       return false;
     }
   }
+
   for (uint i = 0; i < user_design_outputs_.size(); i++) {
     if (get_available_bump_pin(rs_csv_rd, bump_pin_and_mode, OUTPUT)) {
-      outfile << "set_io " << user_design_outputs_[output_idx[i]] << " "
+      temp_out << "set_io " << user_design_outputs_[output_idx[i]] << " "
               << bump_pin_and_mode.first << " -mode "
               << bump_pin_and_mode.second << endl;
-      if (write_out_pcf) {
-        out_pcf_file << "set_io " << user_design_outputs_[output_idx[i]] << " "
+      if (user_out.is_open()) {
+        user_out << "set_io " << user_design_outputs_[output_idx[i]] << " "
                      << bump_pin_and_mode.first << " -mode "
                      << bump_pin_and_mode.second << endl;
       }
     } else {
       CERROR << error_messages[PIN_SOURCE_NO_SURFFICENT] << endl;
-      outfile.close();
-      if (write_out_pcf) {
-        out_pcf_file.close();
-      }
       return false;
     }
   }
-  outfile.close();
-  if (write_out_pcf) {
-    out_pcf_file.close();
-  }
+
   return true;
 }
 

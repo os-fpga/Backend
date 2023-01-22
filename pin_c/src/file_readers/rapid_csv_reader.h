@@ -41,9 +41,24 @@ class RapidCsvReader {
   XYZ get_pin_xyz_by_bump_name(const string& mode, const string& bump_name,
                                const string& gbox_pin_name) const;
 
+  uint numRows() const noexcept {
+    assert(bcd_.size() == gbox_name_.size());
+    assert(bcd_.size() == io_tile_pin_xyz_.size());
+    return bcd_.size();
+  }
+
   bool has_io_pin(const string& pin_name) const noexcept {
-    auto I = std::find(bump_pin_name_.begin(), bump_pin_name_.end(), pin_name);
-    return I != bump_pin_name_.end();
+    assert(!bcd_.empty());
+    for (const BCD& x : bcd_) {
+      if (x.bumpB_ == pin_name)
+        return true;
+    }
+    return false;
+  }
+
+  const string& bumpPinName(uint row) const noexcept {
+    assert(row < bcd_.size());
+    return bcd_[row].bumpB_;
   }
 
   int get_pin_x_by_pin_idx(uint i) const noexcept {
@@ -61,13 +76,24 @@ class RapidCsvReader {
     return io_tile_pin_xyz_[i].z_;
   }
 
+  vector<string> getModeData(const string& mode_name) const noexcept {
+    assert(!mode_name.empty());
+    if (mode_name.empty())
+      return {};
+    auto fitr = modes_map_.find(mode_name);
+    if (fitr == modes_map_.end())
+      return {};
+    return fitr->second;
+  }
+
  private:
   std::map<string, vector<string>> modes_map_;
-  vector<string> mode_names_;
 
-  // vectors are indexed by csv row, size() == #rows
+  vector<string> mode_names_; // column labels that contain "Mode_"
 
-  vector<string> bump_pin_name_;  // "Bump/Pin Name" - column B
+  // below vectors are indexed by csv row, size() == #rows
+
+  // vector<string> bump_pin_name_;  // "Bump/Pin Name" - column B
 
   vector<BCD> bcd_; // "Bump/Pin Name", "Ball Name", "Ball ID" - columns B, C, D
 
