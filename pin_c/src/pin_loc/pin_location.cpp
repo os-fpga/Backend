@@ -645,9 +645,6 @@ bool pin_location::get_available_bump_pin(
     std::pair<string, string>& bump_pin_and_mode,
     PortDirection port_direction)
 {
-  string bump_pin_name, mode_name;
-  vector<string> mode_data;
-
   static uint cnt = 0; cnt++;
   uint16_t tr = ltrace();
   if (tr >= 4)
@@ -658,18 +655,18 @@ bool pin_location::get_available_bump_pin(
 
   uint num_rows = csv_rd.numRows();
   for (uint i = csv_rd.start_position_; i < num_rows; i++) {
-    bump_pin_name = csv_rd.bumpPinName(i);
+    const string& bump_pin_name = csv_rd.bumpPinName(i);
     if (used_bump_pins_.count(bump_pin_name))
       continue;
     for (uint j = 0; j < csv_rd.mode_names_.size(); j++) {
-      mode_name = csv_rd.mode_names_[j];
-      //mode_data = csv_rd.modes_map_[mode_name];
-      mode_data = csv_rd.getModeData(mode_name);
+      const string& mode_name = csv_rd.mode_names_[j];
+      const vector<string>* mode_data = csv_rd.getModeData(mode_name);
+      assert(mode_data);
+      assert(mode_data->size() == num_rows);
       if (port_direction == INPUT) {
         if (is_input_mode(mode_name)) {
-          for (uint k = csv_rd.start_position_; k < mode_data.size(); k++) {
-            if ((mode_data[k] == "Y") &&
-                (bump_pin_name == csv_rd.bumpPinName(k))) {
+          for (uint k = csv_rd.start_position_; k < num_rows; k++) {
+            if (mode_data->at(k) == "Y" && bump_pin_name == csv_rd.bumpPinName(k)) {
               bump_pin_and_mode.first = bump_pin_name;
               bump_pin_and_mode.second = mode_name;
               used_bump_pins_.insert(bump_pin_name);
@@ -682,9 +679,8 @@ bool pin_location::get_available_bump_pin(
         }
       } else if (port_direction == OUTPUT) {
         if (is_output_mode(mode_name)) {
-          for (uint k = csv_rd.start_position_; k < mode_data.size(); k++) {
-            if ((mode_data[k] == "Y") &&
-                (bump_pin_name == csv_rd.bumpPinName(k))) {
+          for (uint k = csv_rd.start_position_; k < num_rows; k++) {
+            if (mode_data->at(k) == "Y" && bump_pin_name == csv_rd.bumpPinName(k)) {
               bump_pin_and_mode.first = bump_pin_name;
               bump_pin_and_mode.second = mode_name;
               used_bump_pins_.insert(bump_pin_name);
@@ -701,10 +697,13 @@ bool pin_location::get_available_bump_pin(
 
 ret:
   if (tr >= 4) {
-    if (found)
-      lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pin_name.c_str(), mode_name.c_str());
-    else
+    if (found) {
+      const string& bump_pn = bump_pin_and_mode.first;
+      const string& mode_nm = bump_pin_and_mode.second;
+      lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(), mode_nm.c_str());
+    } else {
       lputs("\t  (WW) get_available_bump_pin() returns NOT_FOUND");
+    }
   }
 
   return found;

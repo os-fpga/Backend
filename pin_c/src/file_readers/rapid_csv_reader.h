@@ -22,7 +22,7 @@ class RapidCsvReader {
     // --- 1-B  Bump/Pin Name
     // --- 2-C  Ball Name
     // --- 3-D  Ball ID
-    string bumpB_, ballNameC_, ball_ID_;
+    string bump_, ball_, ball_ID_;
     int row_ = 0;
 
     BCD() noexcept = default;
@@ -40,7 +40,7 @@ class RapidCsvReader {
 
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
-                          const string& bump_or_ball_name,
+                          const string& bump_ball_or_ID,
                           const string& gbox_pin_name) const;
 
   uint numRows() const noexcept {
@@ -49,16 +49,16 @@ class RapidCsvReader {
     return bcd_.size();
   }
 
-  bool has_io_pin(const string& pin_name) const noexcept;
+  bool has_io_pin(const string& pin_name_or_ID) const noexcept;
 
   const string& bumpPinName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].bumpB_;
+    return bcd_[row].bump_;
   }
 
   const string& ballPinName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].ballNameC_;
+    return bcd_[row].ball_;
   }
 
   int get_pin_x_by_pin_idx(uint i) const noexcept {
@@ -76,14 +76,14 @@ class RapidCsvReader {
     return io_tile_pin_xyz_[i].z_;
   }
 
-  vector<string> getModeData(const string& mode_name) const noexcept {
+  const vector<string>* getModeData(const string& mode_name) const noexcept {
     assert(!mode_name.empty());
     if (mode_name.empty())
-      return {};
+      return nullptr;
     auto fitr = modes_map_.find(mode_name);
     if (fitr == modes_map_.end())
-      return {};
-    return fitr->second;
+      return nullptr;
+    return &(fitr->second);
   }
 
   string bumpName2BallName(const string& bump_name) const noexcept;
@@ -112,9 +112,9 @@ class RapidCsvReader {
   friend class pin_location;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& p) {
-  os << "(bcd  " << p.bumpB_ << "  " << p.ballNameC_
-     << "  " << p.ball_ID_ << "  row:" << p.row_ << ')';
+inline std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
+  os << "(bcd  " << b.bump_ << "  " << b.ball_
+     << "  " << b.ball_ID_ << "  row:" << b.row_ << ')';
   return os;
 }
 
