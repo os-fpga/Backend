@@ -44,7 +44,7 @@ class pin_location {
     MAX_MESSAGE_ID
   };
 
-  string error_messages[MAX_MESSAGE_ID] = {
+  const char* error_messages_[MAX_MESSAGE_ID] = {
       "Missing input or output file arguments",  // MISSING_IN_OUT_FILES
       "Pin location file parse error",           // PIN_LOC_XML_PARSE_ERROR
       "Pin map file parse error",                // PIN_MAP_CSV_PARSE_ERROR
@@ -125,11 +125,11 @@ class pin_location {
   bool generate_csv_file_for_os_flow();
   bool read_csv_file(RapidCsvReader&);
   bool read_user_design();
-  bool read_user_pinloc_constrain_file();
+  bool read_pcf_file();
 
-  bool create_place_file(RapidCsvReader&);
+  bool create_place_file(const RapidCsvReader&);
 
-  bool create_temp_pcf_file(RapidCsvReader& rs_csv_rd);
+  bool create_temp_pcf_file(const RapidCsvReader& csv_rd);
 
   static void shuffle_candidates(vector<int>& v);
 
@@ -141,7 +141,7 @@ class pin_location {
 
   bool convert_pcf_file_for_os_flow(string pcf_file_name);
 
-  bool get_available_bump_pin(const RapidCsvReader& rs_csv_rd,
+  bool get_available_bump_pin(const RapidCsvReader& csv_rd,
                               std::pair<string, string>& bump_pin_and_mode,
                               PortDirection port_direction);
 
