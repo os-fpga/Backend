@@ -28,7 +28,8 @@ class RapidCsvReader {
     BCD() noexcept = default;
   };
 
-  RapidCsvReader() = default;
+  RapidCsvReader();
+  ~RapidCsvReader();
 
   // file i/o
   bool read_csv(const std::string& f, bool check);
@@ -38,8 +39,9 @@ class RapidCsvReader {
   bool sanity_check(const rapidcsv::Document& doc) const;
 
   // data query
-  XYZ get_pin_xyz_by_bump_name(const string& mode, const string& bump_name,
-                               const string& gbox_pin_name) const;
+  XYZ get_pin_xyz_by_name(const string& mode,
+                          const string& bump_or_ball_name,
+                          const string& gbox_pin_name) const;
 
   uint numRows() const noexcept {
     assert(bcd_.size() == gbox_name_.size());
@@ -47,18 +49,16 @@ class RapidCsvReader {
     return bcd_.size();
   }
 
-  bool has_io_pin(const string& pin_name) const noexcept {
-    assert(!bcd_.empty());
-    for (const BCD& x : bcd_) {
-      if (x.bumpB_ == pin_name)
-        return true;
-    }
-    return false;
-  }
+  bool has_io_pin(const string& pin_name) const noexcept;
 
   const string& bumpPinName(uint row) const noexcept {
     assert(row < bcd_.size());
     return bcd_[row].bumpB_;
+  }
+
+  const string& ballPinName(uint row) const noexcept {
+    assert(row < bcd_.size());
+    return bcd_[row].ballNameC_;
   }
 
   int get_pin_x_by_pin_idx(uint i) const noexcept {
@@ -86,6 +86,8 @@ class RapidCsvReader {
     return fitr->second;
   }
 
+  string bumpName2BallName(const string& bump_name) const noexcept;
+
  private:
   std::map<string, vector<string>> modes_map_;
 
@@ -104,6 +106,8 @@ class RapidCsvReader {
   vector<XYZ> io_tile_pin_xyz_;  // "IO_tile_pin_x", "_y", "_z"
 
   int start_position_ = 0;  // "GBX GPIO" group start position in pin table row
+
+  bool use_bump_column_B_ = false;  // old mode for EDA-1057
 
   friend class pin_location;
 };

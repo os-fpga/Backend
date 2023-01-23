@@ -32,6 +32,21 @@ static inline string label_column(int i) noexcept
     return label;
 }
 
+RapidCsvReader::RapidCsvReader()
+{
+  // old mode for EDA-1057
+  use_bump_column_B_ = true; // change use_bump_column_B_ to false to start using ball name column.
+  if (getenv("pinc_use_bump_column_B")) {
+    use_bump_column_B_ = true;
+    if (ltrace())
+      lputs("\nNOTE: use_bump_column_B_ == TRUE\n");
+  }
+}
+
+RapidCsvReader::~RapidCsvReader()
+{
+}
+
 bool RapidCsvReader::read_csv(const string& fn, bool check) {
   uint16_t tr = ltrace();
   auto& ls = lout();
@@ -305,8 +320,8 @@ void RapidCsvReader::print_csv() const {
   cout << "Total Records: " << num_rows << endl;
 }
 
-XYZ RapidCsvReader::get_pin_xyz_by_bump_name(
-    const string& mode, const string& bump_name,
+XYZ RapidCsvReader::get_pin_xyz_by_name(
+    const string& mode, const string& bump_or_ball_name,
     const string& gbox_pin_name) const {
   XYZ result;
   auto fitr = modes_map_.find(mode);
@@ -318,12 +333,29 @@ XYZ RapidCsvReader::get_pin_xyz_by_bump_name(
   assert(num_rows > 1);
   assert(mode_vector.size() == num_rows);
   assert(io_tile_pin_xyz_.size() == num_rows);
+  assert(bcd_.size() == num_rows);
 
-  for (uint i = 0; i < num_rows; i++) {
-    if ((bumpPinName(i) == bump_name) && (mode_vector[i] == "Y")) {
+  if (use_bump_column_B_) {
+    for (uint i = 0; i < num_rows; i++) {
+      if (bumpPinName(i) != bump_or_ball_name)
+        continue;
+      if (mode_vector[i] != "Y")
+        continue;
       if (gbox_pin_name.length() == 0 ||
-          ((gbox_pin_name.length() > 0) && (gbox_name_[i] == gbox_pin_name))) {
-        // result.set3(io_tile_pin_x_[i], io_tile_pin_y_[i], io_tile_pin_z_[i]);
+          (gbox_pin_name.length() > 0 && gbox_name_[i] == gbox_pin_name)) {
+        result = io_tile_pin_xyz_[i];
+        assert(result.valid());
+        break;
+      }
+    }
+  } else {
+    for (uint i = 0; i < num_rows; i++) {
+      if (ballPinName(i) != bump_or_ball_name)
+        continue;
+      if (mode_vector[i] != "Y")
+        continue;
+      if (gbox_pin_name.length() == 0 ||
+          (gbox_pin_name.length() > 0 && gbox_name_[i] == gbox_pin_name)) {
         result = io_tile_pin_xyz_[i];
         assert(result.valid());
         break;
@@ -332,6 +364,43 @@ XYZ RapidCsvReader::get_pin_xyz_by_bump_name(
   }
 
   return result;
+}
+
+string RapidCsvReader::bumpName2BallName(const string& bump_name) const noexcept
+{
+  assert(!bump_name.empty());
+
+  uint num_rows = numRows();
+  assert(num_rows > 1);
+  assert(io_tile_pin_xyz_.size() == num_rows);
+  assert(bcd_.size() == num_rows);
+
+  // tmp linear search
+  for (uint i = 0; i < num_rows; i++) {
+    const BCD& bcd = bcd_[i];
+    if (bcd.bumpB_ == bump_name)
+      return bcd.ballNameC_;
+  }
+
+  return {};
+}
+
+bool RapidCsvReader::has_io_pin(const string& pin_name) const noexcept {
+  assert(!bcd_.empty());
+
+  if (use_bump_column_B_) {
+    for (const BCD& x : bcd_) {
+      if (x.bumpB_ == pin_name)
+        return true;
+    }
+  } else {
+    for (const BCD& x : bcd_) {
+      if (x.ballNameC_ == pin_name)
+        return true;
+    }
+  }
+
+  return false;
 }
 
 }  // namespace pinc

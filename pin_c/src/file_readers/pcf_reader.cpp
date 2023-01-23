@@ -22,7 +22,7 @@ bool PcfReader::read_pcf(const string& f) {
 
   string line;
   bool has_error = false;
-  string set_io_cmd, user_pin, bump_pin, dash_mode, mode_name;
+  string set_io_cmd, user_pin, bump_or_ball_name, dash_mode, mode_name;
   string optional_dash_internal_pin, optional_internal_pin;
 
   while (std::getline(infile, line)) {
@@ -30,7 +30,7 @@ bool PcfReader::read_pcf(const string& f) {
     // set_io USER_PPIN BUMP_PIN_NAME -mode MODE_NAME
     set_io_cmd.clear();
     user_pin.clear();
-    bump_pin.clear();
+    bump_or_ball_name.clear();
     dash_mode.clear();
     mode_name.clear();
     optional_dash_internal_pin.clear();
@@ -44,13 +44,13 @@ bool PcfReader::read_pcf(const string& f) {
     if (tr >= 4) ls << "(pcf line) " << line << endl;
 
     if (has_internal_pin) {
-      if (!(iss >> set_io_cmd >> user_pin >> bump_pin >> dash_mode >>
+      if (!(iss >> set_io_cmd >> user_pin >> bump_or_ball_name >> dash_mode >>
             mode_name >> optional_dash_internal_pin >> optional_internal_pin)) {
         has_error = true;
         break;  // error
       }
     } else {
-      if (!(iss >> set_io_cmd >> user_pin >> bump_pin >> dash_mode >>
+      if (!(iss >> set_io_cmd >> user_pin >> bump_or_ball_name >> dash_mode >>
             mode_name)) {
         has_error = true;
         break;  // error
@@ -58,7 +58,7 @@ bool PcfReader::read_pcf(const string& f) {
     }
 
     if (tr >= 4) {
-      ls << "    user_pin:" << user_pin << "  bump_pin:" << bump_pin
+      ls << "    user_pin:" << user_pin << "  bump_or_ball_name:" << bump_or_ball_name
          << "  mode_name:" << mode_name << endl;
     }
 
@@ -67,7 +67,7 @@ bool PcfReader::read_pcf(const string& f) {
 
     cur_command.push_back(set_io_cmd);
     cur_command.push_back(user_pin);
-    cur_command.push_back(bump_pin);
+    cur_command.push_back(bump_or_ball_name);
     cur_command.push_back(dash_mode);
     cur_command.push_back(mode_name);
 
