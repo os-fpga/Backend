@@ -35,7 +35,7 @@ static inline string label_column(int i) noexcept
 RapidCsvReader::RapidCsvReader()
 {
   // old mode for EDA-1057
-  use_bump_column_B_ = true; // true - old mode, false - new mode
+  use_bump_column_B_ = false; // true - old mode, false - new mode
   if (getenv("pinc_use_bump_column_B")) {
     use_bump_column_B_ = true;
     if (ltrace())
