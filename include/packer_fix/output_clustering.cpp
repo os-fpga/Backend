@@ -937,10 +937,16 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
     auto& atom_ctx = g_vpr_ctx.atom();
     auto& cluster_ctx = g_vpr_ctx.mutable_clustering();
 
+    // work around : pick up the last block ID to check only the last created block
+    //
+    vtr::StrongId<cluster_block_id_tag> last_id;
+    for (auto blk_id : cluster_ctx.clb_nlist.blocks()) {
+           last_id = blk_id;
+    }
+
     if (!intra_lb_routing.empty()) {
-        for (auto blk_id : cluster_ctx.clb_nlist.blocks()) {
-            cluster_ctx.clb_nlist.block_pb(blk_id)->pb_route = alloc_and_load_pb_route(intra_lb_routing[blk_id], cluster_ctx.clb_nlist.block_pb(blk_id)->pb_graph_node);
-        }
+      cluster_ctx.clb_nlist.block_pb(last_id)->pb_route = alloc_and_load_pb_route(intra_lb_routing[last_id], 
+                                                                         cluster_ctx.clb_nlist.block_pb(last_id)->pb_graph_node);
     }
 
     IntraLbPbPinLookup pb_graph_pin_lookup_from_index_by_type(device_ctx.logical_block_types);
@@ -1001,14 +1007,6 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
 
     if (skip_clustering == false) {
 
-        vtr::StrongId<cluster_block_id_tag> last_id;
-
-        // work around : pick up the last block ID to check only the last created block
-        //
-        for (auto blk_id : cluster_ctx.clb_nlist.blocks()) {
-           last_id = blk_id;
-        }
-
         // Check only the last_id block
         //
         /* TODO: Must do check that total CLB pins match top-level pb pins, perhaps check this earlier? */
@@ -1020,9 +1018,7 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
     }
 
     if (!intra_lb_routing.empty()) {
-        for (auto blk_id : cluster_ctx.clb_nlist.blocks()) {
-            cluster_ctx.clb_nlist.block_pb(blk_id)->pb_route.clear();
-        }
+      cluster_ctx.clb_nlist.block_pb(last_id)->pb_route.clear();
     }
 
     return true; // check was legal
