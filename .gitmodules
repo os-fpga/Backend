@@ -1,3 +1,6 @@
 [submodule "OpenFPGA"]
 	path = OpenFPGA
 	url = https://github.com/lnis-uofu/OpenFPGA.git
+[submodule "Raptor_Tools"]
+	path = Raptor_Tools
+	url = git@github.com:RapidSilicon/Raptor_Tools.git
