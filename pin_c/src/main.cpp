@@ -21,13 +21,15 @@
 //                --blif BLIF or --port_info port_info.json
 //                --output OUTPUT --xml PINMAP_XML --csv CSV_FILE
 
-int main(int argc, const char* argv[]) {
-  const char* trace = getenv("pinc_trace");
-  if (trace) pinc::set_ltrace(atoi(trace));
-
+int main(int argc, const char *argv[])
+{
+  const char *trace = getenv("pinc_trace");
+  if (trace)
+    pinc::set_ltrace(atoi(trace));
   pinc::cmd_line cmd(argc, argv);
 
-  if (pinc::ltrace() >= 3) {
+  if (pinc::ltrace() >= 3)
+  {
     cmd.print_options();
   }
 

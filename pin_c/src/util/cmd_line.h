@@ -4,37 +4,43 @@
 
 #include <unordered_map>
 #include <unordered_set>
-
+#include <vector>
 #include "pinc_log.h"
 
-namespace pinc {
+namespace pinc
+{
 
-using std::string;
-using std::unordered_map;
-using std::unordered_set;
+  using std::string;
+  using std::unordered_map;
+  using std::unordered_set;
+  using std::vector;
+  struct cmd_line
+  {
+    unordered_map<string, string> params_;
+    unordered_set<string> flags_;
+    vector<string> clock_args_vec;
+    vector<string> clock_args_;
+    cmd_line(int argc, const char **argv);
 
-struct cmd_line {
-  unordered_map<string, string> params_;
-  unordered_set<string> flags_;
+    const unordered_set<string> &get_flag_set() const { return flags_; }
+    unordered_map<string, string> get_param_map() const { return params_; }
 
-  cmd_line(int argc, const char **argv);
+    bool is_flag_set(const string &fl) const noexcept { return flags_.count(fl); }
 
-  const unordered_set<string> &get_flag_set() const { return flags_; }
-  unordered_map<string, string> get_param_map() const { return params_; }
+    string get_param(const string &key) const noexcept
+    {
+      auto fitr = params_.find(key);
+      if (fitr == params_.end())
+        return "";
+      return fitr->second;
+    }
+    void set_arguments(vector<string> arguments_);
+    vector<string> get_arguments();
+    void set_flag(const string &fl);
+    void set_param_value(string &key, string &val);
+    void print_options() const;
+  };
 
-  bool is_flag_set(const string &fl) const noexcept { return flags_.count(fl); }
-
-  string get_param(const string &key) const noexcept {
-    auto fitr = params_.find(key);
-    if (fitr == params_.end()) return "";
-    return fitr->second;
-  }
-
-  void set_flag(const string &fl);
-  void set_param_value(string &key, string &val);
-  void print_options() const;
-};
-
-}  // namespace pinc
+} // namespace pinc
 
 #endif
