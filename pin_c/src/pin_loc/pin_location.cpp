@@ -203,110 +203,92 @@ namespace pinc
          << endl;
     }
 
-    if (usage_requirement_3)
-    {
-      logical_clocks_to_GEMINI_clks();
+    if (usage_requirement_0)
+    { // generate new csv file with information from xml
+      // and csv for cassical flow
+      if (tr >= 2)
+      {
+        ls << "(usage_requirement_0)\n"
+           << "generate new csv file with info from xml and csv for cassical flow"
+           << endl;
+      }
+      if (!generate_csv_file_for_os_flow())
+      {
+        CERROR << error_messages[GENERATE_CSV_FILE_FOR_OS_FLOW] << endl;
+        return false;
+      }
+      // in os mode, the pcf does not contains any "-mode"
+      // we need to generate a temp pcf file with "-mode" option, which selects
+      // mode "Mode_GPIO"
+      string pcf_file_name = cl_.get_param("--pcf");
+      if (pcf_file_name.size())
+      {
+        if (!convert_pcf_file_for_os_flow(pcf_file_name))
+        {
+          CERROR << error_messages[GENERATE_PCF_FILE_FOR_OS_FLOW] << endl;
+          return false;
+        }
+      }
     }
- 
-      if (usage_requirement_0)
-      { // generate new csv file with information from xml
-        // and csv for cassical flow
-        if (tr >= 2)      
-        {
-          ls << "(usage_requirement_0)\n"
-             << "generate new csv file with info from xml and csv for cassical flow"
-             << endl;
-        }
-        if (!generate_csv_file_for_os_flow())
-        {
-          CERROR << error_messages[GENERATE_CSV_FILE_FOR_OS_FLOW] << endl;
-          return false;
-        }
-        // in os mode, the pcf does not contains any "-mode"
-        // we need to generate a temp pcf file with "-mode" option, which selects
-        // mode "Mode_GPIO"
-        string pcf_file_name = cl_.get_param("--pcf");
-        if (pcf_file_name.size())
-        {
-          if (!convert_pcf_file_for_os_flow(pcf_file_name))
-          {
-            CERROR << error_messages[GENERATE_PCF_FILE_FOR_OS_FLOW] << endl;
-            return false;
-          }
-        }
-      }
-      else if ((!usage_requirement_1) && (!usage_requirement_2) && (!usage_requirement_3))
+    else if ((!usage_requirement_1) && (!usage_requirement_2) && (!usage_requirement_3))
+    {
+      CERROR << error_messages[MISSING_IN_OUT_FILES] << endl
+             << USAGE_MSG_0 << ", or" << endl
+             << USAGE_MSG_1 << ", or" << endl
+             << USAGE_MSG_2 << ", or" << endl
+             << USAGE_MSG_3 << endl;
+      return false;
+    }
+
+    // --2. read port info from user design (from .blif or from port_info.json)
+    if (!read_user_design())
+    {
+      CERROR << error_messages[INPUT_DESIGN_PARSE_ERROR] << endl;
+      return false;
+    }
+
+    // --3. read info (pin-table) from csv file in new RS format
+    rapidCsvReader rs_csv_rd;
+    if (!read_csv_file(rs_csv_rd))
+    {
+      CERROR << error_messages[PIN_MAP_CSV_PARSE_ERROR] << endl;
+      return false;
+    }
+
+    // usage 2: if no user constraint is provided, created a temp one
+    if (usage_requirement_2 || (usage_requirement_0 && pcf_name == ""))
+    {
+      if (!create_temp_constrain_file(rs_csv_rd))
       {
-        CERROR << error_messages[MISSING_IN_OUT_FILES] << endl
-               << USAGE_MSG_0 << ", or" << endl
-               << USAGE_MSG_1 << ", or" << endl
-               << USAGE_MSG_2 << ", or" << endl
-               << USAGE_MSG_3 << endl;
+        CERROR << error_messages[FAIL_TO_CREATE_TEMP_PCF] << endl;
         return false;
       }
+    }
+    // usage 3: if user wants to create fpga_repack_constraints.xml
+    if (!logical_clocks_to_GEMINI_clks())
+    {
+      CERROR << error_messages[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
+      return false;
+    }
 
-      // --2. read port info from user design (from .blif or from port_info.json)
-      if (!read_user_design())
-      {
-        CERROR << error_messages[INPUT_DESIGN_PARSE_ERROR] << endl;
-        return false;
-      }
+    // --4. read user constraint
+    if (!read_user_pinloc_constrain_file())
+    {
+      CERROR << error_messages[PIN_CONSTRAINT_PARSE_ERROR] << endl;
+      return false;
+    }
 
-      // --3. read info (pin-table) from csv file in new RS format
-      rapidCsvReader rs_csv_rd;
-      if (!read_csv_file(rs_csv_rd))
+    // --5. create .place file
+    if (!create_place_file(rs_csv_rd))
+    {
+      // error messages will be issued in callee
+      if (tr)
       {
-        CERROR << error_messages[PIN_MAP_CSV_PARSE_ERROR] << endl;
-        return false;
+        ls << " (EE) !create_place_file(rs_csv_rd)" << endl;
+        cerr << "ERROR: create_place_file() failed" << endl;
       }
-
-      // usage 2: if no user constraint is provided, created a temp one
-      if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "") )
-      {
-        //  if (!logical_clocks_to_GEMINI_clks())
-        // {
-        //   CERROR << error_messages[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
-        //   return false;
-        // }
-        if (!create_temp_constrain_file(rs_csv_rd))
-        {
-          CERROR << error_messages[FAIL_TO_CREATE_TEMP_PCF] << endl;
-          return false;
-        }
-      }
-      else if ((usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) & usage_requirement_3)
-      {
-         if (!logical_clocks_to_GEMINI_clks())
-        {
-          CERROR << error_messages[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
-          return false;
-        }
-        if (!create_temp_constrain_file(rs_csv_rd))
-        {
-          CERROR << error_messages[FAIL_TO_CREATE_TEMP_PCF] << endl;
-          return false;
-        }
-      }
-
-      // --4. read user constraint
-      if (!read_user_pinloc_constrain_file())
-      {
-        CERROR << error_messages[PIN_CONSTRAINT_PARSE_ERROR] << endl;
-        return false;
-      }
-
-      // --5. create .place file
-      if (!create_place_file(rs_csv_rd))
-      {
-        // error messages will be issued in callee
-        if (tr)
-        {
-          ls << " (EE) !create_place_file(rs_csv_rd)" << endl;
-          cerr << "ERROR: create_place_file() failed" << endl;
-        }
-        return false;
-      }
-    
+      return false;
+    }
 
     // -- done successfully
     if (tr >= 2)
@@ -1218,7 +1200,7 @@ namespace pinc
   }
   bool pin_location::logical_clocks_to_GEMINI_clks()
   {
- 
+
     set_clks = cl_.clock_args_vec;
     std::vector<std::string> design_clk;
     std::vector<std::string> device_clk;
@@ -1248,13 +1230,11 @@ namespace pinc
       }
       if (d_c)
       {
-        //  file << "The design clock is  " << token << std::endl;
         device_clk.push_back(token);
       }
 
       if (p_c)
       {
-        //  file << "the physic clock are  " << token << std::endl;
         design_clk.push_back(token);
       }
     }
