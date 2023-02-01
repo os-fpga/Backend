@@ -110,12 +110,6 @@ jobs:
             ${{ secrets.SSH_PRIVATE_KEY_RAPTOR_TOOLS }}
             ${{ secrets.SSH_PRIVATE_KEY_VERIFIC_RS }}
 
-      - name: Checkout code
-        uses: actions/checkout@v3.2.0
-        with:
-          fetch-depth: 0
-          submodules: true
-
       - name: Checkout submodule
         run: |
           make checkout
