@@ -48,6 +48,10 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Checkout submodule
+        run: |
+          make checkout
+
       - name: Install dependencies
         run: |
           sudo .github/workflows/install_ubuntu_dependencies_build.sh
