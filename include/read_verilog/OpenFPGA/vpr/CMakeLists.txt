@@ -3,13 +3,22 @@ cmake_minimum_required(VERSION 3.9)
 project("vpr")
 
 if (PRODUCTION_BUILD)
-message("Production Build type set to ON")
-set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
-add_definitions(-DPRODUCTION_BUILD)
-message("FLEX: "  ${FLEX_LM_SRC_DIR})
+    if(NOT RAPTOR)
+        get_filename_component(FLEX_LM_SRC_DIR "../../../Raptor_Tools/Flex_LM"
+        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+        add_subdirectory(${FLEX_LM_SRC_DIR} flex_lm)
+    endif()
+    message("Production Build type set to ON")
+    set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
+    add_definitions(-DPRODUCTION_BUILD)
+    message("FLEX: "  ${FLEX_LM_SRC_DIR})
 endif(PRODUCTION_BUILD)
 
 if (NOT RAPTOR)
+    get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+    get_filename_component(READ_EDIF_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_edif"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
 	add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
 	add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
 endif()

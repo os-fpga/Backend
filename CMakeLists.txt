@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
 
+if (NOT RAPTOR)
+  set(ADD_READ_VERILOG_TO_VPR 1)
+endif()
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
 
