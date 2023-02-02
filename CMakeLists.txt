@@ -31,7 +31,8 @@ if (PRODUCTION_BUILD)
   set(OPENFPGA_WITH_VERSION ON CACHE BOOL "Disable OpenFPGA version check" FORCE)
 else()
   set(OPENFPGA_WITH_VERSION OFF CACHE BOOL "Disable OpenFPGA version check" FORCE)
-  set(OPENFPGA_IPO_BUILD OFF CACHE BOOL "Disable VTR/OpenFGPA IPO build - long linktime if on" FORCE)
+  set(OPENFPGA_IPO_BUILD "off" CACHE STRING "Disable VTR/OpenFGPA IPO build - long linktime if on" FORCE)
+  set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations? NO!")
 endif()
 
 FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
@@ -39,6 +40,7 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/cluster_util.h
           ${PACKER_SRC_DIR}/output_clustering.cpp
           ${PACKER_SRC_DIR}/output_clustering.h
+          ${PACKER_SRC_DIR}/cluster_router.cpp      
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
 
