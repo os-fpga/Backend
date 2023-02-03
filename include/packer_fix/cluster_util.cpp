@@ -290,11 +290,10 @@ void check_and_output_clustering(const t_packer_opts& packer_opts,
 }
 
 bool check_if_xml_mode_conflict(const t_packer_opts& packer_opts,
-                                 const std::unordered_set<AtomNetId>& is_clock,
                                  const t_arch* arch,
                                  const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing) {
 
-    bool legal = check_output_clustering(intra_lb_routing, packer_opts.global_clocks, is_clock, arch->architecture_id, packer_opts.output_file.c_str(), false);
+    bool legal = check_output_clustering(intra_lb_routing, arch->architecture_id, packer_opts.output_file.c_str());
 
     return legal;
 }
@@ -320,7 +319,6 @@ void get_max_cluster_size_and_pb_depth(int& max_cluster_size,
     }
 }
 
-// toto
 bool check_cluster_legality(const int& verbosity,
                             const int& detailed_routing_stage,
                             t_lb_router_data* router_data) {
@@ -339,7 +337,7 @@ bool check_cluster_legality(const int& verbosity,
             VTR_LOGV(verbosity > 2, "\tPassed route at end.\n");
         } else {
             //echo_clusters("clusters.lst");
-            VTR_LOGV(verbosity > 0, "Failed route at end, repack cluster '%s' trying detailed routing at each stage.\n",
+            VTR_LOGV(verbosity > 2, "Failed route at end, repack cluster '%s' trying detailed routing at each stage.\n",
                      router_data->lb_type->name);
             //getchar();
         }
@@ -1061,6 +1059,7 @@ enum e_block_pack_status try_pack_molecule(t_cluster_placement_stats* cluster_pl
                     block_pack_status = BLK_FAILED_FEASIBLE;
                 }
             }
+
             if (block_pack_status == BLK_PASSED) {
                 /*
                  * during the clustering step of `do_clustering`, `detailed_routing_stage` is incremented at each iteration until it a cluster
@@ -1092,7 +1091,6 @@ enum e_block_pack_status try_pack_molecule(t_cluster_placement_stats* cluster_pl
                  * expand_all_modes is used to enable the expansion of all the nodes using all the possible modes.
                  */
                 t_mode_selection_status mode_status;
-// toto
 
                 bool is_routed = false;
 

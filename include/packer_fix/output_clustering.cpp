@@ -411,9 +411,14 @@ static bool check_clustering_xml_open_block(pugi::xml_node parent_node, t_logica
 
                           // we return false because we do see a mode conflict in the final solution.
                           // Ideally we would need to fix the root cause of this mode conflict. 
-                          // Will do it when more time (T.Besson)
+                          // Will do it when more time (Rapid Silicon, T.Besson).
                           //
-                          VTR_LOG("INFO : rejected cluster packing solution with modes conflict !\n");
+
+                          // Handle the error message at the caller level
+#if 0
+                          VTR_LOG("Info: modes conflict : pb mode = %s, edge mode = %s!\n", mode->name, 
+                                   pb_type->modes[mode_of_edge].name);
+#endif
                           return false;
                         }
                         VTR_ASSERT(mode == nullptr || &pb_type->modes[mode_of_edge] == mode);
@@ -931,7 +936,8 @@ static bool check_clustering_xml_block(pugi::xml_node parent_node, t_logical_blo
     return true;
 }
 
-bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing, bool global_clocks, const std::unordered_set<AtomNetId>& is_clock, const std::string& architecture_id, const char* out_fname, bool skip_clustering) {
+bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing, 
+                             const std::string& architecture_id, const char* out_fname) {
 
     auto& device_ctx = g_vpr_ctx.device();
     auto& atom_ctx = g_vpr_ctx.atom();
@@ -959,62 +965,12 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
     block_node.append_attribute("architecture_id") = architecture_id.c_str();
     block_node.append_attribute("atom_netlist_id") = atom_ctx.nlist.netlist_id().c_str();
 
-    std::vector<std::string> inputs;
-    std::vector<std::string> outputs;
 
-    for (auto blk_id : atom_ctx.nlist.blocks()) {
-        auto type = atom_ctx.nlist.block_type(blk_id);
-        switch (type) {
-            case AtomBlockType::INPAD:
-                if (skip_clustering) {
-                    VTR_ASSERT(0);
-                }
-                inputs.push_back(atom_ctx.nlist.block_name(blk_id));
-                break;
-
-            case AtomBlockType::OUTPAD:
-                if (skip_clustering) {
-                    VTR_ASSERT(0);
-                }
-                outputs.push_back(atom_ctx.nlist.block_name(blk_id));
-                break;
-
-            case AtomBlockType::BLOCK:
-                if (skip_clustering) {
-                    VTR_ASSERT(0);
-                }
-                break;
-
-            default:
-                VTR_LOG_ERROR("in output_netlist: Unexpected type %d for atom block %s.\n",
-                              type, atom_ctx.nlist.block_name(blk_id).c_str());
-        }
-    }
-
-    block_node.append_child("inputs").text().set(vtr::join(inputs.begin(), inputs.end(), " ").c_str());
-    block_node.append_child("outputs").text().set(vtr::join(outputs.begin(), outputs.end(), " ").c_str());
-
-    if (global_clocks) {
-        std::vector<std::string> clocks;
-        for (auto net_id : atom_ctx.nlist.nets()) {
-            if (is_clock.count(net_id)) {
-                clocks.push_back(atom_ctx.nlist.net_name(net_id));
-            }
-        }
-
-        block_node.append_child("clocks").text().set(vtr::join(clocks.begin(), clocks.end(), " ").c_str());
-    }
-
-    if (skip_clustering == false) {
-
-        // Check only the last_id block
-        //
-        /* TODO: Must do check that total CLB pins match top-level pb pins, perhaps check this earlier? */
-        if (!check_clustering_xml_block(block_node, cluster_ctx.clb_nlist.block_type(last_id), pb_graph_pin_lookup_from_index_by_type, 
+    // Check only the last_id block
+    //
+    if (!check_clustering_xml_block(block_node, cluster_ctx.clb_nlist.block_type(last_id), pb_graph_pin_lookup_from_index_by_type, 
                              cluster_ctx.clb_nlist.block_pb(last_id), size_t(last_id), cluster_ctx.clb_nlist.block_pb(last_id)->pb_route)) {
            return false;
-        }
-
     }
 
     if (!intra_lb_routing.empty()) {
