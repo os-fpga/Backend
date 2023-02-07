@@ -150,6 +150,7 @@ class pin_location {
 
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);
+  bool pin_location::logical_clocks_to_GEMINI_clks()
 };
 
 }  // namespace pinc

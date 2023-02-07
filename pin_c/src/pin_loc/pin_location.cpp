@@ -76,6 +76,10 @@ static string USAGE_MSG_2 =
     "[random | in_define_order]] --output OUTPUT";  // for rs internall,
                                                     // gemini; no user pcf is
                                                     // provided
+static string USAGE_MSG_3 =
+    "usage options: --pcf PCF --write  fpga_repack "; // for rs internall,
+                                               // gemini; no repack_constraint.xlm is
+                                               // provided and user want to create
 
 pin_location::pin_location(const cmd_line& cl) : cl_(cl) {
   temp_csv_file_name_ = "";
@@ -112,7 +116,8 @@ bool pin_location::reader_and_writer() {
   string blif_name = cmd.get_param("--blif");
   string json_name = cmd.get_param("--port_info");
   string output_name = cmd.get_param("--output");
-
+  string fpga_repack = cmd.get_param("--write");
+  
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) {
@@ -123,6 +128,7 @@ bool pin_location::reader_and_writer() {
     ls << "      blif_name (--blif) : " << blif_name << endl;
     ls << " json_name (--port_info) : " << json_name << endl;
     ls << "    output_name (--output) : " << output_name << endl;
+    ls << "    fpga_repack (--write) : " << fpga_repack << endl;
   }
 
   bool no_blif_no_json = blif_name.empty() && json_name.empty();
@@ -166,6 +172,13 @@ bool pin_location::reader_and_writer() {
   bool usage_requirement_2 =
       !(csv_name.empty() || no_blif_no_json || output_name.empty()) &&
       pcf_name.empty();
+  // usage 3: rs only - user want to map its design clocks to gemini fabric
+  // clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15].And user clocks
+  // are clk_a,clk_b and want to map clk_a with clk[15] like it
+  // in such case, we need to make sure a xml repack constraint file is properly
+  // generated to guide bitstream generation correctly.
+  bool usage_requirement_3 =
+      !(pcf_name.empty() && fpga_repack.empty());
 
   if (tr >= 2) {
     ls << "\t usage_requirement_0 : " << boolalpha << usage_requirement_0
@@ -173,6 +186,8 @@ bool pin_location::reader_and_writer() {
     ls << "\t usage_requirement_1 : " << boolalpha << usage_requirement_1
        << endl;
     ls << "\t usage_requirement_2 : " << boolalpha << usage_requirement_2
+       << endl;
+    ls << "\t usage_requirement_3 : " << boolalpha << usage_requirement_3
        << endl;
   }
 
@@ -197,11 +212,12 @@ bool pin_location::reader_and_writer() {
         return false;
       }
     }
-  } else if ((!usage_requirement_1) && (!usage_requirement_2)) {
+  }   else if ((!usage_requirement_1) && (!usage_requirement_2) && (!usage_requirement_3)){
     CERROR << error_messages_[MISSING_IN_OUT_FILES] << endl
            << USAGE_MSG_0 << ", or" << endl
            << USAGE_MSG_1 << ", or" << endl
            << USAGE_MSG_2 << endl;
+           << USAGE_MSG_3 << endl;
     return false;
   }
 
@@ -239,6 +255,12 @@ bool pin_location::reader_and_writer() {
       ls << " (EE) !create_place_file(csv_rd)" << endl;
       cerr << "ERROR: create_place_file() failed" << endl;
     }
+    return false;
+  }
+  // usage 3: if user wants to create fpga_repack_constraints.xml
+  if (!logical_clocks_to_GEMINI_clks())
+  {
+    CERROR << error_messages[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
     return false;
   }
 
@@ -1043,4 +1065,150 @@ bool pin_location::read_port_info(std::ifstream& ifs, vector<string>& inputs,
   return true;
 }
 
+bool pin_location::logical_clocks_to_GEMINI_clks()
+  {
+    string out_fn = cl_.get_param("--write");
+    std::ofstream file;
+    file.open(out_fn);
+    std::vector<std::string> design_clk;
+    std::vector<std::string> device_clk;
+    std::string clb = "<pin_constraint pb_type=\"clb\" pin=";
+    std::string io = "<pin_constraint pb_type=\"io\" pin=";
+    std::string bram = "<pin_constraint pb_type=\"bram\" pin=";
+    std::string dsp = "<pin_constraint pb_type=\"dsp\" pin=";
+    bool d_c = false;
+    bool p_c = false;
+    file << "<repack_design_constraints>" << std::endl;
+    for (const vector<string> &set_clks : pcf_pin_cmds_)
+    {
+      for (size_t i = 1; i < set_clks.size(); i++)
+      {
+        std::string token(set_clks[i]);
+
+        if (token == "-device_clock")
+        {
+          d_c = true;
+          p_c = false;
+          continue;
+        }
+        else if (token == "-design_clock")
+        {
+          d_c = false;
+          p_c = true;
+          continue;
+        }
+        if (d_c)
+        {
+          device_clk.push_back(token);
+        }
+
+        if (p_c)
+        {
+          design_clk.push_back(token);
+        }
+      }
+    }
+    for (int i = 0; i < 16; i++)
+    {
+
+      file << "\t" << clb;
+      std::string clk_name = "clk[" + to_string(i) + "]";
+      std::string clks_name = "\"clk[" + to_string(i) + "]";
+      file << clks_name << "\" net=";
+      bool found = false;
+      for (int k = 0; k < device_clk.size(); k++)
+      {
+
+        if (clk_name == device_clk[k])
+        {
+
+          file << "\"" << design_clk[k] << "\"";
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+        file << "\"OPEN\"";
+
+      file << "/>" << std::endl;
+    }
+    file << std::endl;
+    for (int i = 0; i < 16; i++)
+    {
+
+      file << "\t" << io;
+      std::string clk_name = "clk[" + to_string(i) + "]";
+      std::string clks_name = "\"clk[" + to_string(i) + "]";
+      file << clks_name << "\" net=";
+      bool found = false;
+      for (int k = 0; k < device_clk.size(); k++)
+      {
+
+        if (clk_name == device_clk[k])
+        {
+
+          file << "\"" << design_clk[k] << "\"";
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+        file << "\"OPEN\"";
+
+      file << "/>" << std::endl;
+    }
+    file << std::endl;
+    for (int i = 0; i < 16; i++)
+    {
+
+      file << "\t" << bram;
+      std::string clk_name = "clk[" + to_string(i) + "]";
+      std::string clks_name = "\"clk[" + to_string(i) + "]";
+      file << clks_name << "\" net=";
+      bool found = false;
+      for (int k = 0; k < device_clk.size(); k++)
+      {
+
+        if (clk_name == device_clk[k])
+        {
+
+          file << "\"" << design_clk[k] << "\"";
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+        file << "\"OPEN\"";
+
+      file << "/>" << std::endl;
+    }
+    file << std::endl;
+    for (int i = 0; i < 16; i++)
+    {
+
+      file << "\t" << dsp;
+      std::string clk_name = "clk[" + to_string(i) + "]";
+      std::string clks_name = "\"clk[" + to_string(i) + "]";
+      file << clks_name << "\" net=";
+      bool found = false;
+      for (int k = 0; k < device_clk.size(); k++)
+      {
+
+        if (clk_name == device_clk[k])
+        {
+
+          file << "\"" << design_clk[k] << "\"";
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+        file << "\"OPEN\"";
+
+      file << "/>" << std::endl;
+    }
+    file << std::endl;
+    file << "</repack_design_constraints>" << std::endl;
+    return true;
+  }
 }  // namespace pinc
