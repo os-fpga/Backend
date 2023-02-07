@@ -770,10 +770,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
   }
   for (uint i = 0; i < input_sz; i++) {
     if (get_available_bump_pin(csv_rd, bump_pin_and_mode, INPUT)) {
-      if (csv_rd.use_bump_column_B_)
-        pinName = bump_pin_and_mode.first;
-      else
-        pinName = csv_rd.bumpName2BallName(bump_pin_and_mode.first);
+      pinName = csv_rd.bumpName2BallName(bump_pin_and_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_inputs_[input_idx[i]];
@@ -802,10 +799,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
   }
   for (uint i = 0; i < output_sz; i++) {
     if (get_available_bump_pin(csv_rd, bump_pin_and_mode, OUTPUT)) {
-      if (csv_rd.use_bump_column_B_)
-        pinName = bump_pin_and_mode.first;
-      else
-        pinName = csv_rd.bumpName2BallName(bump_pin_and_mode.first);
+      pinName = csv_rd.bumpName2BallName(bump_pin_and_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_outputs_[output_idx[i]];
