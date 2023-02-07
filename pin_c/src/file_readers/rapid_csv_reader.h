@@ -20,9 +20,9 @@ class RapidCsvReader {
   struct BCD {
     // columns B, C, D of the table
     // --- 1-B  Bump/Pin Name
-    // --- 2-C  Ball Name
+    // --- 2-C  Customer Name
     // --- 3-D  Ball ID
-    string bump_, ball_, ball_ID_;
+    string bump_, customer_, ball_ID_;
     int row_ = 0;
 
     BCD() noexcept = default;
@@ -40,11 +40,11 @@ class RapidCsvReader {
 
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
-                          const string& bump_ball_or_ID,
+                          const string& customerPin_or_ID,
                           const string& gbox_pin_name) const;
 
   uint numRows() const noexcept {
-    assert(bcd_.size() == gbox_name_.size());
+    assert(bcd_.size() == fullchip_name_.size());
     assert(bcd_.size() == io_tile_pin_xyz_.size());
     return bcd_.size();
   }
@@ -56,9 +56,9 @@ class RapidCsvReader {
     return bcd_[row].bump_;
   }
 
-  const string& ballPinName(uint row) const noexcept {
+  const string& customerPinName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].ball_;
+    return bcd_[row].customer_;
   }
 
   const vector<string>* getModeData(const string& mode_name) const noexcept {
@@ -80,15 +80,13 @@ class RapidCsvReader {
 
   // below vectors are indexed by csv row, size() == #rows
 
-  // vector<string> bump_pin_name_;  // "Bump/Pin Name" - column B
+  vector<BCD> bcd_; // "Bump/Pin Name", "Customer Name", "Ball ID" - columns B, C, D
 
-  vector<BCD> bcd_; // "Bump/Pin Name", "Ball Name", "Ball ID" - columns B, C, D
-
-  vector<string> gbox_name_;      // "GBOX_NAME"
+  vector<string> fullchip_name_;  // "Fullchip_NAME", column N
 
   vector<string> io_tile_pin_;    // "IO_tile_pin"
 
-  vector<XYZ> io_tile_pin_xyz_;  // "IO_tile_pin_x", "_y", "_z"
+  vector<XYZ> io_tile_pin_xyz_;   // "IO_tile_pin_x", "_y", "_z"
 
   int start_position_ = 0;  // "GBX GPIO" group start position in pin table row
 
@@ -96,7 +94,7 @@ class RapidCsvReader {
 };
 
 inline std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
-  os << "(bcd  " << b.bump_ << "  " << b.ball_
+  os << "(bcd  " << b.bump_ << "  " << b.customer_
      << "  " << b.ball_ID_ << "  row:" << b.row_ << ')';
   return os;
 }
