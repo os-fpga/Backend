@@ -61,21 +61,6 @@ class RapidCsvReader {
     return bcd_[row].ball_;
   }
 
-  int get_pin_x_by_pin_idx(uint i) const noexcept {
-    assert(i < io_tile_pin_xyz_.size());
-    return io_tile_pin_xyz_[i].x_;
-  }
-
-  int get_pin_y_by_pin_idx(uint i) const noexcept {
-    assert(i < io_tile_pin_xyz_.size());
-    return io_tile_pin_xyz_[i].y_;
-  }
-
-  int get_pin_z_by_pin_idx(uint i) const noexcept {
-    assert(i < io_tile_pin_xyz_.size());
-    return io_tile_pin_xyz_[i].z_;
-  }
-
   const vector<string>* getModeData(const string& mode_name) const noexcept {
     assert(!mode_name.empty());
     if (mode_name.empty())
@@ -106,8 +91,6 @@ class RapidCsvReader {
   vector<XYZ> io_tile_pin_xyz_;  // "IO_tile_pin_x", "_y", "_z"
 
   int start_position_ = 0;  // "GBX GPIO" group start position in pin table row
-
-  bool use_bump_column_B_ = false;  // old mode for EDA-1057
 
   friend class pin_location;
 };

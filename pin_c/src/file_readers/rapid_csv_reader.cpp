@@ -35,12 +35,7 @@ static inline string label_column(int i) noexcept
 RapidCsvReader::RapidCsvReader()
 {
   // old mode for EDA-1057
-  use_bump_column_B_ = false; // true - old mode, false - new mode
-  if (getenv("pinc_use_bump_column_B")) {
-    use_bump_column_B_ = true;
-    if (ltrace())
-      lputs("\nNOTE: use_bump_column_B_ == TRUE\n");
-  }
+  // use_bump_column_B_ = false; // true - old mode, false - new mode
 }
 
 RapidCsvReader::~RapidCsvReader()
@@ -342,32 +337,16 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(
   assert(io_tile_pin_xyz_.size() == num_rows);
   assert(bcd_.size() == num_rows);
 
-  if (use_bump_column_B_) {
-    for (uint i = 0; i < num_rows; i++) {
-      if (bumpPinName(i) != bump_ball_or_ID)
-        continue;
-      if (mode_vector[i] != "Y")
-        continue;
-      if (gbox_pin_name.length() == 0 ||
-          (gbox_pin_name.length() > 0 && gbox_name_[i] == gbox_pin_name)) {
-        result = io_tile_pin_xyz_[i];
-        assert(result.valid());
-        break;
-      }
-    }
-  } else {
-    for (uint i = 0; i < num_rows; i++) {
-      const BCD& bcd = bcd_[i];
-      if (bcd.ball_ != bump_ball_or_ID && bcd.ball_ID_ != bump_ball_or_ID)
-        continue;
-      if (mode_vector[i] != "Y")
-        continue;
-      if (gbox_pin_name.length() == 0 ||
-          (gbox_pin_name.length() > 0 && gbox_name_[i] == gbox_pin_name)) {
-        result = io_tile_pin_xyz_[i];
-        assert(result.valid());
-        break;
-      }
+  for (uint i = 0; i < num_rows; i++) {
+    const BCD& bcd = bcd_[i];
+    if (bcd.ball_ != bump_ball_or_ID && bcd.ball_ID_ != bump_ball_or_ID)
+      continue;
+    if (mode_vector[i] != "Y")
+      continue;
+    if (gbox_pin_name.empty() || gbox_name_[i] == gbox_pin_name) {
+      result = io_tile_pin_xyz_[i];
+      assert(result.valid());
+      break;
     }
   }
 
@@ -394,16 +373,9 @@ string RapidCsvReader::bumpName2BallName(const string& bump_name) const noexcept
 bool RapidCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
   assert(!bcd_.empty());
 
-  if (use_bump_column_B_) {
-    for (const BCD& x : bcd_) {
-      if (x.bump_ == pin_name_or_ID)
-        return true;
-    }
-  } else {
-    for (const BCD& x : bcd_) {
-      if (x.ball_ == pin_name_or_ID || x.ball_ID_ == pin_name_or_ID)
-        return true;
-    }
+  for (const BCD& x : bcd_) {
+    if (x.ball_ == pin_name_or_ID || x.ball_ID_ == pin_name_or_ID)
+      return true;
   }
 
   return false;
