@@ -18,14 +18,29 @@ class RapidCsvReader {
  public:
 
   struct BCD {
-    // columns B, C, D of the table
-    // --- 1-B  Bump/Pin Name
-    // --- 2-C  Customer Name
-    // --- 3-D  Ball ID
-    string bump_, customer_, ball_ID_;
+    // columns B, C, D, BU(#72) of the table
+    // --- 1-B    Bump/Pin Name
+    // --- 2-C    Customer Name
+    // --- 3-D    Ball ID
+    // --- 72-BU  Customer Internal Name
+    string bump_,
+           customer_, // 2-C Customer Name
+           ball_ID_,
+           customerInternal_; // 72-BU Customer Internal Name
+
     int row_ = 0;
 
     BCD() noexcept = default;
+
+    bool match(const string& customerPin_or_ID) const noexcept {
+      if (customer_ == customerPin_or_ID)
+        return true;
+      if (ball_ID_ == customerPin_or_ID)
+        return true;
+      if (customerInternal_ == customerPin_or_ID)
+        return true;
+      return false;
+    }
   };
 
   RapidCsvReader();
@@ -60,6 +75,10 @@ class RapidCsvReader {
     assert(row < bcd_.size());
     return bcd_[row].customer_;
   }
+  const string& customerInternalName(uint row) const noexcept {
+    assert(row < bcd_.size());
+    return bcd_[row].customerInternal_;
+  }
 
   const vector<string>* getModeData(const string& mode_name) const noexcept {
     assert(!mode_name.empty());
@@ -71,7 +90,7 @@ class RapidCsvReader {
     return &(fitr->second);
   }
 
-  string bumpName2BallName(const string& bump_name) const noexcept;
+  string bumpName2CustomerName(const string& bump_name) const noexcept;
 
  private:
   std::map<string, vector<string>> modes_map_;
@@ -94,8 +113,11 @@ class RapidCsvReader {
 };
 
 inline std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
-  os << "(bcd  " << b.bump_ << "  " << b.customer_
-     << "  " << b.ball_ID_ << "  row:" << b.row_ << ')';
+  os << "(bcd  " << b.bump_ 
+     << "  " << b.customer_
+     << "  " << b.ball_ID_
+     << "  ci:" << b.customerInternal_
+     << "  row:" << b.row_ << ')';
   return os;
 }
 
