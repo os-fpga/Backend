@@ -8,6 +8,37 @@ project("pin_c")
 #
 include(CheckCXXSymbolExists)
 
+if (PRODUCTION_BUILD)
+    if(NOT RAPTOR)
+        get_filename_component(FLEX_LM_SRC_DIR "../Raptor_Tools/Flex_LM"
+        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    endif()
+    message("Production Build type set to ON")
+    set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
+    add_definitions(-DPRODUCTION_BUILD)
+    message("FLEX: "  ${FLEX_LM_SRC_DIR})
+endif(PRODUCTION_BUILD)
+
+if (NOT RAPTOR)
+    get_filename_component(READ_VERILOG_SRC_DIR "../Raptor_Tools/gatelevel_readers/read_verilog"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+    get_filename_component(READ_EDIF_SRC_DIR "../Raptor_Tools/gatelevel_readers/read_edif"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+endif()
+
+include_directories(PUBLIC ${READ_VERILOG_SRC_DIR})
+include_directories(PUBLIC ${READ_EDIF_SRC_DIR})
+include_directories(PUBLIC ${FLEX_LM_SRC_DIR}
+                        ${FLEX_LM_SRC_DIR}/machind)
+
+if(OPENSSL_FOUND)
+    include_directories(${OPENSSL_INCLUDE_DIRS})
+    message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
+else()
+    message("SSL not found")
+    # Error; with REQUIRED, pkg_search_module() will throw an error by it's own
+endif()
+
 #Collect the source files
 file(GLOB_RECURSE EXEC_SOURCES src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
@@ -50,8 +81,26 @@ set_target_properties(blif_parse_static PROPERTIES
 target_link_libraries(libpinconst PUBLIC blif_parse_static vprst_static libvtrutil libpugixml)
 
 add_executable(pin_c ${EXEC_SOURCES})
-target_link_libraries(pin_c PUBLIC libpinconst blif_parse_static vprst_static libvtrutil libpugixml)
-
+if(PRODUCTION_BUILD)
+    target_link_libraries(pin_c PUBLIC libpinconst 
+                                       blif_parse_static
+                                       vprst_static
+                                       libvtrutil
+                                       libpugixml
+                                       libreadver
+                                       libreadedif
+                                       rs_licenseManager
+                                       ${OPENSSL_LIBRARIES})
+else()
+    target_link_libraries(pin_c PUBLIC libpinconst
+                                       blif_parse_static
+                                       vprst_static
+                                       libvtrutil
+                                       libpugixml
+                                       libreadver
+                                       libreadedif
+                                       ${OPENSSL_LIBRARIES})
+endif()
 #Supress IPO link warnings if IPO is enabled
 get_target_property(PIN_C_USES_IPO vpr INTERPROCEDURAL_OPTIMIZATION)
 if (PIN_C_USES_IPO)
