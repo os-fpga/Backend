@@ -5,8 +5,11 @@
 
 // blif parser callback
  using namespace blifparse;
- class BlifParserCallback : public Callback {
+ class BlifParserCallback : public blifparse::Callback {
+    int lineno_ = -1;
+    e_circuit_format circuit_format = e_circuit_format::BLIF;
      public:
+         BlifParserCallback(e_circuit_format circuit_format_) : circuit_format(circuit_format_) {}
          void start_parse() override {}
 
          void filename(std::string /*fname*/) override {}
@@ -28,6 +31,38 @@
          void latch(std::string /*input*/, std::string /*output*/, LatchType /*        type*/, std::string /*control*/,            LogicValue /*init*/) override {}
          void subckt(std::string /*model*/, std::vector<std::string> /*ports*/, std::  vector<std::string> /*nets*/)         override {}
          void blackbox() override {}
+
+         //BLIF Extensions
+    void conn(std::string src, std::string dst) override {
+        if (circuit_format != e_circuit_format::EBLIF) {
+            parse_error(lineno_, ".conn", "Supported only in extended BLIF format");
+        }
+    }
+
+    void cname(std::string cell_name) override {
+        if (circuit_format != e_circuit_format::EBLIF) {
+            parse_error(lineno_, ".cname", "Supported only in extended BLIF format");
+        }
+    }
+
+    void attr(std::string name, std::string value) override {
+        if (circuit_format != e_circuit_format::EBLIF) {
+            parse_error(lineno_, ".attr", "Supported only in extended BLIF format");
+        }
+    }
+
+    void param(std::string name, std::string value) override {
+        if (circuit_format != e_circuit_format::EBLIF) {
+            parse_error(lineno_, ".param", "Supported only in extended BLIF format");
+        }
+
+        // Validate the parameter value
+        bool is_valid = is_string_param(value) || is_binary_param(value) || is_real_param(value);
+
+        if (!is_valid) {
+            parse_error(lineno_, ".param", "Incorrect parameter value specification");
+        }
+    }
 
          void end_model() override {}
 
@@ -59,7 +94,7 @@ bool BlifReader::read_blif(const std::string &blif_file_name)
     } else {
         return false;
     }
-    BlifParserCallback callback;
+    BlifParserCallback callback(circuit_format);
     blif_parse_filename(blif_file_name, callback);
     if (callback.had_error()) {
         return false;
