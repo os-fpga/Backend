@@ -44,11 +44,11 @@ using namespace std;
 #define CERROR std::cerr << "[Error] "
 
 // use fix to detemined A2F and F2A GBX mode
-static constexpr const char* INPUT_MODE_FIX  = "_RX";
+static constexpr const char* INPUT_MODE_FIX = "_RX";
 static constexpr const char* OUTPUT_MODE_FIX = "_TX";
 
 // for mpw1  (no gearbox, a Mode_GPIO is created)
-static constexpr const char* GPIO_MODE_FIX   = "_GPIO";
+static constexpr const char* GPIO_MODE_FIX = "_GPIO";
 
 static bool fs_path_exists(const string& path) noexcept {
   if (path.length() < 1) return false;
@@ -77,10 +77,9 @@ static string USAGE_MSG_2 =
                                                     // gemini; no user pcf is
                                                     // provided
 static string USAGE_MSG_3 =
-    "usage options: --pcf PCF --write  fpga_repack "; // for rs internall,
-                                               // gemini; no repack_constraint.xlm is
-                                               // provided and user want to create
-
+      "usage options: --pcf PCF --read_repack fpga_repack"
+      "--write_repack user_constrained_repack"; // for rs internall,
+                                                // gemini; user want to update the fpga_repack_constraints.xml
 pin_location::pin_location(const cmd_line& cl) : cl_(cl) {
   temp_csv_file_name_ = "";
   temp_pcf_file_name_ = "";
@@ -116,8 +115,9 @@ bool pin_location::reader_and_writer() {
   string blif_name = cmd.get_param("--blif");
   string json_name = cmd.get_param("--port_info");
   string output_name = cmd.get_param("--output");
-  string fpga_repack = cmd.get_param("--write");
-  
+  string fpga_repack = cmd.get_param("--read_repack");
+  string user_constrained_repack = cmd.get_param("--write_repack");
+
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) {
@@ -128,7 +128,8 @@ bool pin_location::reader_and_writer() {
     ls << "      blif_name (--blif) : " << blif_name << endl;
     ls << " json_name (--port_info) : " << json_name << endl;
     ls << "    output_name (--output) : " << output_name << endl;
-    ls << "    fpga_repack (--write) : " << fpga_repack << endl;
+    ls << "    fpga_repack (--read_repack) : " << output_name << endl;
+    ls << "    user_constrained_repack (--write_repack) : " << fpga_repack << endl
   }
 
   bool no_blif_no_json = blif_name.empty() && json_name.empty();
@@ -172,13 +173,6 @@ bool pin_location::reader_and_writer() {
   bool usage_requirement_2 =
       !(csv_name.empty() || no_blif_no_json || output_name.empty()) &&
       pcf_name.empty();
-  // usage 3: rs only - user want to map its design clocks to gemini fabric
-  // clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15].And user clocks
-  // are clk_a,clk_b and want to map clk_a with clk[15] like it
-  // in such case, we need to make sure a xml repack constraint file is properly
-  // generated to guide bitstream generation correctly.
-  bool usage_requirement_3 =
-      !(pcf_name.empty() && fpga_repack.empty());
 
   if (tr >= 2) {
     ls << "\t usage_requirement_0 : " << boolalpha << usage_requirement_0
@@ -187,7 +181,7 @@ bool pin_location::reader_and_writer() {
        << endl;
     ls << "\t usage_requirement_2 : " << boolalpha << usage_requirement_2
        << endl;
-    ls << "\t usage_requirement_3 : " << boolalpha << usage_requirement_3
+    ls << "\t usage_requirement_3: " << boolalpha << usage_requirement_3
        << endl;
   }
 
@@ -212,11 +206,11 @@ bool pin_location::reader_and_writer() {
         return false;
       }
     }
-  }   else if ((!usage_requirement_1) && (!usage_requirement_2) && (!usage_requirement_3)){
+  } else if ((!usage_requirement_1) && (!usage_requirement_2)) {
     CERROR << error_messages_[MISSING_IN_OUT_FILES] << endl
            << USAGE_MSG_0 << ", or" << endl
            << USAGE_MSG_1 << ", or" << endl
-           << USAGE_MSG_2 << endl;
+           << USAGE_MSG_2 << ", or" << endl
            << USAGE_MSG_3 << endl;
     return false;
   }
@@ -257,13 +251,11 @@ bool pin_location::reader_and_writer() {
     }
     return false;
   }
-  // usage 3: if user wants to create fpga_repack_constraints.xml
-  if (!logical_clocks_to_GEMINI_clks())
-  {
-    CERROR << error_messages[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
-    return false;
-  }
-
+ if (!write_logical_clocks_to_physical_clks())
+    {
+      CERROR << error_messages_[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
+      return false;
+    }
   // -- done successfully
   if (tr >= 2)
     ls << "done: pin_location::reader_and_writer() done successfully" << endl;
@@ -484,7 +476,7 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
     search_name.clear();
 
     const string& user_design_pin_name = pcf_cmd[1];
-    const string& device_pin_name = pcf_cmd[2]; // bump or ball
+    const string& device_pin_name = pcf_cmd[2];  // bump or ball
 
     if (tr >= 4) {
       logVec(pcf_cmd, "    cur pcf_cmd:");
@@ -663,23 +655,21 @@ bool pin_location::read_csv_file(RapidCsvReader& csv_rd) {
 }
 
 bool pin_location::get_available_bump_pin(
-    const RapidCsvReader& csv_rd,
-    std::pair<string, string>& bump_pin_and_mode,
-    PortDirection port_direction)
-{
-  static uint cnt = 0; cnt++;
+    const RapidCsvReader& csv_rd, std::pair<string, string>& bump_pin_and_mode,
+    PortDirection port_direction) {
+  static uint cnt = 0;
+  cnt++;
   uint16_t tr = ltrace();
   if (tr >= 4)
-    lprintf("get_available_bump_pin()# %u  port_direction= %c\n",
-            cnt, (port_direction==INPUT ? 'I' : 'O'));
+    lprintf("get_available_bump_pin()# %u  port_direction= %c\n", cnt,
+            (port_direction == INPUT ? 'I' : 'O'));
 
   bool found = false;
 
   uint num_rows = csv_rd.numRows();
   for (uint i = csv_rd.start_position_; i < num_rows; i++) {
     const string& bump_pin_name = csv_rd.bumpPinName(i);
-    if (used_bump_pins_.count(bump_pin_name))
-      continue;
+    if (used_bump_pins_.count(bump_pin_name)) continue;
     for (uint j = 0; j < csv_rd.mode_names_.size(); j++) {
       const string& mode_name = csv_rd.mode_names_[j];
       const vector<string>* mode_data = csv_rd.getModeData(mode_name);
@@ -688,7 +678,8 @@ bool pin_location::get_available_bump_pin(
       if (port_direction == INPUT) {
         if (is_input_mode(mode_name)) {
           for (uint k = csv_rd.start_position_; k < num_rows; k++) {
-            if (mode_data->at(k) == "Y" && bump_pin_name == csv_rd.bumpPinName(k)) {
+            if (mode_data->at(k) == "Y" &&
+                bump_pin_name == csv_rd.bumpPinName(k)) {
               bump_pin_and_mode.first = bump_pin_name;
               bump_pin_and_mode.second = mode_name;
               used_bump_pins_.insert(bump_pin_name);
@@ -702,7 +693,8 @@ bool pin_location::get_available_bump_pin(
       } else if (port_direction == OUTPUT) {
         if (is_output_mode(mode_name)) {
           for (uint k = csv_rd.start_position_; k < num_rows; k++) {
-            if (mode_data->at(k) == "Y" && bump_pin_name == csv_rd.bumpPinName(k)) {
+            if (mode_data->at(k) == "Y" &&
+                bump_pin_name == csv_rd.bumpPinName(k)) {
               bump_pin_and_mode.first = bump_pin_name;
               bump_pin_and_mode.second = mode_name;
               used_bump_pins_.insert(bump_pin_name);
@@ -722,7 +714,8 @@ ret:
     if (found) {
       const string& bump_pn = bump_pin_and_mode.first;
       const string& mode_nm = bump_pin_and_mode.second;
-      lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(), mode_nm.c_str());
+      lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
+              mode_nm.c_str());
     } else {
       lputs("\t  (WW) get_available_bump_pin() returns NOT_FOUND");
     }
@@ -758,17 +751,23 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
     if (tr >= 3)
       lputs("  create_temp_pcf_file() randomized input_idx, output_idx");
   } else if (tr >= 3) {
-      lputs("  input_idx, output_idx are indexing user_design_inputs_, user_design_outputs_");
-      lprintf("  input_idx.size()= %u  output_idx.size()= %u\n",
-              uint(input_idx.size()), uint(output_idx.size()));
+    lputs(
+        "  input_idx, output_idx are indexing user_design_inputs_, "
+        "user_design_outputs_");
+    lprintf("  input_idx.size()= %u  output_idx.size()= %u\n",
+            uint(input_idx.size()), uint(output_idx.size()));
   }
 
   pair<string, string> bump_pin_and_mode;
   ofstream temp_out;
   temp_out.open(temp_pcf_file_name_, ifstream::out | ifstream::binary);
   if (temp_out.fail()) {
-    lprintf("\n  !!! (ERROR) create_temp_pcf_file(): could not open %s for writing\n", temp_pcf_file_name_.c_str());
-    CERROR << "(EE) could not open " << temp_pcf_file_name_ << " for writing\n" << endl;
+    lprintf(
+        "\n  !!! (ERROR) create_temp_pcf_file(): could not open %s for "
+        "writing\n",
+        temp_pcf_file_name_.c_str());
+    CERROR << "(EE) could not open " << temp_pcf_file_name_ << " for writing\n"
+           << endl;
     return false;
   }
 
@@ -779,7 +778,10 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
     if (user_pcf_name.size()) {
       user_out.open(user_pcf_name, ifstream::out | ifstream::binary);
       if (user_out.fail()) {
-        lprintf("\n  !!! (ERROR) create_temp_pcf_file(): failed to open user_out %s\n", user_pcf_name.c_str());
+        lprintf(
+            "\n  !!! (ERROR) create_temp_pcf_file(): failed to open user_out "
+            "%s\n",
+            user_pcf_name.c_str());
         return false;
       }
     }
@@ -792,7 +794,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
   }
   for (uint i = 0; i < input_sz; i++) {
     if (get_available_bump_pin(csv_rd, bump_pin_and_mode, INPUT)) {
-      pinName = csv_rd.bumpName2BallName(bump_pin_and_mode.first);
+      pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_inputs_[input_idx[i]];
@@ -821,7 +823,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
   }
   for (uint i = 0; i < output_sz; i++) {
     if (get_available_bump_pin(csv_rd, bump_pin_and_mode, OUTPUT)) {
-      pinName = csv_rd.bumpName2BallName(bump_pin_and_mode.first);
+      pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_outputs_[output_idx[i]];
@@ -1064,21 +1066,31 @@ bool pin_location::read_port_info(std::ifstream& ifs, vector<string>& inputs,
 
   return true;
 }
-
-bool pin_location::logical_clocks_to_GEMINI_clks()
+bool pin_location::write_logical_clocks_to_physical_clks()
   {
-    string out_fn = cl_.get_param("--write");
-    std::ofstream file;
-    file.open(out_fn);
+    pugi::xml_document doc;
     std::vector<std::string> design_clk;
     std::vector<std::string> device_clk;
-    std::string clb = "<pin_constraint pb_type=\"clb\" pin=";
-    std::string io = "<pin_constraint pb_type=\"io\" pin=";
-    std::string bram = "<pin_constraint pb_type=\"bram\" pin=";
-    std::string dsp = "<pin_constraint pb_type=\"dsp\" pin=";
+    std::string userPin;
+    std::string userNet;
     bool d_c = false;
     bool p_c = false;
-    file << "<repack_design_constraints>" << std::endl;
+    string out_fn = cl_.get_param("--write_repack");
+    string in_fn = cl_.get_param("--update_repack");
+    std::ifstream infile(in_fn);
+    if (!infile.is_open())
+    {
+      std::cerr << "ERROR: cound not open the file " << in_fn << std::endl;
+      return false;
+    }
+    // Load the XML file
+    pugi::xml_parse_result result = doc.load_file(in_fn.c_str());
+    if (!result)
+    {
+      std::cerr << "Error loading XML file: " << result.description() << '\n';
+      return 1;
+    }
+
     for (const vector<string> &set_clks : pcf_pin_cmds_)
     {
       for (size_t i = 1; i < set_clks.size(); i++)
@@ -1108,107 +1120,44 @@ bool pin_location::logical_clocks_to_GEMINI_clks()
         }
       }
     }
-    for (int i = 0; i < 16; i++)
+
+    std::map<std::string, std::string> userPins;
+
+    for (size_t k = 0; k < device_clk.size(); k++)
     {
+      userPin = device_clk[k];
+      userNet = design_clk[k];
 
-      file << "\t" << clb;
-      std::string clk_name = "clk[" + to_string(i) + "]";
-      std::string clks_name = "\"clk[" + to_string(i) + "]";
-      file << clks_name << "\" net=";
-      bool found = false;
-      for (int k = 0; k < device_clk.size(); k++)
+      if (userNet.empty())
       {
-
-        if (clk_name == device_clk[k])
-        {
-
-          file << "\"" << design_clk[k] << "\"";
-          found = true;
-          break;
-        }
+        userNet = "OPEN";
       }
-      if (!found)
-        file << "\"OPEN\"";
-
-      file << "/>" << std::endl;
+      userPins[userPin] = userNet;
     }
-    file << std::endl;
-    for (int i = 0; i < 16; i++)
+
+    // If the user does not provide a net name, set it to "open"
+    if (userNet.empty())
     {
-
-      file << "\t" << io;
-      std::string clk_name = "clk[" + to_string(i) + "]";
-      std::string clks_name = "\"clk[" + to_string(i) + "]";
-      file << clks_name << "\" net=";
-      bool found = false;
-      for (int k = 0; k < device_clk.size(); k++)
-      {
-
-        if (clk_name == device_clk[k])
-        {
-
-          file << "\"" << design_clk[k] << "\"";
-          found = true;
-          break;
-        }
-      }
-      if (!found)
-        file << "\"OPEN\"";
-
-      file << "/>" << std::endl;
+      userNet = "OPEN";
     }
-    file << std::endl;
-    for (int i = 0; i < 16; i++)
+
+    // Update the XML file
+    for (pugi::xml_node node : doc.child("repack_design_constraints").children("pin_constraint"))
     {
-
-      file << "\t" << bram;
-      std::string clk_name = "clk[" + to_string(i) + "]";
-      std::string clks_name = "\"clk[" + to_string(i) + "]";
-      file << clks_name << "\" net=";
-      bool found = false;
-      for (int k = 0; k < device_clk.size(); k++)
+      auto it = userPins.find(node.attribute("pin").value());
+      if (it != userPins.end())
       {
-
-        if (clk_name == device_clk[k])
-        {
-
-          file << "\"" << design_clk[k] << "\"";
-          found = true;
-          break;
-        }
+        node.attribute("net").set_value(it->second.c_str());
       }
-      if (!found)
-        file << "\"OPEN\"";
-
-      file << "/>" << std::endl;
-    }
-    file << std::endl;
-    for (int i = 0; i < 16; i++)
-    {
-
-      file << "\t" << dsp;
-      std::string clk_name = "clk[" + to_string(i) + "]";
-      std::string clks_name = "\"clk[" + to_string(i) + "]";
-      file << clks_name << "\" net=";
-      bool found = false;
-      for (int k = 0; k < device_clk.size(); k++)
+      else
       {
-
-        if (clk_name == device_clk[k])
-        {
-
-          file << "\"" << design_clk[k] << "\"";
-          found = true;
-          break;
-        }
+        node.attribute("net").set_value("OPEN");
       }
-      if (!found)
-        file << "\"OPEN\"";
-
-      file << "/>" << std::endl;
     }
-    file << std::endl;
-    file << "</repack_design_constraints>" << std::endl;
+
+    // Save the updated XML file
+    doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
+
     return true;
   }
 }  // namespace pinc
