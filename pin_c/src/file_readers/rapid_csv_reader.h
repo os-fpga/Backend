@@ -18,14 +18,29 @@ class RapidCsvReader {
  public:
 
   struct BCD {
-    // columns B, C, D of the table
-    // --- 1-B  Bump/Pin Name
-    // --- 2-C  Ball Name
-    // --- 3-D  Ball ID
-    string bump_, ball_, ball_ID_;
+    // columns B, C, D, BU(#72) of the table
+    // --- 1-B    Bump/Pin Name
+    // --- 2-C    Customer Name
+    // --- 3-D    Ball ID
+    // --- 72-BU  Customer Internal Name
+    string bump_,
+           customer_, // 2-C Customer Name
+           ball_ID_,
+           customerInternal_; // 72-BU Customer Internal Name
+
     int row_ = 0;
 
     BCD() noexcept = default;
+
+    bool match(const string& customerPin_or_ID) const noexcept {
+      if (customer_ == customerPin_or_ID)
+        return true;
+      if (ball_ID_ == customerPin_or_ID)
+        return true;
+      if (customerInternal_ == customerPin_or_ID)
+        return true;
+      return false;
+    }
   };
 
   RapidCsvReader();
@@ -40,11 +55,11 @@ class RapidCsvReader {
 
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
-                          const string& bump_ball_or_ID,
+                          const string& customerPin_or_ID,
                           const string& gbox_pin_name) const;
 
   uint numRows() const noexcept {
-    assert(bcd_.size() == gbox_name_.size());
+    assert(bcd_.size() == fullchip_name_.size());
     assert(bcd_.size() == io_tile_pin_xyz_.size());
     return bcd_.size();
   }
@@ -56,24 +71,13 @@ class RapidCsvReader {
     return bcd_[row].bump_;
   }
 
-  const string& ballPinName(uint row) const noexcept {
+  const string& customerPinName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].ball_;
+    return bcd_[row].customer_;
   }
-
-  int get_pin_x_by_pin_idx(uint i) const noexcept {
-    assert(i < io_tile_pin_xyz_.size());
-    return io_tile_pin_xyz_[i].x_;
-  }
-
-  int get_pin_y_by_pin_idx(uint i) const noexcept {
-    assert(i < io_tile_pin_xyz_.size());
-    return io_tile_pin_xyz_[i].y_;
-  }
-
-  int get_pin_z_by_pin_idx(uint i) const noexcept {
-    assert(i < io_tile_pin_xyz_.size());
-    return io_tile_pin_xyz_[i].z_;
+  const string& customerInternalName(uint row) const noexcept {
+    assert(row < bcd_.size());
+    return bcd_[row].customerInternal_;
   }
 
   const vector<string>* getModeData(const string& mode_name) const noexcept {
@@ -86,7 +90,7 @@ class RapidCsvReader {
     return &(fitr->second);
   }
 
-  string bumpName2BallName(const string& bump_name) const noexcept;
+  string bumpName2CustomerName(const string& bump_name) const noexcept;
 
  private:
   std::map<string, vector<string>> modes_map_;
@@ -95,26 +99,25 @@ class RapidCsvReader {
 
   // below vectors are indexed by csv row, size() == #rows
 
-  // vector<string> bump_pin_name_;  // "Bump/Pin Name" - column B
+  vector<BCD> bcd_; // "Bump/Pin Name", "Customer Name", "Ball ID" - columns B, C, D
 
-  vector<BCD> bcd_; // "Bump/Pin Name", "Ball Name", "Ball ID" - columns B, C, D
-
-  vector<string> gbox_name_;      // "GBOX_NAME"
+  vector<string> fullchip_name_;  // "Fullchip_NAME", column N
 
   vector<string> io_tile_pin_;    // "IO_tile_pin"
 
-  vector<XYZ> io_tile_pin_xyz_;  // "IO_tile_pin_x", "_y", "_z"
+  vector<XYZ> io_tile_pin_xyz_;   // "IO_tile_pin_x", "_y", "_z"
 
   int start_position_ = 0;  // "GBX GPIO" group start position in pin table row
-
-  bool use_bump_column_B_ = false;  // old mode for EDA-1057
 
   friend class pin_location;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
-  os << "(bcd  " << b.bump_ << "  " << b.ball_
-     << "  " << b.ball_ID_ << "  row:" << b.row_ << ')';
+  os << "(bcd  " << b.bump_ 
+     << "  " << b.customer_
+     << "  " << b.ball_ID_
+     << "  ci:" << b.customerInternal_
+     << "  row:" << b.row_ << ')';
   return os;
 }
 

@@ -130,7 +130,6 @@ void check_and_output_clustering(const t_packer_opts& packer_opts,
                                  const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing);
 
 bool check_if_xml_mode_conflict(const t_packer_opts& packer_opts,
-                                 const std::unordered_set<AtomNetId>& is_clock,
                                  const t_arch* arch,
                                  const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing);
 

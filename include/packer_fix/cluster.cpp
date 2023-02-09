@@ -239,6 +239,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
     //
     bool failed_for_loop = false;
     int max_nb_molecule;
+    int nb_packed_molecules = 0;
 
     while (istart != nullptr) {
 
@@ -246,16 +247,28 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
         savedseedindex = seedindex;
 
         // If in the previous "for (detailed_routing_stage ..." call we failed all the 
-        // time (e.g 'failed_for_loop' is false) then when we re-enter it. We reduce the 
-        // calls to "try_fill_cluster" to half in order to expect a feasible solution. (T.Besson).
+        // time (e.g 'failed_for_loop' is false) then when we re-enter it but we reduce the 
+        // calls to "try_fill_cluster" by half in order to expect a feasible solution. 
         // 
         // This case can happen with unit test case "mult_seq" where we stuck on a mode4/mode5 
-        // conflict because of the "try_fill_cluster" several calls.
+        // conflict because of the calls to "try_fill_cluster" that always fail. In this case the 
+        // only feasible solution is to stick to the original "start_new_cluster" solution and
+        // avoid any call to "try_fill_cluster". To do this, "nb_max_molecule" needs to reduce 
+        // to 0 to avoid calling "try_fill_cluster". That's why we decrease "max_nb_molecule" in
+        // the iteration process to get down to 0. We decrease it by half each time but it could
+        // have been another scheme to decrease it. This one looks to give good QoR results.
+        // (T.Besson, Rapid Silicon)
         //
         if (failed_for_loop) {
-          max_nb_molecule = max_nb_molecule / 2;
+          max_nb_molecule = max_nb_molecule / 1.4; // decrease by 1.4 looks to be a good strategy. 
+                                                   // The packer is hyper sensitive to this number.
+                                                   // A change by 0.1 currently may generate big
+                                                   // difference on some designs like "axil_crossbar".
+                                                   // More investigation to understand why ? (T.Besson)
         } else {
-          max_nb_molecule = 24;
+          max_nb_molecule = 512; // important starting number. The packer is again sensitive
+                                 // to that number. This number needs to be high to guarantee some
+                                 // stable behavior. (T.Besson).
         }
 
         // Expect that we will not find a legal solution in the below "for loop"
@@ -400,7 +413,10 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                  primitive_candidate_block_types);
 
                 i++;
+
             }
+
+            max_nb_molecule = i;
 
             is_cluster_legal = check_cluster_legality(verbosity, detailed_routing_stage, router_data);
 
@@ -414,20 +430,28 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                   // performed by initiating a first xml kind of output work. There may be a tricky 
                   // conflict with some lb routing so we need to store temporary the lb nets in the 
                   // cluster data structure to make the check inside "check_if_xml_mode_conflict".
-                  // (T.Besson)
+                  // (T.Besson, Rapid Silicon)
                   //
                   (clustering_data.intra_lb_routing).push_back(router_data->saved_lb_nets);
 
                   // Call the check as if we would output the final packing ... and see if there is any 
                   // mode conflict. (T.Besson)
+                  // 'is_cluster_legal' turns to false if there is a mode conflict.
                   //
-                  is_cluster_legal = check_if_xml_mode_conflict(packer_opts, is_clock, arch, 
-                                                                   clustering_data.intra_lb_routing);
+                  is_cluster_legal = check_if_xml_mode_conflict(packer_opts, arch, 
+                                                                clustering_data.intra_lb_routing);
 
                   // Remove the previous pushed "intra_lb_routing_solution" to clean up 
                   // the place. (T.Besson)
                   //
                   (clustering_data.intra_lb_routing).pop_back();
+
+                  if (!is_cluster_legal &&
+                      (detailed_routing_stage == (int)E_DETAILED_ROUTE_FOR_EACH_ATOM)) {  
+
+                     VTR_LOGV(verbosity > 0, "Info: rejected cluster packing solution with modes conflict [%d]\n", 
+                              max_nb_molecule);
+                  }
                 }
 
                 if (is_cluster_legal) {
@@ -439,7 +463,11 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                   store_cluster_info_and_free(packer_opts, clb_index, logic_block_type, le_pb_type, 
                                               le_count, clb_inter_blk_nets);
 
-                  failed_for_loop = false;
+                  nb_packed_molecules += max_nb_molecule;
+
+                  VTR_LOGV(verbosity > 0, "Successfully packed Logic Block [%d]\n", max_nb_molecule);
+
+                  failed_for_loop = false; // tell the outer loop that we succeeded within this loop
 
                 } else {
                    free_data_and_requeue_used_mols_if_illegal(clb_index, savedseedindex, 
