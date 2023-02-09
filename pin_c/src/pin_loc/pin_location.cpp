@@ -173,6 +173,13 @@ bool pin_location::reader_and_writer() {
   bool usage_requirement_2 =
       !(csv_name.empty() || no_blif_no_json || output_name.empty()) &&
       pcf_name.empty();
+  // usage 3: rs only - user want to map its design clocks to gemini fabric
+  // clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15].And user clocks
+  // are clk_a,clk_b and want to map clk_a with clk[15] like it
+  // in such case, we need to make sure a xml repack constraint file is properly
+  // generated to guide bitstream generation correctly.
+    bool usage_requirement_3 =
+        !(pcf_name.empty() && fpga_repack.empty());
 
   if (tr >= 2) {
     ls << "\t usage_requirement_0 : " << boolalpha << usage_requirement_0
@@ -251,6 +258,7 @@ bool pin_location::reader_and_writer() {
     }
     return false;
   }
+// usage 3: if user wants to create fpga_repack_constraints.xml
  if (!write_logical_clocks_to_physical_clks())
     {
       CERROR << error_messages_[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
@@ -1076,7 +1084,7 @@ bool pin_location::write_logical_clocks_to_physical_clks()
     bool d_c = false;
     bool p_c = false;
     string out_fn = cl_.get_param("--write_repack");
-    string in_fn = cl_.get_param("--update_repack");
+    string in_fn = cl_.get_param("--read_repack");
     std::ifstream infile(in_fn);
     if (!infile.is_open())
     {
