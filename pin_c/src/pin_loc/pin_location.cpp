@@ -47,12 +47,12 @@ namespace pinc
 
 #define CERROR std::cerr << "[Error] "
 
-  // use fix to detemined A2F and F2A GBX mode
-  static constexpr const char *INPUT_MODE_FIX = "_RX";
-  static constexpr const char *OUTPUT_MODE_FIX = "_TX";
+// use fix to detemined A2F and F2A GBX mode
+static constexpr const char* INPUT_MODE_FIX = "_RX";
+static constexpr const char* OUTPUT_MODE_FIX = "_TX";
 
-  // for mpw1  (no gearbox, a Mode_GPIO is created)
-  static constexpr const char *GPIO_MODE_FIX = "_GPIO";
+// for mpw1  (no gearbox, a Mode_GPIO is created)
+static constexpr const char* GPIO_MODE_FIX = "_GPIO";
 
   static bool fs_path_exists(const string &path) noexcept
   {
@@ -408,7 +408,16 @@ namespace pinc
     }
     outfile.close();
 
-    return true;
+bool pin_location::read_pcf_file() {
+  uint16_t tr = ltrace();
+  if (tr >= 2) lputs("\npin_location::read_pcf_file()");
+
+  string pcf_file_name;
+  if (temp_os_pcf_file_name_.size()) {
+    // use generated temp pcf for open source flow
+    pcf_file_name = temp_os_pcf_file_name_;
+  } else {
+    pcf_file_name = cl_.get_param("--pcf");
   }
 
   bool pin_location::read_user_design()
@@ -547,9 +556,8 @@ namespace pinc
       return false;
     }
 
-    out_file << "#Block Name   x   y   z\n";
-    out_file << "#------------ --  --  -" << endl;
-    out_file << std::flush;
+    const string& user_design_pin_name = pcf_cmd[1];
+    const string& device_pin_name = pcf_cmd[2];  // bump or ball
 
     if (tr >= 2)
     {
@@ -778,46 +786,40 @@ namespace pinc
     return true;
   }
 
-  bool pin_location::get_available_bump_pin(
-      const RapidCsvReader &csv_rd, std::pair<string, string> &bump_pin_and_mode,
-      PortDirection port_direction)
-  {
-    static uint cnt = 0;
-    cnt++;
-    uint16_t tr = ltrace();
-    if (tr >= 4)
-      lprintf("get_available_bump_pin()# %u  port_direction= %c\n", cnt,
-              (port_direction == INPUT ? 'I' : 'O'));
+  return true;
+}
 
-    bool found = false;
+bool pin_location::get_available_bump_pin(
+    const RapidCsvReader& csv_rd, std::pair<string, string>& bump_pin_and_mode,
+    PortDirection port_direction) {
+  static uint cnt = 0;
+  cnt++;
+  uint16_t tr = ltrace();
+  if (tr >= 4)
+    lprintf("get_available_bump_pin()# %u  port_direction= %c\n", cnt,
+            (port_direction == INPUT ? 'I' : 'O'));
 
-    uint num_rows = csv_rd.numRows();
-    for (uint i = csv_rd.start_position_; i < num_rows; i++)
-    {
-      const string &bump_pin_name = csv_rd.bumpPinName(i);
-      if (used_bump_pins_.count(bump_pin_name))
-        continue;
-      for (uint j = 0; j < csv_rd.mode_names_.size(); j++)
-      {
-        const string &mode_name = csv_rd.mode_names_[j];
-        const vector<string> *mode_data = csv_rd.getModeData(mode_name);
-        assert(mode_data);
-        assert(mode_data->size() == num_rows);
-        if (port_direction == INPUT)
-        {
-          if (is_input_mode(mode_name))
-          {
-            for (uint k = csv_rd.start_position_; k < num_rows; k++)
-            {
-              if (mode_data->at(k) == "Y" &&
-                  bump_pin_name == csv_rd.bumpPinName(k))
-              {
-                bump_pin_and_mode.first = bump_pin_name;
-                bump_pin_and_mode.second = mode_name;
-                used_bump_pins_.insert(bump_pin_name);
-                found = true;
-                goto ret;
-              }
+  bool found = false;
+
+  uint num_rows = csv_rd.numRows();
+  for (uint i = csv_rd.start_position_; i < num_rows; i++) {
+    const string& bump_pin_name = csv_rd.bumpPinName(i);
+    if (used_bump_pins_.count(bump_pin_name)) continue;
+    for (uint j = 0; j < csv_rd.mode_names_.size(); j++) {
+      const string& mode_name = csv_rd.mode_names_[j];
+      const vector<string>* mode_data = csv_rd.getModeData(mode_name);
+      assert(mode_data);
+      assert(mode_data->size() == num_rows);
+      if (port_direction == INPUT) {
+        if (is_input_mode(mode_name)) {
+          for (uint k = csv_rd.start_position_; k < num_rows; k++) {
+            if (mode_data->at(k) == "Y" &&
+                bump_pin_name == csv_rd.bumpPinName(k)) {
+              bump_pin_and_mode.first = bump_pin_name;
+              bump_pin_and_mode.second = mode_name;
+              used_bump_pins_.insert(bump_pin_name);
+              found = true;
+              goto ret;
             }
           }
           else
@@ -825,21 +827,16 @@ namespace pinc
             continue;
           }
         }
-        else if (port_direction == OUTPUT)
-        {
-          if (is_output_mode(mode_name))
-          {
-            for (uint k = csv_rd.start_position_; k < num_rows; k++)
-            {
-              if (mode_data->at(k) == "Y" &&
-                  bump_pin_name == csv_rd.bumpPinName(k))
-              {
-                bump_pin_and_mode.first = bump_pin_name;
-                bump_pin_and_mode.second = mode_name;
-                used_bump_pins_.insert(bump_pin_name);
-                found = true;
-                goto ret;
-              }
+      } else if (port_direction == OUTPUT) {
+        if (is_output_mode(mode_name)) {
+          for (uint k = csv_rd.start_position_; k < num_rows; k++) {
+            if (mode_data->at(k) == "Y" &&
+                bump_pin_name == csv_rd.bumpPinName(k)) {
+              bump_pin_and_mode.first = bump_pin_name;
+              bump_pin_and_mode.second = mode_name;
+              used_bump_pins_.insert(bump_pin_name);
+              found = true;
+              goto ret;
             }
           }
           else
@@ -850,127 +847,80 @@ namespace pinc
       }
     }
 
-  ret:
-    if (tr >= 4)
-    {
-      if (found)
-      {
-        const string &bump_pn = bump_pin_and_mode.first;
-        const string &mode_nm = bump_pin_and_mode.second;
-        lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
-                mode_nm.c_str());
-      }
-      else
-      {
-        lputs("\t  (WW) get_available_bump_pin() returns NOT_FOUND");
-      }
+ret:
+  if (tr >= 4) {
+    if (found) {
+      const string& bump_pn = bump_pin_and_mode.first;
+      const string& mode_nm = bump_pin_and_mode.second;
+      lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
+              mode_nm.c_str());
+    } else {
+      lputs("\t  (WW) get_available_bump_pin() returns NOT_FOUND");
     }
 
     return found;
   }
+  if (pin_assign_method_ == ASSIGN_IN_RANDOM) {
+    shuffle_candidates(input_idx);
+    shuffle_candidates(output_idx);
+    if (tr >= 3)
+      lputs("  create_temp_pcf_file() randomized input_idx, output_idx");
+  } else if (tr >= 3) {
+    lputs(
+        "  input_idx, output_idx are indexing user_design_inputs_, "
+        "user_design_outputs_");
+    lprintf("  input_idx.size()= %u  output_idx.size()= %u\n",
+            uint(input_idx.size()), uint(output_idx.size()));
+  }
 
-  // create a temporary pcf file and internally pass it to params
-  bool pin_location::create_temp_pcf_file(const RapidCsvReader &csv_rd)
+  pair<string, string> bump_pin_and_mode;
+  ofstream temp_out;
+  temp_out.open(temp_pcf_file_name_, ifstream::out | ifstream::binary);
+  if (temp_out.fail()) {
+    lprintf(
+        "\n  !!! (ERROR) create_temp_pcf_file(): could not open %s for "
+        "writing\n",
+        temp_pcf_file_name_.c_str());
+    CERROR << "(EE) could not open " << temp_pcf_file_name_ << " for writing\n"
+           << endl;
+    return false;
+  }
+
+  // if user specified "--write_pcf", 'user_out' will be a copy of 'temp_out'
+  ofstream user_out;
   {
-    string key = "--pcf";
-    temp_pcf_file_name_ = std::to_string(getpid()) + ".temp_pcf.pcf";
-    cl_.set_param_value(key, temp_pcf_file_name_);
-
-    uint16_t tr = ltrace();
-    if (tr >= 2)
-      lprintf("\ncreate_temp_pcf_file() : %s\n", temp_pcf_file_name_.c_str());
-
-    vector<int> input_idx, output_idx;
-    uint input_sz = user_design_inputs_.size();
-    uint output_sz = user_design_outputs_.size();
-    input_idx.reserve(input_sz);
-    output_idx.reserve(output_sz);
-    for (uint i = 0; i < input_sz; i++)
-    {
-      input_idx.push_back(i);
-    }
-    for (uint i = 0; i < output_sz; i++)
-    {
-      output_idx.push_back(i);
-    }
-    if (pin_assign_method_ == ASSIGN_IN_RANDOM)
-    {
-      shuffle_candidates(input_idx);
-      shuffle_candidates(output_idx);
-      if (tr >= 3)
-        lputs("  create_temp_pcf_file() randomized input_idx, output_idx");
-    }
-    else if (tr >= 3)
-    {
-      lputs(
-          "  input_idx, output_idx are indexing user_design_inputs_, "
-          "user_design_outputs_");
-      lprintf("  input_idx.size()= %u  output_idx.size()= %u\n",
-              uint(input_idx.size()), uint(output_idx.size()));
-    }
-
-    pair<string, string> bump_pin_and_mode;
-    ofstream temp_out;
-    temp_out.open(temp_pcf_file_name_, ifstream::out | ifstream::binary);
-    if (temp_out.fail())
-    {
-      lprintf(
-          "\n  !!! (ERROR) create_temp_pcf_file(): could not open %s for "
-          "writing\n",
-          temp_pcf_file_name_.c_str());
-      CERROR << "(EE) could not open " << temp_pcf_file_name_ << " for writing\n"
-             << endl;
-      return false;
-    }
-
-    // if user specified "--write_pcf", 'user_out' will be a copy of 'temp_out'
-    ofstream user_out;
-    {
-      string user_pcf_name = cl_.get_param("--write_pcf");
-      if (user_pcf_name.size())
-      {
-        user_out.open(user_pcf_name, ifstream::out | ifstream::binary);
-        if (user_out.fail())
-        {
-          lprintf(
-              "\n  !!! (ERROR) create_temp_pcf_file(): failed to open user_out "
-              "%s\n",
-              user_pcf_name.c_str());
-          return false;
-        }
+    string user_pcf_name = cl_.get_param("--write_pcf");
+    if (user_pcf_name.size()) {
+      user_out.open(user_pcf_name, ifstream::out | ifstream::binary);
+      if (user_out.fail()) {
+        lprintf(
+            "\n  !!! (ERROR) create_temp_pcf_file(): failed to open user_out "
+            "%s\n",
+            user_pcf_name.c_str());
+        return false;
       }
     }
 
     string pinName, set_io_str;
 
-    if (tr >= 2)
-    {
-      lprintf("--- writing pcf inputs (%u)\n", input_sz);
-    }
-    for (uint i = 0; i < input_sz; i++)
-    {
-      if (get_available_bump_pin(csv_rd, bump_pin_and_mode, INPUT))
-      {
-        pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
-        assert(!pinName.empty());
+  if (tr >= 2) {
+    lprintf("--- writing pcf inputs (%u)\n", input_sz);
+  }
+  for (uint i = 0; i < input_sz; i++) {
+    if (get_available_bump_pin(csv_rd, bump_pin_and_mode, INPUT)) {
+      pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
+      assert(!pinName.empty());
 
-        set_io_str = user_design_inputs_[input_idx[i]];
-        set_io_str.push_back(' ');
-        set_io_str += pinName;
-        set_io_str += " -mode ";
-        set_io_str += bump_pin_and_mode.second;
+      set_io_str = user_design_inputs_[input_idx[i]];
+      set_io_str.push_back(' ');
+      set_io_str += pinName;
+      set_io_str += " -mode ";
+      set_io_str += bump_pin_and_mode.second;
 
-        if (tr >= 3)
-        {
-          lprintf(" ... writing Input to pcf for  bump_pin= %s  pinName= %s\n",
-                  bump_pin_and_mode.first.c_str(), pinName.c_str());
-          lprintf("        set_io %s\n", set_io_str.c_str());
-        }
-        temp_out << "set_io " << set_io_str << endl;
-        if (user_out.is_open())
-        {
-          user_out << "set_io " << set_io_str << endl;
-        }
+      if (tr >= 3) {
+        lprintf(" ... writing Input to pcf for  bump_pin= %s  pinName= %s\n",
+                bump_pin_and_mode.first.c_str(), pinName.c_str());
+        lprintf("        set_io %s\n", set_io_str.c_str());
       }
       else
       {
@@ -979,33 +929,23 @@ namespace pinc
       }
     }
 
-    if (tr >= 2)
-    {
-      lprintf("--- writing pcf outputs (%u)\n", output_sz);
-    }
-    for (uint i = 0; i < output_sz; i++)
-    {
-      if (get_available_bump_pin(csv_rd, bump_pin_and_mode, OUTPUT))
-      {
-        pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
-        assert(!pinName.empty());
+  if (tr >= 2) {
+    lprintf("--- writing pcf outputs (%u)\n", output_sz);
+  }
+  for (uint i = 0; i < output_sz; i++) {
+    if (get_available_bump_pin(csv_rd, bump_pin_and_mode, OUTPUT)) {
+      pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
+      assert(!pinName.empty());
 
-        set_io_str = user_design_outputs_[output_idx[i]];
-        set_io_str.push_back(' ');
-        set_io_str += pinName;
-        set_io_str += " -mode ";
-        set_io_str += bump_pin_and_mode.second;
+      set_io_str = user_design_outputs_[output_idx[i]];
+      set_io_str.push_back(' ');
+      set_io_str += pinName;
+      set_io_str += " -mode ";
+      set_io_str += bump_pin_and_mode.second;
 
-        temp_out << "set_io " << set_io_str << endl;
-        if (user_out.is_open())
-        {
-          user_out << "set_io " << set_io_str << endl;
-        }
-      }
-      else
-      {
-        CERROR << error_messages_[PIN_SOURCE_NO_SURFFICENT] << endl;
-        return false;
+      temp_out << "set_io " << set_io_str << endl;
+      if (user_out.is_open()) {
+        user_out << "set_io " << set_io_str << endl;
       }
     }
 

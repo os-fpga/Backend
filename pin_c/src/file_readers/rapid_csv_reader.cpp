@@ -10,36 +10,54 @@ namespace pinc {
 using namespace std;
 
 // returns spreadsheet column label ("A", "B", "BC", etc) for column index 'i'
-static inline string label_column(int i) noexcept
-{
-    assert(i >= 0 && i < 1000);
-    string label;
+static inline string label_column(int i) noexcept {
+  assert(i >= 0 && i < 1000);
+  string label;
 
-    if (i < 26) {
-      label.push_back('A' + i);
-      return label;
-    }
-
-    int j = i - 26;
-    if (j >= 26) {
-      j -= 26;
-      label.push_back('B');
-    } else {
-      label.push_back('A');
-    }
-    label.push_back('A' + j);
-
+  if (i < 26) {
+    label.push_back('A' + i);
     return label;
+  }
+
+  int j = i - 26;
+  if (j >= 26) {
+    j -= 26;
+    label.push_back('B');
+  } else {
+    label.push_back('A');
+  }
+  label.push_back('A' + j);
+
+  return label;
 }
 
-RapidCsvReader::RapidCsvReader()
-{
+RapidCsvReader::RapidCsvReader() {
   // old mode for EDA-1057
   // use_bump_column_B_ = false; // true - old mode, false - new mode
 }
 
-RapidCsvReader::~RapidCsvReader()
-{
+RapidCsvReader::~RapidCsvReader() {}
+
+static bool get_column(rapidcsv::Document& doc, std::ostream& logStream,
+                       const string& colName, vector<string>& V) {
+  V.clear();
+  try {
+    V = doc.GetColumn<string>(colName);
+  } catch (const std::out_of_range& e) {
+    logStream << "\nRapidCsvReader::read_csv() caught std::out_of_range on "
+                 "doc.GetColumn()\n";
+    logStream << "\t  what: " << e.what() << '\n';
+    logStream << "\t  colName: " << colName << '\n';
+    logStream << endl;
+    return false;
+  } catch (...) {
+    logStream << "\nRapidCsvReader::read_csv() caught excepttion on "
+                 "doc.GetColumn()\n";
+    logStream << "\t  colName: " << colName << '\n';
+    logStream << endl;
+    return false;
+  }
+  return true;
 }
 
 bool RapidCsvReader::read_csv(const string& fn, bool check) {
@@ -86,7 +104,8 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   if (tr >= 3) {
     ls << "  num_rows= " << num_rows << "  num_cols= " << header_data.size()
-       << "  start_position_= " << start_position_ << '\n' << endl;
+       << "  start_position_= " << start_position_ << '\n'
+       << endl;
   }
 
   constexpr bool STRICT_FORMAT = false;
@@ -101,16 +120,15 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     if (!has_Fullchip_name && hdr_i == "Fullchip_NAME")
       has_Fullchip_name = true;
 
-    if (hdr_i.find("Mode_") == string::npos)
-      continue;
+    if (hdr_i.find("Mode_") == string::npos) continue;
 
     if (tr >= 4)
-      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
+      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i
+         << endl;
 
     try {
       mode_data = doc.GetColumn<string>(hdr_i);
-    }
-    catch (const std::out_of_range& e) {
+    } catch (const std::out_of_range& e) {
       if (STRICT_FORMAT) {
         ls << "\nRapidCsvReader::read_csv() caught std::out_of_range"
            << "  i= " << i << "  hdr_i= " << hdr_i << endl;
@@ -119,11 +137,11 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       } else {
         continue;
       }
-    }
-    catch (...) {
+    } catch (...) {
       if (STRICT_FORMAT) {
         ls << "\nRapidCsvReader::read_csv() caught excepttion"
-           << "  i= " << i << "  hdr_i= " << hdr_i << '\n' << endl;
+           << "  i= " << i << "  hdr_i= " << hdr_i << '\n'
+           << endl;
         return false;
       } else {
         continue;
@@ -131,8 +149,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
     assert(mode_data.size() <= num_rows);
     if (mode_data.size() < num_rows) {
-      if (tr >= 4)
-        ls << "!!! mode_data.size() < num_rows" << endl;
+      if (tr >= 4) ls << "!!! mode_data.size() < num_rows" << endl;
       mode_data.resize(num_rows);
     }
     modes_map_.emplace(hdr_i, mode_data);
@@ -149,11 +166,14 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   if (!has_Fullchip_name) {
-    ls << "\nRapidCsvReader::read_csv(): column Fullchip_NAME not found\n" << endl;
+    ls << "\nRapidCsvReader::read_csv(): column Fullchip_NAME not found\n"
+       << endl;
     return false;
   }
 
-  vector<string> S_tmp = doc.GetColumn<string>("Bump/Pin Name");
+  vector<string> S_tmp;
+  bool ok = get_column(doc, ls, "Bump/Pin Name", S_tmp);
+  if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
@@ -186,31 +206,26 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     bcd_[i].row_ = i;
   }
 
-  try {
-    S_tmp = doc.GetColumn<string>("Customer Name");
-  }
-  catch (const std::out_of_range& e) {
-    ls << "\nRapidCsvReader::read_csv() caught std::out_of_range on doc.GetColumn()\n";
-    ls << "\t  what: " << e.what() << '\n' << endl;
-    return false;
-  }
-  catch (...) {
-    ls << "\nRapidCsvReader::read_csv() caught excepttion on doc.GetColumn()" << endl;
-    return false;
-  }
-
+  ok = get_column(doc, ls, "Customer Name", S_tmp);
+  if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++)
-    bcd_[i].customer_ = S_tmp[i];
+  for (uint i = 0; i < num_rows; i++) bcd_[i].customer_ = S_tmp[i];
 
-  S_tmp = doc.GetColumn<string>("Ball ID");
+  ok = get_column(doc, ls, "Customer Internal Name", S_tmp);
+  if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++)
-    bcd_[i].ball_ID_ = S_tmp[i];
+  for (uint i = 0; i < num_rows; i++) bcd_[i].customerInternal_ = S_tmp[i];
+
+  ok = get_column(doc, ls, "Ball ID", S_tmp);
+  if (!ok) return false;
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) bcd_[i].ball_ID_ = S_tmp[i];
 
   if (tr >= 5) {
     ls << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;
@@ -289,7 +304,8 @@ bool RapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
         reported_unconnected_bump_pins.insert(bumpPinName(i));
         lout() << "[Pin Table Check Warning] Bump pin <" << bumpPinName(i)
                << "> is not connected to FABRIC through any bridge for user "
-                  "design data IO." << endl;
+                  "design data IO."
+               << endl;
         check_ok = false;
       }
     }
@@ -311,13 +327,13 @@ void RapidCsvReader::write_csv(string file_name) const {
   return;
 }
 
-void RapidCsvReader::print_csv() const
-{
+void RapidCsvReader::print_csv() const {
   lputs("print_csv()");
   auto& ls = lout();
   ls << "#row\tBump/Pin Name \t Customer Name \t Ball ID "
-     << "\t IO_tile_pin\t IO_tile_pin_x\tIO_tile_pin_y\tIO_tile_pin_z\n";
-  string dash = strReplicate('-', 111u);
+     << "\t IO_tile_pin\t IO_tile_pin_x\tIO_tile_pin_y\tIO_tile_pin_z"
+     << " \t Customer Internal Name" << endl;
+  string dash = strReplicate('-', 139u);
   ls << dash << endl;
 
   uint num_rows = numRows();
@@ -327,20 +343,22 @@ void RapidCsvReader::print_csv() const
     const BCD& b = bcd_[i];
     const XYZ& p = io_tile_pin_xyz_[i];
     lprintf("%-5u ", i);
-    lprintf("%12s ", b.bump_.c_str());
-    lprintf("%22s ", b.customer_.c_str());
-    lprintf("%6s ", b.ball_ID_.c_str());
-    ls << "\t " << io_tile_pin_[i] << "\t"
-       << p.x_ << "\t" << p.y_ << "\t" << p.z_ << endl;
+    lprintf(" %12s ", b.bump_.c_str());
+    lprintf(" %22s ", b.customer_.c_str());
+    lprintf(" %6s ", b.ball_ID_.c_str());
+    ls << "\t " << io_tile_pin_[i] << "\t" << p.x_ << "\t" << p.y_ << "\t"
+       << p.z_;
+    lprintf(" %22s ", b.customerInternal_.c_str());
+    ls << endl;
   }
 
   ls << dash << endl;
   ls << "Total Records: " << num_rows << endl;
 }
 
-XYZ RapidCsvReader::get_pin_xyz_by_name(
-    const string& mode, const string& customerPin_or_ID,
-    const string& gbox_pin_name) const {
+XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
+                                        const string& customerPin_or_ID,
+                                        const string& gbox_pin_name) const {
   XYZ result;
   auto fitr = modes_map_.find(mode);
   if (fitr == modes_map_.end()) return result;
@@ -355,10 +373,8 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(
 
   for (uint i = 0; i < num_rows; i++) {
     const BCD& bcd = bcd_[i];
-    if (bcd.customer_ != customerPin_or_ID && bcd.ball_ID_ != customerPin_or_ID)
-      continue;
-    if (mode_vector[i] != "Y")
-      continue;
+    if (!bcd.match(customerPin_or_ID)) continue;
+    if (mode_vector[i] != "Y") continue;
     if (gbox_pin_name.empty() || fullchip_name_[i] == gbox_pin_name) {
       result = io_tile_pin_xyz_[i];
       assert(result.valid());
@@ -369,7 +385,8 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(
   return result;
 }
 
-string RapidCsvReader::bumpName2BallName(const string& bump_name) const noexcept {
+string RapidCsvReader::bumpName2CustomerName(
+    const string& bump_name) const noexcept {
   assert(!bump_name.empty());
   uint num_rows = numRows();
   assert(num_rows > 1);
@@ -379,8 +396,7 @@ string RapidCsvReader::bumpName2BallName(const string& bump_name) const noexcept
   // tmp linear search
   for (uint i = 0; i < num_rows; i++) {
     const BCD& bcd = bcd_[i];
-    if (bcd.bump_ == bump_name)
-      return bcd.customer_;
+    if (bcd.bump_ == bump_name) return bcd.customer_;
   }
 
   return {};
@@ -390,8 +406,7 @@ bool RapidCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
   assert(!bcd_.empty());
 
   for (const BCD& x : bcd_) {
-    if (x.customer_ == pin_name_or_ID || x.ball_ID_ == pin_name_or_ID)
-      return true;
+    if (x.match(pin_name_or_ID)) return true;
   }
 
   return false;
