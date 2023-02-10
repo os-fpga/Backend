@@ -198,7 +198,6 @@ namespace pinc
     bool usage_requirement_2 =
         !(csv_name.empty() || no_blif_no_json || output_name.empty()) &&
         pcf_name.empty();
-
     // usage 3: rs only - user want to map its design clocks to gemini fabric
     // clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15].And user clocks
     // are clk_a,clk_b and want to map clk_a with clk[15] like it
@@ -206,7 +205,6 @@ namespace pinc
     // generated to guide bitstream generation correctly.
     bool usage_requirement_3 =
         !(pcf_name.empty() || fpga_repack.empty());
-
     if (tr >= 2)
     {
       ls << "\t usage_requirement_0 : " << boolalpha << usage_requirement_0
