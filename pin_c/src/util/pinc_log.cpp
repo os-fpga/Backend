@@ -26,6 +26,10 @@ void lputs(const char* cs) noexcept {
   if (cs && cs[0]) cout << cs;
   cout << endl;
 }
+void lputs2(const char* cs) noexcept {
+  if (cs && cs[0]) cout << cs;
+  cout << endl;
+}
 void lputs(const std::string& s) noexcept {
   if (s.empty()) {
     cout << endl;
