@@ -93,8 +93,9 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   vector<string> group_name = doc.GetColumn<string>("Group");
   size_t num_rows = group_name.size();
-  assert(num_rows > 1);
+  assert(num_rows > 300);
   start_position_ = 0;
+  //start_position_ = 234; // start_position_ must cover "Customer Internal Name" rows. EDA-1198. 
   for (uint i = 0; i < num_rows; i++) {
     if (group_name[i] == "GBOX GPIO") {
       start_position_ = i;
@@ -171,40 +172,13 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     return false;
   }
 
-  vector<string> S_tmp;
-  bool ok = get_column(doc, ls, "Bump/Pin Name", S_tmp);
-  if (!ok) return false;
-  assert(S_tmp.size() > 1);
-  assert(S_tmp.size() <= num_rows);
-  S_tmp.resize(num_rows);
-  const vector<string>& bump_pin_name = S_tmp;
-
-  if (tr >= 4) {
-    ls << endl;
-    if (num_rows > 3000) {
-      const string* A = bump_pin_name.data();
-      logArray(A, 80u, "  bump_pin_name ");
-      ls << " ..." << endl;
-      logArray(A + 202u, 100u, "    ");
-      ls << " ..." << endl;
-      logArray(A + 303u, 100u, "    ");
-      ls << " ..." << endl;
-      logArray(A + 707u, 100u, "    ");
-      ls << " ... @ 909" << endl;
-      logArray(A + 909u, 100u, "    ");
-      ls << " ... @ 1200" << endl;
-      logArray(A + 1200u, 100u, "    ");
-    } else {
-      logVec(bump_pin_name, "  bump_pin_name ");
-    }
-    ls << "num_rows= " << num_rows << '\n' << endl;
-  }
-
   bcd_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
-    bcd_[i].bump_ = bump_pin_name[i];
     bcd_[i].row_ = i;
   }
+
+  vector<string> S_tmp;
+  bool ok = false;
 
   ok = get_column(doc, ls, "Customer Name", S_tmp);
   if (!ok) return false;
@@ -226,6 +200,47 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) bcd_[i].ball_ID_ = S_tmp[i];
+
+  ok = get_column(doc, ls, "Bump/Pin Name", S_tmp);
+  if (!ok) return false;
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  const vector<string>& bump_pin_name = S_tmp;
+
+  if (tr >= 6) {
+    ls << endl;
+    if (num_rows > 3000) {
+      const string* A = bump_pin_name.data();
+      logArray(A, 80u, "  bump_pin_name ");
+      ls << " ..." << endl;
+      logArray(A + 202u, 100u, "    ");
+      ls << " ..." << endl;
+      logArray(A + 303u, 100u, "    ");
+      ls << " ..." << endl;
+      logArray(A + 707u, 100u, "    ");
+      ls << " ... @ 909" << endl;
+      logArray(A + 909u, 100u, "    ");
+      ls << " ... @ 1200" << endl;
+      logArray(A + 1200u, 100u, "    ");
+    } else {
+      logVec(bump_pin_name, "  bump_pin_name ");
+    }
+    ls << "num_rows= " << num_rows << '\n' << endl;
+  }
+
+  for (uint i = 0; i < num_rows; i++) {
+    BCD& bcd = bcd_[i];
+    bcd.bump_ = bump_pin_name[i];
+    if (bcd.bump_.empty()) {
+      if (bcd.customerInternal_.empty() && tr >= 2) {
+        ls << " (WW) both bcd.bump_ and bcd.customerInternal_ are empty"
+           << " on row# " << i << endl;
+      }
+      bcd.bump_ = bcd.customerInternal_;
+    }
+    assert(!bcd.bump_.empty());
+  }
 
   if (tr >= 5) {
     ls << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;

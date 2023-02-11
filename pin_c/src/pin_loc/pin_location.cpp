@@ -645,9 +645,12 @@ bool pin_location::get_available_bump_pin(
   static uint cnt = 0;
   cnt++;
   uint16_t tr = ltrace();
-  if (tr >= 4)
+  if (tr >= 4) {
     lprintf("get_available_bump_pin()# %u  port_direction= %c\n", cnt,
             (port_direction == INPUT ? 'I' : 'O'));
+    if (cnt == 361)
+      lputs2();
+  }
 
   bool found = false;
 
@@ -668,6 +671,10 @@ bool pin_location::get_available_bump_pin(
               bump_pin_and_mode.first = bump_pin_name;
               bump_pin_and_mode.second = mode_name;
               used_bump_pins_.insert(bump_pin_name);
+              if (tr >= 5) {
+                lprintf("\t\t  get_available_bump_pin() used_bump_pins_.insert( %s )  row_i= %u  row_k= %u\n",
+                    bump_pin_name.c_str(), i, k);
+              }
               found = true;
               goto ret;
             }
@@ -695,14 +702,23 @@ bool pin_location::get_available_bump_pin(
   }
 
 ret:
-  if (tr >= 4) {
-    if (found) {
+  if (tr >= 2) {
+    if (found && tr >= 4) {
       const string& bump_pn = bump_pin_and_mode.first;
       const string& mode_nm = bump_pin_and_mode.second;
       lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
               mode_nm.c_str());
     } else {
-      lputs("\t  (WW) get_available_bump_pin() returns NOT_FOUND");
+      lprintf("\t (EERR) get_available_bump_pin()#%u returns NOT_FOUND\n", cnt);
+      lputs2();
+      lprintf("\t vvv used_bump_pins_.size()= %u\n", (uint)used_bump_pins_.size());
+      if (tr >= 5) {
+        for (const auto& ubp : used_bump_pins_)
+          lprintf("\t    %s\n", ubp.c_str());
+        lprintf("\t ^^^ used_bump_pins_.size()= %u\n", (uint)used_bump_pins_.size());
+        lprintf("\t (EERR) get_available_bump_pin()#%u returns NOT_FOUND\n", cnt);
+      }
+      lputs2();
     }
   }
 
@@ -716,7 +732,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
   cl_.set_param_value(key, temp_pcf_file_name_);
 
   uint16_t tr = ltrace();
-  if (tr >= 2)
+  if (tr >= 3)
     lprintf("\ncreate_temp_pcf_file() : %s\n", temp_pcf_file_name_.c_str());
 
   vector<int> input_idx, output_idx;
@@ -788,7 +804,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
       set_io_str += " -mode ";
       set_io_str += bump_pin_and_mode.second;
 
-      if (tr >= 3) {
+      if (tr >= 4) {
         lprintf(" ... writing Input to pcf for  bump_pin= %s  pinName= %s\n",
                 bump_pin_and_mode.first.c_str(), pinName.c_str());
         lprintf("        set_io %s\n", set_io_str.c_str());
@@ -798,8 +814,10 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      CERROR << error_messages_[PIN_SOURCE_NO_SURFFICENT] << endl;
-      return false;
+      //CERROR << error_messages_[PIN_SOURCE_NO_SURFFICENT] << endl;
+      //return false;
+      // Temporary hack EDA-1198:
+      break;
     }
   }
 
@@ -822,8 +840,10 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      CERROR << error_messages_[PIN_SOURCE_NO_SURFFICENT] << endl;
-      return false;
+      //CERROR << error_messages_[PIN_SOURCE_NO_SURFFICENT] << endl;
+      //return false;
+      // Temporary hack EDA-1198:
+      continue;
     }
   }
 
