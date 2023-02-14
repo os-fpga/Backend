@@ -7,6 +7,7 @@
 #include "pin_location.h"
 
 #include <random>
+#include <regex>
 #include <set>
 
 #include "blif_reader.h"
@@ -87,6 +88,11 @@ pin_location::pin_location(const cmd_line& cl) : cl_(cl) {
 }
 
 pin_location::~pin_location() {
+  if (num_warnings_) {
+    lprintf("\n\t NOTE warnings: %u\n", num_warnings_);
+    lputs2();
+  }
+
   // remove temporarily generated file
   if (temp_csv_file_name_.size()) {
     if (remove(temp_csv_file_name_.c_str())) {
@@ -104,7 +110,11 @@ pin_location::~pin_location() {
   }
 }
 
+// static data (hacky, but temporary)
+static vector<string> s_axi_inpQ, s_axi_outQ;
+
 bool pin_location::reader_and_writer() {
+  num_warnings_ = 0;
   const cmd_line& cmd = cl_;
   string xml_name = cmd.get_param("--xml");
   string csv_name = cmd.get_param("--csv");
@@ -223,6 +233,14 @@ bool pin_location::reader_and_writer() {
     if (!create_temp_pcf_file(csv_rd)) {
       CERROR << error_messages_[FAIL_TO_CREATE_TEMP_PCF] << endl;
       return false;
+    }
+    if (tr >= 3 || num_warnings_) {
+      lprintf("\nafter create_temp_pcf_file() num_warnings_= %u\n",
+              num_warnings_);
+      if (num_warnings_) {
+        lprintf("\t NOTE warnings: %u\n", num_warnings_);
+        lputs2();
+      }
     }
   }
 
@@ -639,63 +657,230 @@ bool pin_location::read_csv_file(RapidCsvReader& csv_rd) {
   return true;
 }
 
-bool pin_location::get_available_bump_pin(
-    const RapidCsvReader& csv_rd, std::pair<string, string>& bump_pin_and_mode,
-    PortDirection port_direction) {
-  static uint cnt = 0;
-  cnt++;
+pair<string, string> pin_location::get_available_device_pin(
+    const RapidCsvReader& rdr, bool is_inp) {
+  pair<string, string> result;
+
   uint16_t tr = ltrace();
-  if (tr >= 4) {
-    lprintf("get_available_bump_pin()# %u  port_direction= %c\n", cnt,
-            (port_direction == INPUT ? 'I' : 'O'));
-    if (cnt == 361)
-      lputs2();
+
+  if (is_inp) {
+    if (no_more_inp_bumps_) {
+      result = get_available_axi_ipin(s_axi_inpQ);
+      if (tr >= 4)
+        lprintf("  no_more_inp_bumps_ => got axi_ipin: %s\n",
+                result.first.c_str());
+      return result;
+    }
+    result = get_available_bump_ipin(rdr);
+    if (result.first.empty()) {
+      no_more_inp_bumps_ = true;
+      result = get_available_axi_ipin(s_axi_inpQ);
+    }
+  } else {  // out
+    if (no_more_out_bumps_) {
+      result = get_available_axi_opin(s_axi_outQ);
+      if (tr >= 4)
+        lprintf("  no_more_out_bumps_ => got axi_opin: %s\n",
+                result.first.c_str());
+      return result;
+    }
+    result = get_available_bump_opin(rdr);
+    if (result.first.empty()) {
+      no_more_out_bumps_ = true;
+      result = get_available_axi_opin(s_axi_outQ);
+    }
   }
 
-  bool found = false;
+  return result;
+}
 
-  uint num_rows = csv_rd.numRows();
-  for (uint i = csv_rd.start_position_; i < num_rows; i++) {
-    const string& bump_pin_name = csv_rd.bumpPinName(i);
+pair<string, string> pin_location::get_available_axi_ipin(vector<string>& Q) {
+  static uint cnt = 0;
+  cnt++;
+  if (ltrace() >= 4) {
+    lprintf("get_available_axi_ipin()# %u Q.size()= %u\n", cnt, uint(Q.size()));
+  }
+
+  pair<string, string> result;  // pin_and_mode
+
+  if (Q.empty()) return result;
+
+  result.first = Q.back();
+  Q.pop_back();
+
+  // need to pick a mode, othewise PcfReader::read_pcf() will not tokenize pcf
+  // line properly
+  result.second = "MODE_GPIO";
+
+  return result;
+}
+
+pair<string, string> pin_location::get_available_axi_opin(vector<string>& Q) {
+  static uint cnt = 0;
+  cnt++;
+  if (ltrace() >= 4) {
+    lprintf("get_available_axi_opin()# %u Q.size()= %u\n", cnt, uint(Q.size()));
+  }
+
+  pair<string, string> result;  // pin_and_mode
+
+  if (Q.empty()) return result;
+
+  result.first = Q.back();
+  Q.pop_back();
+
+  // need to pick a mode, othewise PcfReader::read_pcf() will not tokenize pcf
+  // line properly
+  result.second = "MODE_GPIO";
+
+  return result;
+}
+
+pair<string, string> pin_location::get_available_bump_ipin(
+    const RapidCsvReader& rdr) {
+  static uint icnt = 0;
+  icnt++;
+  uint16_t tr = ltrace();
+  if (tr >= 4) {
+    lprintf("get_available_bump_ipin()# %u\n", icnt);
+  }
+
+  // constexpr bool is_input_port = true;
+
+  bool found = false;
+  pair<string, string> result;  // pin_and_mode
+
+  uint num_rows = rdr.numRows();
+  for (uint i = rdr.start_GBOX_GPIO_row_; i < num_rows; i++) {
+    const auto& bcd = rdr.bcd_[i];
+    const string& bump_pin_name = bcd.bump_;
+
     if (used_bump_pins_.count(bump_pin_name)) continue;
-    for (uint j = 0; j < csv_rd.mode_names_.size(); j++) {
-      const string& mode_name = csv_rd.mode_names_[j];
-      const vector<string>* mode_data = csv_rd.getModeData(mode_name);
+
+    for (uint j = 0; j < rdr.mode_names_.size(); j++) {
+      const string& mode_name = rdr.mode_names_[j];
+      const vector<string>* mode_data = rdr.getModeData(mode_name);
       assert(mode_data);
       assert(mode_data->size() == num_rows);
-      if (port_direction == INPUT) {
-        if (is_input_mode(mode_name)) {
-          for (uint k = csv_rd.start_position_; k < num_rows; k++) {
-            if (mode_data->at(k) == "Y" &&
-                bump_pin_name == csv_rd.bumpPinName(k)) {
-              bump_pin_and_mode.first = bump_pin_name;
-              bump_pin_and_mode.second = mode_name;
-              used_bump_pins_.insert(bump_pin_name);
-              if (tr >= 5) {
-                lprintf("\t\t  get_available_bump_pin() used_bump_pins_.insert( %s )  row_i= %u  row_k= %u\n",
-                    bump_pin_name.c_str(), i, k);
-              }
-              found = true;
-              goto ret;
+
+      if (is_input_mode(mode_name)) {
+        for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
+          if (mode_data->at(k) == "Y" && bump_pin_name == rdr.bumpPinName(k)) {
+            result.first = bump_pin_name;
+            result.second = mode_name;
+            used_bump_pins_.insert(bump_pin_name);
+            if (tr >= 5) {
+              lprintf(
+                  "\t\t  get_available_bump_ipin() used_bump_pins_.insert( %s "
+                  ")  row_i= %u  row_k= %u\n",
+                  bump_pin_name.c_str(), i, k);
             }
+            found = true;
+            goto ret;
           }
-        } else {
-          continue;
         }
-      } else if (port_direction == OUTPUT) {
+      } else {
+        continue;
+      }
+    }
+  }
+
+ret:
+  if (tr >= 2) {
+    if (found && tr >= 4) {
+      const string& bump_pn = result.first;
+      const string& mode_nm = result.second;
+      lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
+              mode_nm.c_str());
+    } else if (tr >= 7) {
+      lprintf("\t (EERR) get_available_bump_ipin()#%u returns NOT_FOUND\n",
+              icnt);
+      lputs2();
+      lprintf("\t vvv used_bump_pins_.size()= %u\n",
+              (uint)used_bump_pins_.size());
+      if (tr >= 8) {
+        if (tr >= 9) {
+          for (const auto& ubp : used_bump_pins_)
+            lprintf("\t    %s\n", ubp.c_str());
+        }
+        lprintf("\t ^^^ used_bump_pins_.size()= %u\n",
+                (uint)used_bump_pins_.size());
+        lprintf("\t (EERR) get_available_bump_ipin()#%u returns NOT_FOUND\n",
+                icnt);
+      }
+      lputs2();
+    }
+  }
+
+  if (found) {
+    assert(!result.first.empty());
+    assert(!result.second.empty());
+  } else {
+    result.first.clear();
+    result.second.clear();
+  }
+
+  return result;
+}
+
+pair<string, string> pin_location::get_available_bump_opin(
+    const RapidCsvReader& rdr) {
+  static uint ocnt = 0;
+  ocnt++;
+  uint16_t tr = ltrace();
+  if (tr >= 4) {
+    lprintf("get_available_bump_opin()# %u\n", ocnt);
+  }
+
+  constexpr bool is_input_port = false;
+
+  bool found = false;
+  pair<string, string> result;  // pin_and_mode
+
+  uint num_rows = rdr.numRows();
+  for (uint i = rdr.start_GBOX_GPIO_row_; i < num_rows; i++) {
+    const auto& bcd = rdr.bcd_[i];
+    const string& bump_pin_name = bcd.bump_;
+
+    if (used_bump_pins_.count(bump_pin_name)) continue;
+
+    for (uint j = 0; j < rdr.mode_names_.size(); j++) {
+      const string& mode_name = rdr.mode_names_[j];
+      const vector<string>* mode_data = rdr.getModeData(mode_name);
+      assert(mode_data);
+      assert(mode_data->size() == num_rows);
+      if (is_input_port) {
+        // if (is_input_mode(mode_name)) {
+        //  for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
+        //    if (mode_data->at(k) == "Y" &&
+        //        bump_pin_name == rdr.bumpPinName(k)) {
+        //      result.first = bump_pin_name;
+        //      result.second = mode_name;
+        //      used_bump_pins_.insert(bump_pin_name);
+        //      if (tr >= 5) {
+        //        lprintf("\t\t  get_available_bump_opin()
+        //        used_bump_pins_.insert( %s )  row_i= %u  row_k= %u\n",
+        //            bump_pin_name.c_str(), i, k);
+        //      }
+        //      found = true;
+        //      goto ret;
+        //    }
+        //  }
+        //} else {
+        //  continue;
+        //}
+      } else {  // OUTPUT port
         if (is_output_mode(mode_name)) {
-          for (uint k = csv_rd.start_position_; k < num_rows; k++) {
+          for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
             if (mode_data->at(k) == "Y" &&
-                bump_pin_name == csv_rd.bumpPinName(k)) {
-              bump_pin_and_mode.first = bump_pin_name;
-              bump_pin_and_mode.second = mode_name;
+                bump_pin_name == rdr.bumpPinName(k)) {
+              result.first = bump_pin_name;
+              result.second = mode_name;
               used_bump_pins_.insert(bump_pin_name);
               found = true;
               goto ret;
             }
           }
-        } else {
-          continue;
         }
       }
     }
@@ -704,25 +889,39 @@ bool pin_location::get_available_bump_pin(
 ret:
   if (tr >= 2) {
     if (found && tr >= 4) {
-      const string& bump_pn = bump_pin_and_mode.first;
-      const string& mode_nm = bump_pin_and_mode.second;
+      const string& bump_pn = result.first;
+      const string& mode_nm = result.second;
       lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
               mode_nm.c_str());
-    } else {
-      lprintf("\t (EERR) get_available_bump_pin()#%u returns NOT_FOUND\n", cnt);
+    } else if (tr >= 7) {
+      lprintf("\t (EERR) get_available_bump_opin()#%u returns NOT_FOUND\n",
+              ocnt);
       lputs2();
-      lprintf("\t vvv used_bump_pins_.size()= %u\n", (uint)used_bump_pins_.size());
-      if (tr >= 5) {
-        for (const auto& ubp : used_bump_pins_)
-          lprintf("\t    %s\n", ubp.c_str());
-        lprintf("\t ^^^ used_bump_pins_.size()= %u\n", (uint)used_bump_pins_.size());
-        lprintf("\t (EERR) get_available_bump_pin()#%u returns NOT_FOUND\n", cnt);
+      lprintf("\t vvv used_bump_pins_.size()= %u\n",
+              (uint)used_bump_pins_.size());
+      if (tr >= 8) {
+        if (tr >= 9) {
+          for (const auto& ubp : used_bump_pins_)
+            lprintf("\t    %s\n", ubp.c_str());
+        }
+        lprintf("\t ^^^ used_bump_pins_.size()= %u\n",
+                (uint)used_bump_pins_.size());
+        lprintf("\t (EERR) get_available_bump_opin()#%u returns NOT_FOUND\n",
+                ocnt);
       }
       lputs2();
     }
   }
 
-  return found;
+  if (found) {
+    assert(!result.first.empty());
+    assert(!result.second.empty());
+  } else {
+    result.first.clear();
+    result.second.clear();
+  }
+
+  return result;
 }
 
 // create a temporary pcf file and internally pass it to params
@@ -734,6 +933,18 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
   uint16_t tr = ltrace();
   if (tr >= 3)
     lprintf("\ncreate_temp_pcf_file() : %s\n", temp_pcf_file_name_.c_str());
+
+  // state for get_available_device_pin:
+  no_more_inp_bumps_ = false;
+  no_more_out_bumps_ = false;
+  //
+  s_axi_inpQ = csv_rd.get_AXI_inputs();
+  s_axi_outQ = csv_rd.get_AXI_outputs();
+
+  if (tr >= 4) {
+    lprintf("  s_axi_inpQ.size()= %u  s_axi_outQ.size()= %u\n",
+            (uint)s_axi_inpQ.size(), (uint)s_axi_outQ.size());
+  }
 
   vector<int> input_idx, output_idx;
   uint input_sz = user_design_inputs_.size();
@@ -759,7 +970,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
             uint(input_idx.size()), uint(output_idx.size()));
   }
 
-  pair<string, string> bump_pin_and_mode;
+  pair<string, string> device_pin_n_mode;
   ofstream temp_out;
   temp_out.open(temp_pcf_file_name_, ifstream::out | ifstream::binary);
   if (temp_out.fail()) {
@@ -790,23 +1001,42 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
 
   string pinName, set_io_str;
 
+  static std::regex addr_RE(R"(a_address)");
+  static std::regex data_RE(R"(a_data)");
+
   if (tr >= 2) {
     lprintf("--- writing pcf inputs (%u)\n", input_sz);
   }
   for (uint i = 0; i < input_sz; i++) {
-    if (get_available_bump_pin(csv_rd, bump_pin_and_mode, INPUT)) {
-      pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
+    const string& inpName = user_design_inputs_[i];
+    if (tr >= 4) {
+      lprintf("assigning user_design_input #%u %s\n", i, inpName.c_str());
+      if (std::regex_search(inpName, addr_RE)) {
+        lputs2("\t  ^^^  XXX addr_RE MATCH");
+      }
+      if (std::regex_search(inpName, data_RE)) {
+        lputs2("\t  ^^^  XXX data_RE MATCH");
+      }
+      if (csv_rd.hasCustomerInternalName(inpName)) {
+        lprintf("\t (CustIntName) hasCustomerInternalName( %s )\n",
+                inpName.c_str());
+      }
+    }
+    assert(!inpName.empty());
+    device_pin_n_mode = get_available_device_pin(csv_rd, true /*INPUT*/);
+    if (device_pin_n_mode.first.length()) {
+      pinName = csv_rd.bumpName2CustomerName(device_pin_n_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_inputs_[input_idx[i]];
       set_io_str.push_back(' ');
       set_io_str += pinName;
       set_io_str += " -mode ";
-      set_io_str += bump_pin_and_mode.second;
+      set_io_str += device_pin_n_mode.second;
 
       if (tr >= 4) {
         lprintf(" ... writing Input to pcf for  bump_pin= %s  pinName= %s\n",
-                bump_pin_and_mode.first.c_str(), pinName.c_str());
+                device_pin_n_mode.first.c_str(), pinName.c_str());
         lprintf("        set_io %s\n", set_io_str.c_str());
       }
       temp_out << "set_io " << set_io_str << endl;
@@ -814,10 +1044,9 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      //CERROR << error_messages_[PIN_SOURCE_NO_SURFFICENT] << endl;
-      //return false;
-      // Temporary hack EDA-1198:
-      break;
+      if (tr >= 1) lputs("WARNING: (inp) get_available_device_pin() FAILED\n");
+      num_warnings_++;
+      continue;
     }
   }
 
@@ -825,24 +1054,33 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
     lprintf("--- writing pcf outputs (%u)\n", output_sz);
   }
   for (uint i = 0; i < output_sz; i++) {
-    if (get_available_bump_pin(csv_rd, bump_pin_and_mode, OUTPUT)) {
-      pinName = csv_rd.bumpName2CustomerName(bump_pin_and_mode.first);
+    const string& outName = user_design_outputs_[i];
+    if (tr >= 4) {
+      lprintf("assigning user_design_output #%u %s\n", i, outName.c_str());
+      if (csv_rd.hasCustomerInternalName(outName)) {
+        lprintf("\t (CustIntName) hasCustomerInternalName( %s )\n",
+                outName.c_str());
+      }
+    }
+    assert(!outName.empty());
+    device_pin_n_mode = get_available_device_pin(csv_rd, false /*OUTPUT*/);
+    if (device_pin_n_mode.first.length()) {
+      pinName = csv_rd.bumpName2CustomerName(device_pin_n_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_outputs_[output_idx[i]];
       set_io_str.push_back(' ');
       set_io_str += pinName;
       set_io_str += " -mode ";
-      set_io_str += bump_pin_and_mode.second;
+      set_io_str += device_pin_n_mode.second;
 
       temp_out << "set_io " << set_io_str << endl;
       if (user_out.is_open()) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      //CERROR << error_messages_[PIN_SOURCE_NO_SURFFICENT] << endl;
-      //return false;
-      // Temporary hack EDA-1198:
+      if (tr >= 1) lputs("WARNING: (out) get_available_device_pin() FAILED\n");
+      num_warnings_++;
       continue;
     }
   }

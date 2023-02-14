@@ -17,7 +17,11 @@ class pin_location;
 class RapidCsvReader {
  public:
 
+  // BCD is a "reduced row record" RRR
   struct BCD {
+
+    string groupA_; // 0-A  Group
+
     // columns B, C, D, BU(#72) of the table
     // --- 1-B    Bump/Pin Name
     // --- 2-C    Customer Name
@@ -25,10 +29,16 @@ class RapidCsvReader {
     // --- 72-BU  Customer Internal Name
     string bump_,
            customer_, // 2-C Customer Name
-           ball_ID_,
-           customerInternal_; // 72-BU Customer Internal Name
+           ball_ID_;
+
+    string fullchipName_; // 13-N  Fullchip_NAME
+
+    string customerInternal_; // 72-BU  Customer Internal Name
 
     int row_ = 0;
+
+    bool is_axi_ = false;
+    bool is_GBOX_GPIO_ = false;
 
     BCD() noexcept = default;
 
@@ -41,10 +51,36 @@ class RapidCsvReader {
         return true;
       return false;
     }
+
+    bool isCustomerInternal() const noexcept { return !customerInternal_.empty(); }
+
+    bool isCustomerInternalUnique() const noexcept {
+      return !customerInternal_.empty() && customerInternal_ != customer_; }
+
+    bool isCustomerInternalOnly() const noexcept {
+      return !customerInternal_.empty() && customer_.empty(); }
+
+    void normalize() noexcept {
+      if (customerInternal_.empty())
+        return;
+      if (bump_.empty())
+        bump_ = customerInternal_;
+      if (customer_.empty())
+        customer_ = customerInternal_;
+    }
+
   };
 
   RapidCsvReader();
   ~RapidCsvReader();
+
+  void reset() noexcept {
+    start_GBOX_GPIO_row_ = 0;
+    start_CustomerInternal_row_ = 0;
+    bcd_AXI_.clear();
+    bcd_GBGPIO_.clear();
+    bcd_.clear();
+  }
 
   // file i/o
   bool read_csv(const std::string& f, bool check);
@@ -58,13 +94,16 @@ class RapidCsvReader {
                           const string& customerPin_or_ID,
                           const string& gbox_pin_name) const;
 
+  XYZ get_axi_xyz_by_name(const string& axi_name) const noexcept;
+
   uint numRows() const noexcept {
-    assert(bcd_.size() == fullchip_name_.size());
     assert(bcd_.size() == io_tile_pin_xyz_.size());
     return bcd_.size();
   }
 
   bool has_io_pin(const string& pin_name_or_ID) const noexcept;
+
+  bool hasCustomerInternalName(const string& nm) const noexcept;
 
   const string& bumpPinName(uint row) const noexcept {
     assert(row < bcd_.size());
@@ -92,6 +131,9 @@ class RapidCsvReader {
 
   string bumpName2CustomerName(const string& bump_name) const noexcept;
 
+  vector<string> get_AXI_inputs() const;
+  vector<string> get_AXI_outputs() const;
+
  private:
   std::map<string, vector<string>> modes_map_;
 
@@ -99,26 +141,23 @@ class RapidCsvReader {
 
   // below vectors are indexed by csv row, size() == #rows
 
-  vector<BCD> bcd_; // "Bump/Pin Name", "Customer Name", "Ball ID" - columns B, C, D
+  vector<BCD> bcd_; // all BCD records
 
-  vector<string> fullchip_name_;  // "Fullchip_NAME", column N
+  vector<BCD*> bcd_AXI_; // BCD records with .isCustomerInternalOnly() predicate (AXI pins)
+
+  vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
   vector<string> io_tile_pin_;    // "IO_tile_pin"
 
   vector<XYZ> io_tile_pin_xyz_;   // "IO_tile_pin_x", "_y", "_z"
 
-  int start_position_ = 0;  // "GBX GPIO" group start position in pin table row
+  int start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
+
+  int start_CustomerInternal_row_ = 0;
 
   friend class pin_location;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
-  os << "(bcd  " << b.bump_ 
-     << "  " << b.customer_
-     << "  " << b.ball_ID_
-     << "  ci:" << b.customerInternal_
-     << "  row:" << b.row_ << ')';
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b);
 
 }  // namespace pinc

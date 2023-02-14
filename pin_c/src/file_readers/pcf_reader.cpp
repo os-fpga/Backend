@@ -81,6 +81,8 @@ bool PcfReader::read_pcf(const string& f) {
     ls << "done  PcfReader::read_pcf().  commands_.size()= " << commands_.size()
        << "  has_error= " << boolalpha << has_error << endl;
   }
+  if (tr >= 1 && has_error)
+    ls << "\nNOTE error in PcfReader::read_pcf()\n" << endl;
 
   return true;
 }
