@@ -7,7 +7,6 @@
 #include "pin_location.h"
 
 #include <random>
-#include <regex>
 #include <set>
 
 #include "blif_reader.h"
@@ -1001,9 +1000,6 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
 
   string pinName, set_io_str;
 
-  static std::regex addr_RE(R"(a_address)");
-  static std::regex data_RE(R"(a_data)");
-
   if (tr >= 2) {
     lprintf("--- writing pcf inputs (%u)\n", input_sz);
   }
@@ -1011,12 +1007,6 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
     const string& inpName = user_design_inputs_[i];
     if (tr >= 4) {
       lprintf("assigning user_design_input #%u %s\n", i, inpName.c_str());
-      if (std::regex_search(inpName, addr_RE)) {
-        lputs2("\t  ^^^  XXX addr_RE MATCH");
-      }
-      if (std::regex_search(inpName, data_RE)) {
-        lputs2("\t  ^^^  XXX data_RE MATCH");
-      }
       if (csv_rd.hasCustomerInternalName(inpName)) {
         lprintf("\t (CustIntName) hasCustomerInternalName( %s )\n",
                 inpName.c_str());
