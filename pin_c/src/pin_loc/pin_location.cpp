@@ -1555,7 +1555,6 @@ namespace pinc
 
     return true;
   }
-
   bool pin_location::write_logical_clocks_to_physical_clks()
   {
     std::vector<std::string> set_clks;
@@ -1681,4 +1680,4 @@ namespace pinc
     return true;
   }
 
-} // namespace pin
+} // namespace pinc
