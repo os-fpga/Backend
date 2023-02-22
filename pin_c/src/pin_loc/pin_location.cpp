@@ -1637,6 +1637,7 @@ namespace pinc
         if (p_c)
         {
           design_clk.push_back(token);
+          p_c = false;
         }
       }
     }
@@ -1647,7 +1648,6 @@ namespace pinc
     {
       userPin = device_clk[k];
       userNet = design_clk[k];
-
       if (userNet.empty())
       {
         userNet = "OPEN";
@@ -1677,7 +1677,7 @@ namespace pinc
 
     // Save the updated XML file
     doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
-    remove(clkmap_file_name.c_str());
+   // remove(clkmap_file_name.c_str());
     return true;
   }
 
