@@ -268,6 +268,15 @@ bool pin_location::reader_and_writer() {
     bool create_constraint_xml_requirement =
         !(pcf_name.empty() || fpga_repack.empty());
 
+    if (create_constraint_xml_requirement)
+    {
+      if (!write_logical_clocks_to_physical_clks())
+      {
+        CERROR << error_messages_[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
+        return false;
+      }
+    }
+
   // -- done successfully
   if (tr >= 2)
     ls << "done: pin_location::reader_and_writer() done successfully" << endl;
