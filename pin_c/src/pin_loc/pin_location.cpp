@@ -248,60 +248,6 @@ namespace pinc
       return false;
     }
 
-    // --2. read port info from user design (from .blif or from port_info.json)
-    if (!read_user_design())
-    {
-      CERROR << error_messages_[INPUT_DESIGN_PARSE_ERROR] << endl;
-      return false;
-    }
-
-    // --3. read info (pin-table) from csv file in new RS format
-    RapidCsvReader csv_rd;
-    if (!read_csv_file(csv_rd))
-    {
-      CERROR << error_messages_[PIN_MAP_CSV_PARSE_ERROR] << endl;
-      return false;
-    }
-
-    // usage 2: if no user constraint is provided, created a temp one
-    if (usage_requirement_2 || (usage_requirement_0 && pcf_name == ""))
-    {
-      if (!create_temp_pcf_file(csv_rd))
-      {
-        CERROR << error_messages_[FAIL_TO_CREATE_TEMP_PCF] << endl;
-        return false;
-      }
-      if (tr >= 3 || num_warnings_)
-      {
-        lprintf("\nafter create_temp_pcf_file() num_warnings_= %u\n",
-                num_warnings_);
-        if (num_warnings_)
-        {
-          lprintf("\t NOTE warnings: %u\n", num_warnings_);
-          lputs2();
-        }
-      }
-    }
-
-    // --4. read user constraint
-    if (!read_pcf_file())
-    {
-      CERROR << error_messages_[PIN_CONSTRAINT_PARSE_ERROR] << endl;
-      return false;
-    }
-
-    // --5. create .place file
-    if (!create_place_file(csv_rd))
-    {
-      // error messages will be issued in callee
-      if (tr)
-      {
-        ls << " (EE) !create_place_file(csv_rd)" << endl;
-        cerr << "ERROR: create_place_file() failed" << endl;
-      }
-      return false;
-    }
-
     //  rs only - user want to map its design clocks to gemini fabric
     // clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15].And user clocks
     // are clk_a,clk_b and want to map clk_a with clk[15] like it
