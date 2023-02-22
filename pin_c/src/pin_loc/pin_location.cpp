@@ -1677,8 +1677,8 @@ namespace pinc
 
     // Save the updated XML file
     doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
-    // remove(clkmap_file_name.c_str());
+    remove(clkmap_file_name.c_str());
     return true;
   }
 
-} // namespace pinc
+} // namespace pin
