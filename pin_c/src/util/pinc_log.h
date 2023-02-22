@@ -4,6 +4,7 @@
 #define __rs_PINC_LOG_H_
 
 #include <inttypes.h>
+#include <strings.h>
 
 #include <algorithm>
 #include <cassert>
@@ -24,8 +25,10 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <functional>
 #include <utility>
 #include <vector>
+#include <array>
 
 namespace pinc {
 
@@ -38,6 +41,7 @@ void set_ltrace(int t) noexcept;
 // currently, log- functions just print on cout, real logfile can be added later
 void lprintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 void lputs(const char* cs = nullptr) noexcept;
+void lputs2(const char* cs = nullptr) noexcept;
 void lputs(const std::string& s) noexcept;
 inline std::ostream& lout() noexcept { return std::cout; }
 

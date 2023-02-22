@@ -38,8 +38,8 @@ class pin_location {
     OPEN_FILE_FAILURE,
     CLOSE_FILE_FAILURE,
     PIN_SOURCE_NO_SURFFICENT,
-    FAIL_TO_CREATE_TEMP_PCF,
     FAIL_TO_CREATE_CLKS_CONSTRAINT_XML,
+    FAIL_TO_CREATE_TEMP_PCF,
     INCORRECT_ASSIGN_PIN_METHOD,
     GENERATE_PCF_FILE_FOR_OS_FLOW,
     MAX_MESSAGE_ID
@@ -66,9 +66,6 @@ class pin_location {
   };
 
   enum { ASSIGN_IN_RANDOM = 0, ASSIGN_IN_DEFINE_ORDER } pin_assign_method_;
-
-  // port direction
-  enum PortDirection { INPUT = 0, OUTPUT };
 
   cmd_line cl_;
 
@@ -135,24 +132,27 @@ class pin_location {
 
   static void shuffle_candidates(vector<int>& v);
 
-  // void collect_left_available_device_pins(set<string>
-  // &constrained_device_pins,
-  //                                   vector<int>
-  //                                   &left_available_device_pin_idx,
-  //                                   RapidCsvReader &rs_csv_reader);
-
   bool convert_pcf_file_for_os_flow(string pcf_file_name);
 
-  bool get_available_bump_pin(const RapidCsvReader& csv_rd,
-                              std::pair<string, string>& bump_pin_and_mode,
-                              PortDirection port_direction);
+  // get_available_ methods return pin_and_mode pair, empty strings on error
+  //
+  std::pair<string, string> get_available_device_pin(const RapidCsvReader& rdr, bool is_inp);
+  //
+  std::pair<string, string> get_available_bump_ipin(const RapidCsvReader& rdr);
+  std::pair<string, string> get_available_bump_opin(const RapidCsvReader& rdr);
+  std::pair<string, string> get_available_axi_ipin(vector<string>& Q);
+  std::pair<string, string> get_available_axi_opin(vector<string>& Q);
+  //
+  bool no_more_inp_bumps_ = false, no_more_out_bumps_ = false; // state for get_available_device_pin()
+  uint num_warnings_ = 0;
+  //
 
   bool is_input_mode(const string& mode_name) const;
   bool is_output_mode(const string& mode_name) const;
 
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);
-	bool write_logical_clocks_to_physical_clks();
+  bool write_logical_clocks_to_physical_clks();
 };
 
 }  // namespace pinc

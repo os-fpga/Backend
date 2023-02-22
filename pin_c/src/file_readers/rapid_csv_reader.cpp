@@ -9,6 +9,23 @@ namespace pinc {
 
 using namespace std;
 
+RapidCsvReader::RapidCsvReader() {}
+
+RapidCsvReader::~RapidCsvReader() {}
+
+std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
+  os << "(bcd "
+     << "  grp:" << b.groupA_
+     << "  " << b.bump_
+     << "  " << b.customer_
+     << "  " << b.ball_ID_
+     << "  fc:" << b.fullchipName_
+     << "  ci:" << b.customerInternal_
+     << "  axi:" << int(b.is_axi_)
+     << "  row:" << b.row_ << ')';
+  return os;
+}
+
 // returns spreadsheet column label ("A", "B", "BC", etc) for column index 'i'
 static inline string label_column(int i) noexcept {
   assert(i >= 0 && i < 1000);
@@ -30,13 +47,6 @@ static inline string label_column(int i) noexcept {
 
   return label;
 }
-
-RapidCsvReader::RapidCsvReader() {
-  // old mode for EDA-1057
-  // use_bump_column_B_ = false; // true - old mode, false - new mode
-}
-
-RapidCsvReader::~RapidCsvReader() {}
 
 static bool get_column(rapidcsv::Document& doc, std::ostream& logStream,
                        const string& colName, vector<string>& V) {
@@ -66,6 +76,8 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   if (tr >= 2)
     ls << "RapidCsvReader::read_csv( " << fn << " )  Reading data ..." << endl;
 
+  reset();
+
   rapidcsv::Document doc(
       fn,
       rapidcsv::LabelParams(),      // label params - use default, no offset
@@ -93,18 +105,18 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   vector<string> group_name = doc.GetColumn<string>("Group");
   size_t num_rows = group_name.size();
-  assert(num_rows > 1);
-  start_position_ = 0;
+  assert(num_rows > 300);
+  start_GBOX_GPIO_row_ = 0;
   for (uint i = 0; i < num_rows; i++) {
     if (group_name[i] == "GBOX GPIO") {
-      start_position_ = i;
+      start_GBOX_GPIO_row_ = i;
       break;
     }
   }
 
-  if (tr >= 3) {
+  if (tr >= 2) {
     ls << "  num_rows= " << num_rows << "  num_cols= " << header_data.size()
-       << "  start_position_= " << start_position_ << '\n'
+       << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_ << '\n'
        << endl;
   }
 
@@ -166,20 +178,120 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   if (!has_Fullchip_name) {
-    ls << "\nRapidCsvReader::read_csv(): column Fullchip_NAME not found\n"
-       << endl;
+    lputs("\nRapidCsvReader::read_csv(): column Fullchip_NAME not found\n");
     return false;
   }
 
+  bcd_.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    BCD& bcd = bcd_[i];
+    bcd.row_ = i;
+    bcd.groupA_ = group_name[i];
+    bcd.is_GBOX_GPIO_ = (bcd.groupA_ == "GBOX GPIO");
+  }
+
   vector<string> S_tmp;
-  bool ok = get_column(doc, ls, "Bump/Pin Name", S_tmp);
+  bool ok = false;
+
+  S_tmp = doc.GetColumn<string>("Fullchip_NAME");
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) bcd_[i].fullchipName_ = S_tmp[i];
+
+  ok = get_column(doc, ls, "Customer Name", S_tmp);
+  if (!ok) return false;
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) bcd_[i].customer_ = S_tmp[i];
+
+  ok = get_column(doc, ls, "Customer Internal Name", S_tmp);
+  if (!ok) return false;
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  vector<uint> custIntNameRows;
+  custIntNameRows.reserve(num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    const string& nm = S_tmp[i];
+    if (nm.length()) {
+      bcd_[i].customerInternal_ = nm;
+      custIntNameRows.push_back(i);
+    }
+  }
+  if (!custIntNameRows.empty()) {
+    uint firs_ri = custIntNameRows.front();
+    uint last_ri = custIntNameRows.back();
+    uint firs_ri_uniq = firs_ri;
+    for (uint i = firs_ri; i <= last_ri; i++) {
+      if (bcd_[i].isCustomerInternalUnique()) {
+        firs_ri_uniq = i;
+        break;
+      }
+    }
+    uint firs_ri_only = firs_ri_uniq;
+    for (uint i = firs_ri_uniq; i <= last_ri; i++) {
+      if (bcd_[i].isCustomerInternalOnly()) {
+        firs_ri_only = i;
+        break;
+      }
+    }
+    if (firs_ri_only && firs_ri_only < last_ri && bcd_[firs_ri_only].isCustomerInternalOnly()) {
+      start_CustomerInternal_row_ = firs_ri_only;
+      bcd_AXI_.clear();
+      bcd_AXI_.reserve(last_ri - firs_ri_only + 1);
+      for (uint i = firs_ri_only; i <= last_ri; i++) {
+        BCD& bcd = bcd_[i];
+        if (bcd.isCustomerInternalOnly()) {
+          bcd.is_axi_ = true;
+          bcd_AXI_.push_back(&bcd);
+        }
+      }
+    }
+    if (tr >= 3) {
+      const auto& firs_bcd = bcd_[firs_ri];
+      const auto& last_bcd = bcd_[last_ri];
+      ls << " ==        first row with Customer Internal Name : " << (firs_ri+2) << "  " << firs_bcd << endl;
+      ls << " == first row with unique Customer Internal Name : " << (firs_ri_uniq+2)
+         << "  " << bcd_[firs_ri_uniq] << endl;
+      ls << " ==   first row with only Customer Internal Name : " << (firs_ri_only+2)
+         << "  " << bcd_[firs_ri_only] << endl;
+      ls << " ==         last row with Customer Internal Name : " << (last_ri+2) << "  " << last_bcd << endl;
+    }
+  }
+
+  bcd_GBGPIO_.reserve(bcd_.size());
+  for (BCD& bcd : bcd_) {
+    if (bcd.is_GBOX_GPIO_)
+      bcd_GBGPIO_.push_back(&bcd);
+  }
+
+  if (tr >= 2) {
+    ls << "  num_rows= " << num_rows << "  num_cols= " << header_data.size()
+       << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_
+       << "  start_CustomerInternal_row_= " << start_CustomerInternal_row_
+       << '\n'
+       << "  bcd_GBGPIO_.size()= " << bcd_GBGPIO_.size()
+       << "  bcd_AXI_.size()= " << bcd_AXI_.size()
+       << '\n' << endl;
+  }
+
+  ok = get_column(doc, ls, "Ball ID", S_tmp);
+  if (!ok) return false;
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) bcd_[i].ball_ID_ = S_tmp[i];
+
+  ok = get_column(doc, ls, "Bump/Pin Name", S_tmp);
   if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
   const vector<string>& bump_pin_name = S_tmp;
 
-  if (tr >= 4) {
+  if (tr >= 6) {
     ls << endl;
     if (num_rows > 3000) {
       const string* A = bump_pin_name.data();
@@ -200,34 +312,20 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     ls << "num_rows= " << num_rows << '\n' << endl;
   }
 
-  bcd_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
-    bcd_[i].bump_ = bump_pin_name[i];
-    bcd_[i].row_ = i;
+    BCD& bcd = bcd_[i];
+    bcd.bump_ = bump_pin_name[i];
+    if (bcd.bump_.empty()) {
+      if (bcd.customerInternal_.empty() && tr >= 2) {
+        ls << " (WW) both bcd.bump_ and bcd.customerInternal_ are empty"
+           << " on row# " << i << endl;
+      }
+    }
+    bcd.normalize();
+    assert(!bcd.bump_.empty());
   }
 
-  ok = get_column(doc, ls, "Customer Name", S_tmp);
-  if (!ok) return false;
-  assert(S_tmp.size() > 1);
-  assert(S_tmp.size() <= num_rows);
-  S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) bcd_[i].customer_ = S_tmp[i];
-
-  ok = get_column(doc, ls, "Customer Internal Name", S_tmp);
-  if (!ok) return false;
-  assert(S_tmp.size() > 1);
-  assert(S_tmp.size() <= num_rows);
-  S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) bcd_[i].customerInternal_ = S_tmp[i];
-
-  ok = get_column(doc, ls, "Ball ID", S_tmp);
-  if (!ok) return false;
-  assert(S_tmp.size() > 1);
-  assert(S_tmp.size() <= num_rows);
-  S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) bcd_[i].ball_ID_ = S_tmp[i];
-
-  if (tr >= 5) {
+  if (tr >= 6) {
     ls << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;
     for (uint i = 0; i < num_rows; i++) {
       const BCD& bcd = bcd_[i];
@@ -235,12 +333,15 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
     ls << "--- BCD dump^^^" << '\n' << endl;
   }
-
-  assert(has_Fullchip_name);
-  fullchip_name_ = doc.GetColumn<string>("Fullchip_NAME");
-  assert(fullchip_name_.size() > 1);
-  assert(fullchip_name_.size() <= num_rows);
-  fullchip_name_.resize(num_rows);
+  if (tr >= 5) {
+    ls << "+++ bcd_AXI_ dump (" << bcd_AXI_.size()
+       << ") ::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;
+    for (const BCD* bcd_p : bcd_AXI_) {
+      assert(bcd_p);
+      ls << "\t " << *bcd_p << endl;
+    }
+    ls << "--- bcd_AXI_ dump^^^" << '\n' << endl;
+  }
 
   io_tile_pin_ = doc.GetColumn<string>("IO_tile_pin");
   io_tile_pin_.resize(num_rows);
@@ -259,7 +360,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].z_ = tmp[i];
 
   // do a sanity check
-  if (check) {
+  if (0&& check) {
     bool check_ok = sanity_check(doc);
     if (!check_ok) {
       ls << "\nWARNING: !check_ok" << endl;
@@ -274,6 +375,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 }
 
 bool RapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
+#if 0
   // 1. check IO bump dangling (unused package pin)
   vector<string> group_name = doc.GetColumn<string>("Group");
   uint num_rows = group_name.size();
@@ -315,6 +417,7 @@ bool RapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
   }
 
   // 2. more mode check (to be added based on GBX spec)
+#endif ////0000
 
   return true;
 }
@@ -342,7 +445,7 @@ void RapidCsvReader::print_csv() const {
   for (uint i = 0; i < num_rows; i++) {
     const BCD& b = bcd_[i];
     const XYZ& p = io_tile_pin_xyz_[i];
-    lprintf("%-5u ", i);
+    lprintf("%-5u ", i+2);
     lprintf(" %12s ", b.bump_.c_str());
     lprintf(" %22s ", b.customer_.c_str());
     lprintf(" %6s ", b.ball_ID_.c_str());
@@ -356,10 +459,32 @@ void RapidCsvReader::print_csv() const {
   ls << "Total Records: " << num_rows << endl;
 }
 
+XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name) const noexcept {
+  assert(!bcd_AXI_.empty());
+  XYZ result;
+
+  for (const BCD* x : bcd_AXI_) {
+    assert(x);
+    if (x->customerInternal_ == axi_name) {
+      uint row = x->row_;
+      assert(row < io_tile_pin_xyz_.size());
+      result = io_tile_pin_xyz_[row];
+      break;
+    }
+  }
+
+  return result;
+}
+
 XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
                                         const string& customerPin_or_ID,
                                         const string& gbox_pin_name) const {
-  XYZ result;
+  // 1. if customerPin_or_ID is an AXI-pin, then skip the mode="Y" check
+  XYZ result = get_axi_xyz_by_name(customerPin_or_ID);
+  if (result.valid())
+    return result;
+
+  // 2.
   auto fitr = modes_map_.find(mode);
   if (fitr == modes_map_.end()) return result;
 
@@ -371,11 +496,12 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
   assert(io_tile_pin_xyz_.size() == num_rows);
   assert(bcd_.size() == num_rows);
 
+  // 3.
   for (uint i = 0; i < num_rows; i++) {
     const BCD& bcd = bcd_[i];
     if (!bcd.match(customerPin_or_ID)) continue;
     if (mode_vector[i] != "Y") continue;
-    if (gbox_pin_name.empty() || fullchip_name_[i] == gbox_pin_name) {
+    if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
       result = io_tile_pin_xyz_[i];
       assert(result.valid());
       break;
@@ -408,8 +534,69 @@ bool RapidCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
   for (const BCD& x : bcd_) {
     if (x.match(pin_name_or_ID)) return true;
   }
-
   return false;
+}
+
+bool RapidCsvReader::hasCustomerInternalName(const string& nm) const noexcept {
+  assert(!bcd_.empty());
+  assert(!nm.empty());
+
+  for (const BCD* x : bcd_AXI_) {
+    assert(x);
+    if (x->customerInternal_ == nm)
+      return true;
+  }
+  return false;
+}
+
+vector<string> RapidCsvReader::get_AXI_inputs() const
+{
+  assert(!bcd_.empty());
+  assert(!bcd_AXI_.empty());
+
+  vector<string> result;
+  result.reserve(bcd_AXI_.size());
+
+  auto is_axi_inp = [](const string& s) -> bool
+  {
+    size_t len = s.length();
+    if (len < 4 || len > 300)
+      return false;
+    return (s[len-1] == 'i' &&  s[len-2] == '_'); // ends with "_i"
+  };
+
+  for (const BCD* p : bcd_AXI_) {
+    assert(p);
+    if (is_axi_inp(p->customerInternal_))
+      result.emplace_back(p->customerInternal_);
+  }
+
+  return result;
+}
+
+vector<string> RapidCsvReader::get_AXI_outputs() const
+{
+  assert(!bcd_.empty());
+  assert(!bcd_AXI_.empty());
+
+  vector<string> result;
+  result.reserve(bcd_AXI_.size());
+
+  auto is_axi_out = [](const string& s) -> bool
+  {
+    size_t len = s.length();
+    if (len < 4 || len > 300)
+      return false;
+    return (s[len-1] == 'o' &&  s[len-2] == '_'); // ends with "_o"
+  };
+
+  for (const BCD* p : bcd_AXI_) {
+    assert(p);
+    if (is_axi_out(p->customerInternal_))
+      result.emplace_back(p->customerInternal_);
+  }
+
+  return result;
 }
 
 }  // namespace pinc

@@ -16,6 +16,7 @@ if (PRODUCTION_BUILD)
     message("Production Build type set to ON")
     set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
     add_definitions(-DPRODUCTION_BUILD)
+    set(CXX_OPTS "-fPIC;-O2;-pipe;-mavx")
     message("FLEX: "  ${FLEX_LM_SRC_DIR})
 endif(PRODUCTION_BUILD)
 
@@ -81,6 +82,9 @@ set_target_properties(blif_parse_static PROPERTIES
 target_link_libraries(libpinconst PUBLIC blif_parse_static vprst_static libvtrutil libpugixml)
 
 add_executable(pin_c ${EXEC_SOURCES})
+
+set_target_properties(pin_c libpinconst PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
+
 if(PRODUCTION_BUILD)
     target_link_libraries(pin_c PUBLIC libpinconst 
                                        blif_parse_static
@@ -101,16 +105,17 @@ else()
                                        libreadedif
                                        ${OPENSSL_LIBRARIES})
 endif()
-#Supress IPO link warnings if IPO is enabled
-get_target_property(PIN_C_USES_IPO vpr INTERPROCEDURAL_OPTIMIZATION)
-if (PIN_C_USES_IPO)
-    set_target_properties(vpr PROPERTIES LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
-endif()
+
+##Supress IPO link warnings if IPO is enabled
+#get_target_property(PIN_C_USES_IPO vpr INTERPROCEDURAL_OPTIMIZATION)
+#if (PIN_C_USES_IPO)
+#    set_target_properties(vpr PROPERTIES LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
+#endif()
 
 #
 # PIN_C compiler options
 #
-target_compile_options(pin_c PRIVATE -Werror -Wall)
+target_compile_options(pin_c PRIVATE -Werror -Wall -fPIC -O2 -pipe -mavx)
 
 #
 # Profile Guilded Optimization Configuration
@@ -138,12 +143,13 @@ add_dependencies(test_pin_c pin_c)
 add_dependencies(pin_c vprst_static)
 add_dependencies(pin_c blif_parse_static)
 
+set_target_properties(pin_c libpinconst test_pin_c PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
 
-#Supress IPO link warnings if IPO is enabled
-get_target_property(TEST_PIN_C_USES_IPO pin_c INTERPROCEDURAL_OPTIMIZATION)
-if (TEST_PIN_C_USES_IPO)
-    set_target_properties(test_vpr PROPERTIES LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
-endif()
+##Supress IPO link warnings if IPO is enabled
+#get_target_property(TEST_PIN_C_USES_IPO pin_c INTERPROCEDURAL_OPTIMIZATION)
+#if (TEST_PIN_C_USES_IPO)
+#    set_target_properties(test_vpr PROPERTIES LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
+#endif()
 
 add_test(NAME test_vpr
     COMMAND test_vpr --use-colour=yes
