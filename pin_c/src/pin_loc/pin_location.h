@@ -38,6 +38,7 @@ class pin_location {
     OPEN_FILE_FAILURE,
     CLOSE_FILE_FAILURE,
     PIN_SOURCE_NO_SURFFICENT,
+    FAIL_TO_CREATE_CLKS_CONSTRAINT_XML,
     FAIL_TO_CREATE_TEMP_PCF,
     INCORRECT_ASSIGN_PIN_METHOD,
     GENERATE_PCF_FILE_FOR_OS_FLOW,
@@ -59,6 +60,7 @@ class pin_location {
       "Close file failure",                              // CLOSE_FILE_FAILURE
       "Design requires more IO pins than device can supply",  // PIN_SOURCE_NO_SURFFICENT
       "Fail to create temp pcf file",          // FAIL_TO_CREATE_TEMP_PCF
+      "Fail to create fpga constraint xml file",             // FAIL_TO_CREATE_CLKS_CONSTRAINT_XML
       "Incorrect assign pin method selection"  // INCORRECT_ASSIGN_PIN_METHOD
       "Fail to generate pcf file for open source flow",  // GENERATE_PCF_FILE_FOR_OS_FLOW
   };
@@ -150,6 +152,7 @@ class pin_location {
 
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);
+  bool write_logical_clocks_to_physical_clks();
 };
 
 }  // namespace pinc
