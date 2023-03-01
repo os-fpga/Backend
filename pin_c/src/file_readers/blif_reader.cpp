@@ -55,13 +55,6 @@
         if (circuit_format != e_circuit_format::EBLIF) {
             parse_error(lineno_, ".param", "Supported only in extended BLIF format");
         }
-
-        // Validate the parameter value
-        bool is_valid = is_string_param(value) || is_binary_param(value) || is_real_param(value);
-
-        if (!is_valid) {
-            parse_error(lineno_, ".param", "Incorrect parameter value specification");
-        }
     }
 
          void end_model() override {}

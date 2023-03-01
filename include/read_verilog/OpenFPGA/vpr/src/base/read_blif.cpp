@@ -390,14 +390,16 @@ struct BlifAllocCallback : public blifparse::Callback {
             parse_error(lineno_, ".param", "Supported only in extended BLIF format");
         }
 
-        // Validate the parameter value
-        bool is_valid = is_string_param(value) || is_binary_param(value) || is_real_param(value);
+        if (is_known_param(value)) {
+            // Validate the parameter value
+            bool is_valid = is_known_param(value) && (is_string_param(value) || is_binary_param(value) || is_real_param(value));
 
-        if (!is_valid) {
-            parse_error(lineno_, ".param", "Incorrect parameter value specification");
+            if (!is_valid) {
+                parse_error(lineno_, ".param", "Incorrect parameter value specification");
+            }
+
+            curr_model().set_block_param(curr_block(), name, value);
         }
-
-        curr_model().set_block_param(curr_block(), name, value);
     }
 
     //Utilities
@@ -719,6 +721,21 @@ bool is_binary_param(const std::string& param) {
     }
 
     /* This is a binary word param */
+    return true;
+}
+
+bool is_known_param(const std::string& param) {
+    /* Must be non-empty */
+    if (param.empty()) {
+        return false;
+    }
+
+    /* The parameter must not contain 'x' and 'X' */
+    for (size_t i = 0; i < param.length(); ++i) {
+        if (param[i] == 'x' || param[i] == 'X') {
+            return false;
+        }
+    }
     return true;
 }
 
