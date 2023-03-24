@@ -26,6 +26,16 @@ bool PcfReader::read_pcf(const string& f) {
   string optional_dash_internal_pin, optional_internal_pin;
 
   while (std::getline(infile, line)) {
+    if (line.empty()) continue;
+    bool all_spaces = true;
+    for (char c : line) {
+      if (!std::isspace(c)) {
+        all_spaces = false;
+        break;
+      }
+    }
+    if (all_spaces) continue;
+
     std::istringstream iss(line);
     // set_io USER_PPIN BUMP_PIN_NAME -mode MODE_NAME
     set_io_cmd.clear();

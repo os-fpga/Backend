@@ -124,11 +124,12 @@ class pin_location {
   bool generate_csv_file_for_os_flow();
   bool read_csv_file(RapidCsvReader&);
   bool read_user_design();
-  bool read_pcf_file();
+
+  bool read_pcf_file(const RapidCsvReader& rdr);
 
   bool create_place_file(const RapidCsvReader&);
 
-  bool create_temp_pcf_file(const RapidCsvReader& csv_rd);
+  bool create_temp_pcf_file(const RapidCsvReader& rdr);
 
   static void shuffle_candidates(vector<int>& v);
 
@@ -152,6 +153,7 @@ class pin_location {
 
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);
+
   bool write_logical_clocks_to_physical_clks();
 };
 
@@ -160,3 +162,4 @@ class pin_location {
 int pin_constrain_location(const pinc::cmd_line& cmd);
 
 #endif
+

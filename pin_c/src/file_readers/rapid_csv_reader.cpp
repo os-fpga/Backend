@@ -13,6 +13,18 @@ RapidCsvReader::RapidCsvReader() {}
 
 RapidCsvReader::~RapidCsvReader() {}
 
+void RapidCsvReader::reset() noexcept
+{
+  start_GBOX_GPIO_row_ = 0;
+  start_CustomerInternal_row_ = 0;
+  bcd_AXI_.clear();
+  bcd_GBGPIO_.clear();
+  bcd_.clear();
+  modes_map_.clear();
+  col_headers_.clear();
+  mode_names_.clear();
+}
+
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
   os << "(bcd "
      << "  grp:" << b.groupA_
@@ -22,7 +34,10 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  fc:" << b.fullchipName_
      << "  ci:" << b.customerInternal_
      << "  axi:" << int(b.is_axi_)
-     << "  row:" << b.row_ << ')';
+     << "  isGPIO:" << int(b.is_GPIO_)
+     << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
+     << "  row:" << b.row_
+     << ')';
   return os;
 }
 
@@ -70,6 +85,26 @@ static bool get_column(rapidcsv::Document& doc, std::ostream& logStream,
   return true;
 }
 
+// if 'hdr' starts with "Mode_"/"MODE_" then convert
+// the prefix to upper case and return true.
+bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept
+{
+    if (hdr.size() < 6) return false;
+    const char* cs = hdr.c_str();
+    char p[8] = {};
+    for (int i = 0; i < 5; i++) {
+      p[i] = tolower(cs[i]);
+    }
+    if (p[0] == 'm' && p[1] == 'o' && p[2] == 'd' && p[3] == 'e' && p[4] == '_') {
+        hdr[0] = 'M';
+        hdr[1] = 'O';
+        hdr[2] = 'D';
+        hdr[3] = 'E';
+        return true;
+    }
+    return false;
+}
+
 bool RapidCsvReader::read_csv(const string& fn, bool check) {
   uint16_t tr = ltrace();
   auto& ls = lout();
@@ -88,15 +123,15 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       rapidcsv::LineReaderParams()
       /*skip lines with specified prefix, use default "false"*/);
 
-  vector<string> header_data = doc.GetRow<string>(-1);
+  col_headers_ = doc.GetRow<string>(-1);
   if (tr >= 3) {
-    assert(header_data.size() > 2);
-    ls << "  header_data.size()= " << header_data.size() << "  ["
-       << header_data.front() << " ... " << header_data.back() << ']' << endl;
+    assert(col_headers_.size() > 2);
+    ls << "  col_headers_.size()= " << col_headers_.size() << "  ["
+       << col_headers_.front() << " ... " << col_headers_.back() << ']' << endl;
     if (tr >= 4) {
-      for (uint i = 0; i < header_data.size(); i++) {
+      for (uint i = 0; i < col_headers_.size(); i++) {
         string col_label = label_column(i);
-        const string& hdr_i = header_data[i];
+        const string& hdr_i = col_headers_[i];
         ls << "--- " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
       }
       ls << endl;
@@ -115,7 +150,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   if (tr >= 2) {
-    ls << "  num_rows= " << num_rows << "  num_cols= " << header_data.size()
+    ls << "  num_rows= " << num_rows << "  num_cols= " << col_headers_.size()
        << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_ << '\n'
        << endl;
   }
@@ -124,22 +159,24 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   bool has_Fullchip_name = false;
   vector<string> mode_data;
-  mode_names_.reserve(num_rows + 1);
-  for (uint i = 0; i < header_data.size(); i++) {
+  string hdr_i;
+  mode_names_.reserve(col_headers_.size());
+  for (uint i = 0; i < col_headers_.size(); i++) {
     string col_label = label_column(i);
-    const string& hdr_i = header_data[i];
+    const string& orig_hdr_i = col_headers_[i]; // before case conversion by prepare_mode_header()
+    hdr_i = orig_hdr_i;
 
     if (!has_Fullchip_name && hdr_i == "Fullchip_NAME")
       has_Fullchip_name = true;
 
-    if (hdr_i.find("Mode_") == string::npos) continue;
+    if (!prepare_mode_header(hdr_i)) continue;
 
     if (tr >= 4)
       ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i
          << endl;
 
     try {
-      mode_data = doc.GetColumn<string>(hdr_i);
+      mode_data = doc.GetColumn<string>(orig_hdr_i);
     } catch (const std::out_of_range& e) {
       if (STRICT_FORMAT) {
         ls << "\nRapidCsvReader::read_csv() caught std::out_of_range"
@@ -147,6 +184,11 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
         ls << "\t  what: " << e.what() << '\n' << endl;
         return false;
       } else {
+        if (tr >= 3) {
+          ls << "\nWARNING RapidCsvReader::read_csv() caught std::out_of_range"
+             << "  i= " << i << "  hdr_i= " << hdr_i << endl;
+          ls << "\t  what: " << e.what() << '\n' << endl;
+        }
         continue;
       }
     } catch (...) {
@@ -188,6 +230,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     bcd.row_ = i;
     bcd.groupA_ = group_name[i];
     bcd.is_GBOX_GPIO_ = (bcd.groupA_ == "GBOX GPIO");
+    bcd.is_GPIO_ = (bcd.groupA_ == "GPIO");
   }
 
   vector<string> S_tmp;
@@ -268,7 +311,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   if (tr >= 2) {
-    ls << "  num_rows= " << num_rows << "  num_cols= " << header_data.size()
+    ls << "  num_rows= " << num_rows << "  num_cols= " << col_headers_.size()
        << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_
        << "  start_CustomerInternal_row_= " << start_CustomerInternal_row_
        << '\n'
@@ -511,9 +554,20 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
   return result;
 }
 
-string RapidCsvReader::bumpName2CustomerName(
-    const string& bump_name) const noexcept {
-  assert(!bump_name.empty());
+uint RapidCsvReader::printModeKeys() const {
+  uint n = modes_map_.size();
+  lprintf("modes_map_.size()= %u\n", n);
+  if (modes_map_.empty()) return 0;
+
+  for (const auto& I : modes_map_)
+    lprintf("\t  %s\n", I.first.c_str());
+
+  return n;
+}
+
+string
+RapidCsvReader::bumpName2CustomerName(const string& bump_nm) const noexcept {
+  assert(!bump_nm.empty());
   uint num_rows = numRows();
   assert(num_rows > 1);
   assert(io_tile_pin_xyz_.size() == num_rows);
@@ -522,7 +576,7 @@ string RapidCsvReader::bumpName2CustomerName(
   // tmp linear search
   for (uint i = 0; i < num_rows; i++) {
     const BCD& bcd = bcd_[i];
-    if (bcd.bump_ == bump_name) return bcd.customer_;
+    if (bcd.bump_ == bump_nm) return bcd.customer_;
   }
 
   return {};
