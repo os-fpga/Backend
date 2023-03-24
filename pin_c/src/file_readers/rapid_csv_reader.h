@@ -39,6 +39,7 @@ class RapidCsvReader {
 
     bool is_axi_ = false;
     bool is_GBOX_GPIO_ = false;
+    bool is_GPIO_ = false; // based on column A
 
     BCD() noexcept = default;
 
@@ -74,13 +75,7 @@ class RapidCsvReader {
   RapidCsvReader();
   ~RapidCsvReader();
 
-  void reset() noexcept {
-    start_GBOX_GPIO_row_ = 0;
-    start_CustomerInternal_row_ = 0;
-    bcd_AXI_.clear();
-    bcd_GBGPIO_.clear();
-    bcd_.clear();
-  }
+  void reset() noexcept;
 
   // file i/o
   bool read_csv(const std::string& f, bool check);
@@ -88,6 +83,8 @@ class RapidCsvReader {
   void write_csv(string csv_file_name) const;
   void print_csv() const;
   bool sanity_check(const rapidcsv::Document& doc) const;
+
+  static bool prepare_mode_header(string& hdr) noexcept;
 
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
@@ -119,6 +116,8 @@ class RapidCsvReader {
     return bcd_[row].customerInternal_;
   }
 
+  bool hasMode(const string& key) const noexcept { return modes_map_.count(key); }
+
   const vector<string>* getModeData(const string& mode_name) const noexcept {
     assert(!mode_name.empty());
     if (mode_name.empty())
@@ -129,6 +128,8 @@ class RapidCsvReader {
     return &(fitr->second);
   }
 
+  uint printModeKeys() const;
+
   string bumpName2CustomerName(const string& bump_name) const noexcept;
 
   vector<string> get_AXI_inputs() const;
@@ -137,7 +138,8 @@ class RapidCsvReader {
  private:
   std::map<string, vector<string>> modes_map_;
 
-  vector<string> mode_names_; // column labels that contain "Mode_"
+  vector<string> col_headers_; // all column headers
+  vector<string> mode_names_;  // column headers that contain "Mode_/MODE_"
 
   // below vectors are indexed by csv row, size() == #rows
 
