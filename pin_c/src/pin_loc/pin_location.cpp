@@ -4,21 +4,22 @@
 //    approval is obtained from rapidsilicon open source review commitee      //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "pin_location.h"
+#include "pin_loc/pin_location.h"
 
 #include <random>
 #include <set>
+#include <map>
 
-#include "blif_reader.h"
-#include "cmd_line.h"
-#include "csv_reader.h"
-#include "nlohmann3_11_2/json.hpp"
-#include "pcf_reader.h"
-#include "rapid_csv_reader.h"
-#include "xml_reader.h"
+#include "util/cmd_line.h"
 
-// will use std::filesystem when C++17 works everywhere
-// #include <filesystem>
+#include "file_readers/blif_reader.h"
+#include "file_readers/csv_reader.h"
+#include "file_readers/pcf_reader.h"
+#include "file_readers/rapid_csv_reader.h"
+#include "file_readers/xml_reader.h"
+
+#include "util/nlohmann3_11_2/json.hpp"
+
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -42,6 +43,29 @@ namespace pinc {
 using namespace std;
 
 #define CERROR std::cerr << "[Error] "
+#define OUT_ERROR std::cout << "[Error] "
+
+static std::map<string, string> err_map = {
+
+  { "MISSING_IN_OUT_FILES",        "Missing input or output file arguments" },
+  { "PIN_LOC_XML_PARSE_ERROR",     "Pin location file parse error" },
+  { "PIN_MAP_CSV_PARSE_ERROR",     "Pin map file parse error" },
+  { "PIN_CONSTRAINT_PARSE_ERROR",  "Pin constraint file parse error" },
+  { "PORT_INFO_PARSE_ERROR",       "Port info parse error" },
+  { "CONSTRAINED_PORT_NOT_FOUND",  "Constrained port not found in design" },
+  { "CONSTRAINED_PIN_NOT_FOUND",   "Constrained pin not found in device" },
+  { "RE_CONSTRAINED_PORT",         "Re-constrained port" },
+  { "OVERLAP_PIN_IN_CONSTRAINT",   "Overlap pin found in constraint" },
+  { "GENERATE_CSV_FILE_FOR_OS_FLOW", "Fail to generate csv file for open source flow" },
+  { "OPEN_FILE_FAILURE",    "Open file failure" },
+  { "CLOSE_FILE_FAILURE",  "Close file failure" },
+  { "PIN_SOURCE_NO_SURFFICENT",    "Design requires more IO pins than device can supply" },
+  { "FAIL_TO_CREATE_CLKS_CONSTRAINT_XML",   "Fail to create temp pcf file" },
+  { "FAIL_TO_CREATE_TEMP_PCF",     "Fail to create fpga constraint xml file" },
+  { "INCORRECT_ASSIGN_PIN_METHOD", "Incorrect assign pin method selection" },
+  { "GENERATE_PCF_FILE_FOR_OS_FLOW",  "Fail to generate pcf file for open source flow" }
+
+};
 
 // use fix to detemined A2F and F2A GBX mode
 static constexpr const char* INPUT_MODE_FIX = "_RX";
@@ -96,7 +120,7 @@ pin_location::~pin_location() {
   // remove temporarily generated file
   if (temp_csv_file_name_.size()) {
     if (remove(temp_csv_file_name_.c_str())) {
-      CERROR << error_messages_[CLOSE_FILE_FAILURE] << endl;
+      CERROR << err_map["CLOSE_FILE_FAILURE"] << endl;
     }
   }
 
@@ -105,7 +129,7 @@ pin_location::~pin_location() {
     if (ltrace() >= 4) {
       lprintf("keeping temp_pcf_file for debugging: %s\n", fn);
     } else if (remove(fn)) {
-      CERROR << error_messages_[CLOSE_FILE_FAILURE] << endl;
+      CERROR << err_map["CLOSE_FILE_FAILURE"] << endl;
     }
   }
 }
@@ -146,8 +170,8 @@ bool pin_location::reader_and_writer() {
     } else if (assign_method == "in_define_order") {
       pin_assign_method_ = ASSIGN_IN_DEFINE_ORDER;
     } else {
-      CERROR << error_messages_[INCORRECT_ASSIGN_PIN_METHOD] << endl;
-      CERROR << error_messages_[MISSING_IN_OUT_FILES] << endl
+      CERROR << err_map["INCORRECT_ASSIGN_PIN_METHOD"] << endl;
+      CERROR << err_map["MISSING_IN_OUT_FILES"] << endl
              << USAGE_MSG_0 << ", or" << endl
              << USAGE_MSG_1 << ", or" << endl
              << USAGE_MSG_2 << endl;
@@ -194,7 +218,7 @@ bool pin_location::reader_and_writer() {
          << endl;
     }
     if (!generate_csv_file_for_os_flow()) {
-      CERROR << error_messages_[GENERATE_CSV_FILE_FOR_OS_FLOW] << endl;
+      CERROR << err_map["GENERATE_CSV_FILE_FOR_OS_FLOW"] << endl;
       return false;
     }
     // in os mode, the pcf does not contains any "-mode"
@@ -203,35 +227,35 @@ bool pin_location::reader_and_writer() {
     string pcf_file_name = cl_.get_param("--pcf");
     if (pcf_file_name.size()) {
       if (!convert_pcf_file_for_os_flow(pcf_file_name)) {
-        CERROR << error_messages_[GENERATE_PCF_FILE_FOR_OS_FLOW] << endl;
+        CERROR << err_map["GENERATE_PCF_FILE_FOR_OS_FLOW"] << endl;
         return false;
       }
     }
   } else if ((!usage_requirement_1) && (!usage_requirement_2)) {
-    CERROR << error_messages_[MISSING_IN_OUT_FILES] << endl
+    CERROR << err_map["MISSING_IN_OUT_FILES"] << endl
            << USAGE_MSG_0 << ", or" << endl
            << USAGE_MSG_1 << ", or" << endl
            << USAGE_MSG_2 << endl;
     return false;
   }
 
-  // --2. read port info from user design (from .blif or from port_info.json)
-  if (!read_user_design()) {
-    CERROR << error_messages_[INPUT_DESIGN_PARSE_ERROR] << endl;
+  // --2. read info (pin-table) from csv file
+  RapidCsvReader csv_rd;
+  if (!read_csv_file(csv_rd)) {
+    CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
     return false;
   }
 
-  // --3. read info (pin-table) from csv file in new RS format
-  RapidCsvReader csv_rd;
-  if (!read_csv_file(csv_rd)) {
-    CERROR << error_messages_[PIN_MAP_CSV_PARSE_ERROR] << endl;
+  // --3. read port info from user design (from .blif or from port_info.json)
+  if (!read_design_ports()) {
+    CERROR << err_map["PORT_INFO_PARSE_ERROR"] << endl;
     return false;
   }
 
   // usage 2: if no user constraint is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
     if (!create_temp_pcf_file(csv_rd)) {
-      CERROR << error_messages_[FAIL_TO_CREATE_TEMP_PCF] << endl;
+      CERROR << err_map["FAIL_TO_CREATE_TEMP_PCF"] << endl;
       return false;
     }
     if (tr >= 3 || num_warnings_) {
@@ -245,7 +269,7 @@ bool pin_location::reader_and_writer() {
 
   // --4. read user constraint
   if (!read_pcf_file(csv_rd)) {
-    CERROR << error_messages_[PIN_CONSTRAINT_PARSE_ERROR] << endl;
+    CERROR << err_map["PIN_CONSTRAINT_PARSE_ERROR"] << endl;
     return false;
   }
 
@@ -272,7 +296,7 @@ bool pin_location::reader_and_writer() {
 
   if (create_constraint_xml_requirement) {
     if (!write_logical_clocks_to_physical_clks()) {
-      CERROR << error_messages_[FAIL_TO_CREATE_CLKS_CONSTRAINT_XML] << endl;
+      CERROR << err_map["FAIL_TO_CREATE_CLKS_CONSTRAINT_XML"] << endl;
       return false;
     }
   }
@@ -295,13 +319,13 @@ bool pin_location::generate_csv_file_for_os_flow() {
 
   XmlReader rd_xml;
   if (!rd_xml.read_xml(cl_.get_param("--xml"))) {
-    CERROR << error_messages_[PIN_LOC_XML_PARSE_ERROR] << endl;
+    CERROR << err_map["PIN_LOC_XML_PARSE_ERROR"] << endl;
     return false;
   }
   std::map<string, PinMappingData> xml_port_map = rd_xml.get_port_map();
   CsvReader rd_csv;
   if (!rd_csv.read_csv(cl_.get_param("--csv"))) {
-    CERROR << error_messages_[PIN_MAP_CSV_PARSE_ERROR] << endl;
+    CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
     return false;
   }
   map<string, string> csv_port_map = rd_csv.get_port_map();
@@ -338,7 +362,7 @@ bool pin_location::generate_csv_file_for_os_flow() {
 bool pin_location::convert_pcf_file_for_os_flow(string pcf_file_name) {
   PcfReader rd_pcf;
   if (!rd_pcf.read_os_pcf(pcf_file_name)) {
-    CERROR << error_messages_[PIN_CONSTRAINT_PARSE_ERROR] << endl;
+    CERROR << err_map["PIN_CONSTRAINT_PARSE_ERROR"] << endl;
     return false;
   }
   vector<vector<string>> pcf_pin_cstr = rd_pcf.get_commands();
@@ -365,10 +389,10 @@ bool pin_location::convert_pcf_file_for_os_flow(string pcf_file_name) {
   return true;
 }
 
-bool pin_location::read_user_design() {
+bool pin_location::read_design_ports() {
   uint16_t tr = ltrace();
   if (tr >= 2) {
-    lputs("\nread_user_design() __ getting port info .json");
+    lputs("\nread_design_ports() __ getting port info .json");
   }
 
   string port_info_fn = cl_.get_param("--port_info");
@@ -381,10 +405,10 @@ bool pin_location::read_user_design() {
     if (fs_path_exists(path)) {
       json_ifs.open(port_info_fn);
       if (!json_ifs.is_open())
-        lprintf("WARNING: could not open port info file %s => using blif\n",
+        lprintf("\nWARNING: could not open port info file %s => using blif\n",
                 port_info_fn.c_str());
     } else {
-      lprintf("WARNING: port info file %s does not exist => using blif\n",
+      lprintf("\nWARNING: port info file %s does not exist => using blif\n",
               port_info_fn.c_str());
     }
   } else {
@@ -403,11 +427,11 @@ bool pin_location::read_user_design() {
     if (tr >= 2) lprintf("... reading %s\n", blif_fn.c_str());
     path = blif_fn;
     if (not fs_path_exists(path)) {
-      lprintf("WARNING: blif file %s does not exist\n", blif_fn.c_str());
+      lprintf("\nWARNING: blif file %s does not exist\n", blif_fn.c_str());
     }
     BlifReader rd_blif;
     if (!rd_blif.read_blif(blif_fn)) {
-      CERROR << error_messages_[INPUT_DESIGN_PARSE_ERROR] << endl;
+      CERROR << err_map["PORT_INFO_PARSE_ERROR"] << endl;
       return false;
     }
     user_design_inputs_ = rd_blif.get_inputs();
@@ -416,7 +440,7 @@ bool pin_location::read_user_design() {
 
   if (tr >= 2) {
     lprintf(
-        "DONE read_user_design()  user_design_inputs_.size()= %u  "
+        "DONE read_design_ports()  user_design_inputs_.size()= %u  "
         "user_design_outputs_.size()= %u\n",
         uint(user_design_inputs_.size()), uint(user_design_outputs_.size()));
   }
@@ -441,7 +465,7 @@ bool pin_location::read_pcf_file(const RapidCsvReader& csvReader) {
 
   PcfReader rd_pcf;
   if (!rd_pcf.read_pcf(pcf_file_name)) {
-    CERROR << error_messages_[PIN_CONSTRAINT_PARSE_ERROR] << endl;
+    CERROR << err_map["PIN_CONSTRAINT_PARSE_ERROR"] << endl;
     return false;
   }
 
@@ -558,20 +582,20 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
 
     if (!is_in_pin && !is_out_pin) {
       // sanity check
-      CERROR << error_messages_[CONSTRAINED_PORT_NOT_FOUND] << ": <"
+      CERROR << err_map["CONSTRAINED_PORT_NOT_FOUND"] << ": <"
              << user_design_pin_name << ">" << endl;
       out_file << "\n=== Error happened, .place file is incomplete\n"
-               << "=== ERROR:" << error_messages_[CONSTRAINED_PORT_NOT_FOUND]
+               << "=== ERROR:" << err_map["CONSTRAINED_PORT_NOT_FOUND"]
                << ": <" << user_design_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       out_file.close();
       return false;
     }
     if (!csv_rd.has_io_pin(device_pin_name)) {
-      CERROR << error_messages_[CONSTRAINED_PIN_NOT_FOUND] << ": <"
+      CERROR << err_map["CONSTRAINED_PIN_NOT_FOUND"] << ": <"
              << device_pin_name << ">" << endl;
       out_file << "\n=== Error happened, .place file is incomplete\n"
-               << "=== ERROR:" << error_messages_[CONSTRAINED_PORT_NOT_FOUND]
+               << "=== ERROR:" << err_map["CONSTRAINED_PORT_NOT_FOUND"]
                << ": <" << user_design_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       out_file.close();
@@ -581,7 +605,7 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
     if (!constrained_user_pins.count(user_design_pin_name)) {
       constrained_user_pins.insert(user_design_pin_name);
     } else {
-      CERROR << error_messages_[RE_CONSTRAINED_PORT] << ": <"
+      CERROR << err_map["RE_CONSTRAINED_PORT"] << ": <"
              << user_design_pin_name << ">" << endl;
       out_file.close();
       return false;
@@ -596,7 +620,7 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
     if (!constrained_device_pins.count(search_name)) {
       constrained_device_pins.insert(search_name);
     } else {
-      CERROR << error_messages_[OVERLAP_PIN_IN_CONSTRAINT] << ": <"
+      CERROR << err_map["OVERLAP_PIN_IN_CONSTRAINT"] << ": <"
              << device_pin_name << ">" << endl;
       out_file.close();
       return false;
@@ -683,9 +707,29 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
 #endif  // 0
 }
 
+static bool try_open_csv_file(const string& csv_name) {
+  if (not fs_path_exists(csv_name)) {
+    lprintf("\nERROR: csv file %s does not exist\n", csv_name.c_str());
+    OUT_ERROR << err_map["OPEN_FILE_FAILURE"] << endl;
+    CERROR << err_map["OPEN_FILE_FAILURE"] << endl;
+    return false;
+  }
+
+  std::ifstream stream;
+  stream.open(csv_name, std::ios::binary);
+  if (stream.fail()) {
+    OUT_ERROR << err_map["OPEN_FILE_FAILURE"] << endl;
+    CERROR << err_map["OPEN_FILE_FAILURE"] << endl;
+    return false;
+  }
+  stream.close();
+
+  return true;
+}
+
 bool pin_location::read_csv_file(RapidCsvReader& csv_rd) {
   uint16_t tr = ltrace();
-  if (tr >= 2) lputs("\nread_csv_file() __ Reading new csv");
+  if (tr >= 2) lputs("\nread_csv_file() __ Reading csv");
 
   string csv_name;
   if (temp_csv_file_name_.size()) {
@@ -697,14 +741,8 @@ bool pin_location::read_csv_file(RapidCsvReader& csv_rd) {
 
   if (tr >= 2) lprintf("  cvs_name= %s\n", csv_name.c_str());
 
-  {
-    std::ifstream stream;
-    stream.open(csv_name, std::ios::binary);
-    if (stream.fail()) {
-      CERROR << error_messages_[OPEN_FILE_FAILURE] << endl;
-      return false;
-    }
-    stream.close();
+  if (!try_open_csv_file(csv_name)) {
+    return false;
   }
 
   string check_csv = cl_.get_param("--check_csv");
@@ -714,7 +752,7 @@ bool pin_location::read_csv_file(RapidCsvReader& csv_rd) {
     if (tr >= 2) lputs("NOTE: check_csv == True");
   }
   if (!csv_rd.read_csv(csv_name, check)) {
-    CERROR << error_messages_[PIN_MAP_CSV_PARSE_ERROR] << endl;
+    CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
     return false;
   }
 
@@ -1332,12 +1370,12 @@ bool pin_location::read_port_info(std::ifstream& ifs, vector<string>& inputs,
       if (p.name_.length())
         inputs.push_back(p.name_);
       else
-        ls << "WARNING: got empty name in port_info" << endl;
+        ls << "\nWARNING: got empty name in port_info" << endl;
     } else if (p.isOutput()) {
       if (p.name_.length())
         outputs.push_back(p.name_);
       else
-        ls << "WARNING: got empty name in port_info" << endl;
+        ls << "\nWARNING: got empty name in port_info" << endl;
     }
   }
 

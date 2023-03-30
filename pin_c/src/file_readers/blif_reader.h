@@ -1,13 +1,18 @@
-#ifndef BLIF_READER_H
-#define BLIF_READER_H
+#pragma once
+#ifndef __rs_file_readers_BLIF_READER_H
+#define __rs_file_readers_BLIF_READER_H
 
-#include <iostream>
-#include <string>
 #include <sstream>
 #include <fstream>
-#include <vector>
 #include <unordered_map>
 #include <map>
+
+#include "util/pinc_log.h"
+
+namespace pinc {
+
+using std::string;
+using std::vector;
 
 /*
 Supported PCF commands:
@@ -17,7 +22,7 @@ Supported PCF commands:
 
   Every tile where <net> is present will be constrained to use a given global clock.
 */
-using namespace std;
+
 class BlifReader
 {
   vector<string> inputs;
@@ -25,13 +30,17 @@ class BlifReader
 
 public:
   BlifReader() {}
-  BlifReader(const std::string &f)
+  BlifReader(const string& f)
   {
     read_blif(f);
   }
-  bool read_blif(const std::string &f);
-  const vector<string>& get_inputs()const { return inputs;}
-  const vector<string>& get_outputs()const { return outputs;}
+  bool read_blif(const string& f);
+
+  const vector<string>& get_inputs()const { return inputs; }
+  const vector<string>& get_outputs()const { return outputs; }
 };
 
+}
+
 #endif
+

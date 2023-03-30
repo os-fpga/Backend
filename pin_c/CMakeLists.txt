@@ -44,7 +44,8 @@ endif()
 file(GLOB_RECURSE EXEC_SOURCES src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
-files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
+#files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
+set(LIB_INCLUDE_DIRS src)
 
 file(GLOB_RECURSE BLIF_READ_HEADERS ../OpenFPGA/vtr-verilog-to-routing/vpr/src/base/*.h)
 

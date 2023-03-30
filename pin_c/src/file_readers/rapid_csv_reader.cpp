@@ -1,9 +1,4 @@
-#include "rapid_csv_reader.h"
-
-#include <algorithm>
-#include <set>
-
-#include "rapidcsv.h"
+#include "file_readers/rapid_csv_reader.h"
 
 namespace pinc {
 
@@ -117,13 +112,27 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       fn,
       rapidcsv::LabelParams(),      // label params - use default, no offset
       rapidcsv::SeparatorParams(),  // separator params - use default ","
-      rapidcsv::ConverterParams(
-          true /*user default number for non-numberical strings*/,
-          0.0 /* default float*/, -1 /*default integer*/),
-      rapidcsv::LineReaderParams()
-      /*skip lines with specified prefix, use default "false"*/);
 
-  col_headers_ = doc.GetRow<string>(-1);
+      rapidcsv::ConverterParams(
+          true, // user default number for non-numberical strings
+          0.0,  // default float
+          -1    // default integer
+          ),
+
+      rapidcsv::LineReaderParams()
+      );
+
+  try {
+    col_headers_ = doc.GetRow<string>(-1);
+  } catch (const std::out_of_range& e) {
+      ls << "\nERROR reading csv header: caught std::out_of_range\n"
+         << "\t  what: " << e.what() << '\n' << endl;
+      return false;
+  } catch (...) {
+      ls << "\nERROR reading csv header: caught excepttion\n" << endl;
+      return false;
+  }
+
   if (tr >= 3) {
     assert(col_headers_.size() > 2);
     ls << "  col_headers_.size()= " << col_headers_.size() << "  ["

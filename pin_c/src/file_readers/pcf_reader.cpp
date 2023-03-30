@@ -1,10 +1,8 @@
-#include "pcf_reader.h"
-
-#include "pinc_log.h"
-
-using namespace std;
+#include "file_readers/pcf_reader.h"
 
 namespace pinc {
+
+using namespace std;
 
 bool PcfReader::read_pcf(const string& f) {
   uint16_t tr = ltrace();
@@ -119,4 +117,5 @@ bool PcfReader::read_os_pcf(const string& f) {
   return true;
 }
 
-}  // namespace pinc
+} // namespace pinc
+

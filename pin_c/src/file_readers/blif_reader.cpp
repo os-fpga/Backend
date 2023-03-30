@@ -1,7 +1,11 @@
 #include "vtr_path.h"
 #include "read_blif.h"
+
 #include "blifparse.hpp"
-#include "blif_reader.h"
+
+#include "file_readers/blif_reader.h"
+
+namespace pinc {
 
 // blif parser callback
  using namespace blifparse;
@@ -76,7 +80,7 @@
 };
 
 // read port info from blif file
-bool BlifReader::read_blif(const std::string &blif_file_name)
+bool BlifReader::read_blif(const std::string& blif_file_name)
 {
     e_circuit_format circuit_format;
     auto name_ext = vtr::split_ext(blif_file_name);
@@ -96,3 +100,6 @@ bool BlifReader::read_blif(const std::string &blif_file_name)
     outputs = callback.get_outputs();
     return true;
 }
+
+} // namespace pinc
+
