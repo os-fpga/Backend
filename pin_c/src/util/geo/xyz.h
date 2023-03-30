@@ -1,7 +1,7 @@
 // class XY  - 2D Point
 // class XYZ - 3D Point
 #pragma once
-#include "geo/iv.h"
+#include "util/geo/iv.h"
 
 namespace pinc {
 

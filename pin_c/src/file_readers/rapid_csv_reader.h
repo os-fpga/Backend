@@ -1,11 +1,12 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <unordered_map>
 
-#include "geo/xyz.h"
-#include "pinc_log.h"
-#include "rapidcsv.h"
+#include "util/geo/xyz.h"
+#include "util/pinc_log.h"
+#include "file_readers/rapidcsv.h"
 
 namespace pinc {
 
