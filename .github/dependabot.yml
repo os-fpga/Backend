@@ -12,10 +12,10 @@ updates:
     #  - "submodule-updates"
     # must use the full team name, including the organization, as if you were @mentioning the team
     reviewers:
-      - "taoli4rs"
-      - "tangxifan"
+      - "alain-rs"
+      - "nadeemyaseen-rs"
     # Allow dependabot to open up to 10 open pull requests. Default is 5.
     # open-pull-requests-limit: 10
     allow:
       - dependency-name: "OpenFPGA"
-      - dependency-name: "OpenSTA"
+      - dependency-name: "Raptor_Tools"
