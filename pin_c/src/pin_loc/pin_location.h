@@ -23,7 +23,7 @@ using std::vector;
 
 class pin_location {
 
-  enum { ASSIGN_IN_RANDOM = 0, ASSIGN_IN_DEFINE_ORDER } pin_assign_method_;
+  enum { ASSIGN_IN_RANDOM = 0, ASSIGN_IN_DEFINE_ORDER = 1 } pin_assign_method_ = ASSIGN_IN_DEFINE_ORDER;
 
   cmd_line cl_;
 
@@ -72,7 +72,10 @@ class pin_location {
     }
   };
 
-  pin_location(const cmd_line& cl);
+  pin_location(const cmd_line& cl)
+   : cl_(cl) {
+    pin_assign_method_ = ASSIGN_IN_DEFINE_ORDER;
+  }
   ~pin_location();
 
   const cmd_line& get_cmd() const noexcept { return cl_; }

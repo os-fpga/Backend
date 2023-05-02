@@ -42,28 +42,33 @@ namespace pinc {
 
 using namespace std;
 
+static string s_err_code;
+
 #define CERROR std::cerr << "[Error] "
 #define OUT_ERROR std::cout << "[Error] "
 
 static std::map<string, string> err_map = {
 
-  { "MISSING_IN_OUT_FILES",        "Missing input or output file arguments" },
-  { "PIN_LOC_XML_PARSE_ERROR",     "Pin location file parse error" },
-  { "PIN_MAP_CSV_PARSE_ERROR",     "Pin map file parse error" },
-  { "PIN_CONSTRAINT_PARSE_ERROR",  "Pin constraint file parse error" },
-  { "PORT_INFO_PARSE_ERROR",       "Port info parse error" },
-  { "CONSTRAINED_PORT_NOT_FOUND",  "Constrained port not found in design" },
-  { "CONSTRAINED_PIN_NOT_FOUND",   "Constrained pin not found in device" },
-  { "RE_CONSTRAINED_PORT",         "Re-constrained port" },
-  { "OVERLAP_PIN_IN_CONSTRAINT",   "Overlap pin found in constraint" },
+  { "MISSING_IN_OUT_FILES",          "Missing input or output file arguments" },
+  { "PIN_LOC_XML_PARSE_ERROR",       "Pin location file parse error" },
+  { "PIN_MAP_CSV_PARSE_ERROR",       "Pin map file parse error" },
+  { "PIN_CONSTRAINT_PARSE_ERROR",    "Pin constraint file parse error" },
+  { "PORT_INFO_PARSE_ERROR",         "Port info parse error" },
+  { "CONSTRAINED_PORT_NOT_FOUND",    "Constrained port not found in design" },
+  { "CONSTRAINED_PIN_NOT_FOUND",     "Constrained pin not found in device" },
+  { "RE_CONSTRAINED_PORT",           "Re-constrained port" },
+  { "OVERLAP_PIN_IN_CONSTRAINT",     "Overlap pin found in constraint" },
   { "GENERATE_CSV_FILE_FOR_OS_FLOW", "Fail to generate csv file for open source flow" },
-  { "OPEN_FILE_FAILURE",    "Open file failure" },
-  { "CLOSE_FILE_FAILURE",  "Close file failure" },
-  { "PIN_SOURCE_NO_SURFFICENT",    "Design requires more IO pins than device can supply" },
-  { "FAIL_TO_CREATE_CLKS_CONSTRAINT_XML",   "Fail to create temp pcf file" },
-  { "FAIL_TO_CREATE_TEMP_PCF",     "Fail to create fpga constraint xml file" },
-  { "INCORRECT_ASSIGN_PIN_METHOD", "Incorrect assign pin method selection" },
-  { "GENERATE_PCF_FILE_FOR_OS_FLOW",  "Fail to generate pcf file for open source flow" }
+  { "OPEN_FILE_FAILURE",             "Open file failure" },
+  { "CLOSE_FILE_FAILURE",            "Close file failure" },
+  { "PIN_SOURCE_NO_SURFFICENT",      "Design requires more IO pins than device can supply" },
+  { "FAIL_TO_CREATE_CLKS_CONSTRAINT_XML",  "Fail to create fpga constraint xml file"  },
+  { "FAIL_TO_CREATE_TEMP_PCF",       "Fail to create temp pcf file"  },
+  { "INCORRECT_ASSIGN_PIN_METHOD",   "Incorrect assign pin method selection" },
+  { "GENERATE_PCF_FILE_FOR_OS_FLOW", "Fail to generate pcf file for open source flow" },
+
+  { "TOO_MANY_INPUTS",   "Too many input pins" },
+  { "TOO_MANY_OUTPUTS",  "Too many output pins" }
 
 };
 
@@ -101,19 +106,10 @@ static string USAGE_MSG_2 =
                                                     // gemini; no user pcf is
                                                     // provided
 
-pin_location::pin_location(const cmd_line& cl)
- : cl_(cl) {
-  temp_csv_file_name_ = "";
-  temp_pcf_file_name_ = "";
-  temp_os_pcf_file_name_ = "";
-
-  // default pin assign method
-  pin_assign_method_ = ASSIGN_IN_DEFINE_ORDER;
-}
 
 pin_location::~pin_location() {
   if (num_warnings_) {
-    lprintf("\n\t NOTE warnings: %u\n", num_warnings_);
+    lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
     lputs2();
   }
 
@@ -139,6 +135,8 @@ static vector<string> s_axi_inpQ, s_axi_outQ;
 
 bool pin_location::reader_and_writer() {
   num_warnings_ = 0;
+  s_err_code.clear();
+
   const cmd_line& cmd = cl_;
   string xml_name = cmd.get_param("--xml");
   string csv_name = cmd.get_param("--csv");
@@ -255,15 +253,18 @@ bool pin_location::reader_and_writer() {
   // usage 2: if no user constraint is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
     if (!create_temp_pcf_file(csv_rd)) {
-      CERROR << err_map["FAIL_TO_CREATE_TEMP_PCF"] << endl;
+      string ec = s_err_code.empty() ? "FAIL_TO_CREATE_TEMP_PCF" : s_err_code;
+      CERROR << err_map[ec] << endl;
+      ls << "[Error] " << err_map[ec] << endl;
+      ls << "  design has " << user_design_inputs_.size() << " input pins" << endl;
+      ls << "  design has " << user_design_outputs_.size() << " output pins" << endl;
       return false;
     }
-    if (tr >= 3 || num_warnings_) {
-      lprintf("\nafter create_temp_pcf_file() num_warnings_= %u\n", num_warnings_);
-      if (num_warnings_) {
-        lprintf("\t NOTE warnings: %u\n", num_warnings_);
-        lputs2();
-      }
+    if (num_warnings_) {
+      if (tr >= 2)
+        lprintf("\nafter create_temp_pcf_file() #errors: %u\n", num_warnings_);
+      lprintf("\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
+      lputs2();
     }
   }
 
@@ -322,8 +323,10 @@ bool pin_location::generate_csv_file_for_os_flow() {
     CERROR << err_map["PIN_LOC_XML_PARSE_ERROR"] << endl;
     return false;
   }
+
   std::map<string, PinMappingData> xml_port_map = rd_xml.get_port_map();
   CsvReader rd_csv;
+
   if (!rd_csv.read_csv(cl_.get_param("--csv"))) {
     CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
     return false;
@@ -440,9 +443,9 @@ bool pin_location::read_design_ports() {
 
   if (tr >= 2) {
     lprintf(
-        "DONE read_design_ports()  user_design_inputs_.size()= %u  "
-        "user_design_outputs_.size()= %u\n",
-        uint(user_design_inputs_.size()), uint(user_design_outputs_.size()));
+        "DONE read_design_ports()  user_design_inputs_.size()= %zu  "
+        "user_design_outputs_.size()= %zu\n",
+        user_design_inputs_.size(), user_design_outputs_.size());
   }
 
   return true;
@@ -647,11 +650,16 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
     }
     assert(xyz.valid());
 
-    out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_ << endl;
+    out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
+    if (tr >= 4) {
+        out_file << "    #  device: " << device_pin_name;
+    }
+    out_file << endl;
     out_file.flush();
 
     if (tr >= 4) {
-      ls << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_ << endl;
+      ls << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
+      ls << "    #  device: " << device_pin_name << endl;
       ls.flush();
     }
   }
@@ -1013,9 +1021,12 @@ ret:
 
 // create a temporary pcf file and internally pass it to params
 bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
+  s_err_code.clear();
   string key = "--pcf";
   temp_pcf_file_name_ = std::to_string(getpid()) + ".temp_pcf.pcf";
   cl_.set_param_value(key, temp_pcf_file_name_);
+
+  bool continue_on_errors = getenv("pinc_continue_on_errors");
 
   uint16_t tr = ltrace();
   if (tr >= 3)
@@ -1121,8 +1132,12 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      if (tr >= 1) lputs("WARNING: (inp) get_available_device_pin() FAILED\n");
+      lprintf("pin_c ERROR: failed getting device pin for input pin: %s\n", pinName.c_str());
+      s_err_code = "TOO_MANY_INPUTS";
+      lputs3();
       num_warnings_++;
+      if (not continue_on_errors)
+        return false;
       continue;
     }
   }
@@ -1155,8 +1170,12 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      if (tr >= 1) lputs("WARNING: (out) get_available_device_pin() FAILED\n");
+      lprintf("pin_c ERROR: failed getting device pin for output pin: %s\n", pinName.c_str());
+      s_err_code = "TOO_MANY_OUTPUTS";
+      lputs3();
       num_warnings_++;
+      if (not continue_on_errors)
+        return false;
       continue;
     }
   }
@@ -1239,7 +1258,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
     }
 
     // 1. check size and presence of 'name'
-    if (tr >= 4) ls << " ...... obj.size() " << obj.size() << endl;
+    if (tr >= 7) ls << " ...... obj.size() " << obj.size() << endl;
     if (obj.size() == 0) {
       ls << " (WW) unexpected json object size..." << endl;
       continue;
@@ -1258,11 +1277,11 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
     // 2. read 'name'
     pin_location::PortInfo& last = ports.back();
     last.name_ = obj["name"];
-    if (tr >= 4) ls << " ........ last.name_ " << last.name_ << endl;
+    if (tr >= 7) ls << " ........ last.name_ " << last.name_ << endl;
 
     // 3. read 'direction'
     if (obj.contains("direction")) {
-      s = strToLower(obj["direction"]);
+      s = sToLower(obj["direction"]);
       if (s == "input")
         last.dir_ = pin_location::PortDir::Input;
       else if (s == "output")
@@ -1271,7 +1290,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
 
     // 4. read 'type'
     if (obj.contains("type")) {
-      s = strToLower(obj["type"]);
+      s = sToLower(obj["type"]);
       if (s == "wire")
         last.type_ = pin_location::PortType::Wire;
       else if (s == "reg")
@@ -1283,14 +1302,14 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
       const auto& rangeObj = obj["range"];
       if (rangeObj.size() == 2 && rangeObj.contains("lsb") &&
           rangeObj.contains("msb")) {
-        if (tr >= 5) ls << " ........ has range..." << endl;
+        if (tr >= 8) ls << " ........ has range..." << endl;
         const auto& lsb = rangeObj["lsb"];
         const auto& msb = rangeObj["msb"];
         if (lsb.is_number_integer() && msb.is_number_integer()) {
           int l = lsb.get<int>();
           int m = msb.get<int>();
           if (l >= 0 && m >= 0) {
-            if (tr >= 4)
+            if (tr >= 7)
               ls << " ........ has valid range  l= " << l << "  m= " << m
                  << endl;
             last.range_.set(l, m);
@@ -1301,12 +1320,12 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
 
     // 6. read 'define_order'
     if (obj.contains("define_order")) {
-      s = strToLower(obj["define_order"]);
+      s = sToLower(obj["define_order"]);
       if (s == "lsb_to_msb")
         last.order_ = pin_location::Order::LSB_to_MSB;
       else if (s == "msb_to_lsb")
         last.order_ = pin_location::Order::MSB_to_LSB;
-      if (tr >= 4 && last.hasOrder())
+      if (tr >= 7 && last.hasOrder())
         ls << " ........ has define_order: " << s << endl;
     }
   }
@@ -1315,7 +1334,8 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
 }
 
 // static
-bool pin_location::read_port_info(std::ifstream& ifs, vector<string>& inputs,
+bool pin_location::read_port_info(std::ifstream& ifs,
+                                  vector<string>& inputs,
                                   vector<string>& outputs) {
   inputs.clear();
   outputs.clear();
@@ -1379,9 +1399,19 @@ bool pin_location::read_port_info(std::ifstream& ifs, vector<string>& inputs,
     }
   }
 
-  if (tr >= 2)
+  if (tr >= 2) {
     ls << " got " << inputs.size() << " inputs and " << outputs.size()
        << " outputs" << endl;
+    if (tr >= 4) {
+      lprintf("\n ---- inputs(%zu): ---- \n", inputs.size());
+      for (size_t i = 0; i < inputs.size(); i++)
+        lprintf("     in  %s\n", inputs[i].c_str());
+      lprintf("\n ---- outputs(%zu): ---- \n", outputs.size());
+      for (size_t i = 0; i < outputs.size(); i++)
+        lprintf("    out  %s\n", outputs[i].c_str());
+      lputs();
+    }
+  }
 
   return true;
 }
