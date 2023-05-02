@@ -22,20 +22,85 @@ void set_ltrace(int t) noexcept {
   s_logLevel = t;
 }
 
+#define LPUT if (cs && cs[0]) cout << cs;
+#define LEND cout << endl; fflush(stdout);
+
 void lputs(const char* cs) noexcept {
-  if (cs && cs[0]) cout << cs;
-  cout << endl;
+    LPUT
+    LEND
+}
+
+void lputs0(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputs1(const char* cs) noexcept {
+    LPUT
+    LEND
 }
 void lputs2(const char* cs) noexcept {
-  if (cs && cs[0]) cout << cs;
-  cout << endl;
+    LPUT
+    LEND
 }
-void lputs(const std::string& s) noexcept {
-  if (s.empty()) {
+void lputs3(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputs4(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputs5(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputs6(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputs7(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputs8(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputs9(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+void lputsX(const char* cs) noexcept {
+    LPUT
+    LEND
+}
+
+void lputs(const string& s) noexcept {
+  if (s.empty())
     cout << endl;
-  } else {
+  else
     lputs(s.c_str());
-  }
+}
+
+static constexpr char q = '\'';
+void bh1(const char* fn, int l, const char* s) noexcept {
+  if (!s) return;
+  cout << "\n bh1: " << fn << ':' << l << q << s << q << endl;
+}
+void bh2(const char* fn, int l, const char* s) noexcept {
+  if (!s) return;
+  cout << "\n bh2: " << fn << ':' << l << q << s << q << endl;
+}
+void bh3(const char* fn, int l, const char* s) noexcept {
+  if (!s) return;
+  cout << "\n bh3: " << fn << ':' << l << q << s << q << endl;
+}
+
+void flush_out(bool nl) noexcept {
+  if (nl)
+    cout << endl;
+  cout.flush();
+  fflush(stdout);
 }
 
 void lprintf(const char* format, ...) {
@@ -56,7 +121,7 @@ void lprintf(const char* format, ...) {
   }
 }
 
-string strToLower(const string& s) noexcept {
+string sToLower(const string& s) noexcept {
   if (s.empty()) return {};
   const char* cs = s.c_str();
   if (!cs || !cs[0]) return {};
@@ -67,12 +132,27 @@ string strToLower(const string& s) noexcept {
   return result;
 }
 
-string strReplicate(char c, uint num) noexcept {
-  if (!num || num > 48000) return {};
-  char buf[num + 1];
-  buf[num] = 0;
-  for (uint i = 0; i < num; i++) buf[i] = c;
-  return string(buf);
+string sToUpper(const string& s) noexcept {
+  if (s.empty()) return {};
+  const char* cs = s.c_str();
+  if (!cs || !cs[0]) return {};
+
+  string result;
+  result.reserve(s.length() + 1);
+  for (const char* p = cs; *p; p++) result.push_back(std::toupper(*p));
+  return result;
+}
+
+string sReplicate(char c, uint num) noexcept {
+  constexpr uint num_lim = INT_MAX;
+  assert(num < num_lim);
+  if (!num || num > num_lim) return {};
+
+  string result;
+  result.reserve(num + 1);
+  result.insert(result.end(), num, c);
+
+  return result;
 }
 
 }  // namespace pinc
