@@ -2568,11 +2568,12 @@ bool sta_file_writer::write_sta_files(int argc, const char **argv) {
 
   // timing data preparation
   auto &cluster_ctx = g_vpr_ctx.clustering();
-  ClbNetPinsMatrix<float> net_delay =
-      make_net_pins_matrix<float>(cluster_ctx.clb_nlist);
-  load_net_delay_from_routing(net_delay);
+  auto net_delay = make_net_pins_matrix<float>((const Netlist<>&)cluster_ctx.clb_nlist);
+
+  load_net_delay_from_routing((const Netlist<>&)g_vpr_ctx.clustering().clb_nlist, net_delay, true);
+
   auto analysis_delay_calc = std::make_shared<AnalysisDelayCalculator>(
-      atom_ctx.nlist, atom_ctx.lookup, net_delay);
+      atom_ctx.nlist, atom_ctx.lookup, net_delay, true);
 
   // walk netlist to dump info
   StaWriterVisitor visitor(verilog_os, sdf_os, lib_os, analysis_delay_calc,
