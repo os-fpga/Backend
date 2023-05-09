@@ -7,12 +7,10 @@ if (NOT RAPTOR)
 endif()
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
-set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
 
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
 set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
-set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
 set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga)
 set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil)
 
@@ -40,19 +38,14 @@ else()
   set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations? NO!")
 endif()
 
-FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/fabric_bitstream.cpp  
-          DESTINATION
-          ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_bitstream/)
-
-FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
-          ${PACKER_SRC_DIR}/cluster_util.cpp
-          ${PACKER_SRC_DIR}/cluster_util.h
-          ${PACKER_SRC_DIR}/output_clustering.cpp
-          ${PACKER_SRC_DIR}/output_clustering.h
-          ${PACKER_SRC_DIR}/cluster_router.cpp
-          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/pack)
+#FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.h
+#          ${PACKER_SRC_DIR}/output_clustering.cpp
+#          ${PACKER_SRC_DIR}/output_clustering.h
+#          ${PACKER_SRC_DIR}/cluster_router.cpp      
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/pack)
 
 if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
