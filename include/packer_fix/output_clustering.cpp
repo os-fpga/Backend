@@ -945,7 +945,7 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
 
     // work around : pick up the last block ID to check only the last created block
     //
-    vtr::StrongId<cluster_block_id_tag> last_id;
+    ClusterBlockId last_id;
     for (auto blk_id : cluster_ctx.clb_nlist.blocks()) {
            last_id = blk_id;
     }
