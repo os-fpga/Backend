@@ -53,8 +53,8 @@ checkout:
 # Available variables
 # 
 # - SUBMODULE: Specify the submodule to checkout. For example, SUBMODULE=OpenFPGA
-	git submodule init ${SUBMODULE}
-	git submodule update --init --depth 2
+	git submodule update --init Raptor_Tools OpenFPGA
+	cd OpenFPGA && git submodule update --init 
 
 compile:
 # This command will compile the codebase
