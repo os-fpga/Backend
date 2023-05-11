@@ -85,12 +85,6 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Runner workspace path
-        run: |
-          echo "Cleaning up previous run"
-          rm -rf "${{ github.workspace }}"
-          mkdir -p "${{ github.workspace }}"
-
       - name: Install ssh-agent
         run: |
           yum install -y openssh-server openssh-clients
@@ -140,13 +134,11 @@ jobs:
       - name: Configure git
         run: |
           git config --global --add safe.directory $GITHUB_WORKSPACE
-        
+ 
+      - name: Checkout submodule
+        run: |
+          make checkout
+ 
       - name: Build
         run: |
-          echo $PWD
-          ls -all
-          ls -all OpenFPGA/
-          export GIT_DISCOVERY_ACROSS_FILESYSTEM=1
-          git submodule init 
-          git submodule update --init --recursive
           make compile PRODUCTION_BUILD=1
