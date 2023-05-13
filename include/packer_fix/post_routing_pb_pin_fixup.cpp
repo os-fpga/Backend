@@ -153,9 +153,11 @@ static void update_cluster_pin_with_post_routing_results(const Netlist<>& net_li
         ParentNetId routing_net_id = ParentNetId::INVALID();
         std::vector<RRNodeId> visited_rr_nodes;
         short valid_routing_net_cnt = 0;
+        for (int ix = 0; ix < physical_tile->width; ix++) {
+            for (int iy = 0; iy < physical_tile->height; iy++) {
         for (const e_side& pin_side : pin_sides) {
             /* Find the net mapped to this pin in routing results */
-            RRNodeId rr_node = node_lookup.find_node(grid_coord.x(), grid_coord.y(), rr_node_type, physical_pin, pin_side);
+            RRNodeId rr_node = node_lookup.find_node(grid_coord.x() + ix, grid_coord.y() + iy, rr_node_type, physical_pin, pin_side);
 
             /* Bypass invalid nodes, after that we must have a valid rr_node id */
             if (!rr_node) {
@@ -195,6 +197,9 @@ static void update_cluster_pin_with_post_routing_results(const Netlist<>& net_li
                 visited_rr_nodes.push_back(rr_node);
             }
         }
+            }
+        }
+
 
         VTR_ASSERT((0 == valid_routing_net_cnt) || (1 == valid_routing_net_cnt));
 
@@ -643,6 +648,8 @@ static void update_cluster_regular_routing_traces_with_post_routing_results(Atom
                 /* Special: for single-fanout pin, remove all the downstream pb_routes */
                 if (is_single_fanout_pb_pin(const_cast<const t_pb_graph_pin*>(pb_graph_pin))) {
                     rec_remove_downstream_pb_routes(new_pb_routes, pb_graph_pin->pin_count_in_cluster);
+                    new_pb_routes.erase(pb_graph_pin->pin_count_in_cluster);
+
                 } else {
                     VTR_ASSERT_SAFE(!is_single_fanout_pb_pin(const_cast<const t_pb_graph_pin*>(pb_graph_pin)));
                     /* Now remove the source routing tree */
@@ -757,8 +764,8 @@ static void update_cluster_regular_routing_traces_with_post_routing_results(Atom
                  */
                 VTR_ASSERT(sink_pb_route == sink_pb_pin_to_add->pin_count_in_cluster);
                 t_pb_graph_pin* new_sink_pb_pin_to_add = sink_pb_pin_to_add;
-                VTR_ASSERT(is_single_fanout_pb_pin(const_cast<const t_pb_graph_pin*>(new_sink_pb_pin_to_add)));
-                int new_driver_pb_pin = pb_graph_pin->pin_count_in_cluster;
+                //VTR_ASSERT(is_single_fanout_pb_pin(const_cast<const t_pb_graph_pin*>(new_sink_pb_pin_to_add)));
+                VTR_ASSERT(1 == new_sink_pb_pin_to_add->output_edges[0]->num_output_pins);                int new_driver_pb_pin = pb_graph_pin->pin_count_in_cluster;
                 while (1) {
                     int new_sink_pb_route_id = new_sink_pb_pin_to_add->pin_count_in_cluster;
                     new_pb_routes.insert(std::make_pair(new_sink_pb_route_id, t_pb_route()));
