@@ -54,6 +54,10 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
 
+FILE(COPY ${PACKER_SRC_DIR}/vpr_utils.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/util/vpr_utils.cpp)
+
 if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
     ${VPR_SRC_DIR}/src/base/read_blif.h
