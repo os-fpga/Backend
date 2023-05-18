@@ -586,6 +586,25 @@ static void rec_remove_downstream_pb_routes(t_pb_routes& curr_pb_routes,
     }
 }
 
+static void rec_remove_downstream_pb_routes_ignore_used_items(t_pb_routes& curr_pb_routes,
+                                            const int& src_pb_route_id, std::vector<int> usedItems) {
+    // VTR_LOG("at %d, rec remove id: %d, to_string: %s\n", __LINE__,
+    //     src_pb_route_id, curr_pb_routes.at(src_pb_route_id).pb_graph_pin->to_string(true).c_str());
+    for (const auto& sink_pb_route : curr_pb_routes.at(src_pb_route_id).sink_pb_pin_ids) {
+        if(std::find(usedItems.begin(), usedItems.end(), sink_pb_route)!=usedItems.end()){
+            continue;
+        }
+        // VTR_LOG("at %d, rec remove main id: %d, sink id: %d, to_string: %s\n", __LINE__,
+        //     src_pb_route_id,
+        //     sink_pb_route, curr_pb_routes.at(sink_pb_route).pb_graph_pin->to_string(true).c_str());
+        
+        /* Go recursively if this is not the end */
+        rec_remove_downstream_pb_routes(curr_pb_routes, sink_pb_route);
+        /* Remove this sink */
+        curr_pb_routes.erase(sink_pb_route);
+    }
+}
+
 /********************************************************************
  * Update routing traces for regular nets of a logical block
  * This function should NOT 
@@ -606,6 +625,8 @@ static void update_cluster_regular_routing_traces_with_post_routing_results(Atom
     /* Go through each pb_graph pin at the top level
      * and build the new routing traces
      */
+
+    std::vector<int> usedItems;
     for (int pb_type_pin = 0; pb_type_pin < logical_block->pb_type->num_pins; ++pb_type_pin) {
         /* Skip non-equivalent ports, no need to do fix-up */
         const t_pb_graph_pin* pb_graph_pin = get_pb_graph_node_pin_from_block_pin(blk_id, pb_type_pin);
@@ -647,7 +668,8 @@ static void update_cluster_regular_routing_traces_with_post_routing_results(Atom
                 && (!clustering_ctx.clb_nlist.net_is_ignored(global_net_id))) {
                 /* Special: for single-fanout pin, remove all the downstream pb_routes */
                 if (is_single_fanout_pb_pin(const_cast<const t_pb_graph_pin*>(pb_graph_pin))) {
-                    rec_remove_downstream_pb_routes(new_pb_routes, pb_graph_pin->pin_count_in_cluster);
+                    rec_remove_downstream_pb_routes_ignore_used_items(new_pb_routes, 
+                        pb_graph_pin->pin_count_in_cluster, usedItems);
                     new_pb_routes.erase(pb_graph_pin->pin_count_in_cluster);
 
                 } else {
@@ -868,6 +890,10 @@ static void update_cluster_regular_routing_traces_with_post_routing_results(Atom
                     }
                 }
             }
+        }
+
+        for (int& sink_pb_route : new_pb_route.sink_pb_pin_ids) {
+            usedItems.push_back(sink_pb_route);
         }
 
         VTR_LOGV(verbose,
