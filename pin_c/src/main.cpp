@@ -1,7 +1,7 @@
 #include "util/cmd_line.h"
 #include "util/pinc_log.h"
 
-#include "pin_loc/pin_constrain_loc.h"
+#include "pin_loc/pinc_main.h"
 
 // Convert a PCF file into a VPR io.place file.
 // This requires : XML file where we can get (x, y, z) of internal port
