@@ -17,16 +17,19 @@
 #include "file_readers/pcf_reader.h"
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/xml_reader.h"
+//#include "file_readers/Fio.h"
 
 #include "util/nlohmann3_11_2/json.hpp"
 
 #include <sys/stat.h>
 #include <unistd.h>
 
-int pin_constrain_location(const pinc::cmd_line& cmd) {
+namespace pinc {
+
+int pinc_main(const pinc::cmd_line& cmd) {
   using namespace pinc;
   uint16_t tr = ltrace();
-  if (tr >= 2) lputs("pin_constrain_location()");
+  if (tr >= 2) lputs("pinc_main()");
 
   pin_location pl(cmd);
 
@@ -38,10 +41,7 @@ int pin_constrain_location(const pinc::cmd_line& cmd) {
   return 0;
 }
 
-namespace pinc {
-
 using namespace std;
-
 static string s_err_code;
 
 #define CERROR std::cerr << "[Error] "
@@ -120,10 +120,10 @@ pin_location::~pin_location() {
     }
   }
 
-  if (temp_pcf_file_name_.size()) {
-    const char* fn = temp_pcf_file_name_.c_str();
+  if (temp_pcf_name_.size()) {
+    const char* fn = temp_pcf_name_.c_str();
     if (ltrace() >= 4) {
-      lprintf("keeping temp_pcf_file for debugging: %s\n", fn);
+      lprintf("keeping temp_pcf for debugging: %s\n", fn);
     } else if (remove(fn)) {
       CERROR << err_map["CLOSE_FILE_FAILURE"] << endl;
     }
@@ -222,9 +222,8 @@ bool pin_location::reader_and_writer() {
     // in os mode, the pcf does not contains any "-mode"
     // we need to generate a temp pcf file with "-mode" option, which selects
     // mode "Mode_GPIO"
-    string pcf_file_name = cl_.get_param("--pcf");
-    if (pcf_file_name.size()) {
-      if (!convert_pcf_file_for_os_flow(pcf_file_name)) {
+    if (pcf_name.size()) {
+      if (!convert_pcf_for_os_flow(pcf_name)) {
         CERROR << err_map["GENERATE_PCF_FILE_FOR_OS_FLOW"] << endl;
         return false;
       }
@@ -250,9 +249,9 @@ bool pin_location::reader_and_writer() {
     return false;
   }
 
-  // usage 2: if no user constraint is provided, created a temp one
+  // usage 2: if no user pcf is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
-    if (!create_temp_pcf_file(csv_rd)) {
+    if (!create_temp_pcf(csv_rd)) {
       string ec = s_err_code.empty() ? "FAIL_TO_CREATE_TEMP_PCF" : s_err_code;
       CERROR << err_map[ec] << endl;
       ls << "[Error] " << err_map[ec] << endl;
@@ -262,24 +261,24 @@ bool pin_location::reader_and_writer() {
     }
     if (num_warnings_) {
       if (tr >= 2)
-        lprintf("\nafter create_temp_pcf_file() #errors: %u\n", num_warnings_);
+        lprintf("\nafter create_temp_pcf() #errors: %u\n", num_warnings_);
       lprintf("\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
       lputs2();
     }
   }
 
-  // --4. read user constraint
-  if (!read_pcf_file(csv_rd)) {
+  // --4. read user pcf (or our temprary pcf).
+  if (!read_pcf(csv_rd)) {
     CERROR << err_map["PIN_CONSTRAINT_PARSE_ERROR"] << endl;
     return false;
   }
 
   // --5. create .place file
-  if (!create_place_file(csv_rd)) {
+  if (!write_dot_place(csv_rd)) {
     // error messages will be issued in callee
     if (tr) {
-      ls << " (EE) !create_place_file(csv_rd)" << endl;
-      cerr << "ERROR: create_place_file() failed" << endl;
+      ls << " (EE) !write_dot_place(csv_rd)" << endl;
+      CERROR << "write_dot_place() failed" << endl;
     }
     return false;
   }
@@ -303,9 +302,42 @@ bool pin_location::reader_and_writer() {
   }
 
   // -- done successfully
-  if (tr >= 2)
-    ls << "done: pin_location::reader_and_writer() done successfully" << endl;
+  if (tr >= 2) {
+    ls << endl;
+    ls << "pin_c done: reader_and_writer() done successfully" << endl;
+    if (tr >= 3) {
+        print_stats();
+    }
+  }
   return true;
+}
+
+void pin_location::print_stats() const
+{
+  uint16_t tr = ltrace();
+  if (!tr) return;
+  auto& ls = lout();
+
+  ls << "======== stats:" << endl;
+
+  const vector<string>& inputs = user_design_inputs_;
+  const vector<string>& outputs = user_design_outputs_;
+
+  ls << " --> got " << inputs.size() << " inputs and "
+     << outputs.size() << " outputs" << endl;
+  if (tr >= 4) {
+    lprintf("\n ---- inputs(%zu): ---- \n", inputs.size());
+    for (size_t i = 0; i < inputs.size(); i++)
+      lprintf("     in  %s\n", inputs[i].c_str());
+    lprintf("\n ---- outputs(%zu): ---- \n", outputs.size());
+    for (size_t i = 0; i < outputs.size(); i++)
+      lprintf("    out  %s\n", outputs[i].c_str());
+    lputs();
+    ls << " <-- got " << inputs.size() << " inputs and "
+       << outputs.size() << " outputs" << endl;
+  }
+
+  ls << "======== end stats." << endl;
 }
 
 // for open source flow
@@ -318,14 +350,15 @@ bool pin_location::generate_csv_file_for_os_flow() {
     cout << "Generateing new csv" << endl;
   }
 
-  XmlReader rd_xml;
+  filer::XmlReader rd_xml;
   if (!rd_xml.read_xml(cl_.get_param("--xml"))) {
     CERROR << err_map["PIN_LOC_XML_PARSE_ERROR"] << endl;
     return false;
   }
 
-  std::map<string, PinMappingData> xml_port_map = rd_xml.get_port_map();
-  CsvReader rd_csv;
+  std::map<string, filer::PinMappingData> xml_port_map = rd_xml.get_port_map();
+
+  filer::CsvReader rd_csv;
 
   if (!rd_csv.read_csv(cl_.get_param("--csv"))) {
     CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
@@ -352,7 +385,7 @@ bool pin_location::generate_csv_file_for_os_flow() {
   std::map<string, string>::iterator itr = csv_port_map.begin();
   itr++;  // skip the first pair "mapped_pin" = ""port_name"
   for (; itr != csv_port_map.end(); itr++) {
-    PinMappingData pinMapData = xml_port_map.at(itr->second);
+    filer::PinMappingData pinMapData = xml_port_map.at(itr->second);
     outfile << "GBOX GPIO," /* fake group name */ << itr->first << ","
             << itr->second << "," << std::to_string(pinMapData.get_x()) << ","
             << pinMapData.get_y() << "," << pinMapData.get_z() << ",Y" << endl;
@@ -362,16 +395,16 @@ bool pin_location::generate_csv_file_for_os_flow() {
   return true;
 }
 
-bool pin_location::convert_pcf_file_for_os_flow(string pcf_file_name) {
+bool pin_location::convert_pcf_for_os_flow(const string& pcf_name) {
   PcfReader rd_pcf;
-  if (!rd_pcf.read_os_pcf(pcf_file_name)) {
+  if (!rd_pcf.read_os_pcf(pcf_name)) {
     CERROR << err_map["PIN_CONSTRAINT_PARSE_ERROR"] << endl;
     return false;
   }
   vector<vector<string>> pcf_pin_cstr = rd_pcf.get_commands();
-  temp_os_pcf_file_name_ = ".temp_os_file_pcf";
+  temp_os_pcf_name_ = ".temp_os_file_pcf";
   std::ofstream outfile;
-  outfile.open(temp_os_pcf_file_name_,
+  outfile.open(temp_os_pcf_name_,
                std::ifstream::out | std::ifstream::binary);
   if (outfile.fail()) {
     // no error message here, caller is to show GENERATE_CSV_FILE_FOR_OS_FLOW
@@ -387,7 +420,6 @@ bool pin_location::convert_pcf_file_for_os_flow(string pcf_file_name) {
     command += string(" -mode Mode_GPIO");
     outfile << command << endl;
   }
-  outfile.close();
 
   return true;
 }
@@ -421,7 +453,8 @@ bool pin_location::read_design_ports() {
   if (json_ifs.is_open()) {
     if (tr >= 2) lprintf("... reading %s\n", port_info_fn.c_str());
     if (!read_port_info(json_ifs, user_design_inputs_, user_design_outputs_)) {
-      CERROR << " failed reading " << port_info_fn << endl;
+      CERROR    << " failed reading " << port_info_fn << endl;
+      OUT_ERROR << " failed reading " << port_info_fn << endl;
       return false;
     }
     json_ifs.close();
@@ -451,23 +484,23 @@ bool pin_location::read_design_ports() {
   return true;
 }
 
-bool pin_location::read_pcf_file(const RapidCsvReader& csvReader) {
+bool pin_location::read_pcf(const RapidCsvReader& csvReader) {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 2) lputs("\npin_location::read_pcf_file()");
+  if (tr >= 2) lputs("\npin_location::read_pcf()");
 
   pcf_pin_cmds_.clear();
 
-  string pcf_file_name;
-  if (temp_os_pcf_file_name_.size()) {
+  string pcf_name;
+  if (temp_os_pcf_name_.size()) {
     // use generated temp pcf for open source flow
-    pcf_file_name = temp_os_pcf_file_name_;
+    pcf_name = temp_os_pcf_name_;
   } else {
-    pcf_file_name = cl_.get_param("--pcf");
+    pcf_name = cl_.get_param("--pcf");
   }
 
   PcfReader rd_pcf;
-  if (!rd_pcf.read_pcf(pcf_file_name)) {
+  if (!rd_pcf.read_pcf(pcf_name)) {
     CERROR << err_map["PIN_CONSTRAINT_PARSE_ERROR"] << endl;
     return false;
   }
@@ -515,20 +548,21 @@ static bool vec_contains(const vector<string>& V, const string& s) noexcept {
   return false;
 }
 
-bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
+bool pin_location::write_dot_place(const RapidCsvReader& csv_rd) {
   string out_fn = cl_.get_param("--output");
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) {
-    ls << "\npin_location::create_place_file() __ Creating place file\n"
-          "  cl_.get_param(--output) : "
+    ls << "\npinc::write_dot_place() __ Creating .place file  get_param(--output) : "
        << out_fn << endl;
   }
 
-  std::ofstream out_file;
+  ofstream out_file;
   out_file.open(out_fn);
   if (out_file.fail()) {
-    // no error message here, caller is to show failure message
+    if (tr >= 2) {
+        ls << "\n (EE) pinc::write_dot_place() FAILED to write " << out_fn << endl;
+    }
     return false;
   }
 
@@ -591,7 +625,6 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
                << "=== ERROR:" << err_map["CONSTRAINED_PORT_NOT_FOUND"]
                << ": <" << user_design_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
-      out_file.close();
       return false;
     }
     if (!csv_rd.has_io_pin(device_pin_name)) {
@@ -601,7 +634,6 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
                << "=== ERROR:" << err_map["CONSTRAINED_PORT_NOT_FOUND"]
                << ": <" << user_design_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
-      out_file.close();
       return false;
     }
 
@@ -610,7 +642,6 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
     } else {
       CERROR << err_map["RE_CONSTRAINED_PORT"] << ": <"
              << user_design_pin_name << ">" << endl;
-      out_file.close();
       return false;
     }
 
@@ -625,7 +656,6 @@ bool pin_location::create_place_file(const RapidCsvReader& csv_rd) {
     } else {
       CERROR << err_map["OVERLAP_PIN_IN_CONSTRAINT"] << ": <"
              << device_pin_name << ">" << endl;
-      out_file.close();
       return false;
     }
 
@@ -730,7 +760,6 @@ static bool try_open_csv_file(const string& csv_name) {
     CERROR << err_map["OPEN_FILE_FAILURE"] << endl;
     return false;
   }
-  stream.close();
 
   return true;
 }
@@ -1020,17 +1049,17 @@ ret:
 }
 
 // create a temporary pcf file and internally pass it to params
-bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
+bool pin_location::create_temp_pcf(const RapidCsvReader& csv_rd) {
   s_err_code.clear();
   string key = "--pcf";
-  temp_pcf_file_name_ = std::to_string(getpid()) + ".temp_pcf.pcf";
-  cl_.set_param_value(key, temp_pcf_file_name_);
+  temp_pcf_name_ = std::to_string(getpid()) + ".temp_pcf.pcf";
+  cl_.set_param_value(key, temp_pcf_name_);
 
   bool continue_on_errors = getenv("pinc_continue_on_errors");
 
   uint16_t tr = ltrace();
   if (tr >= 3)
-    lprintf("\ncreate_temp_pcf_file() : %s\n", temp_pcf_file_name_.c_str());
+    lprintf("\ncreate_temp_pcf() : %s\n", temp_pcf_name_.c_str());
 
   // state for get_available_device_pin:
   no_more_inp_bumps_ = false;
@@ -1059,7 +1088,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
     shuffle_candidates(input_idx);
     shuffle_candidates(output_idx);
     if (tr >= 3)
-      lputs("  create_temp_pcf_file() randomized input_idx, output_idx");
+      lputs("  create_temp_pcf() randomized input_idx, output_idx");
   } else if (tr >= 3) {
     lputs(
         "  input_idx, output_idx are indexing user_design_inputs_, "
@@ -1070,13 +1099,13 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
 
   pair<string, string> device_pin_n_mode;
   ofstream temp_out;
-  temp_out.open(temp_pcf_file_name_, ifstream::out | ifstream::binary);
+  temp_out.open(temp_pcf_name_, ifstream::out | ifstream::binary);
   if (temp_out.fail()) {
     lprintf(
-        "\n  !!! (ERROR) create_temp_pcf_file(): could not open %s for "
+        "\n  !!! (ERROR) create_temp_pcf(): could not open %s for "
         "writing\n",
-        temp_pcf_file_name_.c_str());
-    CERROR << "(EE) could not open " << temp_pcf_file_name_ << " for writing\n"
+        temp_pcf_name_.c_str());
+    CERROR << "(EE) could not open " << temp_pcf_name_ << " for writing\n"
            << endl;
     return false;
   }
@@ -1089,7 +1118,7 @@ bool pin_location::create_temp_pcf_file(const RapidCsvReader& csv_rd) {
       user_out.open(user_pcf_name, ifstream::out | ifstream::binary);
       if (user_out.fail()) {
         lprintf(
-            "\n  !!! (ERROR) create_temp_pcf_file(): failed to open user_out "
+            "\n  !!! (ERROR) create_temp_pcf(): failed to open user_out "
             "%s\n",
             user_pcf_name.c_str());
         return false;
@@ -1253,22 +1282,22 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
   for (auto I = portsObj.cbegin(); I != portsObj.cend(); ++I) {
     const nlohmann::ordered_json& obj = *I;
     if (obj.is_array()) {
-      ls << " (WW) unexpected json array..." << endl;
+      ls << " [Warning] unexpected json array..." << endl;
       continue;
     }
 
     // 1. check size and presence of 'name'
     if (tr >= 7) ls << " ...... obj.size() " << obj.size() << endl;
     if (obj.size() == 0) {
-      ls << " (WW) unexpected json object size..." << endl;
+      ls << " [Warning] unexpected json object size..." << endl;
       continue;
     }
     if (not obj.contains("name")) {
-      ls << " (WW) expected obj.name string..." << endl;
+      ls << " [Warning] expected obj.name string..." << endl;
       continue;
     }
     if (not obj["name"].is_string()) {
-      ls << " (WW) expected obj.name string..." << endl;
+      ls << " [Warning] expected obj.name string..." << endl;
       continue;
     }
 
@@ -1349,29 +1378,29 @@ bool pin_location::read_port_info(std::ifstream& ifs,
   try {
     ifs >> rootObj;
   } catch (...) {
-    CERROR << "(EE) Failed json input stream reading" << endl;
+    CERROR << "json: (EE) Failed json input stream reading" << endl;
     return false;
   }
 
   size_t root_sz = rootObj.size();
   if (tr >= 2) {
-    ls << " rootObj.size() = " << root_sz
+    ls << "json: rootObj.size() = " << root_sz
        << "  rootObj.is_array() : " << std::boolalpha << rootObj.is_array()
        << endl;
   }
 
   if (root_sz == 0) {
-    CERROR << "(EE) root_sz == 0" << endl;
+    CERROR << "json: (EE) root_size == 0" << endl;
     return false;
   }
 
-  std::vector<PortInfo> ports;
+  vector<PortInfo> ports;
   if (rootObj.is_array())
     read_json_ports(rootObj[0], ports);
   else
     read_json_ports(rootObj, ports);
 
-  if (tr >= 2) ls << " got ports.size()= " << ports.size() << endl;
+  if (tr >= 2) ls << "json: got ports.size()= " << ports.size() << endl;
 
   if (ports.empty()) return false;
 

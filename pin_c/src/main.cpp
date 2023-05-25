@@ -16,14 +16,15 @@
 //                --output OUTPUT --xml PINMAP_XML --csv CSV_FILE
 
 int main(int argc, const char* argv[]) {
+  using namespace pinc;
   const char* trace = getenv("pinc_trace");
-  if (trace) pinc::set_ltrace(atoi(trace));
+  if (trace) set_ltrace(atoi(trace));
 
-  pinc::cmd_line cmd(argc, argv);
+  cmd_line cmd(argc, argv);
 
-  if (pinc::ltrace() >= 3) {
+  if (ltrace() >= 3) {
     cmd.print_options();
   }
 
-  return pin_constrain_location(cmd);
+  return pinc_main(cmd);
 }
