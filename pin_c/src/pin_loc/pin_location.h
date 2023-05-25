@@ -13,7 +13,7 @@
 #include "util/cmd_line.h"
 #include "util/geo/iv.h"
 #include "util/pinc_log.h"
-#include "pin_loc/pin_constrain_loc.h"
+#include "pin_loc/pinc_main.h"
 
 namespace pinc {
 
