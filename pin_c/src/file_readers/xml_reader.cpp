@@ -1,6 +1,9 @@
-#include "xml_reader.h"
-#include <vector>
+#include "file_readers/xml_reader.h"
 #include <fstream>
+
+namespace filer {
+
+using std::vector;
 
 //======================================================================
 std::vector<std::string> XmlReader::vec_to_scalar(std::string str) 
@@ -74,7 +77,7 @@ std::vector<std::string> XmlReader::vec_to_scalar(std::string str)
     return scalar_ports;
 }
 //======================================================================
-bool XmlReader::parse_io_cell (const pugi::xml_node xml_orient_io, const int row_or_col, const int io_per_cell, std::map<std::string, PinMappingData> *port_map)
+bool XmlReader::parse_io_cell (const pugi::xml_node xml_orient_io, int row_or_col, int io_per_cell, std::map<std::string, PinMappingData> *port_map)
 {
     pugi::xpath_node_set cells = xml_orient_io.select_nodes("CELL");
     for (pugi::xpath_node_set::const_iterator it = cells.begin(); it != cells.end(); ++it)
@@ -156,7 +159,8 @@ bool XmlReader::parse_io_cell (const pugi::xml_node xml_orient_io, const int row
 }
 
 //======================================================================
-bool XmlReader::parse_io (const pugi::xml_node xml_io, const int width, const int height, const int io_per_cell, std::map<std::string, PinMappingData> *port_map)
+bool XmlReader::parse_io (const pugi::xml_node xml_io, int width, int height, int io_per_cell,
+                   std::map<std::string, PinMappingData> *port_map)
 {
     pugi::xml_node xml_top_io = xml_io.child("TOP_IO");
     if (!xml_top_io)
@@ -241,3 +245,6 @@ bool XmlReader::read_xml(const std::string &f)
     
     return true;
 }
+
+} // NS filer
+

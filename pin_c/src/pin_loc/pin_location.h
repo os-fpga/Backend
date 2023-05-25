@@ -13,6 +13,7 @@
 #include "util/cmd_line.h"
 #include "util/geo/iv.h"
 #include "util/pinc_log.h"
+#include "pin_loc/pin_constrain_loc.h"
 
 namespace pinc {
 
@@ -28,8 +29,8 @@ class pin_location {
   cmd_line cl_;
 
   string temp_csv_file_name_;
-  string temp_pcf_file_name_;
-  string temp_os_pcf_file_name_;
+  string temp_pcf_name_;
+  string temp_os_pcf_name_;
 
   vector<string> user_design_inputs_;
   vector<string> user_design_outputs_;
@@ -37,7 +38,7 @@ class pin_location {
   vector<vector<string>> pcf_pin_cmds_;
   std::set<string> used_bump_pins_;
 
- public:
+public:
   enum class PortDir : uint8_t {
     Undefined = 0,
     Input = 1,
@@ -81,20 +82,21 @@ class pin_location {
   const cmd_line& get_cmd() const noexcept { return cl_; }
 
   bool reader_and_writer();
+  void print_stats() const;
 
   bool generate_csv_file_for_os_flow();
   bool read_csv_file(RapidCsvReader&);
   bool read_design_ports();
 
-  bool read_pcf_file(const RapidCsvReader& rdr);
+  bool read_pcf(const RapidCsvReader& rdr);
 
-  bool create_place_file(const RapidCsvReader&);
+  bool write_dot_place(const RapidCsvReader&);
 
-  bool create_temp_pcf_file(const RapidCsvReader& rdr);
+  bool create_temp_pcf(const RapidCsvReader& rdr);
 
   static void shuffle_candidates(vector<int>& v);
 
-  bool convert_pcf_file_for_os_flow(string pcf_file_name);
+  bool convert_pcf_for_os_flow(const string& pcf_name);
 
   // get_available_ methods return pin_and_mode pair, empty strings on error
   //
@@ -119,8 +121,6 @@ class pin_location {
 };
 
 }  // namespace pinc
-
-int pin_constrain_location(const pinc::cmd_line& cmd);
 
 #endif
 

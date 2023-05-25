@@ -1,17 +1,19 @@
-#ifndef XML_READER_H
-#define XML_READER_H
+#pragma once
+#ifndef __rs_fileRd__XML_READER_H
+#define __rs_fileRd__XML_READER_H
 
-#include <iostream>
-#include <string>
+#include "util/pinc_log.h"
 #include <map>
-#include <vector>
 
 #include "pugixml.hpp"
 
-class PinMappingData 
+namespace filer {
+
+class PinMappingData
 {
     public:
-        PinMappingData(std::string p_name, std::string map_pin, int x, int y, int z):port_name_(p_name), mapped_pin_(map_pin), x_(x), y_(y), z_(z){}
+        PinMappingData(std::string p_name, std::string map_pin, int x, int y, int z)
+         : port_name_(p_name), mapped_pin_(map_pin), x_(x), y_(y), z_(z) {}
         std::string get_port_name () { return port_name_; }
         std::string get_mapped_pin () { return mapped_pin_; }
         int get_x () { return x_; }
@@ -20,10 +22,9 @@ class PinMappingData
     private:
         std::string port_name_;
         std::string mapped_pin_;
-        int x_;
-        int y_;
-        int z_;
-    
+        int x_ = 0;
+        int y_ = 0;
+        int z_ = 0;
 };
 
 class XmlReader
@@ -34,8 +35,12 @@ public:
   bool read_xml(const std::string &f);
   const std::map<std::string, PinMappingData>& get_port_map()const { return port_map_;}
   std::vector<std::string> vec_to_scalar(std::string str);
-  bool parse_io_cell (const pugi::xml_node xml_orient_io, const int row_or_col, const int io_per_cell, std::map<std::string, PinMappingData> *port_map);
-  bool parse_io (const pugi::xml_node xml_io, const int width, const int height, const int io_per_cell, std::map<std::string, PinMappingData> *port_map);
+
+  bool parse_io_cell (const pugi::xml_node xml_orient_io, int row_or_col, int io_per_cell, std::map<std::string, PinMappingData> *port_map);
+  bool parse_io (const pugi::xml_node xml_io, int width, int height, int io_per_cell, std::map<std::string, PinMappingData> *port_map);
 };
 
+} // NS filer
+
 #endif
+
