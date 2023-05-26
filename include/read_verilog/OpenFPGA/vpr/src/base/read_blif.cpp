@@ -41,6 +41,7 @@
 #include "simple_netlist.h"
 #include "edif_blif.hpp"
 
+bool isNestEncrypted = false;
 vtr::LogicValue to_vtr_logic_value(blifparse::LogicValue);
 
 struct BlifAllocCallback : public blifparse::Callback {
@@ -801,7 +802,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
         // blif_error_wrap(alloc_callback, 0, "", "Could not open file '%s'.\n", blif_file);
     }
         if(n_l.encrypted){
-        vpr_setup.AnalysisOpts.gen_post_synthesis_netlist=false;
+        isNestEncrypted = true;
     }
 
     return netlist;
