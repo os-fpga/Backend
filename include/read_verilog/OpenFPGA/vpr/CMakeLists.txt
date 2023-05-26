@@ -17,12 +17,16 @@ endif(PRODUCTION_BUILD)
 if (NOT RAPTOR)
     get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
     REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+    get_filename_component(VERIFIC_HOME "../../../Raptor_Tools/verific_rs/"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
     get_filename_component(READ_EDIF_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_edif"
     REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
 	add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
 	add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
+    add_subdirectory(${VERIFIC_HOME} verific_rs)
 endif()
- 
+
+option(ENABLE_VERIFIC "Enable Verific" ON)
 
 set(VPR_EXECUTION_ENGINE "auto" CACHE STRING "Specify the framework for (potential) parallel execution")
 set_property(CACHE VPR_EXECUTION_ENGINE PROPERTY STRINGS auto serial tbb)
@@ -43,6 +47,11 @@ if( OPENSSL_FOUND )
 else()
     message("SSL not found")
     # Error; with REQUIRED, pkg_search_module() will throw an error by it's own
+endif()
+
+
+if(ENABLE_VERIFIC)
+    add_compile_definitions(VPR_ENABLE_VERIFIC)
 endif()
 
 #Handle graphics setup
@@ -74,6 +83,19 @@ include(CheckCXXSymbolExists)
 file(GLOB_RECURSE EXEC_SOURCES src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
+list(APPEND VERIFIC_LIBS
+    ${VERIFIC_HOME}/verilog/verilog-linux.a
+    ${VERIFIC_HOME}/database/database-linux.a
+    ${VERIFIC_HOME}/util/util-linux.a
+    ${VERIFIC_HOME}/containers/containers-linux.a
+    ${VERIFIC_HOME}/hier_tree/hier_tree-linux.a
+    ${VERIFIC_HOME}/vhdl/vhdl-linux.a
+    ${VERIFIC_HOME}/hdl_encrypt/hdl_encrypt-linux.a
+)
+list (APPEND LIB_HEADERS ${VERIFIC_HOME}/hdl_encrypt/hdl_encrypt.h)
+list (APPEND LIB_HEADERS ${VERIFIC_HOME}/verilog/veri_file.h)
+list (APPEND LIB_HEADERS ${VERIFIC_HOME}/util/Protect.h)
+list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/ieee_1735.h)
 list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/simple_netlist.h)
 list (APPEND LIB_HEADERS ${READ_EDIF_SRC_DIR}/src/edif_blif.hpp)
 files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
@@ -128,7 +150,8 @@ if (PRODUCTION_BUILD)
                             libreadver
                             libreadedif
                             rs_licenseManager
-                            ${OPENSSL_LIBRARIES})
+                            ${OPENSSL_LIBRARIES}
+                             ${VERIFIC_LIBS})
 else()
     #Specify link-time dependancies
     target_link_libraries(libvpr
@@ -142,7 +165,8 @@ else()
                             librrgraph
                             libreadver
                             libreadedif
-                            ${OPENSSL_LIBRARIES})
+                            ${OPENSSL_LIBRARIES}
+                             ${VERIFIC_LIBS})
 endif(PRODUCTION_BUILD)
 
 #link graphics library only when graphics set to on

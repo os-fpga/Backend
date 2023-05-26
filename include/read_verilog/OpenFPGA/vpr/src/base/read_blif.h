@@ -24,4 +24,6 @@ AtomNetlist read_blif_from_edif(e_circuit_format circuit_format,
                       const t_model* user_models,
                       const t_model* library_models);
 
+extern bool isNestEncrypted;
+
 #endif /*READ_BLIF_H*/
