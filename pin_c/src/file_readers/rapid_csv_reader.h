@@ -13,7 +13,7 @@ namespace pinc {
 using std::string;
 using std::vector;
 
-class pin_location;
+class PinPlacer;
 
 class RapidCsvReader {
  public:
@@ -158,7 +158,7 @@ class RapidCsvReader {
 
   int start_CustomerInternal_row_ = 0;
 
-  friend class pin_location;
+  friend class PinPlacer;
 };
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b);

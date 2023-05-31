@@ -1,7 +1,7 @@
 
 #include "file_readers/csv_reader.h"
 
-namespace filer {
+namespace fio {
 
 using std::endl;
 
@@ -41,5 +41,5 @@ bool CsvReader::read_csv(const string &f) {
   return true;
 }
 
-} // NS filer
+} // NS fio
 

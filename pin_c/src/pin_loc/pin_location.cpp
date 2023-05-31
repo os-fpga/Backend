@@ -31,7 +31,7 @@ int pinc_main(const pinc::cmd_line& cmd) {
   uint16_t tr = ltrace();
   if (tr >= 2) lputs("pinc_main()");
 
-  pin_location pl(cmd);
+  PinPlacer pl(cmd);
 
   // pl.get_cmd().print_options();
 
@@ -107,7 +107,7 @@ static string USAGE_MSG_2 =
                                                     // provided
 
 
-pin_location::~pin_location() {
+PinPlacer::~PinPlacer() {
   if (num_warnings_) {
     lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
     lputs2();
@@ -133,7 +133,7 @@ pin_location::~pin_location() {
 // static data (hacky, but temporary)
 static vector<string> s_axi_inpQ, s_axi_outQ;
 
-bool pin_location::reader_and_writer() {
+bool PinPlacer::reader_and_writer() {
   num_warnings_ = 0;
   s_err_code.clear();
 
@@ -148,7 +148,7 @@ bool pin_location::reader_and_writer() {
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) {
-    lputs("\n  pin_location::reader_and_writer()");
+    lputs("\n  PinPlacer::reader_and_writer()");
     ls << "        xml_name (--xml) : " << xml_name << endl;
     ls << "        csv_name (--csv) : " << csv_name << endl;
     ls << "        pcf_name (--pcf) : " << pcf_name << endl;
@@ -164,9 +164,9 @@ bool pin_location::reader_and_writer() {
   if (assign_method.length()) {
     if (tr >= 2) ls << "\t assign_method= " << assign_method << endl;
     if (assign_method == "random") {
-      pin_assign_method_ = ASSIGN_IN_RANDOM;
+      pin_assign_def_order_ = false;
     } else if (assign_method == "in_define_order") {
-      pin_assign_method_ = ASSIGN_IN_DEFINE_ORDER;
+      pin_assign_def_order_ = true;
     } else {
       CERROR << err_map["INCORRECT_ASSIGN_PIN_METHOD"] << endl;
       CERROR << err_map["MISSING_IN_OUT_FILES"] << endl
@@ -312,7 +312,17 @@ bool pin_location::reader_and_writer() {
   return true;
 }
 
-void pin_location::print_stats() const
+const PinPlacer::Pin*
+PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noexcept
+{
+  for (const Pin& p : P) {
+    if (p.user_design_name_ == nm)
+      return &p;
+  }
+  return nullptr;
+}
+
+void PinPlacer::print_stats() const
 {
   uint16_t tr = ltrace();
   if (!tr) return;
@@ -327,14 +337,29 @@ void pin_location::print_stats() const
      << outputs.size() << " outputs" << endl;
   if (tr >= 4) {
     lprintf("\n ---- inputs(%zu): ---- \n", inputs.size());
-    for (size_t i = 0; i < inputs.size(); i++)
-      lprintf("     in  %s\n", inputs[i].c_str());
+    for (size_t i = 0; i < inputs.size(); i++) {
+      const string& nm = inputs[i];
+      ls << "     in  " << nm;
+      const Pin* pp = find_udes_pin(placed_inputs_, nm);
+      if (pp) {
+        ls << "  placed at " << pp->xyz_ << "  device: " << pp->device_pin_name_;
+      }
+      ls << endl;
+    }
     lprintf("\n ---- outputs(%zu): ---- \n", outputs.size());
-    for (size_t i = 0; i < outputs.size(); i++)
-      lprintf("    out  %s\n", outputs[i].c_str());
+    for (size_t i = 0; i < outputs.size(); i++) {
+      const string& nm = outputs[i];
+      ls << "    out  " << nm;
+      const Pin* pp = find_udes_pin(placed_outputs_, nm);
+      if (pp)
+        ls << "  placed at " << pp->xyz_ << "  device: " << pp->device_pin_name_;
+      ls << endl;
+    }
     lputs();
-    ls << " <-- got " << inputs.size() << " inputs and "
+    ls << " <----- pin_c got " << inputs.size() << " inputs and "
        << outputs.size() << " outputs" << endl;
+    ls << " <-- pin_c placed " << placed_inputs_.size() << " inputs and "
+       << placed_outputs_.size() << " outputs" << endl;
   }
 
   ls << "======== end stats." << endl;
@@ -343,22 +368,22 @@ void pin_location::print_stats() const
 // for open source flow
 // process pinmap xml and csv file and gerate the csv file like gemini one (with
 // only partial information for pin constraint)
-bool pin_location::generate_csv_file_for_os_flow() {
+bool PinPlacer::generate_csv_file_for_os_flow() {
   uint16_t tr = ltrace();
   if (tr >= 2) {
-    if (tr >= 3) lputs("pin_location::generate_csv_file_for_os_flow()");
+    if (tr >= 3) lputs("PinPlacer::generate_csv_file_for_os_flow()");
     cout << "Generateing new csv" << endl;
   }
 
-  filer::XmlReader rd_xml;
+  fio::XmlReader rd_xml;
   if (!rd_xml.read_xml(cl_.get_param("--xml"))) {
     CERROR << err_map["PIN_LOC_XML_PARSE_ERROR"] << endl;
     return false;
   }
 
-  std::map<string, filer::PinMappingData> xml_port_map = rd_xml.get_port_map();
+  std::map<string, fio::PinMappingData> xml_port_map = rd_xml.get_port_map();
 
-  filer::CsvReader rd_csv;
+  fio::CsvReader rd_csv;
 
   if (!rd_csv.read_csv(cl_.get_param("--csv"))) {
     CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
@@ -385,17 +410,16 @@ bool pin_location::generate_csv_file_for_os_flow() {
   std::map<string, string>::iterator itr = csv_port_map.begin();
   itr++;  // skip the first pair "mapped_pin" = ""port_name"
   for (; itr != csv_port_map.end(); itr++) {
-    filer::PinMappingData pinMapData = xml_port_map.at(itr->second);
+    fio::PinMappingData pinMapData = xml_port_map.at(itr->second);
     outfile << "GBOX GPIO," /* fake group name */ << itr->first << ","
             << itr->second << "," << std::to_string(pinMapData.get_x()) << ","
             << pinMapData.get_y() << "," << pinMapData.get_z() << ",Y" << endl;
   }
-  outfile.close();
 
   return true;
 }
 
-bool pin_location::convert_pcf_for_os_flow(const string& pcf_name) {
+bool PinPlacer::convert_pcf_for_os_flow(const string& pcf_name) {
   PcfReader rd_pcf;
   if (!rd_pcf.read_os_pcf(pcf_name)) {
     CERROR << err_map["PIN_CONSTRAINT_PARSE_ERROR"] << endl;
@@ -424,7 +448,7 @@ bool pin_location::convert_pcf_for_os_flow(const string& pcf_name) {
   return true;
 }
 
-bool pin_location::read_design_ports() {
+bool PinPlacer::read_design_ports() {
   uint16_t tr = ltrace();
   if (tr >= 2) {
     lputs("\nread_design_ports() __ getting port info .json");
@@ -484,10 +508,10 @@ bool pin_location::read_design_ports() {
   return true;
 }
 
-bool pin_location::read_pcf(const RapidCsvReader& csvReader) {
+bool PinPlacer::read_pcf(const RapidCsvReader& csvReader) {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 2) lputs("\npin_location::read_pcf()");
+  if (tr >= 2) lputs("\nPinPlacer::read_pcf()");
 
   pcf_pin_cmds_.clear();
 
@@ -548,7 +572,9 @@ static bool vec_contains(const vector<string>& V, const string& s) noexcept {
   return false;
 }
 
-bool pin_location::write_dot_place(const RapidCsvReader& csv_rd) {
+bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd) {
+  placed_inputs_.clear();
+  placed_outputs_.clear();
   string out_fn = cl_.get_param("--output");
   uint16_t tr = ltrace();
   auto& ls = lout();
@@ -601,7 +627,7 @@ bool pin_location::write_dot_place(const RapidCsvReader& csv_rd) {
       ls << "cmd_i:" << cmd_i
          << "   user_design_pin_name=  " << user_design_pin_name
          << "  -->  device_pin_name=  " << device_pin_name << endl;
-      logVec(pcf_cmd, "    cur pcf_cmd:");
+      logVec(pcf_cmd, "    cur pcf_cmd: ");
     }
 
     for (size_t i = 1; i < pcf_cmd.size(); i++) {
@@ -673,12 +699,16 @@ bool pin_location::write_dot_place(const RapidCsvReader& csv_rd) {
 
     XYZ xyz = csv_rd.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name);
     if (!xyz.valid()) {
-        lputs("\n (ERROR) PRE-ASSERT");
+        CERROR << " PRE-ASSERT: no valid coordinates" << endl;
+        lputs("\n [Error] (ERROR) PRE-ASSERT");
         lprintf("   mode %s  device_pin_name %s   gbox_pin_name %s\n",
                 mode.c_str(), device_pin_name.c_str(), gbox_pin_name.c_str());
         lputs();
     }
     assert(xyz.valid());
+    if (!xyz.valid()) {
+        return false;
+    }
 
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
     if (tr >= 4) {
@@ -692,9 +722,17 @@ bool pin_location::write_dot_place(const RapidCsvReader& csv_rd) {
       ls << "    #  device: " << device_pin_name << endl;
       ls.flush();
     }
+
+    // save for statistics:
+    if (is_in_pin)
+      placed_inputs_.emplace_back(user_design_pin_name, device_pin_name, xyz);
+    else
+      placed_outputs_.emplace_back(user_design_pin_name, device_pin_name, xyz);
   }
 
-  if (tr >= 2) ls << "\nwritten " << out_fn << endl;
+  if (tr >= 2) {
+    ls << "\nwritten " << num_placed_pins() << " pins to " << out_fn << endl;
+  }
 
   return true;
 
@@ -705,7 +743,7 @@ bool pin_location::write_dot_place(const RapidCsvReader& csv_rd) {
     vector<int> left_available_device_pin_idx;
     collect_left_available_device_pins(
         constrained_device_pins, left_available_device_pin_idx, csv_rd);
-    if (pin_assign_method_ == ASSIGN_IN_RANDOM) {
+    if (pin_assign_def_order_ == ASSIGN_IN_RANDOM) {
       shuffle_candidates(left_available_device_pin_idx);
     }
     int assign_pin_idx = 0;
@@ -764,7 +802,7 @@ static bool try_open_csv_file(const string& csv_name) {
   return true;
 }
 
-bool pin_location::read_csv_file(RapidCsvReader& csv_rd) {
+bool PinPlacer::read_csv_file(RapidCsvReader& csv_rd) {
   uint16_t tr = ltrace();
   if (tr >= 2) lputs("\nread_csv_file() __ Reading csv");
 
@@ -797,7 +835,7 @@ bool pin_location::read_csv_file(RapidCsvReader& csv_rd) {
 }
 
 pair<string, string>
-pin_location::get_available_device_pin(const RapidCsvReader& rdr, bool is_inp) {
+PinPlacer::get_available_device_pin(const RapidCsvReader& rdr, bool is_inp) {
   pair<string, string> result;
 
   uint16_t tr = ltrace();
@@ -831,7 +869,7 @@ pin_location::get_available_device_pin(const RapidCsvReader& rdr, bool is_inp) {
   return result;
 }
 
-pair<string, string> pin_location::get_available_axi_ipin(vector<string>& Q) {
+pair<string, string> PinPlacer::get_available_axi_ipin(vector<string>& Q) {
   static uint cnt = 0;
   cnt++;
   if (ltrace() >= 4) {
@@ -851,7 +889,7 @@ pair<string, string> pin_location::get_available_axi_ipin(vector<string>& Q) {
   return result;
 }
 
-pair<string, string> pin_location::get_available_axi_opin(vector<string>& Q) {
+pair<string, string> PinPlacer::get_available_axi_opin(vector<string>& Q) {
   static uint cnt = 0;
   cnt++;
   if (ltrace() >= 4) {
@@ -872,7 +910,7 @@ pair<string, string> pin_location::get_available_axi_opin(vector<string>& Q) {
 }
 
 pair<string, string>
-pin_location::get_available_bump_ipin(const RapidCsvReader& rdr) {
+PinPlacer::get_available_bump_ipin(const RapidCsvReader& rdr) {
   static uint icnt = 0;
   icnt++;
   uint16_t tr = ltrace();
@@ -953,7 +991,7 @@ ret:
 }
 
 pair<string, string>
-pin_location::get_available_bump_opin(const RapidCsvReader& rdr) {
+PinPlacer::get_available_bump_opin(const RapidCsvReader& rdr) {
   static uint ocnt = 0;
   ocnt++;
   uint16_t tr = ltrace();
@@ -1049,7 +1087,7 @@ ret:
 }
 
 // create a temporary pcf file and internally pass it to params
-bool pin_location::create_temp_pcf(const RapidCsvReader& csv_rd) {
+bool PinPlacer::create_temp_pcf(const RapidCsvReader& csv_rd) {
   s_err_code.clear();
   string key = "--pcf";
   temp_pcf_name_ = std::to_string(getpid()) + ".temp_pcf.pcf";
@@ -1084,7 +1122,7 @@ bool pin_location::create_temp_pcf(const RapidCsvReader& csv_rd) {
   for (uint i = 0; i < output_sz; i++) {
     output_idx.push_back(i);
   }
-  if (pin_assign_method_ == ASSIGN_IN_RANDOM) {
+  if (pin_assign_def_order_ == false) {
     shuffle_candidates(input_idx);
     shuffle_candidates(output_idx);
     if (tr >= 3)
@@ -1213,7 +1251,7 @@ bool pin_location::create_temp_pcf(const RapidCsvReader& csv_rd) {
 }
 
 // static
-void pin_location::shuffle_candidates(vector<int>& v) {
+void PinPlacer::shuffle_candidates(vector<int>& v) {
   static random_device rd;
   static mt19937 g(rd());
   std::shuffle(v.begin(), v.end(), g);
@@ -1221,7 +1259,7 @@ void pin_location::shuffle_candidates(vector<int>& v) {
 }
 
 /*
-void pin_location::collect_left_available_device_pins(
+void PinPlacer::collect_left_available_device_pins(
     set<string> &constrained_device_pins,
     vector<int> &left_available_device_pin_idx, RapidCsvReader &rs_csv_reader) {
   for (uint i = 0; i < rs_csv_reader.bump_pin_name.size(); i++) {
@@ -1236,7 +1274,7 @@ void pin_location::collect_left_available_device_pins(
 }
 */
 
-bool pin_location::is_input_mode(const string& mode_name) const {
+bool PinPlacer::is_input_mode(const string& mode_name) const {
   if (mode_name.empty()) return false;
 
   size_t dash_loc = mode_name.rfind("_");
@@ -1251,7 +1289,7 @@ bool pin_location::is_input_mode(const string& mode_name) const {
   return false;
 }
 
-bool pin_location::is_output_mode(const string& mode_name) const {
+bool PinPlacer::is_output_mode(const string& mode_name) const {
   if (mode_name.empty()) return false;
 
   size_t dash_loc = mode_name.rfind("_");
@@ -1267,7 +1305,7 @@ bool pin_location::is_output_mode(const string& mode_name) const {
 }
 
 static bool read_json_ports(const nlohmann::ordered_json& from,
-                            vector<pin_location::PortInfo>& ports) {
+                            vector<PinPlacer::PortInfo>& ports) {
   ports.clear();
 
   nlohmann::ordered_json portsObj = from["ports"];
@@ -1304,7 +1342,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
     ports.emplace_back();
 
     // 2. read 'name'
-    pin_location::PortInfo& last = ports.back();
+    PinPlacer::PortInfo& last = ports.back();
     last.name_ = obj["name"];
     if (tr >= 7) ls << " ........ last.name_ " << last.name_ << endl;
 
@@ -1312,18 +1350,18 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
     if (obj.contains("direction")) {
       s = sToLower(obj["direction"]);
       if (s == "input")
-        last.dir_ = pin_location::PortDir::Input;
+        last.dir_ = PinPlacer::PortDir::Input;
       else if (s == "output")
-        last.dir_ = pin_location::PortDir::Output;
+        last.dir_ = PinPlacer::PortDir::Output;
     }
 
     // 4. read 'type'
     if (obj.contains("type")) {
       s = sToLower(obj["type"]);
       if (s == "wire")
-        last.type_ = pin_location::PortType::Wire;
+        last.type_ = PinPlacer::PortType::Wire;
       else if (s == "reg")
-        last.type_ = pin_location::PortType::Reg;
+        last.type_ = PinPlacer::PortType::Reg;
     }
 
     // 5. read 'range'
@@ -1351,9 +1389,9 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
     if (obj.contains("define_order")) {
       s = sToLower(obj["define_order"]);
       if (s == "lsb_to_msb")
-        last.order_ = pin_location::Order::LSB_to_MSB;
+        last.order_ = PinPlacer::Order::LSB_to_MSB;
       else if (s == "msb_to_lsb")
-        last.order_ = pin_location::Order::MSB_to_LSB;
+        last.order_ = PinPlacer::Order::MSB_to_LSB;
       if (tr >= 7 && last.hasOrder())
         ls << " ........ has define_order: " << s << endl;
     }
@@ -1363,7 +1401,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
 }
 
 // static
-bool pin_location::read_port_info(std::ifstream& ifs,
+bool PinPlacer::read_port_info(std::ifstream& ifs,
                                   vector<string>& inputs,
                                   vector<string>& outputs) {
   inputs.clear();
@@ -1445,7 +1483,7 @@ bool pin_location::read_port_info(std::ifstream& ifs,
   return true;
 }
 
-bool pin_location::write_logical_clocks_to_physical_clks() {
+bool PinPlacer::write_logical_clocks_to_physical_clks() {
   std::vector<std::string> set_clks;
   string clkmap_file_name = cl_.get_param("--clk_map");
   std::ifstream file(clkmap_file_name);

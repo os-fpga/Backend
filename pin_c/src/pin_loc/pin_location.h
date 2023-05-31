@@ -11,7 +11,7 @@
 #include <set>
 
 #include "util/cmd_line.h"
-#include "util/geo/iv.h"
+#include "util/geo/xyz.h"
 #include "util/pinc_log.h"
 #include "pin_loc/pinc_main.h"
 
@@ -22,9 +22,19 @@ class RapidCsvReader;
 using std::string;
 using std::vector;
 
-class pin_location {
+class PinPlacer {
 
-  enum { ASSIGN_IN_RANDOM = 0, ASSIGN_IN_DEFINE_ORDER = 1 } pin_assign_method_ = ASSIGN_IN_DEFINE_ORDER;
+  struct Pin {
+    string user_design_name_;
+    string device_pin_name_;
+    XYZ xyz_;
+
+    Pin() noexcept = default;
+
+    Pin(const string& u, const string& d, const XYZ& xyz) noexcept
+      : user_design_name_(u), device_pin_name_(d), xyz_(xyz)
+    {}
+  };
 
   cmd_line cl_;
 
@@ -37,6 +47,10 @@ class pin_location {
 
   vector<vector<string>> pcf_pin_cmds_;
   std::set<string> used_bump_pins_;
+
+  vector<Pin> placed_inputs_, placed_outputs_;
+
+  bool pin_assign_def_order_ = true;
 
 public:
   enum class PortDir : uint8_t {
@@ -73,16 +87,19 @@ public:
     }
   };
 
-  pin_location(const cmd_line& cl)
+  PinPlacer(const cmd_line& cl)
    : cl_(cl) {
-    pin_assign_method_ = ASSIGN_IN_DEFINE_ORDER;
+    pin_assign_def_order_ = true;
   }
-  ~pin_location();
+  ~PinPlacer();
 
   const cmd_line& get_cmd() const noexcept { return cl_; }
 
   bool reader_and_writer();
   void print_stats() const;
+  size_t num_placed_pins() const noexcept {
+    return placed_inputs_.size() + placed_outputs_.size();
+  }
 
   bool generate_csv_file_for_os_flow();
   bool read_csv_file(RapidCsvReader&);
@@ -118,6 +135,10 @@ public:
                              vector<string>& outputs);
 
   bool write_logical_clocks_to_physical_clks();
+
+private:
+
+  static const Pin* find_udes_pin(const vector<Pin>& P, const string& nm) noexcept;
 };
 
 }  // namespace pinc

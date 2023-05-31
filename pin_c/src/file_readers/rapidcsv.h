@@ -1,3 +1,7 @@
+#pragma once
+#ifndef __rsvp_tt_rapidcsv_h_H_dd1968e7144adde8_
+#define __rsvp_tt_rapidcsv_h_H_dd1968e7144adde8_
+
 /*
  * rapidcsv.h
  *
@@ -11,24 +15,16 @@
  *
  */
 
-#pragma once
+#include "util/pinc_log.h"
 
-#include <algorithm>
-#include <cassert>
-#include <cmath>
 #ifdef HAS_CODECVT
 #include <codecvt>
 #include <locale>
 #endif
+
 #include <fstream>
-#include <functional>
-#include <iostream>
 #include <map>
-#include <sstream>
-#include <string>
 #include <typeinfo>
-#include <vector>
-#include <limits>
 
 #if defined(_MSC_VER)
 #include <BaseTsd.h>
@@ -1776,3 +1772,6 @@ namespace rapidcsv
 #endif
   };
 }
+
+#endif
+

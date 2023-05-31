@@ -7,7 +7,7 @@
 
 #include "pugixml.hpp"
 
-namespace filer {
+namespace fio {
 
 class PinMappingData
 {
@@ -29,18 +29,21 @@ class PinMappingData
 
 class XmlReader
 {
-    std::map<std::string, PinMappingData> port_map_;
+  std::map<std::string, PinMappingData> port_map_;
 public:
   XmlReader() {}
   bool read_xml(const std::string &f);
   const std::map<std::string, PinMappingData>& get_port_map()const { return port_map_;}
   std::vector<std::string> vec_to_scalar(std::string str);
 
-  bool parse_io_cell (const pugi::xml_node xml_orient_io, int row_or_col, int io_per_cell, std::map<std::string, PinMappingData> *port_map);
-  bool parse_io (const pugi::xml_node xml_io, int width, int height, int io_per_cell, std::map<std::string, PinMappingData> *port_map);
+  bool parse_io_cell (const pugi::xml_node xml_orient_io,
+        int row_or_col, int io_per_cell, std::map<std::string, PinMappingData> *port_map);
+
+  bool parse_io (const pugi::xml_node xml_io,
+        int width, int height, int io_per_cell, std::map<std::string, PinMappingData> *port_map);
 };
 
-} // NS filer
+} // NS fio
 
 #endif
 
