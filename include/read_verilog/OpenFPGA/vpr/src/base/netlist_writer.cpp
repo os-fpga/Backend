@@ -36,6 +36,9 @@
 #include "hdl_encrypt.h"
 #include "VerificStream.h"
 #include "Strings.h"
+#include "vcs_enc_support.h"
+#include <filesystem>
+
 #endif
 
 /**
@@ -2696,9 +2699,8 @@ void netlist_writer(const std::string basename, std::shared_ptr<const AnalysisDe
     std::string sdf_filename = basename + "_post_synthesis.sdf";
 
     // Conditionally create ofstream objects based on  isNestEncrypted
-    std::ofstream verilog_os;
-    std::ofstream blif_os;
-    std::ofstream sdf_os;
+    std::ofstream blif_os_e;
+    std::ofstream sdf_os_e;
     std::stringstream encrypted_verilog_ss; // Create a stringstream to store the encrypted Verilog data
     if (!isNestEncrypted)
     {
@@ -2722,7 +2724,7 @@ void netlist_writer(const std::string basename, std::shared_ptr<const AnalysisDe
     if (isNestEncrypted)
     {
 
-        NetlistWriterVisitor visitor(encrypted_verilog_ss, blif_os, sdf_os, delay_calc, opts);
+        NetlistWriterVisitor visitor(encrypted_verilog_ss, blif_os_e, sdf_os_e, delay_calc, opts);
 
         NetlistWalker nl_walker(visitor);
 
@@ -2734,6 +2736,13 @@ void netlist_writer(const std::string basename, std::shared_ptr<const AnalysisDe
         Verific::hdl_encrypt::EncryptVerilogFile(encrypted_verilog_ss.str().c_str(), out_file_name, &ieee_1735);
 
         VTR_LOG("Writing Encrypted Verilog: %s\n", file_name.c_str());
+
+        std::filesystem::path current_directory = std::filesystem::current_path();
+        std::filesystem::path generated_file_path = current_directory / out_file_name;
+        std::filesystem::path parent_path = generated_file_path.parent_path();
+        VTR_LOG("############### VCS ENCRYPTION STARTED ###############\n");
+        commands(file_name.c_str(), parent_path);
+        VTR_LOG("############### VCS ENCRYPTION ENDED ###############\n");
     }
 #endif
 }
