@@ -1,12 +1,12 @@
 #include "file_readers/xml_reader.h"
 #include <fstream>
 
-namespace filer {
+namespace fio {
 
 using std::vector;
 
 //======================================================================
-std::vector<std::string> XmlReader::vec_to_scalar(std::string str) 
+std::vector<std::string> XmlReader::vec_to_scalar(std::string str)
 {
     auto open_bracket_pos = str.find("[");
     auto close_bracket_pos = str.find("]");
@@ -235,16 +235,16 @@ bool XmlReader::read_xml(const std::string &f)
     int z = device.attribute("z").as_int();
     if (z <= 0)
        return false;
-    
+
     pugi::xml_node xml_io = device.child("IO");
     if (!xml_io)
         return false;
 
     if (!parse_io (xml_io, width, height, z, &port_map_))
         return false;
-    
+
     return true;
 }
 
-} // NS filer
+} // NS fio
 

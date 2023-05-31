@@ -421,7 +421,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   // print data of interest for test
-  if (tr >= 4) print_csv();
+  if (tr >= 5) print_csv();
 
   return true;
 }
