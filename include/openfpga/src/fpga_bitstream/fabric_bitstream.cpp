@@ -332,6 +332,7 @@ int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
     message.initRoot<QLMem_db::FabricBitstreamQLMem>();
   // numRegions @0 :UInt8 = 1; Always 1 for flattened. Skipping.
   // invalidRegionIds @1 :List(UInt8);
+  std::cout << "invalid region id size: " << invalid_region_ids_.size() <<"\n";
   auto invalid_reg_list =
     bitstreamDb.initInvalidRegionIds(invalid_region_ids_.size());
   size_t i = 0;
@@ -358,9 +359,13 @@ int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
   */
 
   // numBits @3 :UInt64;
+    std::cout << "set num bits\n";
+
   bitstreamDb.setNumBits(num_bits_);
 
   // invalidBitIds @4 :List(UInt64);
+    std::cout << "invalid bit id size: " << invalid_bit_ids_.size() <<"\n";
+
   auto invalid_bit_list =
     bitstreamDb.initInvalidBitIds(invalid_bit_ids_.size());
   i = 0;
@@ -370,6 +375,8 @@ int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
   }
 
   // configBitIds @5 :List(UInt64);
+    std::cout << "config bit  size: " << config_bit_ids_.size() <<"\n";
+
   auto config_id_builder = bitstreamDb.initConfigBitIds(config_bit_ids_.size());
   for (size_t j = 0; j < config_bit_ids_.size(); ++j) {
     config_id_builder.set(j, size_t(config_bit_ids_[FabricBitId(j)]));
@@ -380,6 +387,8 @@ int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
   // wlAddressLength @9 :UInt8 = 64;
 
   // bitAddress1bits @10 :List(UInt64);
+      std::cout << "bit address 1 bit size: " << bit_address_1bits_.size() <<"\n";
+
   auto bl1_builder = bitstreamDb.initBitAddress1bits(bit_address_1bits_.size());
   for (size_t j = 0; j < bit_address_1bits_.size(); ++j) {
     auto working_bl =
@@ -390,6 +399,8 @@ int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
   }
 
   // bitAddressXbits @11 :List(UInt64);
+        std::cout << "bit address x bit size: " << bit_address_xbits_.size() <<"\n";
+
   auto blx_builder = bitstreamDb.initBitAddressXbits(bit_address_xbits_.size());
   for (size_t j = 0; j < bit_address_xbits_.size(); ++j) {
     auto working_bl =
@@ -400,6 +411,8 @@ int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
   }
 
   // bitWlAddress1bits @12 :List(UInt64);
+        std::cout << "wl address 1 bit size: " << bit_wl_address_1bits_.size() <<"\n";
+
   auto wl1_builder =
     bitstreamDb.initBitWlAddress1bits(bit_wl_address_1bits_.size());
   for (size_t j = 0; j < bit_wl_address_1bits_.size(); ++j) {
@@ -411,27 +424,46 @@ int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
   }
 
   // bitWlAddressXbits @13 :List(UInt64);
+          std::cout << "wl address x bit size: " << bit_wl_address_xbits_.size() <<"\n";
+
   auto wlx_builder =
     bitstreamDb.initBitWlAddressXbits(bit_wl_address_xbits_.size());
+    std::cout << "wlx_builder set\n";
+  
   for (size_t j = 0; j < bit_wl_address_xbits_.size(); ++j) {
-    auto working_wl =
-      wlx_builder.init(j, bit_wl_address_xbits_[FabricBitId(j)].size());
-    for (size_t k = 0; k < bit_wl_address_xbits_[FabricBitId(j)].size(); ++k) {
-      working_wl.set(k, bit_wl_address_xbits_[FabricBitId(j)][k]);
+    if (bit_wl_address_xbits_[FabricBitId(j)].size() != 7){
+        std::cout << "j = " << j;
+        std::cout << "\t bit_wl_address_xbits_[j].size() = " << bit_wl_address_xbits_[FabricBitId(j)].size() << "\t\t";
+    }
+    if (bit_wl_address_xbits_[FabricBitId(j)].size() > 0){
+      //std::cout << "Past if; calling init \t\t";
+      //auto working_wl = wlx_builder.init(j, bit_wl_address_xbits_[FabricBitId(j)].size());
+      for (size_t k = 0; k < bit_wl_address_xbits_[FabricBitId(j)].size(); ++k) {
+        if (bit_wl_address_xbits_[FabricBitId(j)][k] != 0){
+          std::cout << "j = " << j;
+          std::cout << "\nwl x bit != 0. k = " << k << "\tbit_wl_address_xbits_[FabricBitId(j)][k] = " << bit_wl_address_xbits_[FabricBitId(j)][k] ;
+
+        }
+        //std::cout << " k = " << k << "\t" << ;
+        //working_wl.set(k, bit_wl_address_xbits_[FabricBitId(j)][k]);
+      }
     }
   }
-
+  
+  std::cout << "bypassed wl x bits\n";
   // This is POSIX only because of the use of fds.
   // it seems like writing to an fd is the only way to get the packing I want in
   // capnproto 0.81 it will also allow implementing mmap for larger reads in the
   // future. But it's not portable. TO-DO: investigate size and speed difference
   // of something like creating a string of bytes & writing & compressing
+  std::cout <<"writing file\n";
   FILE* f = fopen(filename.c_str(), "w");
   int fd = fileno(f);
   writePackedMessageToFd(fd, message);
   // This should be a void function because the underlying writer is void so I
   // can't pass its exit status along TO-DO: change to void and/or reimplement
   // to handle i/o more nicely
+  std::cout<<"done";
   return 0;
 }
 
@@ -441,7 +473,7 @@ int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
   ::capnp::PackedFdMessageReader message(fd);
   QLMem_db::FabricBitstreamQLMem::Reader bitstreamDbReader =
     message.getRoot<QLMem_db::FabricBitstreamQLMem>();
-
+  std::cout << "DB file open\n";
   // current device only uses one region. Handle it here instead of
   // build_fabric_bitstream. region bits are handled with config bits
   num_regions_ = 1;
@@ -463,6 +495,8 @@ int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
   */
 
   // config bit IDs
+    std::cout << "config bit IDs\n";
+
   num_bits_ = bitstreamDbReader.getNumBits();
   auto configBitReader = bitstreamDbReader.getConfigBitIds();
   for (size_t j = 0; j < configBitReader.size(); ++j) {
@@ -475,6 +509,8 @@ int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
 
   // skipping use_address flags & address lengths; both are handled by the
   // calling function bitAddress1bits
+    std::cout << "BL 1s\n";
+
   auto bl1Reader = bitstreamDbReader.getBitAddress1bits();
   for (size_t j = 0; j < bl1Reader.size(); ++j) {
     auto working_reader = bl1Reader[j];
@@ -484,6 +520,8 @@ int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
   }
 
   // bitAddressXbits
+    std::cout << "BL Xs\n";
+
   auto blXReader = bitstreamDbReader.getBitAddressXbits();
   for (size_t j = 0; j < blXReader.size(); ++j) {
     auto working_reader = blXReader[j];
@@ -493,6 +531,8 @@ int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
   }
 
   // bit_wl_Address1bits
+    std::cout << "WL 1s\n";
+
   auto wl1Reader = bitstreamDbReader.getBitWlAddress1bits();
   for (size_t j = 0; j < wl1Reader.size(); ++j) {
     auto working_reader = wl1Reader[j];
@@ -502,6 +542,16 @@ int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
   }
 
   // bit_wl_AddressXbits
+  for (size_t j = 0; j < num_bits_; ++j) {
+    bit_wl_address_xbits_.emplace_back();
+    for (size_t k = 0; k<7; ++k){
+      bit_wl_address_xbits_[FabricBitId(j)].emplace_back();
+    }
+  }
+  
+  
+
+/*
   auto wlXReader = bitstreamDbReader.getBitWlAddressXbits();
   for (size_t j = 0; j < wlXReader.size(); ++j) {
     auto working_reader = wlXReader[j];
@@ -509,6 +559,8 @@ int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
       bit_wl_address_xbits_[FabricBitId(j)].push_back(working_reader[k]);
     }
   }
+  */
+  std::cout << "finished loading DB\n";
 
   return 0;
 }
