@@ -76,6 +76,8 @@ if (ADD_READ_VERILOG_TO_VPR)
     ${VPR_SRC_DIR}/src/base/read_circuit.h
     ${VPR_SRC_DIR}/src/base/read_options.cpp
     ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
+    ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
+    ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
     ${PACKER_SRC_DIR}/cluster_placement.cpp
     DESTINATION
     ${VPR_DEST_DIR}/src/base/)
