@@ -40,7 +40,18 @@ else()
   set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations? NO!")
 endif()
 
-FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/fabric_bitstream.cpp  
+FILE(COPY ${OPENFPGA_SRC_DIR}/src/base/openfpga_bitstream_command_template.h
+          ${OPENFPGA_SRC_DIR}/src/base/openfpga_bitstream_template.h
+          DESTINATION
+          ${OPENFPGA_DEST_DIR}/openfpga/src/base/)
+
+FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/fabric_bitstream.cpp
+          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/fabric_bitstream.h
+          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/build_fabric_bitstream.cpp  
+          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/build_fabric_bitstream.h
+          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/build_fabric_bitstream_memory_bank.cpp  
+          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/build_fabric_bitstream_memory_bank.h
+          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/fabric_bitstream_schema.capnp.h
           DESTINATION
           ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_bitstream/)
 
