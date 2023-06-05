@@ -1,4 +1,5 @@
 #include "file_readers/rapid_csv_reader.h"
+#include "file_readers/Fio.h"
 
 namespace pinc {
 
@@ -107,6 +108,18 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     ls << "RapidCsvReader::read_csv( " << fn << " )  Reading data ..." << endl;
 
   reset();
+
+  // check file accessability and format:
+  fio::CSV_Reader crd(fn);
+  crd.setTrace(tr);
+  if (! crd.fileExistsAccessible()) {
+      ls << "\nERROR reading csv: file is not accessible: " << fn << '\n' << endl;
+      return false;
+  }
+  if (! crd.readCsv(false)) {
+      ls << "\nERROR reading csv: wrong format: " << fn << '\n' << endl;
+      return false;
+  }
 
   rapidcsv::Document doc(
       fn,
