@@ -83,7 +83,7 @@ class RapidCsvReader {
 
   void write_csv(string csv_file_name) const;
   void print_csv() const;
-  bool sanity_check(const rapidcsv::Document& doc) const;
+  bool sanity_check() const;
 
   static bool prepare_mode_header(string& hdr) noexcept;
 

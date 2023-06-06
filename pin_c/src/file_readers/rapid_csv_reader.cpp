@@ -1,6 +1,8 @@
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/Fio.h"
 
+#define PINC_NEW_CSV_READER 1
+
 namespace pinc {
 
 using namespace std;
@@ -9,8 +11,7 @@ RapidCsvReader::RapidCsvReader() {}
 
 RapidCsvReader::~RapidCsvReader() {}
 
-void RapidCsvReader::reset() noexcept
-{
+void RapidCsvReader::reset() noexcept {
   start_GBOX_GPIO_row_ = 0;
   start_CustomerInternal_row_ = 0;
   bcd_AXI_.clear();
@@ -105,7 +106,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2)
-    ls << "RapidCsvReader::read_csv( " << fn << " )  Reading data ..." << endl;
+    ls << "RapidCsvReader::read_csv( " << fn << " )  check:" << int(check) << endl;
 
   reset();
 
@@ -120,6 +121,8 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       ls << "\nERROR reading csv: wrong format: " << fn << '\n' << endl;
       return false;
   }
+  if (tr >= 4)
+    crd.dprint1();
 
   rapidcsv::Document doc(
       fn,
@@ -135,6 +138,9 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       rapidcsv::LineReaderParams()
       );
 
+#ifdef PINC_NEW_CSV_READER
+  col_headers_ = crd.header_;
+#else
   try {
     col_headers_ = doc.GetRow<string>(-1);
   } catch (const std::out_of_range& e) {
@@ -145,6 +151,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       ls << "\nERROR reading csv header: caught excepttion\n" << endl;
       return false;
   }
+#endif
 
   if (tr >= 3) {
     assert(col_headers_.size() > 2);
@@ -160,7 +167,14 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
   }
 
-  vector<string> group_name = doc.GetColumn<string>("Group");
+  vector<string> group_name;
+#ifdef PINC_NEW_CSV_READER
+  group_name = crd.getColumn("Group");
+  assert(!group_name.empty());
+#else
+  group_name = doc.GetColumn<string>("Group");
+#endif
+
   size_t num_rows = group_name.size();
   assert(num_rows > 300);
   start_GBOX_GPIO_row_ = 0;
@@ -425,13 +439,13 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].z_ = tmp[i];
 
   // do a sanity check
-  if (0&& check) {
-    bool check_ok = sanity_check(doc);
-    if (!check_ok) {
-      ls << "\nWARNING: !check_ok" << endl;
-      //      return false;
-    }
-  }
+  //if (0&& check) {
+  //  bool check_ok = sanity_check();
+  //  if (!check_ok) {
+  //    ls << "\nWARNING: !check_ok" << endl;
+  //    //      return false;
+  //  }
+  //}
 
   // print data of interest for test
   if (tr >= 5) print_csv();
@@ -439,7 +453,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   return true;
 }
 
-bool RapidCsvReader::sanity_check(const rapidcsv::Document& doc) const {
+bool RapidCsvReader::sanity_check() const {
 #if 0
   // 1. check IO bump dangling (unused package pin)
   vector<string> group_name = doc.GetColumn<string>("Group");
