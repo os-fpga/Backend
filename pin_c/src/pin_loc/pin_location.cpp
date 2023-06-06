@@ -6,23 +6,19 @@
 
 #include "pin_loc/pin_location.h"
 
-#include <random>
-#include <set>
-#include <map>
-
-#include "util/cmd_line.h"
-
 #include "file_readers/blif_reader.h"
-#include "file_readers/csv_reader.h"
 #include "file_readers/pcf_reader.h"
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/xml_reader.h"
-//#include "file_readers/Fio.h"
+#include "file_readers/Fio.h"
 
 #include "util/nlohmann3_11_2/json.hpp"
+#include "util/cmd_line.h"
 
-#include <sys/stat.h>
 #include <unistd.h>
+#include <random>
+#include <set>
+#include <map>
 
 namespace pinc {
 
@@ -42,6 +38,7 @@ int pinc_main(const pinc::cmd_line& cmd) {
 }
 
 using namespace std;
+using fio::Fio;
 static string s_err_code;
 
 #define CERROR std::cerr << "[Error] "
@@ -78,16 +75,6 @@ static constexpr const char* OUTPUT_MODE_FIX = "_TX";
 
 // for mpw1  (no gearbox, a Mode_GPIO is created)
 static constexpr const char* GPIO_MODE_FIX = "_GPIO";
-
-static bool fs_path_exists(const string& path) noexcept {
-  if (path.length() < 1) return false;
-
-  struct stat sb;
-  if (::stat(path.c_str(), &sb)) return false;
-  if (not(S_IFREG & sb.st_mode)) return false;
-
-  return true;
-}
 
 static string USAGE_MSG_0 =
     "usage options: --xml PINMAP_XML --pcf PCF --blif BLIF --csv CSV_FILE "
@@ -369,6 +356,11 @@ void PinPlacer::print_stats() const
 // process pinmap xml and csv file and gerate the csv file like gemini one (with
 // only partial information for pin constraint)
 bool PinPlacer::generate_csv_file_for_os_flow() {
+
+  lputs("\nPinPlacer::generate_csv_file_for_os_flow() NOT IMPLEMENTED.\n");
+  return false;
+
+#if 0
   uint16_t tr = ltrace();
   if (tr >= 2) {
     if (tr >= 3) lputs("PinPlacer::generate_csv_file_for_os_flow()");
@@ -417,6 +409,7 @@ bool PinPlacer::generate_csv_file_for_os_flow() {
   }
 
   return true;
+#endif //0
 }
 
 bool PinPlacer::convert_pcf_for_os_flow(const string& pcf_name) {
@@ -461,7 +454,7 @@ bool PinPlacer::read_design_ports() {
 
   if (port_info_fn.length() > 0) {
     path = port_info_fn;
-    if (fs_path_exists(path)) {
+    if (Fio::regularFileExists(path)) {
       json_ifs.open(port_info_fn);
       if (!json_ifs.is_open())
         lprintf("\nWARNING: could not open port info file %s => using blif\n",
@@ -486,7 +479,7 @@ bool PinPlacer::read_design_ports() {
     string blif_fn = cl_.get_param("--blif");
     if (tr >= 2) lprintf("... reading %s\n", blif_fn.c_str());
     path = blif_fn;
-    if (not fs_path_exists(path)) {
+    if (not Fio::regularFileExists(path)) {
       lprintf("\nWARNING: blif file %s does not exist\n", blif_fn.c_str());
     }
     BlifReader rd_blif;
@@ -784,7 +777,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd) {
 }
 
 static bool try_open_csv_file(const string& csv_name) {
-  if (not fs_path_exists(csv_name)) {
+  if (not Fio::regularFileExists(csv_name)) {
     lprintf("\nERROR: csv file %s does not exist\n", csv_name.c_str());
     OUT_ERROR << err_map["OPEN_FILE_FAILURE"] << endl;
     CERROR << err_map["OPEN_FILE_FAILURE"] << endl;
