@@ -1,8 +1,6 @@
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/Fio.h"
 
-#define PINC_NEW_CSV_READER 1
-
 namespace pinc {
 
 using namespace std;
@@ -60,23 +58,11 @@ static inline string label_column(int i) noexcept {
   return label;
 }
 
-static bool get_column(rapidcsv::Document& doc, std::ostream& logStream,
-                       const string& colName, vector<string>& V) {
-  V.clear();
-  try {
-    V = doc.GetColumn<string>(colName);
-  } catch (const std::out_of_range& e) {
-    logStream << "\nRapidCsvReader::read_csv() caught std::out_of_range on "
-                 "doc.GetColumn()\n";
-    logStream << "\t  what: " << e.what() << '\n';
-    logStream << "\t  colName: " << colName << '\n';
-    logStream << endl;
-    return false;
-  } catch (...) {
-    logStream << "\nRapidCsvReader::read_csv() caught excepttion on "
-                 "doc.GetColumn()\n";
-    logStream << "\t  colName: " << colName << '\n';
-    logStream << endl;
+static bool get_column(const fio::CSV_Reader& crd,
+                       const string& colName, vector<string>& V) noexcept {
+  V = crd.getColumn(colName);
+  if (V.empty()) {
+    lout() << "\nERROR reading csv: failed column: " << colName << endl;
     return false;
   }
   return true;
@@ -124,34 +110,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   if (tr >= 4)
     crd.dprint1();
 
-  rapidcsv::Document doc(
-      fn,
-      rapidcsv::LabelParams(),      // label params - use default, no offset
-      rapidcsv::SeparatorParams(),  // separator params - use default ","
-
-      rapidcsv::ConverterParams(
-          true, // user default number for non-numberical strings
-          0.0,  // default float
-          -1    // default integer
-          ),
-
-      rapidcsv::LineReaderParams()
-      );
-
-#ifdef PINC_NEW_CSV_READER
   col_headers_ = crd.header_;
-#else
-  try {
-    col_headers_ = doc.GetRow<string>(-1);
-  } catch (const std::out_of_range& e) {
-      ls << "\nERROR reading csv header: caught std::out_of_range\n"
-         << "\t  what: " << e.what() << '\n' << endl;
-      return false;
-  } catch (...) {
-      ls << "\nERROR reading csv header: caught excepttion\n" << endl;
-      return false;
-  }
-#endif
 
   if (tr >= 3) {
     assert(col_headers_.size() > 2);
@@ -167,19 +126,14 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
   }
 
-  vector<string> group_name;
-#ifdef PINC_NEW_CSV_READER
-  group_name = crd.getColumn("Group");
-  assert(!group_name.empty());
-#else
-  group_name = doc.GetColumn<string>("Group");
-#endif
+  vector<string> group_col = crd.getColumn("Group");
+  assert(!group_col.empty());
 
-  size_t num_rows = group_name.size();
+  size_t num_rows = group_col.size();
   assert(num_rows > 300);
   start_GBOX_GPIO_row_ = 0;
   for (uint i = 0; i < num_rows; i++) {
-    if (group_name[i] == "GBOX GPIO") {
+    if (group_col[i] == "GBOX GPIO") {
       start_GBOX_GPIO_row_ = i;
       break;
     }
@@ -190,8 +144,6 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
        << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_ << '\n'
        << endl;
   }
-
-  constexpr bool STRICT_FORMAT = false;
 
   bool has_Fullchip_name = false;
   vector<string> mode_data;
@@ -208,35 +160,14 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     if (!prepare_mode_header(hdr_i)) continue;
 
     if (tr >= 4)
-      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i
-         << endl;
+      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
 
-    try {
-      mode_data = doc.GetColumn<string>(orig_hdr_i);
-    } catch (const std::out_of_range& e) {
-      if (STRICT_FORMAT) {
-        ls << "\nRapidCsvReader::read_csv() caught std::out_of_range"
-           << "  i= " << i << "  hdr_i= " << hdr_i << endl;
-        ls << "\t  what: " << e.what() << '\n' << endl;
-        return false;
-      } else {
-        if (tr >= 3) {
-          ls << "\nWARNING RapidCsvReader::read_csv() caught std::out_of_range"
-             << "  i= " << i << "  hdr_i= " << hdr_i << endl;
-          ls << "\t  what: " << e.what() << '\n' << endl;
-        }
-        continue;
-      }
-    } catch (...) {
-      if (STRICT_FORMAT) {
-        ls << "\nRapidCsvReader::read_csv() caught excepttion"
-           << "  i= " << i << "  hdr_i= " << hdr_i << '\n'
-           << endl;
-        return false;
-      } else {
-        continue;
-      }
+    mode_data = crd.getColumn(orig_hdr_i);
+    if (mode_data.empty()) {
+      ls << "\nERROR reading csv: failed column: " << orig_hdr_i << endl;
+      return false;
     }
+
     assert(mode_data.size() <= num_rows);
     if (mode_data.size() < num_rows) {
       if (tr >= 4) ls << "!!! mode_data.size() < num_rows" << endl;
@@ -264,7 +195,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) {
     BCD& bcd = bcd_[i];
     bcd.row_ = i;
-    bcd.groupA_ = group_name[i];
+    bcd.groupA_ = group_col[i];
     bcd.is_GBOX_GPIO_ = (bcd.groupA_ == "GBOX GPIO");
     bcd.is_GPIO_ = (bcd.groupA_ == "GPIO");
   }
@@ -272,20 +203,20 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   vector<string> S_tmp;
   bool ok = false;
 
-  S_tmp = doc.GetColumn<string>("Fullchip_NAME");
+  S_tmp = crd.getColumn("Fullchip_NAME");
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) bcd_[i].fullchipName_ = S_tmp[i];
 
-  ok = get_column(doc, ls, "Customer Name", S_tmp);
+  ok = get_column(crd, "Customer Name", S_tmp);
   if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) bcd_[i].customer_ = S_tmp[i];
 
-  ok = get_column(doc, ls, "Customer Internal Name", S_tmp);
+  ok = get_column(crd, "Customer Internal Name", S_tmp);
   if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
@@ -356,14 +287,14 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
        << '\n' << endl;
   }
 
-  ok = get_column(doc, ls, "Ball ID", S_tmp);
+  ok = get_column(crd, "Ball ID", S_tmp);
   if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) bcd_[i].ball_ID_ = S_tmp[i];
 
-  ok = get_column(doc, ls, "Bump/Pin Name", S_tmp);
+  ok = get_column(crd, "Bump/Pin Name", S_tmp);
   if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
@@ -422,21 +353,36 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     ls << "--- bcd_AXI_ dump^^^" << '\n' << endl;
   }
 
-  io_tile_pin_ = doc.GetColumn<string>("IO_tile_pin");
+  io_tile_pin_ = crd.getColumn("IO_tile_pin");
   io_tile_pin_.resize(num_rows);
 
-  vector<int> tmp = doc.GetColumn<int>("IO_tile_pin_x");
-  tmp.resize(num_rows);
+  vector<int> tmp = crd.getColumnInt("IO_tile_pin_x");
+  assert(tmp.size() == num_rows);
   io_tile_pin_xyz_.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].x_ = tmp[i];
+  for (uint i = 0; i < num_rows; i++) {
+    int x = tmp[i];
+    assert(x >= -1);
+    assert(x < 2000);
+    io_tile_pin_xyz_[i].x_ = x;
+  }
 
-  tmp = doc.GetColumn<int>("IO_tile_pin_y");
-  tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].y_ = tmp[i];
+  tmp = crd.getColumnInt("IO_tile_pin_y");
+  assert(tmp.size() == num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    int y = tmp[i];
+    assert(y >= -1);
+    assert(y < 2000);
+    io_tile_pin_xyz_[i].y_ = y;
+  }
 
-  tmp = doc.GetColumn<int>("IO_tile_pin_z");
+  tmp = crd.getColumnInt("IO_tile_pin_z");
   tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) io_tile_pin_xyz_[i].z_ = tmp[i];
+  for (uint i = 0; i < num_rows; i++) {
+    int z = tmp[i];
+    assert(z >= -1);
+    assert(z < 100);
+    io_tile_pin_xyz_[i].z_ = z;
+  }
 
   // do a sanity check
   //if (0&& check) {
@@ -456,13 +402,13 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 bool RapidCsvReader::sanity_check() const {
 #if 0
   // 1. check IO bump dangling (unused package pin)
-  vector<string> group_name = doc.GetColumn<string>("Group");
-  uint num_rows = group_name.size();
+  vector<string> group_col = doc.GetColumn<string>("Group");
+  uint num_rows = group_col.size();
   assert(num_rows);
   std::set<string> connected_bump_pins;
   vector<string> connect_info;
   for (uint i = 0; i < num_rows; i++) {
-    if (group_name[i] == "GBOX GPIO") {
+    if (group_col[i] == "GBOX GPIO") {
       connect_info = doc.GetRow<string>(i);
       for (uint j = 0; j < connect_info.size(); j++) {
         if (connect_info[j] == "Y") {
@@ -476,8 +422,8 @@ bool RapidCsvReader::sanity_check() const {
   bool check_ok = true;
 
   std::set<string> reported_unconnected_bump_pins;
-  for (uint i = 0; i < group_name.size(); i++) {
-    if (group_name[i] == "GBOX GPIO") {
+  for (uint i = 0; i < group_col.size(); i++) {
+    if (group_col[i] == "GBOX GPIO") {
       if (connected_bump_pins.find(bumpPinName(i)) ==
               connected_bump_pins.end() &&
           reported_unconnected_bump_pins.find(bumpPinName(i)) ==
