@@ -223,10 +223,7 @@ public:
   vector<string> header_;
 
   // number of rows and columns, without header_
-  uint nr_ = 0, nc_ = 0;
-
-  string** smat_ = nullptr;  // string matrix
-  double** nmat_ = nullptr;  // number matrix
+  size_t nr_ = 0, nc_ = 0;
 
 public:
   CSV_Reader() noexcept = default;
@@ -245,6 +242,14 @@ public:
 
   bool readCsv(bool cutComments = false) noexcept;
 
+  vector<string> getColumn(const char* colName) const noexcept;
+
+  vector<string> getColumn(const string& colName) const noexcept {
+    if (colName.empty())
+      return {};
+    return getColumn(colName.c_str());
+  }
+
   int dprint1() const noexcept;
 
   static bool split(const char* src, vector<string>& dat) noexcept;
@@ -252,13 +257,16 @@ public:
   static const char* firstSpace(const char* src) noexcept;
   static const char* firstNonSpace(const char* src) noexcept;
   static bool isEmptyLine(const char* src) noexcept;
-  static uint countCommas(const char* src) noexcept;
+  static size_t countCommas(const char* src) noexcept;
 
 private:
   void alloc_num_matrix() noexcept;
   void alloc_str_matrix() noexcept;
   void free_num_matrix() noexcept;
   void free_str_matrix() noexcept;
+
+  string** smat_ = nullptr;  // string matrix
+  double** nmat_ = nullptr;  // number matrix
 
 };  // CSV_Reader
 
