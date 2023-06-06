@@ -668,6 +668,19 @@ bool CSV_Reader::readCsv(bool cutComments) noexcept {
   return ok;
 }
 
+static inline bool is_integer(const char* z) noexcept {
+  if (!z || !z[0]) return false;
+  if (*z == '-' || *z == '+') z++;
+  if (!(*z)) return false;
+
+  for (; *z; z++) {
+    bool is_digit = (uint32_t(*z) - '0' < 10u);
+    if (!is_digit) return false;
+  }
+
+  return true;
+}
+
 bool CSV_Reader::parse(bool cutComments) noexcept {
   if (!sz_ || !fsz_) return false;
   if (!buf_) return false;
@@ -679,8 +692,8 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
   headLine_ = nullptr;
   header_.clear();
   nr_ = nc_ = 0;
-  smat_ = 0;
-  nmat_ = 0;
+  smat_ = nullptr;
+  nmat_ = nullptr;
 
   // 1. replace '\n' by 0 and count lines and commas
   for (size_t i = 0; i < sz_; i++) {
@@ -729,8 +742,8 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     size_t nCom = countCommas(line);
     if (!nCom || nCom >= nc_) {
       if (trace() >= 2) {
-        lprintf("CReader::parse() ERROR: unexpected #commas(%zu) at line %zu of %s\n",
-                 nCom, li, fnm_.c_str());
+        lprintf("CReader::parse() ERROR: unexpected #commas(%zu) at line %zu of %s\n", nCom, li,
+                fnm_.c_str());
       }
       return false;
     }
@@ -760,18 +773,17 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     }
     assert(!V.empty());
     assert(V.size() <= nc_);
-    if (V.size() < nc_)
-      V.resize(nc_);
+    if (V.size() < nc_) V.resize(nc_);
     string* row = smat_[lcnt];
-    for (size_t i = 0; i < nc_; i++)
-      row[i] = V[i];
     assert(row);
+    for (size_t i = 0; i < nc_; i++) row[i] = V[i];
     lcnt++;
   }
   if (trace() >= 4) lprintf("lcnt= %zu\n", lcnt);
   assert(lcnt == nr_);
 
   // 7. populate number-martrix
+  //
   V.clear();
   lcnt = 0;
   for (size_t li = 1; li < lines_.size(); li++) {
@@ -782,6 +794,23 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     ok = split(line, V);
     if (!ok) {
       return false;
+    }
+    assert(!V.empty());
+    assert(V.size() <= nc_);
+    if (V.size() < nc_) V.resize(nc_);
+    int* row = nmat_[lcnt];
+    assert(row);
+    for (size_t i = 0; i < nc_; i++) {
+      if (V[i].empty()) {
+        row[i] = -1;
+        continue;
+      }
+      const char* cs = V[i].c_str();
+      if (!is_integer(cs)) {
+        row[i] = -1;
+        continue;
+      }
+      row[i] = ::atoi(cs);
     }
     lcnt++;
   }
@@ -796,10 +825,10 @@ void CSV_Reader::alloc_num_matrix() noexcept {
   assert(!nmat_);
   assert(nr_ > 1 && nc_ > 1);
 
-  nmat_ = new double*[nr_ + 2];
+  nmat_ = new int*[nr_ + 2];
   for (size_t r = 0; r < nr_ + 2; r++) {
-    nmat_[r] = new double[nc_ + 2];
-    ::memset(nmat_[r], 0, (nc_ + 2) * sizeof(double));
+    nmat_[r] = new int[nc_ + 2];
+    ::memset(nmat_[r], 0, (nc_ + 2) * sizeof(int));
   }
 }
 
@@ -854,44 +883,64 @@ bool CSV_Reader::isValidCsv() const noexcept {
   return valid_csv_;
 }
 
-vector<string> CSV_Reader::getColumn(const char* colName) const noexcept
-{
-    if (!colName || !colName[0])
-        return {};
-    if (!isValidCsv())
-        return {};
-    if (!smat_ || nr_ < 2 || nc_ < 2 || header_.empty())
-        return {};
+uint CSV_Reader::findColumn(const char* colName) const noexcept {
+  if (!colName || !colName[0]) return UINT_MAX;
+  if (!isValidCsv()) return UINT_MAX;
+  if (!smat_ || nr_ < 2 || nc_ < 2 || header_.empty()) return UINT_MAX;
 
-    assert(nc_ == header_.size());
-    assert(nc_ < UINT_MAX);
+  assert(nc_ == header_.size());
+  assert(nc_ < UINT_MAX);
 
-    size_t idx = UINT_MAX;
-    for (size_t i = 0; i < nc_; i++) {
-        if (header_[i] == colName) {
-            idx = i;
-            break;
-        }
+  uint idx = UINT_MAX;
+  for (size_t i = 0; i < nc_; i++) {
+    if (header_[i] == colName) {
+      idx = i;
+      break;
     }
-    if (idx == UINT_MAX) {
-        if (trace() >= 3)
-            lprintf("CSV_Reader: column not found: %s\n", colName);
-        return {};
-    }
+  }
+  return idx;
+}
 
-    vector<string> result{nr_};
-    for (size_t r = 0; r < nr_; r++) {
-        assert(smat_[r]);
-        result[r] = smat_[r][idx];
-    }
+vector<string> CSV_Reader::getColumn(const char* colName) const noexcept {
+  assert(nmat_);
+  uint idx = findColumn(colName);
+  if (idx == UINT_MAX) {
+    if (trace() >= 3) lprintf("CSV_Reader: column not found: %s\n", colName);
+    return {};
+  }
 
-    return result;
+  vector<string> result;
+  result.resize(nr_);
+  for (size_t r = 0; r < nr_; r++) {
+    assert(smat_[r]);
+    result[r] = smat_[r][idx];
+  }
+
+  return result;
+}
+
+vector<int> CSV_Reader::getColumnInt(const char* colName) const noexcept {
+  assert(nmat_);
+  uint idx = findColumn(colName);
+  if (idx == UINT_MAX) {
+    if (trace() >= 3) lprintf("CSV_Reader: column not found: %s\n", colName);
+    return {};
+  }
+
+  vector<int> result;
+  result.resize(nr_);
+  for (size_t r = 0; r < nr_; r++) {
+    assert(nmat_[r]);
+    result[r] = nmat_[r][idx];
+  }
+
+  return result;
 }
 
 int CSV_Reader::dprint1() const noexcept {
   lprintf("  fname: %s\n", fnm_.c_str());
-  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  num_commas_=%zu  nr_=%zu  nc_=%zu\n",
-          fsz_, sz_, num_lines_, num_commas_, nr_, nc_);
+  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  num_commas_=%zu  nr_=%zu  nc_=%zu\n", fsz_, sz_,
+          num_lines_, num_commas_, nr_, nc_);
 
   lprintf("    valid_csv_: %i\n", valid_csv_);
   lprintf("    headLine_: %s\n", headLine_ ? headLine_ : "(NULL)");
@@ -925,10 +974,9 @@ bool CSV_Reader::split(const char* src, vector<string>& dat) noexcept {
   for (size_t i = 0; i < len - 1; i++) {
     char c = src[i];
     *dest++ = c;
-    if (c == ',' && src[i+1] == ',')
-      *dest++ = ' ';
+    if (c == ',' && src[i + 1] == ',') *dest++ = ' ';
   }
-  *dest++ = src[len-1];
+  *dest++ = src[len - 1];
   *dest++ = '\0';
   *dest++ = '\0';
   len = ::strlen(scratch);
@@ -949,13 +997,11 @@ bool CSV_Reader::split(const char* src, vector<string>& dat) noexcept {
     tk = scratch + i;
   }
 
-  if (dat.empty())
-    return false;
+  if (dat.empty()) return false;
 
   // single-space strings to empty strings:
   for (auto& s : dat) {
-    if (s == " ")
-      s.clear();
+    if (s == " ") s.clear();
   }
 
   return true;
@@ -992,4 +1038,3 @@ size_t CSV_Reader::countCommas(const char* src) noexcept {
 }
 
 }  // NS fio
-

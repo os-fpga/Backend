@@ -242,12 +242,22 @@ public:
 
   bool readCsv(bool cutComments = false) noexcept;
 
+  uint findColumn(const char* colName) const noexcept;
+
   vector<string> getColumn(const char* colName) const noexcept;
 
   vector<string> getColumn(const string& colName) const noexcept {
     if (colName.empty())
       return {};
     return getColumn(colName.c_str());
+  }
+
+  vector<int> getColumnInt(const char* colName) const noexcept;
+
+  vector<int> getColumnInt(const string& colName) const noexcept {
+    if (colName.empty())
+      return {};
+    return getColumnInt(colName.c_str());
   }
 
   int dprint1() const noexcept;
@@ -266,7 +276,7 @@ private:
   void free_str_matrix() noexcept;
 
   string** smat_ = nullptr;  // string matrix
-  double** nmat_ = nullptr;  // number matrix
+  int** nmat_ = nullptr;     // number matrix
 
 };  // CSV_Reader
 
