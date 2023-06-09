@@ -853,6 +853,7 @@ struct t_packer_opts {
     e_stage_action doPacking;
     enum e_packer_algorithm packer_algorithm;
     std::string device_layout;
+    std::string top_mod;
     e_timing_update_type timing_update_type;
     bool use_attraction_groups;
     int pack_num_moves;
