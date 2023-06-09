@@ -1244,6 +1244,11 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .help("Run packing")
         .action(argparse::Action::STORE_TRUE)
         .default_value("off");
+    
+    stage_grp.add_argument<bool, ParseOnOff>(args.do_packing, "--top_mod")
+        .help("Top module name")
+        .action(argparse::Action::STORE_TRUE)
+        .default_value("off");
 
     stage_grp.add_argument<bool, ParseOnOff>(args.do_placement, "--place")
         .help("Run placement")
