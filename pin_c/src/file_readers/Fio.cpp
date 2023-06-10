@@ -1037,4 +1037,46 @@ size_t CSV_Reader::countCommas(const char* src) noexcept {
   return cnt;
 }
 
-}  // NS fio
+// ======== 3. XML_Reader ==============================================
+
+XML_Reader::~XML_Reader() { }
+
+void XML_Reader::reset(const char* nm, uint16_t tr) noexcept {
+  MMapReader::reset(nm, tr);
+
+  valid_xml_ = false;
+  headLine_ = nullptr;
+  nr_ = nc_ = 0;
+}
+
+bool XML_Reader::readXml() noexcept {
+  return false;
+}
+
+bool XML_Reader::parse() noexcept {
+  if (!sz_ || !fsz_) return false;
+  if (!buf_) return false;
+  if (sz_ < 4) return false;
+
+  return false;
+}
+
+bool XML_Reader::isValidXml() const noexcept {
+  if (!sz_ || !fsz_) return false;
+  if (!buf_) return false;
+
+  return valid_xml_;
+}
+
+int XML_Reader::dprint1() const noexcept {
+  lprintf("  fname: %s\n", fnm_.c_str());
+  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  nr_=%zu  nc_=%zu\n", fsz_, sz_,
+          num_lines_, nr_, nc_);
+
+  lprintf("    valid_xml_: %i\n", valid_xml_);
+
+  return sz_;
+}
+
+} // NS fio
+

@@ -3,6 +3,7 @@
 // ======== 1. MMapReader ============
 // ======== 2. LineReader ============
 // ======== 3. CSV_Reader ============
+// ======== 4. XML_Reader ============
 #pragma once
 #ifndef __rs_file_readers_Fio_H_h_
 #define __rs_file_readers_Fio_H_h_
@@ -100,6 +101,12 @@ inline bool file_accessible(const string& fn) noexcept { return Fio::fileAccessi
 inline bool regular_file_exists(const char* fn) noexcept { return Fio::regularFileExists(fn); }
 inline bool regular_file_exists(const string& fn) noexcept { return Fio::regularFileExists(fn); }
 
+inline bool file_exists_accessible(const char* fn) noexcept {
+  return Fio::regularFileExists(fn) && Fio::fileAccessible(fn);
+}
+inline bool file_exists_accessible(const string& fn) noexcept {
+  return Fio::regularFileExists(fn) && Fio::fileAccessible(fn);
+}
 
 // ======== 1. MMapReader ============
 
@@ -279,6 +286,41 @@ private:
   int** nmat_ = nullptr;     // number matrix
 
 };  // CSV_Reader
+
+
+// ======== 4.  XML_Reader ============
+
+class XML_Reader : public MMapReader
+{
+public:
+  const char* headLine_ = nullptr;
+  bool valid_xml_ = false;
+
+  // number of rows and columns in device xml
+  size_t nr_ = 0, nc_ = 0;
+
+public:
+  XML_Reader() noexcept = default;
+
+  XML_Reader(const char* nm) noexcept : MMapReader(nm) {}
+
+  XML_Reader(const string& nm) noexcept : MMapReader(nm) {}
+
+  virtual ~XML_Reader();
+
+  virtual void reset(const char* nm, uint16_t tr = 0) noexcept override;
+
+  bool parse() noexcept;
+
+  bool isValidXml() const noexcept;
+
+  bool readXml() noexcept;
+
+  int dprint1() const noexcept;
+
+private:
+
+};  // XML_Reader
 
 bool addIncludeGuards(LineReader& lr) noexcept;
 
