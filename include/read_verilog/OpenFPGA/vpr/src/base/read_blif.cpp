@@ -781,6 +781,12 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
 
     const char* key_file = "private_key.pem";
+    if (std::string(top_mod) == "") {
+    if (std::string(top_mod) == "") {
+    VPR_ERROR(VPR_ERROR_OTHER,
+                      "No top module specified.\n");
+}
+}
 
     FILE *infile = tmpfile();
     simple_netlist n_l;
