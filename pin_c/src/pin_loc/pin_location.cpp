@@ -75,22 +75,21 @@ static constexpr const char* OUTPUT_MODE_FIX = "_TX";
 // for mpw1  (no gearbox, a Mode_GPIO is created)
 static constexpr const char* GPIO_MODE_FIX = "_GPIO";
 
-static string USAGE_MSG_0 =
-    "usage options: --xml PINMAP_XML --pcf PCF --blif BLIF --csv CSV_FILE "
-    "[--assign_unconstrained_pins [random | in_define_order]] --output "
-    "OUTPUT";  // for open source; and MPW1
+//static string USAGE_MSG_0 =
+//    "usage options: --xml PINMAP_XML --pcf PCF --blif BLIF --csv CSV_FILE "
+//    "[--assign_unconstrained_pins [random | in_define_order]] --output "
+//    "OUTPUT";  // for open source; and MPW1
 
 static string USAGE_MSG_1 =
-    "usage options: --pcf PCF (--blif BLIF | --port_info JSON) --csv CSV_FILE "
+    "usage options: --pcf PCF --port_info JSON --csv CSV_FILE "
     "[--assign_unconstrained_pins [random | in_define_order]] --output "
     "OUTPUT";  // for rs internally, gemini;  user pcf is provided
 
 static string USAGE_MSG_2 =
-    "usage options: (--blif BLIF | --port_info JSON) --csv CSV_FILE "
+    "usage options: --port_info JSON --csv CSV_FILE "
     "[--assign_unconstrained_pins "
     "[random | in_define_order]] --output OUTPUT";  // for rs internall,
-                                                    // gemini; no user pcf is
-                                                    // provided
+                                                    // gemini; no user pcf is provided
 
 
 PinPlacer::~PinPlacer() {
@@ -127,7 +126,6 @@ bool PinPlacer::reader_and_writer() {
   string xml_name = cmd.get_param("--xml");
   string csv_name = cmd.get_param("--csv");
   string pcf_name = cmd.get_param("--pcf");
-  string blif_name = cmd.get_param("--blif");
   string json_name = cmd.get_param("--port_info");
   string output_name = cmd.get_param("--output");
 
@@ -138,12 +136,11 @@ bool PinPlacer::reader_and_writer() {
     ls << "        xml_name (--xml) : " << xml_name << endl;
     ls << "        csv_name (--csv) : " << csv_name << endl;
     ls << "        pcf_name (--pcf) : " << pcf_name << endl;
-    ls << "      blif_name (--blif) : " << blif_name << endl;
     ls << " json_name (--port_info) : " << json_name << endl;
     ls << "    output_name (--output) : " << output_name << endl;
   }
 
-  bool no_blif_no_json = blif_name.empty() && json_name.empty();
+  bool no_json = json_name.empty();
 
   // --1. check option selection
   string assign_method = cl_.get_param("--assign_unconstrained_pins");
@@ -156,7 +153,6 @@ bool PinPlacer::reader_and_writer() {
     } else {
       CERROR << err_map["INCORRECT_ASSIGN_PIN_METHOD"] << endl;
       CERROR << err_map["MISSING_IN_OUT_FILES"] << endl
-             << USAGE_MSG_0 << ", or" << endl
              << USAGE_MSG_1 << ", or" << endl
              << USAGE_MSG_2 << endl;
       return false;
@@ -167,14 +163,15 @@ bool PinPlacer::reader_and_writer() {
   // in such case we need to provide a pcf to prevent vpr using all pins freely
 
   // usage 0: classical flow form opensource community - device MPW1
-  bool usage_requirement_0 = !(xml_name.empty() || csv_name.empty() ||
-                               no_blif_no_json || output_name.empty());
+  // bool usage_requirement_0 = !(xml_name.empty() || csv_name.empty() ||
+  //                             no_json || output_name.empty());
+  constexpr bool usage_requirement_0 = false;
+
 
   // usage 1: rs only - specify csv (which contains coordinate data described in
   // pinmap xml info), pcf, blif, and output files
   bool usage_requirement_1 = !(csv_name.empty() || pcf_name.empty() ||
-                               no_blif_no_json || output_name.empty()) &&
-                             xml_name.empty();
+                               no_json || output_name.empty()) && xml_name.empty();
 
   // usage 2: rs only - user dose not provide a pcf (this is really rare in
   // meaningfull on-board implementation, but could be true in test or
@@ -182,23 +179,21 @@ bool PinPlacer::reader_and_writer() {
   //          in such case, we need to make sure a constraint file is properly
   //          generated to guide VPR use LEGAL pins only.
   bool usage_requirement_2 =
-      !(csv_name.empty() || no_blif_no_json || output_name.empty()) &&
+      !(csv_name.empty() || no_json || output_name.empty()) &&
       pcf_name.empty();
 
   if (tr >= 2) {
-    ls << "\t usage_requirement_0 : " << boolalpha << usage_requirement_0
-       << endl;
-    ls << "\t usage_requirement_1 : " << boolalpha << usage_requirement_1
-       << endl;
-    ls << "\t usage_requirement_2 : " << boolalpha << usage_requirement_2
-       << endl;
+    ls << "\t usage_requirement_1 : " << boolalpha << usage_requirement_1 << endl;
+    ls << "\t usage_requirement_2 : " << boolalpha << usage_requirement_2 << endl;
   }
 
-  if (usage_requirement_0) {  // generate new csv file with information from xml
-    // and csv for cassical flow
+  if (usage_requirement_0) {
+    /*
+    // generate new csv file with information from xml
+    // and csv for os flow
     if (tr >= 2) {
       ls << "(usage_requirement_0)\n"
-         << "generate new csv file with info from xml and csv for cassical flow"
+         << "generate new csv file with info from xml and csv for os flow"
          << endl;
     }
     if (!generate_csv_file_for_os_flow()) {
@@ -214,22 +209,22 @@ bool PinPlacer::reader_and_writer() {
         return false;
       }
     }
+    */
   } else if ((!usage_requirement_1) && (!usage_requirement_2)) {
     CERROR << err_map["MISSING_IN_OUT_FILES"] << endl
-           << USAGE_MSG_0 << ", or" << endl
            << USAGE_MSG_1 << ", or" << endl
            << USAGE_MSG_2 << endl;
     return false;
   }
 
-  // --2. read info (pin-table) from csv file
+  // --2. read PT from csv file
   RapidCsvReader csv_rd;
   if (!read_csv_file(csv_rd)) {
     CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
     return false;
   }
 
-  // --3. read port info from user design (from .blif or from port_info.json)
+  // --3. read port info from user design (from port_info.json)
   if (!read_design_ports()) {
     CERROR << err_map["PORT_INFO_PARSE_ERROR"] << endl;
     return false;
@@ -1459,6 +1454,8 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
 }
 
 bool PinPlacer::write_logical_clocks_to_physical_clks() {
+return 0;
+#if 0
   std::vector<std::string> set_clks;
   string clkmap_file_name = cl_.get_param("--clk_map");
   std::ifstream file(clkmap_file_name);
@@ -1560,6 +1557,7 @@ bool PinPlacer::write_logical_clocks_to_physical_clks() {
   doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
   remove(clkmap_file_name.c_str());
   return true;
+#endif ////0000
 }
 
 } // namespace pinc
