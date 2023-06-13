@@ -14,6 +14,7 @@
 #ifndef __pinc__HEADER_PUGIXML_HPP_9b8980f365718e_h_
 #define __pinc__HEADER_PUGIXML_HPP_9b8980f365718e_h_
 
+
 // Define version macro; evaluates to major * 1000 + minor * 10 + patch so that it's safe to use in less-than comparisons
 // Note: pugixml used major * 100 + minor * 10 + patch format up until 1.9 (which had version identifier 190);
 // starting from pugixml 1.10, the minor version number is two digits
@@ -87,11 +88,6 @@
 #define PUGIXML_HAS_MOVE
 #endif
 
-#ifndef PUGIXML_NULL
-#define PUGIXML_NULL nullptr
-#endif
-
-#define PUGIXML_CHAR char
 
 // RapidSilicon pin_c: changed namespace pugi -> pugRd to avoid potential link conflicts.
 
@@ -118,17 +114,17 @@ namespace pugRd {
     // Only elements and PCDATA sections are added to the DOM tree, no text conversions are performed.
     constexpr uint parse_minimal = 0x0000;
 
-    // This flag determines if processing instructions (node_pi) are added to the DOM tree. This flag is off by default.
+    // This flag determines if processing instructions (node_pi) are added to the DOM tree. Off by default.
     constexpr uint parse_pi = 0x0001;
 
-    // This flag determines if comments (node_comment) are added to the DOM tree. This flag is off by default.
+    // This flag determines if comments (node_comment) are added to the DOM tree. Off by default.
     constexpr uint parse_comments = 0x0002;
 
     // This flag determines if CDATA sections (node_cdata) are added to the DOM tree. This flag is on by default.
     constexpr uint parse_cdata = 0x0004;
 
     // This flag determines if plain character data (node_pcdata) that consist only of whitespace are added to the DOM tree.
-    // This flag is off by default; turning it on usually results in slower parsing and more memory consumption.
+    // Off by default; turning it on usually results in slower parsing and more memory consumption.
     constexpr uint parse_ws_pcdata = 0x0008;
 
     // This flag determines if character and entity references are expanded during parsing. This flag is on by default.
@@ -137,33 +133,36 @@ namespace pugRd {
     // This flag determines if EOL characters are normalized (converted to #xA) during parsing. This flag is on by default.
     constexpr uint parse_eol = 0x0020;
 
-    // This flag determines if attribute values are normalized using CDATA normalization rules during parsing. This flag is on by default.
+    // This flag determines if attribute values are normalized using CDATA normalization rules during parsing.
+    // This flag is on by default.
     constexpr uint parse_wconv_attribute = 0x0040;
 
-    // This flag determines if attribute values are normalized using NMTOKENS normalization rules during parsing. This flag is off by default.
+    // This flag determines if attribute values are normalized using NMTOKENS normalization rules during parsing.
+    // Off by default.
     constexpr uint parse_wnorm_attribute = 0x0080;
 
-    // This flag determines if document declaration (node_declaration) is added to the DOM tree. This flag is off by default.
+    // This flag determines if document declaration (node_declaration) is added to the DOM tree. Off by default.
     constexpr uint parse_declaration = 0x0100;
 
-    // This flag determines if document type declaration (node_doctype) is added to the DOM tree. This flag is off by default.
+    // This flag determines if document type declaration (node_doctype) is added to the DOM tree. Off by default.
     constexpr uint parse_doctype = 0x0200;
 
-    // This flag determines if plain character data (node_pcdata) that is the only child of the parent node and that consists only
-    // of whitespace is added to the DOM tree.
-    // This flag is off by default; turning it on may result in slower parsing and more memory consumption.
+    // This flag determines if plain character data (node_pcdata) that is the only child of the parent node and that
+    // consists only of whitespace is added to the DOM tree.
+    // Off by default; turning it on may result in slower parsing and more memory consumption.
     constexpr uint parse_ws_pcdata_single = 0x0400;
 
-    // This flag determines if leading and trailing whitespace is to be removed from plain character data. This flag is off by default.
+    // This flag determines if leading and trailing whitespace is to be removed from plain character data. Off by default.
     constexpr uint parse_trim_pcdata = 0x0800;
 
-    // This flag determines if plain character data that does not have a parent node is added to the DOM tree, and if an empty document
-    // is a valid document. This flag is off by default.
+    // This flag determines if plain character data that does not have a parent node is added to the DOM tree,
+    // and if an empty document is a valid document. Off by default.
     constexpr uint parse_fragment = 0x1000;
 
-    // This flag determines if plain character data is be stored in the parent element's value. This significantly changes the structure of
-    // the document; this flag is only recommended for parsing documents with many PCDATA nodes in memory-constrained environments.
-    // This flag is off by default.
+    // This flag determines if plain character data is be stored in the parent element's value.
+    // This significantly changes the structure of the document;
+    // this flag is only recommended for parsing documents with many PCDATA nodes in memory-constrained environments.
+    // Off by default.
     constexpr uint parse_embed_pcdata = 0x2000;
 
     // The default parsing mode.
@@ -181,34 +180,37 @@ namespace pugRd {
 
     // Formatting flags
 
-    // Indent the nodes that are written to output stream with as many indentation strings as deep the node is in DOM tree. This flag is on by default.
+    // Indent the nodes that are written to output stream with as many indentation strings as deep the node is in DOM tree.
+    // This flag is on by default.
     constexpr uint format_indent = 0x01;
 
-    // Write encoding-specific BOM to the output stream. This flag is off by default.
+    // Write encoding-specific BOM to the output stream. Off by default.
     constexpr uint format_write_bom = 0x02;
 
-    // Use raw output mode (no indentation and no line breaks are written). This flag is off by default.
+    // Use raw output mode (no indentation and no line breaks are written). Off by default.
     constexpr uint format_raw = 0x04;
 
-    // Omit default XML declaration even if there is no declaration in the document. This flag is off by default.
+    // Omit default XML declaration even if there is no declaration in the document. Off by default.
     constexpr uint format_no_declaration = 0x08;
 
-    // Don't escape attribute values and PCDATA contents. This flag is off by default.
+    // Don't escape attribute values and PCDATA contents. Off by default.
     constexpr uint format_no_escapes = 0x10;
 
-    // Open file using text mode in xml_document::save_file. This enables special character (i.e. new-line) conversions on some systems. This flag is off by default.
+    // Open file using text mode in xml_document::save_file.
+    // This enables special character (i.e. new-line) conversions on some systems. Off by default.
     constexpr uint format_save_file_text = 0x20;
 
-    // Write every attribute on a new line with appropriate indentation. This flag is off by default.
+    // Write every attribute on a new line with appropriate indentation. Off by default.
     constexpr uint format_indent_attributes = 0x40;
 
-    // Don't output empty element tags, instead writing an explicit start and end tag even if there are no children. This flag is off by default.
+    // Don't output empty element tags, instead writing an explicit start and end tag even if there are no children.
+    // Off by default.
     constexpr uint format_no_empty_element_tags = 0x80;
 
-    // Skip characters belonging to range [0; 32) instead of "&#xNN;" encoding. This flag is off by default.
+    // Skip characters belonging to range [0; 32) instead of "&#xNN;" encoding. Off by default.
     constexpr uint format_skip_control_chars = 0x100;
 
-    // Use single quotes ' instead of double quotes " for enclosing attribute values. This flag is off by default.
+    // Use single quotes ' instead of double quotes " for enclosing attribute values. Off by default.
     constexpr uint format_attribute_single_quote = 0x200;
 
     // The default set of formatting flags.
@@ -315,7 +317,8 @@ namespace pugRd {
         long long as_llong(long long def = 0) const noexcept;
         unsigned long long as_ullong(unsigned long long def = 0) const noexcept;
 
-        // Get attribute value as bool (returns true if first character is in '1tTyY' set), or the default value if attribute is empty
+        // Get attribute value as bool (returns true if first character is in '1tTyY' set),
+        // or the default value if attribute is empty
         bool as_bool(bool def = false) const noexcept;
 
         // Set attribute name/value (returns false if attribute is empty or there is not enough memory)
@@ -408,7 +411,8 @@ public:
     const char* name() const noexcept;
 
     // Get node value, or "" if node is empty or it has no value
-    // Note: For <node>text</node> node.value() does not return "text"! Use child_value() or text() methods to access text inside nodes.
+    // Note: For <node>text</node> node.value() does not return "text"!
+    //       Use child_value() or text() methods to access text inside nodes.
     const char* value() const noexcept;
 
     // Get attribute list
@@ -504,8 +508,10 @@ public:
 
     // Parses buffer as an XML document fragment and appends all nodes as children of the current node.
     // Copies/converts the buffer, so it may be deleted or changed after the function returns.
-    // Note: append_buffer allocates memory that has the lifetime of the owning document; removing the appended nodes does not immediately reclaim that memory.
-    xml_parse_result append_buffer(const void* contents, size_t size, uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
+    // Note: append_buffer allocates memory that has the lifetime of the owning document;
+    //       removing the appended nodes does not immediately reclaim that memory.
+    xml_parse_result append_buffer(const void* contents, size_t size,
+                        uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
 
     // Find attribute using predicate. Returns first attribute for which predicate returned true.
     template <typename Predicate>
@@ -574,15 +580,15 @@ public:
 #ifndef PUGIXML_NO_XPATH
 
     // Select single node by evaluating XPath query. Returns first node from the resulting node set.
-    xpath_node select_node(const char* query, xpath_variable_set* variables = PUGIXML_NULL) const noexcept;
+    xpath_node select_node(const char* query, xpath_variable_set* variables = nullptr) const noexcept;
     xpath_node select_node(const xpath_query& query) const noexcept;
 
     // Select node set by evaluating XPath query
-    xpath_node_set select_nodes(const char* query, xpath_variable_set* variables = PUGIXML_NULL) const noexcept;
+    xpath_node_set select_nodes(const char* query, xpath_variable_set* variables = nullptr) const noexcept;
     xpath_node_set select_nodes(const xpath_query& query) const noexcept;
 
     // (deprecated: use select_node instead) Select single node by evaluating XPath query.
-    PUGIXML_DEPRECATED xpath_node select_single_node(const char* query, xpath_variable_set* variables = PUGIXML_NULL) const noexcept;
+    PUGIXML_DEPRECATED xpath_node select_single_node(const char* query, xpath_variable_set* variables = nullptr) const noexcept;
     PUGIXML_DEPRECATED xpath_node select_single_node(const xpath_query& query) const noexcept;
 
 #endif
@@ -784,98 +790,103 @@ public:
     xml_attribute_iterator operator--(int) noexcept;
 }; // xml_attribute_iterator
 
-    // Named node range helper
-    struct xml_named_node_iterator
-    {
-        friend class xml_node;
 
-        // Iterator traits
-        typedef ptrdiff_t difference_type;
-        typedef xml_node value_type;
-        typedef xml_node* pointer;
-        typedef xml_node& reference;
+// Named node range helper
+struct xml_named_node_iterator
+{
+    friend class xml_node;
 
-        typedef std::bidirectional_iterator_tag iterator_category;
+    // Iterator traits
+    typedef ptrdiff_t difference_type;
+    typedef xml_node value_type;
+    typedef xml_node* pointer;
+    typedef xml_node& reference;
 
-        xml_named_node_iterator() noexcept = default;
+    typedef std::bidirectional_iterator_tag iterator_category;
 
-        // Construct an iterator which points to the specified node
-        xml_named_node_iterator(const xml_node& node, const char* name) noexcept;
+    xml_named_node_iterator() noexcept = default;
 
-        // Iterator operators
-        bool operator==(const xml_named_node_iterator& rhs) const noexcept;
-        bool operator!=(const xml_named_node_iterator& rhs) const noexcept;
+    // Construct an iterator which points to the specified node
+    xml_named_node_iterator(const xml_node& node, const char* name) noexcept;
 
-        xml_node& operator*() const noexcept;
-        xml_node* operator->() const noexcept;
+    // Iterator operators
+    bool operator==(const xml_named_node_iterator& rhs) const noexcept;
+    bool operator!=(const xml_named_node_iterator& rhs) const noexcept;
 
-        xml_named_node_iterator& operator++() noexcept;
-        xml_named_node_iterator operator++(int) noexcept;
+    xml_node& operator*() const noexcept;
+    xml_node* operator->() const noexcept;
 
-        xml_named_node_iterator& operator--() noexcept;
-        xml_named_node_iterator operator--(int) noexcept;
+    xml_named_node_iterator& operator++() noexcept;
+    xml_named_node_iterator operator++(int) noexcept;
 
-    private:
-        mutable xml_node _wrap;
-        xml_node _parent;
-        const char* _name = nullptr;
+    xml_named_node_iterator& operator--() noexcept;
+    xml_named_node_iterator operator--(int) noexcept;
 
-        xml_named_node_iterator(xml_node_struct* ref, xml_node_struct* parent, const char* name) noexcept;
-    };
+private:
+    mutable xml_node _wrap;
+    xml_node _parent;
+    const char* _name = nullptr;
 
-    // Abstract tree walker class (see xml_node::traverse)
-    class xml_tree_walker
-    {
-        friend class xml_node;
+    xml_named_node_iterator(xml_node_struct* ref, xml_node_struct* parent, const char* name) noexcept;
+};
 
-        int _depth = 0;
 
-    protected:
-        // Get current traversal depth
-        int depth() const noexcept { return _depth; }
+// Abstract tree walker class (see xml_node::traverse)
+class xml_tree_walker
+{
+    friend class xml_node;
 
-    public:
+    int _depth = 0;
 
-        xml_tree_walker() noexcept = default;
+public:
 
-        virtual ~xml_tree_walker() { }
+    xml_tree_walker() noexcept = default;
 
-        // Callback that is called when traversal begins
-        virtual bool begin(xml_node& node) noexcept;
+    virtual ~xml_tree_walker() { }
 
-        // Callback that is called for each node traversed
-        virtual bool for_each(xml_node& node) = 0;
+    // Callback that is called when traversal begins
+    virtual bool begin(xml_node& node) noexcept;
 
-        // Callback that is called when traversal ends
-        virtual bool end(xml_node& node) noexcept;
-    };
+    // Callback that is called for each node traversed
+    virtual bool for_each(xml_node& node) noexcept = 0;
 
-    // Parsing status, returned as part of xml_parse_result object
-    enum xml_parse_status
-    {
-        status_ok = 0,                // No error
+    // Callback that is called when traversal ends
+    virtual bool end(xml_node& node) noexcept;
 
-        status_file_not_found,        // File was not found during load_file()
-        status_io_error,            // Error reading from file/stream
-        status_out_of_memory,        // Could not allocate memory
-        status_internal_error,        // Internal error occurred
+    // Get current traversal depth
+    int depth() const noexcept { return _depth; }
+};
 
-        status_unrecognized_tag,    // Parser could not determine tag type
 
-        status_bad_pi,                // Parsing error occurred while parsing document declaration/processing instruction
-        status_bad_comment,            // Parsing error occurred while parsing comment
-        status_bad_cdata,            // Parsing error occurred while parsing CDATA section
-        status_bad_doctype,            // Parsing error occurred while parsing document type declaration
-        status_bad_pcdata,            // Parsing error occurred while parsing PCDATA section
-        status_bad_start_element,    // Parsing error occurred while parsing start element tag
-        status_bad_attribute,        // Parsing error occurred while parsing element attribute
-        status_bad_end_element,        // Parsing error occurred while parsing end element tag
-        status_end_element_mismatch,// There was a mismatch of start-end tags (closing tag had incorrect name, some tag was not closed or there was an excessive closing tag)
+// Parsing status, returned as part of xml_parse_result object
+enum xml_parse_status
+{
+    status_ok = 0,  // No error
 
-        status_append_invalid_root,    // Unable to append nodes since root type is not node_element or node_document (exclusive to xml_node::append_buffer)
+    status_file_not_found,       // File was not found during load_file()
+    status_io_error,             // Error reading from file/stream
+    status_out_of_memory,        // Could not allocate memory
+    status_internal_error,       // Internal error occurred
 
-        status_no_document_element    // Parsing resulted in a document without element nodes
-    };
+    status_unrecognized_tag,     // Parser could not determine tag type
+
+    status_bad_pi,               // Parsing error occurred while parsing document declaration/processing instruction
+    status_bad_comment,          // Parsing error occurred while parsing comment
+    status_bad_cdata,            // Parsing error occurred while parsing CDATA section
+    status_bad_doctype,          // Parsing error occurred while parsing document type declaration
+    status_bad_pcdata,           // Parsing error occurred while parsing PCDATA section
+    status_bad_start_element,    // Parsing error occurred while parsing start element tag
+    status_bad_attribute,        // Parsing error occurred while parsing element attribute
+    status_bad_end_element,      // Parsing error occurred while parsing end element tag
+
+    status_end_element_mismatch, // There was a mismatch of start-end tags (closing tag had incorrect name,
+                                 // some tag was not closed or there was an excessive closing tag)
+
+    status_append_invalid_root,  // Unable to append nodes since root type is not node_element or node_document
+                                 // (exclusive to xml_node::append_buffer)
+
+    status_no_document_element   // Parsing resulted in a document without element nodes
+};
 
 
 // Parsing result
@@ -947,22 +958,18 @@ public:
     // Load document from file
     xml_parse_result load_file(const char* path, uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
 
+
     // Load document from buffer. Copies/converts the buffer, so it may be deleted or changed after the function returns.
-    xml_parse_result load_buffer(const void* contents, size_t size, uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
+    xml_parse_result load_buffer(const void* contents, size_t size,
+                        uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
 
 
     // Load document from buffer, using the buffer for in-place parsing
     //   (the buffer is modified and used for storage of document data).
     // You should ensure that buffer data will persist throughout the document's lifetime,
     //   and free the buffer memory manually once document is destroyed.
-    xml_parse_result load_buffer_inplace(void* contents, size_t size, uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
-
-
-    ////// Load document from buffer, using the buffer for in-place parsing
-    ////   (the buffer is modified and used for storage of document data).
-    //// You should allocate the buffer with pugixml allocation function;
-    ////   document will free the buffer when it is no longer needed (you can't use it anymore).
-    //// xml_parse_result load_buffer_inplace_own(void* contents, size_t size, uint options = parse_default, xml_encoding e = encoding_utf8);
+    xml_parse_result load_buffer_inplace(void* contents, size_t size,
+                        uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
 
 
     // Save XML to file
@@ -972,7 +979,9 @@ public:
     xml_node document_element() const noexcept;
 };
 
+
 #ifndef PUGIXML_NO_XPATH
+
     // XPath query return type
     enum xpath_value_type
     {
@@ -1027,7 +1036,8 @@ public:
         // Get variable type
         xpath_value_type type() const noexcept;
 
-        // Get variable value; no type conversion is performed, default value (false, NaN, empty string, empty node set) is returned on type mismatch error
+        // Get variable value; no type conversion is performed,
+        // default value (false, NaN, empty string, empty node set) is returned on type mismatch error
         bool get_boolean() const noexcept;
         double get_number() const noexcept;
         const char* get_string() const noexcept;
@@ -1070,7 +1080,8 @@ public:
     // Add a new variable or get the existing one, if the types match
     xpath_variable* add(const char* name, xpath_value_type type) noexcept;
 
-    // Set value of an existing variable; no type conversion is performed, false is returned if there is no such variable or if types mismatch
+    // Set value of an existing variable; no type conversion is performed,
+    // false is returned if there is no such variable or if types mismatch
     bool set(const char* name, bool value) noexcept;
     bool set(const char* name, double value) noexcept;
     bool set(const char* name, const char* value) noexcept;
@@ -1097,7 +1108,7 @@ public:
     public:
         // Construct a compiled object from XPath expression.
         // If PUGIXML_NO_EXCEPTIONS is not defined, throws xpath_exception on compilation errors.
-        explicit xpath_query(const char* query, xpath_variable_set* variables = PUGIXML_NULL) noexcept;
+        explicit xpath_query(const char* query, xpath_variable_set* variables = nullptr) noexcept;
 
         xpath_query() noexcept = default;
 
@@ -1120,7 +1131,8 @@ public:
         std::string evaluate_string(const xpath_node& n) const noexcept;
 
         // Evaluate expression as string value in the specified context; performs type conversion if necessary.
-        // At most capacity characters are written to the destination buffer, full result size is returned (includes terminating zero).
+        // At most capacity characters are written to the destination buffer, full result size is returned
+        // (includes terminating zero).
         // If PUGIXML_NO_EXCEPTIONS is defined, returns empty  set instead.
         size_t evaluate_string(char* buffer, size_t capacity, const xpath_node& n) const noexcept;
 
@@ -1144,7 +1156,6 @@ public:
     };
 
 
-#ifndef PUGIXML_NO_EXCEPTIONS
 // XPath exception class
 class  xpath_exception : public std::exception
 {
@@ -1160,7 +1171,6 @@ public:
     // Get parse result
     const xpath_parse_result& result() const noexcept;
 };
-#endif // PUGIXML_NO_EXCEPTIONS
 
 
     // XPath node class (either xml_node or xml_attribute)
@@ -1206,21 +1216,23 @@ public:
         // Collection type
         enum type_t
         {
-            type_unsorted,            // Not ordered
+            type_unsorted,          // Not ordered
             type_sorted,            // Sorted by document order (ascending)
-            type_sorted_reverse        // Sorted by document order (descending)
+            type_sorted_reverse     // Sorted by document order (descending)
         };
 
         // Constant iterator type
         typedef const xpath_node* const_iterator;
 
-        // We define non-constant iterator to be the same as constant iterator so that various generic algorithms (i.e. boost foreach) work
+        // We define non-constant iterator to be the same as constant iterator so that various
+        // generic algorithms (i.e. boost foreach) work.
         typedef const xpath_node* iterator;
 
         // Default constructor. Constructs empty set.
         xpath_node_set();
 
-        // Constructs a set from iterator range; data is not checked for duplicates and is not sorted according to provided type, so be careful
+        // Constructs a set from iterator range;
+        // data is not checked for duplicates and is not sorted according to provided type, so be careful
         xpath_node_set(const_iterator begin, const_iterator end, type_t type = type_unsorted);
 
         // Destructor
@@ -1267,7 +1279,8 @@ public:
         void _assign(const_iterator begin, const_iterator end, type_t type) noexcept;
         void _move(xpath_node_set& rhs) noexcept;
     };
-#endif
+
+#endif // PUGIXML_NO_XPATH
 
 } // NS pugRd
 
@@ -1278,9 +1291,6 @@ namespace std
     std::bidirectional_iterator_tag PUGIXML_FUNCTION _Iter_cat(const pugRd::xml_attribute_iterator&);
     std::bidirectional_iterator_tag PUGIXML_FUNCTION _Iter_cat(const pugRd::xml_named_node_iterator&);
 }
-
-
-#endif
 
 
 /**
@@ -1307,4 +1317,6 @@ namespace std
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
+
+#endif
 

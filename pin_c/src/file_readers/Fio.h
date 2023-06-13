@@ -10,6 +10,11 @@
 
 #include "util/pinc_log.h"
 
+namespace pugRd {
+  class xml_document;
+  class xml_node;
+}
+
 namespace fio {
 
 inline void p_free(void* p) noexcept {
@@ -290,9 +295,43 @@ private:
 
 // ======== 4.  XML_Reader ============
 
+/*
+    // Abstract tree walker class (see xml_node::traverse)
+    class xml_tree_walker
+    {
+        friend class xml_node;
+
+        int _depth = 0;
+
+    public:
+
+        xml_tree_walker() noexcept = default;
+
+        virtual ~xml_tree_walker() { }
+
+        // Callback that is called when traversal begins
+        virtual bool begin(xml_node& node) noexcept;
+
+        // Callback that is called for each node traversed
+        virtual bool for_each(xml_node& node) noexcept = 0;
+
+        // Callback that is called when traversal ends
+        virtual bool end(xml_node& node) noexcept;
+
+        // Get current traversal depth
+        int depth() const noexcept { return _depth; }
+    };
+*/
+
 class XML_Reader : public MMapReader
 {
 public:
+
+  struct Visitor; // : public pugRd::xml_tree_walker
+
+  ::pugRd::xml_document*      doc_ = nullptr;
+  vector<::pugRd::xml_node*>  nodes_;
+
   const char* headLine_ = nullptr;
   bool valid_xml_ = false;
 
@@ -300,11 +339,9 @@ public:
   size_t nr_ = 0, nc_ = 0;
 
 public:
-  XML_Reader() noexcept = default;
-
-  XML_Reader(const char* nm) noexcept : MMapReader(nm) {}
-
-  XML_Reader(const string& nm) noexcept : MMapReader(nm) {}
+  XML_Reader() noexcept;
+  XML_Reader(const char* nm) noexcept;
+  XML_Reader(const string& nm) noexcept;
 
   virtual ~XML_Reader();
 

@@ -1,5 +1,6 @@
 // File IO - namespace fio
 #include "file_readers/Fio.h"
+#include "file_readers/pinc_pugixml.h"
 
 #include <alloca.h>
 #include <errno.h>
@@ -1039,9 +1040,84 @@ size_t CSV_Reader::countCommas(const char* src) noexcept {
 
 // ======== 3. XML_Reader ==============================================
 
-XML_Reader::~XML_Reader() { }
+static constexpr size_t X_nodes_cap0 = 30;
 
-void XML_Reader::reset(const char* nm, uint16_t tr) noexcept {
+XML_Reader::XML_Reader() noexcept
+{
+    doc_ = new ::pugRd::xml_document;
+    nodes_.reserve(X_nodes_cap0);
+}
+
+XML_Reader::XML_Reader(const char* nm) noexcept
+  : MMapReader(nm)
+{
+    doc_ = new ::pugRd::xml_document;
+    nodes_.reserve(X_nodes_cap0);
+}
+
+XML_Reader::XML_Reader(const string& nm) noexcept
+  : MMapReader(nm)
+{
+    doc_ = new ::pugRd::xml_document;
+    nodes_.reserve(X_nodes_cap0);
+}
+
+XML_Reader::~XML_Reader() {
+  delete doc_;
+}
+
+/*
+    // Abstract tree walker class (see xml_node::traverse)
+    class xml_tree_walker
+    {
+        friend class xml_node;
+
+        int _depth = 0;
+
+    public:
+
+        xml_tree_walker() noexcept = default;
+
+        virtual ~xml_tree_walker() { }
+
+        // Callback that is called when traversal begins
+        virtual bool begin(xml_node& node) noexcept;
+
+        // Callback that is called for each node traversed
+        virtual bool for_each(xml_node& node) noexcept = 0;
+
+        // Callback that is called when traversal ends
+        virtual bool end(xml_node& node) noexcept;
+
+        // Get current traversal depth
+        int depth() const noexcept { return _depth; }
+    };
+*/
+
+struct XML_Reader::Visitor : public pugRd::xml_tree_walker
+{
+    XML_Reader& reader_;
+
+    Visitor(XML_Reader& rdr) noexcept
+        : reader_(rdr)
+    { }
+
+    virtual ~Visitor() { }
+
+    virtual bool for_each(pugRd::xml_node& node) noexcept;
+};
+
+bool XML_Reader::Visitor::for_each(pugRd::xml_node& node) noexcept {
+    reader_.nodes_.push_back(&node);
+    return true;
+}
+
+void XML_Reader::reset(const char* nm, uint16_t tr) noexcept
+{
+  nodes_.clear();
+  delete doc_;
+  doc_ = new ::pugRd::xml_document;
+
   MMapReader::reset(nm, tr);
 
   valid_xml_ = false;
@@ -1050,15 +1126,26 @@ void XML_Reader::reset(const char* nm, uint16_t tr) noexcept {
 }
 
 bool XML_Reader::readXml() noexcept {
-  return false;
+  bool ok = read();
+  if (!ok) return false;
+
+  ok = parse();
+  return ok;
 }
 
 bool XML_Reader::parse() noexcept {
+  valid_xml_ = false;
   if (!sz_ || !fsz_) return false;
   if (!buf_) return false;
   if (sz_ < 4) return false;
 
-  return false;
+  assert(doc_);
+
+  pugRd::xml_parse_result  parse_res = doc_->load_buffer_inplace(buf_, sz_);
+
+  valid_xml_ = parse_res;
+
+  return valid_xml_;
 }
 
 bool XML_Reader::isValidXml() const noexcept {
