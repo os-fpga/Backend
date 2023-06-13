@@ -772,7 +772,8 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                                   const char *blif_file,
                                   const t_model *user_models,
                                   const t_model *library_models,
-                                  t_vpr_setup& vpr_setup)
+                                  t_vpr_setup& vpr_setup,
+                                  const char* top_mod)
 {
     AtomNetlist netlist;
     std::string netlist_id = vtr::secure_digest_file(blif_file);
@@ -780,10 +781,16 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
 
     const char* key_file = "private_key.pem";
+    if (std::string(top_mod) == "") {
+    if (std::string(top_mod) == "") {
+    VPR_ERROR(VPR_ERROR_OTHER,
+                      "No top module specified.\n");
+}
+}
 
     FILE *infile = tmpfile();
     simple_netlist n_l;
-    parse_verilog(blif_file, n_l, key_file);
+    parse_verilog(blif_file, n_l, key_file, top_mod);
     {
         std::stringstream ss;
         n_l.b_print(ss);

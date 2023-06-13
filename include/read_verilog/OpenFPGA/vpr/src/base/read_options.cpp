@@ -1353,6 +1353,10 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .help("Show this help message then exit")
         .action(argparse::Action::HELP);
 
+    gen_grp.add_argument(args.top_mod, "--top", "-t")
+        .help("Top module name")
+        .default_value("");
+
     gen_grp.add_argument<bool, ParseOnOff>(args.show_version, "--version")
         .help("Show version information then exit")
         .action(argparse::Action::VERSION);
