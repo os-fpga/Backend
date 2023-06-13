@@ -18,15 +18,15 @@
 #ifndef __rs_PINC_LOG_H_
 #define __rs_PINC_LOG_H_
 
-#include <inttypes.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cfloat>
-#include <climits>
 #include <cmath>
+#include <climits>
+#include <cstddef>
 #include <cstdint>
+#include <inttypes.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -38,8 +38,8 @@
 #include <memory>
 #include <numeric>
 #include <string>
-#include <type_traits>
 #include <functional>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 #include <array>
@@ -90,9 +90,9 @@ std::string sReplicate(char c, uint num) noexcept;
 inline std::string sSpace(uint num) noexcept { return sReplicate(' ', num); }
 
 template <typename T>
-inline void logArray(const T* A, size_t n, const char* prefix) noexcept {
+inline void logArray(const T* A, size_t n, const char* pref) noexcept {
   auto& os = lout();
-  if (prefix) os << prefix;
+  if (pref) os << pref;
   if (!A || !n) {
     os << " (empty)" << std::endl;
     return;
@@ -101,9 +101,21 @@ inline void logArray(const T* A, size_t n, const char* prefix) noexcept {
   os << std::endl;
 }
 
-inline void logVec(const std::vector<bool>& vec, const char* prefix) noexcept {
+template <typename T>
+inline void
+prnArray(std::ostream& os, const T* A, size_t n, const char* pref) noexcept {
+  if (pref) os << pref;
+  if (!A || !n) {
+    os << " (empty)" << std::endl;
+    return;
+  }
+  for (size_t i = 0; i < n; i++) os << ' ' << A[i];
+  os << std::endl;
+}
+
+inline void logVec(const std::vector<bool>& vec, const char* pref) noexcept {
   auto& os = lout();
-  if (prefix) os << prefix;
+  if (pref) os << pref;
   if (vec.empty()) {
     os << " (empty)" << std::endl;
     return;
@@ -113,9 +125,16 @@ inline void logVec(const std::vector<bool>& vec, const char* prefix) noexcept {
 }
 
 template <typename T>
-inline void logVec(const std::vector<T>& vec, const char* prefix) noexcept {
+inline void logVec(const std::vector<T>& vec, const char* pref) noexcept {
   const T* A = (vec.empty() ? nullptr : vec.data());
-  logArray(A, vec.size(), prefix);
+  logArray(A, vec.size(), pref);
+}
+
+inline void p_free(void* p) noexcept { if (p) ::free(p); }
+
+inline char* p_strdup(const char* p) noexcept {
+  if (!p) return nullptr;
+  return ::strdup(p);
 }
 
 }  // namespace pinc

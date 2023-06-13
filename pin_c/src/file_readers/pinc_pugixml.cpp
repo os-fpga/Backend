@@ -5142,16 +5142,6 @@ PUGI__FN xml_parse_result xml_document::load_buffer_inplace(void* contents, size
 }
 
 
-//PUGI__FN xml_parse_result xml_document::load_buffer_inplace_own(void* contents, size_t size, uint options, xml_encoding) noexcept
-//{
-//    reset();
-//
-//    return impl::load_buffer_impl( static_cast<impl::xml_document_struct*>(_root), _root,
-//                contents, size, options, encoding_utf8, true, true, &_buffer );
-//}
-
-
-
 PUGI__FN xml_node xml_document::document_element() const noexcept
 {
     assert(_root);
