@@ -1,6 +1,6 @@
 // File IO - namespace fio
 #include "file_readers/Fio.h"
-#include "file_readers/pinc_pugixml.h"
+#include "file_readers/pinc_tinyxml2.h"
 
 #include <alloca.h>
 #include <errno.h>
@@ -1044,79 +1044,33 @@ static constexpr size_t X_nodes_cap0 = 30;
 
 XML_Reader::XML_Reader() noexcept
 {
-    doc_ = new ::pugRd::xml_document;
-    nodes_.reserve(X_nodes_cap0);
+    doc_ = new ::tinxml2::XMLDocument;
+    elems_.reserve(X_nodes_cap0);
 }
 
 XML_Reader::XML_Reader(const char* nm) noexcept
   : MMapReader(nm)
 {
-    doc_ = new ::pugRd::xml_document;
-    nodes_.reserve(X_nodes_cap0);
+    doc_ = new ::tinxml2::XMLDocument;
+    elems_.reserve(X_nodes_cap0);
 }
 
 XML_Reader::XML_Reader(const string& nm) noexcept
   : MMapReader(nm)
 {
-    doc_ = new ::pugRd::xml_document;
-    nodes_.reserve(X_nodes_cap0);
+    doc_ = new ::tinxml2::XMLDocument;
+    elems_.reserve(X_nodes_cap0);
 }
 
 XML_Reader::~XML_Reader() {
   delete doc_;
 }
 
-/*
-    // Abstract tree walker class (see xml_node::traverse)
-    class xml_tree_walker
-    {
-        friend class xml_node;
-
-        int _depth = 0;
-
-    public:
-
-        xml_tree_walker() noexcept = default;
-
-        virtual ~xml_tree_walker() { }
-
-        // Callback that is called when traversal begins
-        virtual bool begin(xml_node& node) noexcept;
-
-        // Callback that is called for each node traversed
-        virtual bool for_each(xml_node& node) noexcept = 0;
-
-        // Callback that is called when traversal ends
-        virtual bool end(xml_node& node) noexcept;
-
-        // Get current traversal depth
-        int depth() const noexcept { return _depth; }
-    };
-*/
-
-struct XML_Reader::Visitor : public pugRd::xml_tree_walker
-{
-    XML_Reader& reader_;
-
-    Visitor(XML_Reader& rdr) noexcept
-        : reader_(rdr)
-    { }
-
-    virtual ~Visitor() { }
-
-    virtual bool for_each(pugRd::xml_node& node) noexcept;
-};
-
-bool XML_Reader::Visitor::for_each(pugRd::xml_node& node) noexcept {
-    reader_.nodes_.push_back(&node);
-    return true;
-}
-
 void XML_Reader::reset(const char* nm, uint16_t tr) noexcept
 {
-  nodes_.clear();
+  elems_.clear();
   delete doc_;
-  doc_ = new ::pugRd::xml_document;
+  doc_ = new ::tinxml2::XMLDocument;
 
   MMapReader::reset(nm, tr);
 
@@ -1133,6 +1087,26 @@ bool XML_Reader::readXml() noexcept {
   return ok;
 }
 
+#if 0
+struct XML_Reader::Visitor : public pugRd::xml_tree_walker
+{
+    XML_Reader& reader_;
+
+    Visitor(XML_Reader& rdr) noexcept
+        : reader_(rdr)
+    { }
+
+    virtual ~Visitor() { }
+
+    virtual bool for_each(pugRd::xml_node& node) noexcept;
+};
+
+bool XML_Reader::Visitor::for_each(pugRd::xml_node& node) noexcept {
+    reader_.elems_.push_back(&node);
+    return true;
+}
+#endif //0
+
 bool XML_Reader::parse() noexcept {
   valid_xml_ = false;
   if (!sz_ || !fsz_) return false;
@@ -1141,9 +1115,18 @@ bool XML_Reader::parse() noexcept {
 
   assert(doc_);
 
-  pugRd::xml_parse_result  parse_res = doc_->load_buffer_inplace(buf_, sz_);
+#if 0
+  //pugRd::xml_parse_result  parse_res = doc_->load_buffer_inplace(buf_, sz_);
+  pugRd::xml_parse_result  parse_res = doc_->load_buffer(buf_, sz_);
+  //pugRd::xml_parse_result  parse_res = doc_->load_file(fnm_.c_str());
 
   valid_xml_ = parse_res;
+  if (!valid_xml_) return false;
+
+  Visitor vis(*this);
+
+  valid_xml_ = doc_->traverse(vis);
+#endif //0
 
   return valid_xml_;
 }
@@ -1161,8 +1144,36 @@ int XML_Reader::dprint1() const noexcept {
           num_lines_, nr_, nc_);
 
   lprintf("    valid_xml_: %i\n", valid_xml_);
+  lprintf(" elems_.size(): %zu\n", elems_.size());
 
   return sz_;
+}
+
+int XML_Reader::print_nodes() const noexcept {
+  return 0;
+#if 0
+  size_t nsz = elems_.size();
+  lprintf("    valid_xml_: %i\n", valid_xml_);
+  lprintf(" elems_.size(): %zu\n", nsz);
+  if (!valid_xml_) return -1;
+  if (elems_.empty()) return 0;
+
+  for (size_t i = 0; i < nsz; i++) {
+    ::pugRd::xml_node* nd = elems_[i];
+    assert(nd);
+    if (nd->empty()) {
+      lprintf("%zu:  (empty node)\n", i);
+      continue;
+    }
+    const char* nm = nd->name();
+    if (!nm) nm = "";
+    const char* ts = nd->type_str();
+    if (!ts) ts = "";
+    lprintf("%zu:  name= %s  type= %s\n", i, nm, ts);
+  }
+
+  return nsz;
+#endif //0
 }
 
 } // NS fio

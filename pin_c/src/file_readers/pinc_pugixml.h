@@ -24,7 +24,7 @@
 
 
 // Uncomment this to disable XPath
-// #define PUGIXML_NO_XPATH
+#define PUGIXML_NO_XPATH
 
 // Uncomment this to disable exceptions
 // #define PUGIXML_NO_EXCEPTIONS
@@ -96,7 +96,7 @@ namespace pugRd {
     // Tree node types
     enum xml_node_type
     {
-        node_null,         // Empty (null) node handle
+        node_null = 0,     // Empty (null) node handle
         node_document,     // A document tree's absolute root
         node_element,      // Element tag, i.e. '<node/>'
         node_pcdata,       // Plain character data, i.e. 'text'
@@ -107,6 +107,50 @@ namespace pugRd {
         node_doctype       // Document type declaration, i.e. '<!DOCTYPE doc>'
     };
 
+    struct xml_attribute_struct
+    {
+        xml_attribute_struct() noexcept = default;
+
+        char*    name = nullptr;
+        char*    value = nullptr;
+
+        xml_attribute_struct* prev_attribute_c = nullptr;
+        xml_attribute_struct* next_attribute = nullptr;
+    };
+
+    struct xml_node_struct
+    {
+        xml_node_struct() noexcept = default;
+
+        xml_node_struct(xml_node_type t) noexcept
+          : type_(t)
+        { }
+
+        xml_node_type type_ = node_null;
+
+        char* name = 0;
+        char* value = 0;
+
+        xml_node_struct* parent = 0;
+
+        xml_node_struct* first_child = 0;
+
+        xml_node_struct* prev_sibling_c = 0;
+        xml_node_struct* next_sibling = 0;
+
+        xml_attribute_struct* first_attribute = 0;
+    };
+    inline xml_node_type PUGI__NODE_TYPE(const xml_node_struct& n) noexcept { return n.type_; }
+    inline xml_node_type PUGI__NODE_TYPE(const xml_node_struct* n) noexcept { assert(n); return n->type_; }
+
+    struct xml_document_struct : public xml_node_struct
+    {
+        xml_document_struct() noexcept
+            : xml_node_struct(node_document)
+        { }
+
+        const char* buffer = nullptr;
+    };
 
     // Parsing options
 
@@ -236,13 +280,6 @@ namespace pugRd {
     class xml_node;
 
     class xml_text;
-
-  #ifndef PUGIXML_NO_XPATH
-    class xpath_node;
-    class xpath_node_set;
-    class xpath_query;
-    class xpath_variable_set;
-  #endif
 
     // Range-based for loop support
     template <typename It>
@@ -394,18 +431,20 @@ public:
     bool operator!() const noexcept { return !_root; }
 
     // Comparison operators (compares wrapped node pointers)
-    bool operator==(const xml_node& r) const noexcept;
-    bool operator!=(const xml_node& r) const noexcept;
-    bool operator<(const xml_node& r) const noexcept;
-    bool operator>(const xml_node& r) const noexcept;
-    bool operator<=(const xml_node& r) const noexcept;
-    bool operator>=(const xml_node& r) const noexcept;
+    bool operator == (const xml_node& r) const noexcept { return _root == r._root; }
+    bool operator != (const xml_node& r) const noexcept { return _root != r._root; }
+    bool operator <  (const xml_node& r) const noexcept { return _root < r._root; }
+    bool operator <= (const xml_node& r) const noexcept { return !(r.operator < (*this)); }
+    bool operator >  (const xml_node& r) const noexcept { return r.operator < (*this); }
+    bool operator >= (const xml_node& r) const noexcept { return !(operator < (r)); }
 
     // Check if node is empty.
-    bool empty() const noexcept;
+    bool empty() const noexcept { return !_root; }
 
     // Get node type
     xml_node_type type() const noexcept;
+    const char* type_str() const noexcept;
+    uint type_idx() const noexcept;
 
     // Get node name, or "" if node is empty or it has no name
     const char* name() const noexcept;
@@ -919,14 +958,17 @@ class  xml_document : public xml_node
 {
     char* _buffer = nullptr;
 
-    char _memory[192];
+    char _memory[492];
 
     xml_document(const xml_document&) = delete;
     xml_document& operator=(const xml_document&) = delete;
+    xml_document(xml_document&& rhs) = delete;
+    xml_document& operator=(xml_document&& rhs) = delete;
 
     void _create() noexcept;
     void _destroy() noexcept;
-    void _move(xml_document& rhs) noexcept;
+
+    ///// void _move(xml_document& rhs) noexcept;
 
 public:
     // Default constructor, makes empty document
@@ -934,10 +976,6 @@ public:
 
     // Destructor, invalidates all node/attribute handles to this document
     ~xml_document();
-
-    // Move semantics support
-    xml_document(xml_document&& rhs) noexcept;
-    xml_document& operator=(xml_document&& rhs) noexcept;
 
     // Removes all nodes, leaving the empty document
     void reset() noexcept;
@@ -956,20 +994,20 @@ public:
     xml_parse_result load_string(const char* contents, uint options = parse_default) noexcept;
 
     // Load document from file
-    xml_parse_result load_file(const char* path, uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
+    xml_parse_result load_file(const char* path, uint options = parse_default) noexcept;
 
 
-    // Load document from buffer. Copies/converts the buffer, so it may be deleted or changed after the function returns.
+    // Load document from buffer.
+    // Copies/converts the buffer, so it may be deleted or changed after the function returns.
     xml_parse_result load_buffer(const void* contents, size_t size,
-                        uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
+                                 uint options = parse_default) noexcept;
 
 
     // Load document from buffer, using the buffer for in-place parsing
     //   (the buffer is modified and used for storage of document data).
     // You should ensure that buffer data will persist throughout the document's lifetime,
     //   and free the buffer memory manually once document is destroyed.
-    xml_parse_result load_buffer_inplace(void* contents, size_t size,
-                        uint options = parse_default, xml_encoding e = encoding_utf8) noexcept;
+    xml_parse_result load_buffer_inplace(void* contents, size_t size, uint options = parse_default) noexcept;
 
 
     // Save XML to file
