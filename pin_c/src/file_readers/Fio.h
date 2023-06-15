@@ -10,9 +10,15 @@
 
 #include "util/pinc_log.h"
 
-namespace pugRd {
-  class xml_document;
-  class xml_node;
+namespace tinxml2 {
+    class XMLDocument;
+    class XMLElement;
+    class XMLAttribute;
+    class XMLComment;
+    class XMLText;
+    class XMLDeclaration;
+    class XMLUnknown;
+    class XMLPrinter;
 }
 
 namespace fio {
@@ -295,42 +301,16 @@ private:
 
 // ======== 4.  XML_Reader ============
 
-/*
-    // Abstract tree walker class (see xml_node::traverse)
-    class xml_tree_walker
-    {
-        friend class xml_node;
-
-        int _depth = 0;
-
-    public:
-
-        xml_tree_walker() noexcept = default;
-
-        virtual ~xml_tree_walker() { }
-
-        // Callback that is called when traversal begins
-        virtual bool begin(xml_node& node) noexcept;
-
-        // Callback that is called for each node traversed
-        virtual bool for_each(xml_node& node) noexcept = 0;
-
-        // Callback that is called when traversal ends
-        virtual bool end(xml_node& node) noexcept;
-
-        // Get current traversal depth
-        int depth() const noexcept { return _depth; }
-    };
-*/
-
 class XML_Reader : public MMapReader
 {
 public:
 
-  struct Visitor; // : public pugRd::xml_tree_walker
+  //struct Visitor; // : public pugRd::xml_tree_walker
+  //::pugRd::xml_document*      doc_ = nullptr;
+  //vector<::pugRd::xml_node*>  nodes_;
 
-  ::pugRd::xml_document*      doc_ = nullptr;
-  vector<::pugRd::xml_node*>  nodes_;
+  ::tinxml2::XMLDocument*         doc_ = nullptr;
+  vector<::tinxml2::XMLElement*>  elems_;
 
   const char* headLine_ = nullptr;
   bool valid_xml_ = false;
@@ -354,6 +334,7 @@ public:
   bool readXml() noexcept;
 
   int dprint1() const noexcept;
+  int print_nodes() const noexcept;
 
 private:
 

@@ -1454,8 +1454,6 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
 }
 
 bool PinPlacer::write_logical_clocks_to_physical_clks() {
-return 0;
-#if 0
   std::vector<std::string> set_clks;
   string clkmap_file_name = cl_.get_param("--clk_map");
   std::ifstream file(clkmap_file_name);
@@ -1557,7 +1555,6 @@ return 0;
   doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
   remove(clkmap_file_name.c_str());
   return true;
-#endif ////0000
 }
 
 } // namespace pinc
