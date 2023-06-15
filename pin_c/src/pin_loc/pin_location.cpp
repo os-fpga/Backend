@@ -6,6 +6,7 @@
 
 #include "pin_loc/pin_location.h"
 
+#include "file_readers/blif_reader.h"
 #include "file_readers/pcf_reader.h"
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/xml_reader.h"
@@ -86,7 +87,7 @@ static string USAGE_MSG_1 =
     "OUTPUT";  // for rs internally, gemini;  user pcf is provided
 
 static string USAGE_MSG_2 =
-    "usage options: --port_info JSON --csv CSV_FILE "
+    "usage options: (--blif BLIF | --port_info JSON) --csv CSV_FILE "
     "[--assign_unconstrained_pins "
     "[random | in_define_order]] --output OUTPUT";  // for rs internall,
                                                     // gemini; no user pcf is provided
@@ -126,6 +127,7 @@ bool PinPlacer::reader_and_writer() {
   string xml_name = cmd.get_param("--xml");
   string csv_name = cmd.get_param("--csv");
   string pcf_name = cmd.get_param("--pcf");
+  string blif_name = cmd.get_param("--blif");
   string json_name = cmd.get_param("--port_info");
   string output_name = cmd.get_param("--output");
 
@@ -136,11 +138,12 @@ bool PinPlacer::reader_and_writer() {
     ls << "        xml_name (--xml) : " << xml_name << endl;
     ls << "        csv_name (--csv) : " << csv_name << endl;
     ls << "        pcf_name (--pcf) : " << pcf_name << endl;
+    ls << "      blif_name (--blif) : " << blif_name << endl;
     ls << " json_name (--port_info) : " << json_name << endl;
     ls << "    output_name (--output) : " << output_name << endl;
   }
 
-  bool no_json = json_name.empty();
+  bool no_b_json = false; // json_name.empty();
 
   // --1. check option selection
   string assign_method = cl_.get_param("--assign_unconstrained_pins");
@@ -164,14 +167,14 @@ bool PinPlacer::reader_and_writer() {
 
   // usage 0: classical flow form opensource community - device MPW1
   // bool usage_requirement_0 = !(xml_name.empty() || csv_name.empty() ||
-  //                             no_json || output_name.empty());
+  //                             no_b_json || output_name.empty());
   constexpr bool usage_requirement_0 = false;
 
 
   // usage 1: rs only - specify csv (which contains coordinate data described in
   // pinmap xml info), pcf, blif, and output files
   bool usage_requirement_1 = !(csv_name.empty() || pcf_name.empty() ||
-                               no_json || output_name.empty()) && xml_name.empty();
+                               no_b_json || output_name.empty()) && xml_name.empty();
 
   // usage 2: rs only - user dose not provide a pcf (this is really rare in
   // meaningfull on-board implementation, but could be true in test or
@@ -179,7 +182,7 @@ bool PinPlacer::reader_and_writer() {
   //          in such case, we need to make sure a constraint file is properly
   //          generated to guide VPR use LEGAL pins only.
   bool usage_requirement_2 =
-      !(csv_name.empty() || no_json || output_name.empty()) &&
+      !(csv_name.empty() || no_b_json || output_name.empty()) &&
       pcf_name.empty();
 
   if (tr >= 2) {
@@ -210,7 +213,9 @@ bool PinPlacer::reader_and_writer() {
       }
     }
     */
-  } else if ((!usage_requirement_1) && (!usage_requirement_2)) {
+  } else if (!usage_requirement_1 && !usage_requirement_2) {
+    if (tr >= 2)
+      lputs("\n[Error] pin_c: !usage_requirement_1 && !usage_requirement_2\n");
     CERROR << err_map["MISSING_IN_OUT_FILES"] << endl
            << USAGE_MSG_1 << ", or" << endl
            << USAGE_MSG_2 << endl;
@@ -220,12 +225,16 @@ bool PinPlacer::reader_and_writer() {
   // --2. read PT from csv file
   RapidCsvReader csv_rd;
   if (!read_csv_file(csv_rd)) {
+    if (tr >= 2)
+      lputs("\n[Error] pin_c: !read_csv_file()\n");
     CERROR << err_map["PIN_MAP_CSV_PARSE_ERROR"] << endl;
     return false;
   }
 
   // --3. read port info from user design (from port_info.json)
   if (!read_design_ports()) {
+    if (tr >= 2)
+      lputs("\n[Error] pin_c: !read_design_ports()\n");
     CERROR << err_map["PORT_INFO_PARSE_ERROR"] << endl;
     return false;
   }
@@ -437,35 +446,51 @@ bool PinPlacer::convert_pcf_for_os_flow(const string& pcf_name) {
 
 bool PinPlacer::read_design_ports() {
   uint16_t tr = ltrace();
-  if (tr >= 2) lputs("\nread_design_ports() __ getting port info .json");
-
-  string pi_fn = cl_.get_param("--port_info");
-  if (pi_fn.empty()) {
-    lputs("port_info cmd option not specified");
-    CERROR  << "port_info cmd option not specified" << endl;
-    return false;
+  if (tr >= 2) {
+    lputs("\nread_design_ports() __ getting port info .json");
   }
 
-  if (! Fio::regularFileExists(pi_fn)) {
-    lprintf("\nERROR: port info file %s does not exist\n", pi_fn.c_str());
-    CERROR << "port info file does not exist : " << pi_fn << endl;
-    return false;
+  string port_info_fn = cl_.get_param("--port_info");
+  string path;
+  ifstream json_ifs;
+
+  if (port_info_fn.length() > 0) {
+    path = port_info_fn;
+    if (Fio::regularFileExists(path)) {
+      json_ifs.open(port_info_fn);
+      if (!json_ifs.is_open())
+        lprintf("\nWARNING: could not open port info file %s => using blif\n",
+                port_info_fn.c_str());
+    } else {
+      lprintf("\nWARNING: port info file %s does not exist => using blif\n",
+              port_info_fn.c_str());
+    }
+  } else {
+    if (tr >= 1) lprintf("port_info cmd option not specified => using blif\n");
   }
 
-  ifstream pi_ifs(pi_fn);
-
-  if (pi_ifs.is_open()) {
-    if (tr >= 2) lprintf("... reading %s\n", pi_fn.c_str());
-    if (!read_port_info(pi_ifs, user_design_inputs_, user_design_outputs_)) {
-      CERROR    << " failed reading " << pi_fn << endl;
-      OUT_ERROR << " failed reading " << pi_fn << endl;
+  if (json_ifs.is_open()) {
+    if (tr >= 2) lprintf("... reading %s\n", port_info_fn.c_str());
+    if (!read_port_info(json_ifs, user_design_inputs_, user_design_outputs_)) {
+      CERROR    << " failed reading " << port_info_fn << endl;
+      OUT_ERROR << " failed reading " << port_info_fn << endl;
       return false;
     }
-  }
-  else {
-    OUT_ERROR << "  could not open json port info : " << pi_fn << endl;
-    CERROR    << "  could not open json port info : " << pi_fn << endl;
-    return false;
+    json_ifs.close();
+  } else {
+    string blif_fn = cl_.get_param("--blif");
+    if (tr >= 2) lprintf("... reading %s\n", blif_fn.c_str());
+    path = blif_fn;
+    if (not Fio::regularFileExists(path)) {
+      lprintf("\nWARNING: blif file %s does not exist\n", blif_fn.c_str());
+    }
+    BlifReader rd_blif;
+    if (!rd_blif.read_blif(blif_fn)) {
+      CERROR << err_map["PORT_INFO_PARSE_ERROR"] << endl;
+      return false;
+    }
+    user_design_inputs_ = rd_blif.get_inputs();
+    user_design_outputs_ = rd_blif.get_outputs();
   }
 
   if (tr >= 2) {
