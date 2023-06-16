@@ -23,7 +23,7 @@ distribution.
 // Modyfied by serge-rs.
 
 #include "file_readers/pinc_tinyxml2.h"
-#include "util/pinc_log.h"
+#include "file_readers/Fio.h"
 
 #include <new>
 #include <cstddef>
@@ -61,12 +61,13 @@ struct Entity {
     char value;
 };
 
-static const int NUM_ENTITIES = 5;
-static const Entity entities[NUM_ENTITIES] = {
-    { "quot", 4,    DOUBLE_QUOTE },
-    { "amp", 3,        '&'  },
-    { "apos", 4,    SINGLE_QUOTE },
-    { "lt",    2,         '<'     },
+static constexpr int NUM_ENTITIES = 5;
+
+static const Entity s_entities[NUM_ENTITIES] = {
+    { "quot",  4,    DOUBLE_QUOTE },
+    { "amp",   3,        '&'  },
+    { "apos",  4,    SINGLE_QUOTE },
+    { "lt",    2,        '<'     },
     { "gt",    2,        '>'     }
 };
 
@@ -232,7 +233,7 @@ const char* StrPair::GetStr() noexcept
                 }
                 else if ( (_flags & NEEDS_ENTITY_PROCESSING) && *p == '&' ) {
                     // Entities handled by tinyXML2:
-                    // - special entities in the entity table [in/out]
+                    // - special s_entities in the entity table [in/out]
                     // - numeric character reference [in]
                     //   &#20013; or &#x4e2d;
 
@@ -257,7 +258,7 @@ const char* StrPair::GetStr() noexcept
                     else {
                         bool entityFound = false;
                         for( int i = 0; i < NUM_ENTITIES; ++i ) {
-                            const Entity& entity = entities[i];
+                            const Entity& entity = s_entities[i];
                             if ( strncmp( p + 1, entity.pattern, entity.length ) == 0
                                     && *( p + entity.length + 1 ) == ';' ) {
                                 // Found an entity - convert.
@@ -516,14 +517,15 @@ void XMLUtil::ToStr( uint64_t v, char* buffer, size_t bufferSize ) noexcept
 bool XMLUtil::ToInt(const char* str, int* value) noexcept
 {
     if (IsPrefixHex(str)) {
-        uint v;
+        uint v = 0;
         if (sscanf(str, "%x", &v) == 1) {
             *value = static_cast<int>(v);
             return true;
         }
     }
     else {
-        if (sscanf(str, "%d", value) == 1) {
+        if (fio::is_integer(str)) {
+            *value = ::atoi(str);
             return true;
         }
     }
@@ -532,8 +534,19 @@ bool XMLUtil::ToInt(const char* str, int* value) noexcept
 
 bool XMLUtil::ToUnsigned(const char* str, uint* value) noexcept
 {
-    if (sscanf(str, IsPrefixHex(str) ? "%x" : "%u", value) == 1) {
-        return true;
+    if (IsPrefixHex(str)) {
+        uint v = 0;
+        if (sscanf(str, "%x", &v) == 1) {
+            *value = v;
+            return true;
+        }
+    }
+    else {
+        if (fio::is_uint(str)) {
+            int64_t v = ::atol(str);
+            *value = (v >= int64_t(UINT_MAX) ? UINT_MAX : v);
+            return true;
+        }
     }
     return false;
 }
@@ -581,36 +594,30 @@ bool XMLUtil::ToDouble( const char* str, double* value ) noexcept
 
 bool XMLUtil::ToInt64(const char* str, int64_t* value) noexcept
 {
-assert(0); // TODO
-#if 0
     if (IsPrefixHex(str)) {
-        uint64_t v = 0;    // horrible syntax trick to make the compiler happy about %llx
-        if (sscanf(str, "%llx", &v) == 1) {
-            *value = static_cast<int64_t>(v);
+        uint64_t v = 0;
+        if (sscanf(str, "%lx", &v) == 1) {
+            *value = v;
             return true;
         }
     }
     else {
-        int64_t v = 0;    // horrible syntax trick to make the compiler happy about %lld
-        if (sscanf(str, "%lld", &v) == 1) {
-            *value = static_cast<int64_t>(v);
+        if (fio::is_integer(str)) {
+            *value = ::atol(str);
             return true;
         }
     }
-#endif //////////////00000000000
+
     return false;
 }
 
 bool XMLUtil::ToUnsigned64(const char* str, uint64_t* value) noexcept
 {
-assert(0); // TODO
-#if 0
-    uint64_t v = 0;    // horrible syntax trick to make the compiler happy about %llu
-    if(sscanf(str, IsPrefixHex(str) ? "%llx" : "%llu", &v) == 1) {
+    uint64_t v = 0;
+    if (sscanf(str, IsPrefixHex(str) ? "%lx" : "%lu", &v) == 1) {
         *value = (uint64_t)v;
         return true;
     }
-#endif //////////////00000000000
     return false;
 }
 
@@ -630,15 +637,15 @@ char* XMLDocument::Identify( char* p, XMLNode** node ) noexcept
     // These strings define the matching patterns:
     static const char* xmlHeader        = { "<?" };
     static const char* commentHeader    = { "<!--" };
-    static const char* cdataHeader        = { "<![CDATA[" };
+    static const char* cdataHeader      = { "<![CDATA[" };
     static const char* dtdHeader        = { "<!" };
     static const char* elementHeader    = { "<" };    // and a header for everything else; check last.
 
-    static const int xmlHeaderLen        = 2;
-    static const int commentHeaderLen    = 4;
-    static const int cdataHeaderLen        = 9;
-    static const int dtdHeaderLen        = 2;
-    static const int elementHeaderLen    = 1;
+    constexpr int xmlHeaderLen        = 2;
+    constexpr int commentHeaderLen    = 4;
+    constexpr int cdataHeaderLen      = 9;
+    constexpr int dtdHeaderLen        = 2;
+    constexpr int elementHeaderLen    = 1;
 
     assert( sizeof( XMLComment ) == sizeof( XMLUnknown ) );        // use same memory pool
     assert( sizeof( XMLComment ) == sizeof( XMLDeclaration ) );    // use same memory pool
@@ -981,10 +988,10 @@ char* XMLNode::ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr ) n
             // Declarations are only allowed at document level
             //
             // Multiple declarations are allowed but all declarations
-            // must occur before anything else. 
+            // must occur before anything else.
             //
-            // Optimized due to a security test case. If the first node is 
-            // a declaration, and the last node is a declaration, then only 
+            // Optimized due to a security test case. If the first node is
+            // a declaration, and the last node is a declaration, then only
             // declarations have so far been added.
             bool wellLocated = false;
 
@@ -2146,6 +2153,7 @@ XMLError XMLDocument::LoadFile( const char* filename ) noexcept
     Clear();
     FILE* fp = callfopen( filename, "rb" );
     if ( !fp ) {
+        perror("fopen");
         SetError( XML_ERROR_FILE_NOT_FOUND, 0, "filename=%s", filename );
         return _errorID;
     }
@@ -2158,6 +2166,7 @@ XMLError XMLDocument::LoadFile( FILE* fp ) noexcept
 {
     Clear();
 
+    assert(fp);
     fseek( fp, 0, SEEK_SET );
     if ( fgetc( fp ) == EOF && ferror( fp ) != 0 ) {
         SetError( XML_ERROR_FILE_READ_ERROR, 0, 0 );
@@ -2166,7 +2175,7 @@ XMLError XMLDocument::LoadFile( FILE* fp ) noexcept
 
     fseek( fp, 0, SEEK_END );
 
-    size_t filelength;
+    size_t file_size;
     {
         int64_t isz = ftell( fp );
         if ( isz < 0 ) {
@@ -2176,33 +2185,33 @@ XMLError XMLDocument::LoadFile( FILE* fp ) noexcept
             return _errorID;
         }
         fseek( fp, 0, SEEK_SET );
-        filelength = static_cast<size_t>(isz);
+        file_size = static_cast<size_t>(isz);
     }
 
     constexpr size_t maxFileSZ = size_t(UINT_MAX) * 4; // 16 GiB
-    if ( filelength >= maxFileSZ ) {
-        // Cannot handle files which won't fit in buffer together with null terminator
+    if ( file_size >= maxFileSZ ) {
         SetError( XML_ERROR_FILE_READ_ERROR, 0, 0 );
         return _errorID;
     }
 
-    if ( filelength == 0 ) {
+    if ( file_size == 0 ) {
         SetError( XML_ERROR_EMPTY_DOCUMENT, 0, 0 );
         return _errorID;
     }
 
-    const size_t size = static_cast<size_t>(filelength);
-    assert( _charBuffer == 0 );
-    _charBuffer = new char[size+1];
-    const size_t read = fread( _charBuffer, 1, size, fp );
-    if ( read != size ) {
+    assert( ! _charBuffer );
+    _charBuffer = new char[file_size + 1];
+
+    size_t read = ::fread( _charBuffer, 1, file_size, fp );
+    if ( read != file_size ) {
+        perror("fread");
         SetError( XML_ERROR_FILE_READ_ERROR, 0, 0 );
         return _errorID;
     }
 
-    _charBuffer[size] = 0;
+    _charBuffer[file_size] = 0;
 
-    Parse();
+    Parse0();
     return _errorID;
 }
 
@@ -2246,11 +2255,11 @@ XMLError XMLDocument::Parse( const char* xml, size_t nBytes ) noexcept
         nBytes = strlen( xml );
     }
     assert( _charBuffer == 0 );
-    _charBuffer = new char[ nBytes+1 ];
+    _charBuffer = new char[ nBytes + 1 ];
     memcpy( _charBuffer, xml, nBytes );
     _charBuffer[nBytes] = 0;
 
-    Parse();
+    Parse0();
     if ( Error() ) {
         // clean up now essentially dangling memory.
         // and the parse fail can put objects in the
@@ -2289,11 +2298,16 @@ void XMLDocument::SetError( XMLError error, int lineNum, const char* format, ...
     _errorLineNum = lineNum;
     _errorStr.Reset();
 
-    const size_t BUFFER_SIZE = 1000;
-    char* buffer = new char[BUFFER_SIZE];
+    constexpr size_t BUFFER_SIZE = 5000; // unix file names can be up to 4K long
+    char buffer[BUFFER_SIZE + 2];
+    buffer[0] = 0;
+    buffer[1] = 0;
+    buffer[BUFFER_SIZE - 1] = 0;
+    buffer[BUFFER_SIZE] = 0;
 
     assert(sizeof(error) <= sizeof(int));
-    snprintf(buffer, BUFFER_SIZE, "Error=%s ErrorID=%d (0x%x) Line number=%d", ErrorIDToName(error), int(error), int(error), lineNum);
+    snprintf(buffer, BUFFER_SIZE, "Error=%s ErrorID=%d (0x%x) Line number=%d",
+                ErrorIDToName(error), int(error), int(error), lineNum);
 
     if (format) {
         size_t len = strlen(buffer);
@@ -2306,7 +2320,6 @@ void XMLDocument::SetError( XMLError error, int lineNum, const char* format, ...
         va_end(va);
     }
     _errorStr.SetStr(buffer);
-    delete[] buffer;
 }
 
 /*static*/ const char* XMLDocument::ErrorIDToName(XMLError errorID) noexcept
@@ -2332,7 +2345,7 @@ const char* XMLDocument::ErrorName() const noexcept
     return ErrorIDToName(_errorID);
 }
 
-void XMLDocument::Parse() noexcept
+void XMLDocument::Parse0() noexcept
 {
     assert( NoChildren() ); // Clear() must have been called previously
     assert( _charBuffer );
@@ -2378,7 +2391,7 @@ XMLPrinter::XMLPrinter( FILE* file, bool compact, int depth ) noexcept
         _restrictedEntityFlag[i] = false;
     }
     for( int i=0; i<NUM_ENTITIES; ++i ) {
-        const char entityValue = entities[i].value;
+        const char entityValue = s_entities[i].value;
         const uint8_t flagIndex = static_cast<uint8_t>(entityValue);
         assert( flagIndex < ENTITY_RANGE );
         _entityFlag[flagIndex] = true;
@@ -2398,7 +2411,7 @@ void XMLPrinter::Print( const char* format, ... ) noexcept
         vfprintf( _fp, format, va );
     }
     else {
-        const int len = TIXML_VSCPRINTF( format, va );
+        int len = TIXML_VSCPRINTF( format, va );
         // Close out and re-start the va-args
         va_end( va );
         assert( len >= 0 );
@@ -2443,7 +2456,7 @@ void XMLPrinter::PrintSpace( int depth ) noexcept
 
 void XMLPrinter::PrintString( const char* p, bool restricted ) noexcept
 {
-    // Look for runs of bytes between entities to print.
+    // Look for runs of bytes between s_entities to print.
     const char* q = p;
 
     if ( _processEntities ) {
@@ -2452,21 +2465,21 @@ void XMLPrinter::PrintString( const char* p, bool restricted ) noexcept
             assert( p <= q );
             // Remember, char is sometimes signed. (How many times has that bitten me?)
             if ( *q > 0 && *q < ENTITY_RANGE ) {
-                // Check for entities. If one is found, flush
+                // Check for s_entities. If one is found, flush
                 // the stream up until the entity, write the
                 // entity, and keep looking.
                 if ( flag[static_cast<uint8_t>(*q)] ) {
                     while ( p < q ) {
-                        const size_t delta = q - p;
-                        const int toPrint = ( INT_MAX < delta ) ? INT_MAX : static_cast<int>(delta);
+                        size_t delta = q - p;
+                        int toPrint = ( INT_MAX < delta ) ? INT_MAX : static_cast<int>(delta);
                         Write( p, toPrint );
                         p += toPrint;
                     }
                     bool entityPatternPrinted = false;
                     for( int i=0; i<NUM_ENTITIES; ++i ) {
-                        if ( entities[i].value == *q ) {
+                        if ( s_entities[i].value == *q ) {
                             Putc( '&' );
-                            Write( entities[i].pattern, entities[i].length );
+                            Write( s_entities[i].pattern, s_entities[i].length );
                             Putc( ';' );
                             entityPatternPrinted = true;
                             break;
@@ -2485,8 +2498,8 @@ void XMLPrinter::PrintString( const char* p, bool restricted ) noexcept
         // Flush the remaining string. This will be the entire
         // string if an entity wasn't found.
         if ( p < q ) {
-            const size_t delta = q - p;
-            const int toPrint = ( INT_MAX < delta ) ? INT_MAX : static_cast<int>(delta);
+            size_t delta = q - p;
+            int toPrint = ( INT_MAX < delta ) ? INT_MAX : static_cast<int>(delta);
             Write( p, toPrint );
         }
     }

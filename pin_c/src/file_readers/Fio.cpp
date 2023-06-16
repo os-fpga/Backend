@@ -669,19 +669,6 @@ bool CSV_Reader::readCsv(bool cutComments) noexcept {
   return ok;
 }
 
-static inline bool is_integer(const char* z) noexcept {
-  if (!z || !z[0]) return false;
-  if (*z == '-' || *z == '+') z++;
-  if (!(*z)) return false;
-
-  for (; *z; z++) {
-    bool is_digit = (uint32_t(*z) - '0' < 10u);
-    if (!is_digit) return false;
-  }
-
-  return true;
-}
-
 bool CSV_Reader::parse(bool cutComments) noexcept {
   if (!sz_ || !fsz_) return false;
   if (!buf_) return false;
@@ -1087,8 +1074,9 @@ bool XML_Reader::readXml() noexcept {
   return ok;
 }
 
-#if 0
-struct XML_Reader::Visitor : public pugRd::xml_tree_walker
+using namespace tinxml2;
+
+struct XML_Reader::Visitor : public XMLVisitor
 {
     XML_Reader& reader_;
 
@@ -1098,9 +1086,39 @@ struct XML_Reader::Visitor : public pugRd::xml_tree_walker
 
     virtual ~Visitor() { }
 
-    virtual bool for_each(pugRd::xml_node& node) noexcept;
+    virtual bool VisitEnter( const XMLDocument& doc ) noexcept {
+        return true;
+    }
+    virtual bool VisitExit( const XMLDocument& doc ) noexcept {
+        return true;
+    }
+
+    virtual bool VisitEnter( const XMLElement& element,
+                    const XMLAttribute* firstAttribute ) noexcept {
+        return true;
+    }
+    virtual bool VisitExit( const XMLElement& element ) noexcept {
+        return true;
+    }
+
+    virtual bool Visit( const XMLDeclaration& declaration ) noexcept {
+        return true;
+    }
+
+    virtual bool Visit( const XMLText& text ) noexcept {
+        return true;
+    }
+
+    virtual bool Visit( const XMLComment& comment ) noexcept {
+        return true;
+    }
+
+    virtual bool Visit( const XMLUnknown& unknown ) noexcept {
+        return true;
+    }
 };
 
+#if 0
 bool XML_Reader::Visitor::for_each(pugRd::xml_node& node) noexcept {
     reader_.elems_.push_back(&node);
     return true;

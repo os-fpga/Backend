@@ -43,13 +43,7 @@ distribution.
 #include <cassert>
 
 //   g++ -Wall  -DTINYXML2_DEBUG tinyxml2.cpp xmltest.cpp -o gccxmltest.exe
-
-#if defined( _DEBUG ) || defined (__DEBUG__)
-#   ifndef TINYXML2_DEBUG
-#       define TINYXML2_DEBUG
-#   endif
-#endif
-
+#define TINYXML2_DEBUG
 
 #define TINYXML2_MAJOR_VERSION 9
 #define TINYXML2_MINOR_VERSION 0
@@ -70,6 +64,32 @@ class XMLText;
 class XMLDeclaration;
 class XMLUnknown;
 class XMLPrinter;
+
+
+enum XMLError { // WARNING: must match XMLDocument::_errorNames[]
+    XML_SUCCESS = 0,
+    XML_NO_ATTRIBUTE,
+    XML_WRONG_ATTRIBUTE_TYPE,
+    XML_ERROR_FILE_NOT_FOUND,
+    XML_ERROR_FILE_COULD_NOT_BE_OPENED,
+    XML_ERROR_FILE_READ_ERROR,
+    XML_ERROR_PARSING_ELEMENT,
+    XML_ERROR_PARSING_ATTRIBUTE,
+    XML_ERROR_PARSING_TEXT,
+    XML_ERROR_PARSING_CDATA,
+    XML_ERROR_PARSING_COMMENT,
+    XML_ERROR_PARSING_DECLARATION,
+    XML_ERROR_PARSING_UNKNOWN,
+    XML_ERROR_EMPTY_DOCUMENT,
+    XML_ERROR_MISMATCHED_ELEMENT,
+    XML_ERROR_PARSING,
+    XML_CAN_NOT_CONVERT_TEXT,
+    XML_NO_TEXT_NODE,
+    XML_ELEMENT_DEPTH_EXCEEDED,
+
+    XML_ERROR_COUNT
+};
+
 
 /*
     A class that wraps strings. Normally stores the start and end
@@ -263,10 +283,10 @@ private:
         }
     }
 
-    T*  _mem;
+    T*  _mem = 0;
     T   _pool[INITIAL_SIZE];
-    int _allocated;        // objects allocated
-    int _size;            // number objects in use
+    int _allocated = 0;  // objects allocated
+    int _size = 0;       // number objects in use
 };
 
 
@@ -277,13 +297,13 @@ private:
 class MemPool
 {
 public:
-    MemPool() {}
+    MemPool() noexcept = default;
     virtual ~MemPool() {}
 
-    virtual int ItemSize() const = 0;
-    virtual void* Alloc() = 0;
-    virtual void Free( void* ) = 0;
-    virtual void SetTracked() = 0;
+    virtual int ItemSize() const noexcept = 0;
+    virtual void* Alloc() noexcept = 0;
+    virtual void Free( void* ) noexcept = 0;
+    virtual void SetTracked() noexcept = 0;
 };
 
 
@@ -294,12 +314,15 @@ template< int ITEM_SIZE >
 class MemPoolT : public MemPool
 {
 public:
-    MemPoolT() : _blockPtrs(), _root(0), _currentAllocs(0), _nAllocs(0), _maxAllocs(0), _nUntracked(0)    {}
+    MemPoolT() noexcept
+      : _blockPtrs(), _root(0), _currentAllocs(0), _nAllocs(0), _maxAllocs(0), _nUntracked(0)
+    { }
+
     ~MemPoolT() {
         MemPoolT< ITEM_SIZE >::Clear();
     }
 
-    void Clear() {
+    void Clear() noexcept {
         // Delete the blocks.
         while( !_blockPtrs.Empty()) {
             Block* lastBlock = _blockPtrs.Pop();
@@ -312,14 +335,11 @@ public:
         _nUntracked = 0;
     }
 
-    virtual int ItemSize() const    {
-        return ITEM_SIZE;
-    }
-    int CurrentAllocs() const        {
-        return _currentAllocs;
-    }
+    virtual int ItemSize() const noexcept { return ITEM_SIZE; }
 
-    virtual void* Alloc() {
+    int CurrentAllocs() const noexcept { return _currentAllocs; }
+
+    virtual void* Alloc() noexcept {
         if ( !_root ) {
             // Need a new block.
             Block* block = new Block;
@@ -345,7 +365,7 @@ public:
         return result;
     }
 
-    virtual void Free( void* mem ) {
+    virtual void Free( void* mem ) noexcept {
         if ( !mem ) {
             return;
         }
@@ -357,19 +377,16 @@ public:
         item->next = _root;
         _root = item;
     }
-    void Trace( const char* name ) {
+
+    void Trace( const char* name ) noexcept {
         printf( "Mempool %s watermark=%d [%dk] current=%d size=%d nAlloc=%d blocks=%d\n",
                 name, _maxAllocs, _maxAllocs * ITEM_SIZE / 1024, _currentAllocs,
                 ITEM_SIZE, _nAllocs, _blockPtrs.Size() );
     }
 
-    void SetTracked() {
-        --_nUntracked;
-    }
+    void SetTracked() noexcept { --_nUntracked; }
 
-    int Untracked() const {
-        return _nUntracked;
-    }
+    int Untracked() const noexcept { return _nUntracked; }
 
     // This number is perf sensitive. 4k seems like a good tradeoff on my machine.
     // The test file is large, 170k.
@@ -382,7 +399,7 @@ public:
     //        64k:    4000    21000
     // Declared public because some compilers do not accept to use ITEMS_PER_BLOCK
     // in private part if ITEMS_PER_BLOCK is private
-    enum { ITEMS_PER_BLOCK = (4 * 1024) / ITEM_SIZE };
+    static constexpr int  ITEMS_PER_BLOCK  =  (4 * 1024) / ITEM_SIZE;
 
 private:
     MemPoolT( const MemPoolT& ) = delete; // not supported
@@ -395,13 +412,14 @@ private:
     struct Block {
         Item items[ITEMS_PER_BLOCK];
     };
-    DynArray< Block*, 10 > _blockPtrs;
-    Item* _root;
 
-    int _currentAllocs;
-    int _nAllocs;
-    int _maxAllocs;
-    int _nUntracked;
+    DynArray< Block*, 10 > _blockPtrs;
+    Item* _root = nullptr;
+
+    int _currentAllocs = 0;
+    int _nAllocs = 0;
+    int _maxAllocs = 0;
+    int _nUntracked = 0;
 };
 
 
@@ -431,74 +449,49 @@ public:
     virtual ~XMLVisitor() {}
 
     /// Visit a document.
-    virtual bool VisitEnter( const XMLDocument& /*doc*/ )            {
+    virtual bool VisitEnter( const XMLDocument& /*doc*/ ) noexcept {
         return true;
     }
     /// Visit a document.
-    virtual bool VisitExit( const XMLDocument& /*doc*/ )            {
+    virtual bool VisitExit( const XMLDocument& /*doc*/ ) noexcept {
         return true;
     }
 
     /// Visit an element.
-    virtual bool VisitEnter( const XMLElement& /*element*/, const XMLAttribute* /*firstAttribute*/ )    {
+    virtual bool VisitEnter( const XMLElement& /*element*/, const XMLAttribute* /*firstAttribute*/ ) noexcept {
         return true;
     }
     /// Visit an element.
-    virtual bool VisitExit( const XMLElement& /*element*/ )            {
+    virtual bool VisitExit( const XMLElement& /*element*/ ) noexcept {
         return true;
     }
 
     /// Visit a declaration.
-    virtual bool Visit( const XMLDeclaration& /*declaration*/ )        {
+    virtual bool Visit( const XMLDeclaration& /*declaration*/ ) noexcept {
         return true;
     }
     /// Visit a text node.
-    virtual bool Visit( const XMLText& /*text*/ )                    {
+    virtual bool Visit( const XMLText& /*text*/ ) noexcept {
         return true;
     }
     /// Visit a comment node.
-    virtual bool Visit( const XMLComment& /*comment*/ )                {
+    virtual bool Visit( const XMLComment& /*comment*/ ) noexcept {
         return true;
     }
     /// Visit an unknown node.
-    virtual bool Visit( const XMLUnknown& /*unknown*/ )                {
+    virtual bool Visit( const XMLUnknown& /*unknown*/ ) noexcept {
         return true;
     }
-};
-
-// WARNING: must match XMLDocument::_errorNames[]
-enum XMLError {
-    XML_SUCCESS = 0,
-    XML_NO_ATTRIBUTE,
-    XML_WRONG_ATTRIBUTE_TYPE,
-    XML_ERROR_FILE_NOT_FOUND,
-    XML_ERROR_FILE_COULD_NOT_BE_OPENED,
-    XML_ERROR_FILE_READ_ERROR,
-    XML_ERROR_PARSING_ELEMENT,
-    XML_ERROR_PARSING_ATTRIBUTE,
-    XML_ERROR_PARSING_TEXT,
-    XML_ERROR_PARSING_CDATA,
-    XML_ERROR_PARSING_COMMENT,
-    XML_ERROR_PARSING_DECLARATION,
-    XML_ERROR_PARSING_UNKNOWN,
-    XML_ERROR_EMPTY_DOCUMENT,
-    XML_ERROR_MISMATCHED_ELEMENT,
-    XML_ERROR_PARSING,
-    XML_CAN_NOT_CONVERT_TEXT,
-    XML_NO_TEXT_NODE,
-    XML_ELEMENT_DEPTH_EXCEEDED,
-
-    XML_ERROR_COUNT
 };
 
 
 /*
     Utility functionality.
 */
-class XMLUtil
+struct XMLUtil
 {
-public:
-    static const char* SkipWhiteSpace( const char* p, int* curLineNumPtr )    {
+    static const char* SkipWhiteSpace( const char* p, int* curLineNumPtr ) noexcept
+    {
         assert( p );
 
         while( IsWhiteSpace(*p) ) {
@@ -510,7 +503,7 @@ public:
         assert( p );
         return p;
     }
-    static char* SkipWhiteSpace( char* const p, int* curLineNumPtr ) {
+    static char* SkipWhiteSpace( char* const p, int* curLineNumPtr ) noexcept {
         return const_cast<char*>( SkipWhiteSpace( const_cast<const char*>(p), curLineNumPtr ) );
     }
 
@@ -638,46 +631,46 @@ public:
     }
 
     /// Safely cast to an Element, or null.
-    virtual XMLElement*        ToElement()   noexcept   {
+    virtual XMLElement*  ToElement()  noexcept  {
         return 0;
     }
     /// Safely cast to Text, or null.
-    virtual XMLText*        ToText()    noexcept    {
+    virtual XMLText*  ToText()  noexcept  {
         return 0;
     }
     /// Safely cast to a Comment, or null.
-    virtual XMLComment*        ToComment()   noexcept     {
+    virtual XMLComment*  ToComment()  noexcept  {
         return 0;
     }
     /// Safely cast to a Document, or null.
-    virtual XMLDocument*    ToDocument()  noexcept    {
+    virtual XMLDocument*  ToDocument()  noexcept  {
         return 0;
     }
     /// Safely cast to a Declaration, or null.
-    virtual XMLDeclaration*    ToDeclaration()  noexcept    {
+    virtual XMLDeclaration*  ToDeclaration()  noexcept {
         return 0;
     }
     /// Safely cast to an Unknown, or null.
-    virtual XMLUnknown*   ToUnknown()  noexcept    {
+    virtual XMLUnknown*  ToUnknown()  noexcept  {
         return 0;
     }
 
-    virtual const XMLElement*    ToElement() const noexcept    {
+    virtual const XMLElement*  ToElement() const noexcept {
         return 0;
     }
-    virtual const XMLText*     ToText() const noexcept    {
+    virtual const XMLText*  ToText() const noexcept {
         return 0;
     }
-    virtual const XMLComment*    ToComment() const noexcept      {
+    virtual const XMLComment*  ToComment() const noexcept {
         return 0;
     }
-    virtual const XMLDocument*      ToDocument() const noexcept      {
+    virtual const XMLDocument*  ToDocument() const noexcept {
         return 0;
     }
-    virtual const XMLDeclaration*    ToDeclaration() const noexcept    {
+    virtual const XMLDeclaration*  ToDeclaration() const noexcept {
         return 0;
     }
-    virtual const XMLUnknown*  ToUnknown() const noexcept    {
+    virtual const XMLUnknown*  ToUnknown() const noexcept {
         return 0;
     }
 
@@ -737,13 +730,8 @@ public:
     }
 
     /// Get the previous (left) sibling node of this node.
-    const XMLNode*    PreviousSibling()  const  noexcept   {
-        return _prev;
-    }
-
-    XMLNode*  PreviousSibling()  noexcept   {
-        return _prev;
-    }
+    const XMLNode*  PreviousSibling() const noexcept { return _prev; }
+    XMLNode*  PreviousSibling() noexcept { return _prev; }
 
     /// Get the previous (left) sibling element of this node, with an optionally supplied name.
     const XMLElement*  PreviousSiblingElement( const char* name = 0 ) const noexcept;
@@ -753,18 +741,18 @@ public:
     }
 
     /// Get the next (right) sibling node of this node.
-    const XMLNode*    NextSibling()  const noexcept    {
+    const XMLNode*   NextSibling()  const noexcept  {
         return _next;
     }
 
-    XMLNode*   NextSibling()  noexcept   {
+    XMLNode*   NextSibling()  noexcept  {
         return _next;
     }
 
     /// Get the next (right) sibling element of this node, with an optionally supplied name.
-    const XMLElement*    NextSiblingElement( const char* name = 0 ) const noexcept;
+    const XMLElement*  NextSiblingElement( const char* name = 0 ) const noexcept;
 
-    XMLElement*    NextSiblingElement( const char* name = 0 )  noexcept  {
+    XMLElement*  NextSiblingElement( const char* name = 0 )  noexcept  {
         return const_cast<XMLElement*>(const_cast<const XMLNode*>(this)->NextSiblingElement( name ) );
     }
 
@@ -777,9 +765,10 @@ public:
     */
     XMLNode* InsertEndChild( XMLNode* addThis ) noexcept;
 
-    XMLNode* LinkEndChild( XMLNode* addThis ) noexcept   {
+    XMLNode* LinkEndChild( XMLNode* addThis ) noexcept {
         return InsertEndChild( addThis );
     }
+
     /**
         Add a child node as the first (left) child.
         If the child node is already part of the document,
@@ -788,6 +777,7 @@ public:
         belong to the same document.
     */
     XMLNode* InsertFirstChild( XMLNode* addThis ) noexcept;
+
     /**
         Add a node after the specified child node.
         If the child node is already part of the document,
@@ -871,14 +861,14 @@ public:
         no way processes or interprets user data.
         It is initially 0.
     */
-    void SetUserData(void* userData)    { _userData = userData; }
+    void SetUserData(void* userData) noexcept { _userData = userData; }
 
     /**
         Get user data set into the XMLNode. TinyXML-2 in
         no way processes or interprets user data.
         It is initially 0.
     */
-    void* GetUserData() const            { return _userData; }
+    void* GetUserData() const { return _userData; }
 
 protected:
     explicit XMLNode( XMLDocument* ) noexcept;
@@ -942,19 +932,19 @@ public:
     void SetCData( bool isCData )    noexcept      {
         _isCData = isCData;
     }
+
     /// Returns true if this is a CDATA text element.
-    bool CData() const     noexcept       {
-        return _isCData;
-    }
+    bool CData() const noexcept { return _isCData; }
 
     virtual XMLNode* ShallowClone( XMLDocument* document ) const noexcept;
     virtual bool ShallowEqual( const XMLNode* compare ) const noexcept;
 
 protected:
     explicit XMLText( XMLDocument* doc ) noexcept
-      : XMLNode( doc ), _isCData( false )   {}
+      : XMLNode( doc ), _isCData( false )
+    { }
 
-    virtual ~XMLText()   {}
+    virtual ~XMLText() { }
 
     char* ParseDeep( char* p, StrPair* parentEndTag, int* curLineNumPtr ) noexcept;
 
@@ -971,10 +961,10 @@ class XMLComment : public XMLNode
 {
     friend class XMLDocument;
 public:
-    virtual XMLComment*    ToComment()   noexcept    {
+    virtual XMLComment*  ToComment()  noexcept  {
         return this;
     }
-    virtual const XMLComment* ToComment() const noexcept    {
+    virtual const XMLComment* ToComment() const noexcept  {
         return this;
     }
 
@@ -1011,7 +1001,7 @@ class XMLDeclaration : public XMLNode
 {
     friend class XMLDocument;
 public:
-    virtual XMLDeclaration*    ToDeclaration()   noexcept   {
+    virtual XMLDeclaration*  ToDeclaration()  noexcept  {
         return this;
     }
     virtual const XMLDeclaration* ToDeclaration() const  noexcept  {
@@ -1047,10 +1037,10 @@ class XMLUnknown : public XMLNode
 {
     friend class XMLDocument;
 public:
-    virtual XMLUnknown*  ToUnknown()  noexcept   {
+    virtual XMLUnknown*  ToUnknown()  noexcept  {
         return this;
     }
-    virtual const XMLUnknown*  ToUnknown() const noexcept   {
+    virtual const XMLUnknown*  ToUnknown() const noexcept  {
         return this;
     }
 
@@ -1100,7 +1090,7 @@ public:
         If the value isn't an integer, 0 will be returned. There is no error checking;
         use QueryIntValue() if you need error checking.
     */
-    int  IntValue() const noexcept {
+    int IntValue() const noexcept {
         int i = 0;
         QueryIntValue(&i);
         return i;
@@ -1124,20 +1114,23 @@ public:
         QueryUnsignedValue( &i );
         return i;
     }
+
     /// Query as a boolean. See IntValue()
-    bool     BoolValue() const noexcept  {
+    bool BoolValue() const noexcept {
         bool b=false;
         QueryBoolValue( &b );
         return b;
     }
+
     /// Query as a double. See IntValue()
-    double      DoubleValue() const noexcept  {
+    double DoubleValue() const noexcept {
         double d=0;
         QueryDoubleValue( &d );
         return d;
     }
+
     /// Query as a float. See IntValue()
-    float     FloatValue() const noexcept  {
+    float   FloatValue() const noexcept {
         float f=0;
         QueryFloatValue( &f );
         return f;
@@ -1284,7 +1277,7 @@ public:
         QueryIntAttribute( "foo", &value );        // if "foo" isn't found, value will still be 10
         @endverbatim
     */
-    XMLError QueryIntAttribute( const char* name, int* value ) const noexcept  {
+    XMLError QueryIntAttribute( const char* name, int* value ) const noexcept {
         const XMLAttribute* a = FindAttribute( name );
         if ( !a ) {
             return XML_NO_ATTRIBUTE;
@@ -1293,7 +1286,7 @@ public:
     }
 
     /// See QueryIntAttribute()
-    XMLError QueryUnsignedAttribute( const char* name, unsigned int* value ) const noexcept  {
+    XMLError QueryUnsignedAttribute( const char* name, unsigned int* value ) const noexcept {
         const XMLAttribute* a = FindAttribute( name );
         if ( !a ) {
             return XML_NO_ATTRIBUTE;
@@ -1320,7 +1313,7 @@ public:
     }
 
     /// See QueryIntAttribute()
-    XMLError QueryBoolAttribute( const char* name, bool* value ) const noexcept  {
+    XMLError QueryBoolAttribute( const char* name, bool* value ) const noexcept {
         const XMLAttribute* a = FindAttribute( name );
         if ( !a ) {
             return XML_NO_ATTRIBUTE;
@@ -1328,7 +1321,7 @@ public:
         return a->QueryBoolValue( value );
     }
     /// See QueryIntAttribute()
-    XMLError QueryDoubleAttribute( const char* name, double* value ) const noexcept   {
+    XMLError QueryDoubleAttribute( const char* name, double* value ) const noexcept {
         const XMLAttribute* a = FindAttribute( name );
         if ( !a ) {
             return XML_NO_ATTRIBUTE;
@@ -1336,7 +1329,7 @@ public:
         return a->QueryDoubleValue( value );
     }
     /// See QueryIntAttribute()
-    XMLError QueryFloatAttribute( const char* name, float* value ) const noexcept   {
+    XMLError QueryFloatAttribute( const char* name, float* value ) const noexcept {
         const XMLAttribute* a = FindAttribute( name );
         if ( !a ) {
             return XML_NO_ATTRIBUTE;
@@ -1410,12 +1403,12 @@ public:
         a->SetAttribute( value );
     }
     /// Sets the named attribute to value.
-    void SetAttribute( const char* name, int value )  noexcept    {
+    void SetAttribute( const char* name, int value ) noexcept {
         XMLAttribute* a = FindOrCreateAttribute( name );
         a->SetAttribute( value );
     }
     /// Sets the named attribute to value.
-    void SetAttribute( const char* name, unsigned value )  noexcept   {
+    void SetAttribute( const char* name, unsigned value ) noexcept {
         XMLAttribute* a = FindOrCreateAttribute( name );
         a->SetAttribute( value );
     }
@@ -1433,17 +1426,17 @@ public:
     }
 
     /// Sets the named attribute to value.
-    void SetAttribute( const char* name, bool value )  noexcept   {
+    void SetAttribute( const char* name, bool value ) noexcept {
         XMLAttribute* a = FindOrCreateAttribute( name );
         a->SetAttribute( value );
     }
     /// Sets the named attribute to value.
-    void SetAttribute( const char* name, double value )  noexcept   {
+    void SetAttribute( const char* name, double value ) noexcept {
         XMLAttribute* a = FindOrCreateAttribute( name );
         a->SetAttribute( value );
     }
     /// Sets the named attribute to value.
-    void SetAttribute( const char* name, float value )  noexcept   {
+    void SetAttribute( const char* name, float value ) noexcept {
         XMLAttribute* a = FindOrCreateAttribute( name );
         a->SetAttribute( value );
     }
@@ -1641,10 +1634,11 @@ private:
     static constexpr int BUF_SIZE = 200;
 
     ElementClosingType _closingType;
+
     // The attribute list is ordered; there is no 'lastAttribute'
     // because the list needs to be scanned for dupes before adding
     // a new attribute.
-    XMLAttribute* _rootAttribute;
+    XMLAttribute* _rootAttribute = nullptr;
 };
 
 
@@ -1685,12 +1679,11 @@ public:
 
     /**
         Parse an XML file from a character string.
-        Returns XML_SUCCESS (0) on success, or
-        an errorID.
+        Returns XML_SUCCESS (0) on success, or an errorID.
 
         You may optionally pass in the 'nBytes', which is
         the number of bytes which will be parsed. If not
-        specified, TinyXML-2 will assume 'xml' points to a
+        specified, TinyXML will assume 'xml' points to a
         null terminated string.
     */
     XMLError Parse( const char* xml, size_t nBytes=static_cast<size_t>(-1) ) noexcept;
@@ -1908,7 +1901,7 @@ private:
 
     static const char* _errorNames[XML_ERROR_COUNT];
 
-    void Parse() noexcept;
+    void Parse0() noexcept;
 
     void SetError( XMLError error, int lineNum, const char* format, ... ) noexcept;
 

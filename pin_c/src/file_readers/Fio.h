@@ -305,9 +305,7 @@ class XML_Reader : public MMapReader
 {
 public:
 
-  //struct Visitor; // : public pugRd::xml_tree_walker
-  //::pugRd::xml_document*      doc_ = nullptr;
-  //vector<::pugRd::xml_node*>  nodes_;
+  struct Visitor;  // : public  tinxml2::XMLVisitor
 
   ::tinxml2::XMLDocument*         doc_ = nullptr;
   vector<::tinxml2::XMLElement*>  elems_;
@@ -341,6 +339,32 @@ private:
 };  // XML_Reader
 
 bool addIncludeGuards(LineReader& lr) noexcept;
+
+inline bool is_integer(const char* z) noexcept {
+  if (!z || !z[0]) return false;
+  if (*z == '-' || *z == '+') z++;
+  if (not *z) return false;
+
+  for (; *z; z++) {
+    bool is_digit = (uint32_t(*z) - '0' < 10u);
+    if (!is_digit) return false;
+  }
+
+  return true;
+}
+
+inline bool is_uint(const char* z) noexcept {
+  if (!z || !z[0]) return false;
+  if (*z == '+') z++;
+  if (not *z) return false;
+
+  for (; *z; z++) {
+    bool is_digit = (uint32_t(*z) - '0' < 10u);
+    if (!is_digit) return false;
+  }
+
+  return true;
+}
 
 }  // NS fio
 
