@@ -55,6 +55,7 @@ struct BlifAllocCallback : public blifparse::Callback {
         VTR_ASSERT(blif_format_ == e_circuit_format::BLIF
                    || blif_format_ == e_circuit_format::EBLIF
                    || blif_format_ == e_circuit_format::VERILOG
+                   || blif_format_ == e_circuit_format::VHDL
                    || blif_format_ == e_circuit_format::EDIF);
         inpad_model_ = find_model(MODEL_INPUT);
         outpad_model_ = find_model(MODEL_OUTPUT);

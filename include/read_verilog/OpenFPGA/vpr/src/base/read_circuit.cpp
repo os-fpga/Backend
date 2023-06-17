@@ -46,13 +46,15 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
             circuit_format = e_circuit_format::EBLIF;
         } else if (name_ext[1] == ".v") {
             circuit_format = e_circuit_format::VERILOG;
-        }  else if (name_ext[1] == ".edif") {
+        }  else if (name_ext[1] == ".vhd") {
+            circuit_format = e_circuit_format::VHDL;
+        } else if (name_ext[1] == ".edif") {
             circuit_format = e_circuit_format::EDIF;
-        }  else if (name_ext[1] == ".edn") {
+        } else if (name_ext[1] == ".edn") {
             circuit_format = e_circuit_format::EDIF;
-        }  else if (name_ext[1] == ".edf") {
+        } else if (name_ext[1] == ".edf") {
             circuit_format = e_circuit_format::EDIF;
-        }  else {
+        } else {
             VPR_FATAL_ERROR(VPR_ERROR_ATOM_NETLIST, "Failed to determine file format for '%s' expected .blif or .eblif extension",
                             circuit_file);
         }
@@ -70,6 +72,10 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
             case e_circuit_format::VERILOG:
                 circuit_format = e_circuit_format::EBLIF;
                 netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models, vpr_setup, top_mod);
+                break;
+            case e_circuit_format::VHDL:
+                circuit_format = e_circuit_format::BLIF;
+                netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models,vpr_setup);
                 break;
             case e_circuit_format::EDIF:
                 circuit_format = e_circuit_format::EDIF;
