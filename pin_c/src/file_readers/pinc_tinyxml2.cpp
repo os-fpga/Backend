@@ -2002,7 +2002,7 @@ XMLDocument::XMLDocument( bool processEntities, Whitespace whitespaceMode ) noex
     _whitespaceMode( whitespaceMode ),
     _errorStr(),
     _errorLineNum( 0 ),
-    _charBuffer( 0 ),
+    _charBuffer( nullptr ),
     _parseCurLineNum( 0 ),
     _parsingDepth(0),
     _unlinked(),
@@ -2045,8 +2045,11 @@ void XMLDocument::Clear() noexcept
 #endif
     ClearError();
 
-    delete [] _charBuffer;
-    _charBuffer = 0;
+    if (not IsExternalBuffer())
+        delete [] _charBuffer;
+
+    _charBuffer = nullptr;
+
     _parsingDepth = 0;
 
 #if 0
@@ -2200,6 +2203,8 @@ XMLError XMLDocument::LoadFile( FILE* fp ) noexcept
     }
 
     assert( ! _charBuffer );
+    assert( not IsExternalBuffer() );
+
     _charBuffer = new char[file_size + 1];
 
     size_t read = ::fread( _charBuffer, 1, file_size, fp );
@@ -2254,12 +2259,48 @@ XMLError XMLDocument::Parse( const char* xml, size_t nBytes ) noexcept
     if ( nBytes == static_cast<size_t>(-1) ) {
         nBytes = strlen( xml );
     }
-    assert( _charBuffer == 0 );
+    assert( _charBuffer == nullptr );
+    assert( not IsExternalBuffer() );
+
     _charBuffer = new char[ nBytes + 1 ];
     memcpy( _charBuffer, xml, nBytes );
     _charBuffer[nBytes] = 0;
 
     Parse0();
+
+    if ( Error() ) {
+        // clean up now essentially dangling memory.
+        // and the parse fail can put objects in the
+        // pools that are dead and inaccessible.
+        DeleteChildren();
+        _elementPool.Clear();
+        _attributePool.Clear();
+        _textPool.Clear();
+        _commentPool.Clear();
+    }
+    return _errorID;
+}
+
+XMLError XMLDocument::ParseExternal(char* externalBuffer, size_t nBytes) noexcept
+{
+    Clear();
+
+    if ( nBytes == 0 || !externalBuffer || !*externalBuffer ) {
+        SetError( XML_ERROR_EMPTY_DOCUMENT, 0, 0 );
+        return _errorID;
+    }
+
+    _externalSize = nBytes;
+
+    assert( _charBuffer == nullptr );
+    assert( IsExternalBuffer() );
+
+    _charBuffer = externalBuffer;
+
+    _charBuffer[nBytes] = 0;
+
+    Parse0();
+
     if ( Error() ) {
         // clean up now essentially dangling memory.
         // and the parse fail can put objects in the
