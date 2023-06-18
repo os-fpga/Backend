@@ -1027,37 +1027,33 @@ size_t CSV_Reader::countCommas(const char* src) noexcept {
 
 // ======== 3. XML_Reader ==============================================
 
+using namespace tinxml2;
+
 static constexpr size_t X_nodes_cap0 = 30;
 
-XML_Reader::XML_Reader() noexcept
-{
-    doc_ = new ::tinxml2::XMLDocument;
-    elems_.reserve(X_nodes_cap0);
+XML_Reader::XML_Reader() noexcept {
+  doc_ = new XMLDocument;
+  elems_.reserve(X_nodes_cap0);
 }
 
 XML_Reader::XML_Reader(const char* nm) noexcept
   : MMapReader(nm)
 {
-    doc_ = new ::tinxml2::XMLDocument;
-    elems_.reserve(X_nodes_cap0);
+  doc_ = new XMLDocument;
+  elems_.reserve(X_nodes_cap0);
 }
 
-XML_Reader::XML_Reader(const string& nm) noexcept
-  : MMapReader(nm)
-{
-    doc_ = new ::tinxml2::XMLDocument;
-    elems_.reserve(X_nodes_cap0);
+XML_Reader::XML_Reader(const string& nm) noexcept : MMapReader(nm) {
+  doc_ = new XMLDocument;
+  elems_.reserve(X_nodes_cap0);
 }
 
-XML_Reader::~XML_Reader() {
-  delete doc_;
-}
+XML_Reader::~XML_Reader() { delete doc_; }
 
-void XML_Reader::reset(const char* nm, uint16_t tr) noexcept
-{
+void XML_Reader::reset(const char* nm, uint16_t tr) noexcept {
   elems_.clear();
   delete doc_;
-  doc_ = new ::tinxml2::XMLDocument;
+  doc_ = new XMLDocument;
 
   MMapReader::reset(nm, tr);
 
@@ -1074,56 +1070,50 @@ bool XML_Reader::readXml() noexcept {
   return ok;
 }
 
-using namespace tinxml2;
-
 struct XML_Reader::Visitor : public XMLVisitor
 {
-    XML_Reader& reader_;
+  XML_Reader& reader_;
 
-    Visitor(XML_Reader& rdr) noexcept
-        : reader_(rdr)
-    { }
+  Visitor(XML_Reader& rdr) noexcept
+    : reader_(rdr) {}
 
-    virtual ~Visitor() { }
+  uint16_t trace() const noexcept { return reader_.trace(); }
 
-    virtual bool VisitEnter( const XMLDocument& doc ) noexcept {
-        return true;
-    }
-    virtual bool VisitExit( const XMLDocument& doc ) noexcept {
-        return true;
-    }
+  virtual ~Visitor() {}
 
-    virtual bool VisitEnter( const XMLElement& element,
-                    const XMLAttribute* firstAttribute ) noexcept {
-        return true;
-    }
-    virtual bool VisitExit( const XMLElement& element ) noexcept {
-        return true;
-    }
-
-    virtual bool Visit( const XMLDeclaration& declaration ) noexcept {
-        return true;
-    }
-
-    virtual bool Visit( const XMLText& text ) noexcept {
-        return true;
-    }
-
-    virtual bool Visit( const XMLComment& comment ) noexcept {
-        return true;
-    }
-
-    virtual bool Visit( const XMLUnknown& unknown ) noexcept {
-        return true;
-    }
-};
-
-#if 0
-bool XML_Reader::Visitor::for_each(pugRd::xml_node& node) noexcept {
-    reader_.elems_.push_back(&node);
+  virtual bool VisitEnter(const XMLDocument& doc) noexcept {
+    if (trace() >= 7) lputs(" VisitEnter - Document");
     return true;
-}
-#endif //0
+  }
+  virtual bool VisitExit(const XMLDocument& doc) noexcept {
+    if (trace() >= 7) lputs("  VisitExit - Document");
+    return true;
+  }
+
+  virtual bool VisitEnter(const XMLElement& el, const XMLAttribute* firstAttr) noexcept {
+    if (trace() >= 7) lputs("   VisitEnter - Element");
+    reader_.elems_.push_back(&el);
+    return true;
+  }
+  virtual bool VisitExit(const XMLElement& el) noexcept {
+    if (trace() >= 7) lputs("    VisitExit - Element");
+    return true;
+  }
+
+  virtual bool Visit(const XMLDeclaration& declaration) noexcept {
+    if (trace() >= 7) lputs("        Visit - declaration");
+    return true;
+  }
+
+  virtual bool Visit(const XMLText& text) noexcept {
+    if (trace() >= 7) lputs("        Visit - text");
+    reader_.texts_.push_back(&text);
+    return true;
+  }
+
+  virtual bool Visit(const XMLComment& comment) noexcept { return true; }
+  virtual bool Visit(const XMLUnknown& unknown) noexcept { return true; }
+};
 
 bool XML_Reader::parse() noexcept {
   valid_xml_ = false;
@@ -1133,18 +1123,22 @@ bool XML_Reader::parse() noexcept {
 
   assert(doc_);
 
-#if 0
-  //pugRd::xml_parse_result  parse_res = doc_->load_buffer_inplace(buf_, sz_);
-  pugRd::xml_parse_result  parse_res = doc_->load_buffer(buf_, sz_);
-  //pugRd::xml_parse_result  parse_res = doc_->load_file(fnm_.c_str());
+  if (trace() >= 2) lputs("XML_Reader::parse()");
 
-  valid_xml_ = parse_res;
-  if (!valid_xml_) return false;
+  num_lines_ = 0;
+  for (size_t i = 0; i < sz_; i++) {
+    if (buf_[i] == '\n') num_lines_++;
+  }
+  if (num_lines_ < 2) return false;
+
+  XMLError status = doc_->ParseExternal(buf_, sz_);
+  if (status != XML_SUCCESS) return false;
 
   Visitor vis(*this);
 
-  valid_xml_ = doc_->traverse(vis);
-#endif //0
+  doc_->Accept(&vis);
+
+  valid_xml_ = not elems_.empty();
 
   return valid_xml_;
 }
@@ -1158,41 +1152,36 @@ bool XML_Reader::isValidXml() const noexcept {
 
 int XML_Reader::dprint1() const noexcept {
   lprintf("  fname: %s\n", fnm_.c_str());
-  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  nr_=%zu  nc_=%zu\n", fsz_, sz_,
-          num_lines_, nr_, nc_);
+  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  nr_=%zu  nc_=%zu\n", fsz_, sz_, num_lines_, nr_, nc_);
 
   lprintf("    valid_xml_: %i\n", valid_xml_);
   lprintf(" elems_.size(): %zu\n", elems_.size());
+  lprintf(" texts_.size(): %zu\n", texts_.size());
 
   return sz_;
 }
 
 int XML_Reader::print_nodes() const noexcept {
-  return 0;
-#if 0
   size_t nsz = elems_.size();
   lprintf("    valid_xml_: %i\n", valid_xml_);
   lprintf(" elems_.size(): %zu\n", nsz);
+  lprintf(" texts_.size(): %zu\n", texts_.size());
   if (!valid_xml_) return -1;
   if (elems_.empty()) return 0;
 
   for (size_t i = 0; i < nsz; i++) {
-    ::pugRd::xml_node* nd = elems_[i];
+    const Element* nd = elems_[i];
     assert(nd);
-    if (nd->empty()) {
-      lprintf("%zu:  (empty node)\n", i);
-      continue;
-    }
-    const char* nm = nd->name();
+    const char* nm = nd->Name();
     if (!nm) nm = "";
-    const char* ts = nd->type_str();
+    const char* ts = nd->GetText();
     if (!ts) ts = "";
-    lprintf("%zu:  name= %s  type= %s\n", i, nm, ts);
+    bool is_leaf = not nd->FirstChildElement();
+    lprintf("%zu:  name= %s  text= %s  %s\n", i, nm, ts, is_leaf ? "(leaf)" : "");
   }
 
   return nsz;
-#endif //0
 }
 
-} // NS fio
+}  // NS fio
 

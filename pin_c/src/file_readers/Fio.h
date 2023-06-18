@@ -1,24 +1,25 @@
+#pragma once
 //  - namespace fio - File IO
 // ======== 0. Fio (common base class)
 // ======== 1. MMapReader ============
 // ======== 2. LineReader ============
 // ======== 3. CSV_Reader ============
 // ======== 4. XML_Reader ============
-#pragma once
+
 #ifndef __rs_file_readers_Fio_H_h_
 #define __rs_file_readers_Fio_H_h_
 
 #include "util/pinc_log.h"
 
 namespace tinxml2 {
-    class XMLDocument;
-    class XMLElement;
-    class XMLAttribute;
-    class XMLComment;
-    class XMLText;
-    class XMLDeclaration;
-    class XMLUnknown;
-    class XMLPrinter;
+class XMLDocument;
+class XMLElement;
+class XMLAttribute;
+class XMLComment;
+class XMLText;
+class XMLDeclaration;
+class XMLUnknown;
+class XMLPrinter;
 }
 
 namespace fio {
@@ -87,12 +88,8 @@ public:
     return fn.empty() ? false : regularFileExists(fn.c_str());
   }
 
-  bool fileAccessible() const noexcept {
-    return fnm_.empty() ? false : fileAccessible(fnm_.c_str());
-  }
-  bool fileExists() const noexcept {
-    return fnm_.empty() ? false : regularFileExists(fnm_.c_str());
-  }
+  bool fileAccessible() const noexcept { return fnm_.empty() ? false : fileAccessible(fnm_.c_str()); }
+  bool fileExists() const noexcept { return fnm_.empty() ? false : regularFileExists(fnm_.c_str()); }
   bool fileExistsAccessible() const noexcept {
     if (fnm_.empty()) return false;
     return regularFileExists(fnm_.c_str()) and fileAccessible(fnm_.c_str());
@@ -160,8 +157,7 @@ public:
 
   uint64_t hashSum() const noexcept;
   int dprint() const noexcept;
-
-};  // MMapReader
+}; // MMapReader
 
 
 // ======== 2. LineReader ============
@@ -265,16 +261,14 @@ public:
   vector<string> getColumn(const char* colName) const noexcept;
 
   vector<string> getColumn(const string& colName) const noexcept {
-    if (colName.empty())
-      return {};
+    if (colName.empty()) return {};
     return getColumn(colName.c_str());
   }
 
   vector<int> getColumnInt(const char* colName) const noexcept;
 
   vector<int> getColumnInt(const string& colName) const noexcept {
-    if (colName.empty())
-      return {};
+    if (colName.empty()) return {};
     return getColumnInt(colName.c_str());
   }
 
@@ -304,11 +298,15 @@ private:
 class XML_Reader : public MMapReader
 {
 public:
+  using XMLDocument = ::tinxml2::XMLDocument;
+  using Element = ::tinxml2::XMLElement;
+  using Text = ::tinxml2::XMLText;
 
   struct Visitor;  // : public  tinxml2::XMLVisitor
 
-  ::tinxml2::XMLDocument*         doc_ = nullptr;
-  vector<::tinxml2::XMLElement*>  elems_;
+  XMLDocument*            doc_ = nullptr;
+  vector<const Element*>  elems_;
+  vector<const Text*>     texts_;
 
   const char* headLine_ = nullptr;
   bool valid_xml_ = false;
@@ -335,7 +333,6 @@ public:
   int print_nodes() const noexcept;
 
 private:
-
 };  // XML_Reader
 
 bool addIncludeGuards(LineReader& lr) noexcept;
@@ -369,4 +366,3 @@ inline bool is_uint(const char* z) noexcept {
 }  // NS fio
 
 #endif
-

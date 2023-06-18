@@ -921,12 +921,8 @@ class XMLText : public XMLNode
 public:
     virtual bool Accept( XMLVisitor* visitor ) const noexcept;
 
-    virtual XMLText* ToText()  noexcept     {
-        return this;
-    }
-    virtual const XMLText* ToText() const  noexcept    {
-        return this;
-    }
+    virtual XMLText* ToText()  noexcept { return this; }
+    virtual const XMLText* ToText() const  noexcept { return this; }
 
     /// Declare whether this should be CDATA or standard text.
     void SetCData( bool isCData )    noexcept      {
@@ -1202,21 +1198,18 @@ class XMLElement : public XMLNode
 {
     friend class XMLDocument;
 public:
+
     /// Get the name of an element (which is the Value() of the node.)
-    const char* Name() const noexcept  {
-        return Value();
-    }
+    const char* Name() const noexcept { return Value(); }
+
     /// Set the name of the element.
-    void SetName( const char* str, bool staticMem=false ) noexcept  {
+    void SetName( const char* str, bool staticMem=false ) noexcept {
         SetValue( str, staticMem );
     }
 
-    virtual XMLElement* ToElement() noexcept    {
-        return this;
-    }
-    virtual const XMLElement* ToElement() const noexcept {
-        return this;
-    }
+    virtual XMLElement* ToElement() noexcept { return this; }
+    virtual const XMLElement* ToElement() const noexcept { return this; }
+
     virtual bool Accept( XMLVisitor* visitor ) const noexcept;
 
     /** Given an attribute name, Attribute() returns the value
@@ -1689,6 +1682,11 @@ public:
     XMLError Parse( const char* xml, size_t nBytes=static_cast<size_t>(-1) ) noexcept;
 
     /**
+        Same as Parse(), only the buffer is externally owned.
+    */
+    XMLError ParseExternal(char* externalBuffer, size_t nBytes) noexcept;
+
+    /**
         Load an XML file from disk.
         Returns XML_SUCCESS (0) on success, or
         an errorID.
@@ -1865,26 +1863,29 @@ public:
     // internal
     void MarkInUse(const XMLNode* const) noexcept;
 
-    virtual XMLNode* ShallowClone( XMLDocument* /*document*/ ) const  noexcept  {
-        return 0;
-    }
-    virtual bool ShallowEqual( const XMLNode* /*compare*/ ) const noexcept  {
-        return false;
-    }
+    virtual XMLNode* ShallowClone( XMLDocument* ) const noexcept { return 0; }
+    virtual bool ShallowEqual( const XMLNode* /*compare*/ ) const noexcept { return false; }
+
+    bool IsExternalBuffer() const noexcept { return _externalSize > 0; }
 
 private:
-    XMLDocument( const XMLDocument& ) = delete;    // not supported
-    void operator=( const XMLDocument& ) = delete;    // not supported
+    XMLDocument( const XMLDocument& ) = delete;
+    void operator=( const XMLDocument& ) = delete;
 
     bool            _writeBOM = 0;
     bool            _processEntities = 0;
     XMLError        _errorID;
-    Whitespace        _whitespaceMode;
-    mutable StrPair    _errorStr;
-    int        _errorLineNum = 0;
-    char*      _charBuffer = 0;
-    int        _parseCurLineNum = 0;
-    int        _parsingDepth = 0;
+    Whitespace      _whitespaceMode;
+
+    mutable StrPair  _errorStr;
+    int     _errorLineNum = 0;
+
+    char*   _charBuffer = nullptr;
+
+    size_t  _externalSize = 0; // if _charBuffer is not owned by this XMLDocument
+
+    int     _parseCurLineNum = 0;
+    int     _parsingDepth = 0;
 
     // Memory tracking does add some overhead.
     // However, the code assumes that you don't
