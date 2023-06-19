@@ -10,6 +10,7 @@ enum class e_circuit_format {
     EBLIF, //Structural blif with extensions
     VERILOG, // verilog netlist
     EDIF,
+    VHDL,
     FPGA_INTERCHANGE ///<FPGA Interhange logical netlis format
 };
 
