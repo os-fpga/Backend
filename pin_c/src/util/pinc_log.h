@@ -66,28 +66,111 @@ void lputs9(const char* cs = 0) noexcept;
 void lputsX(const char* cs = 0) noexcept;
 void lputs(const std::string& s) noexcept;
 
-void bh1(const char* fn, int l, const char* s=0) noexcept;
-void bh2(const char* fn, int l, const char* s=0) noexcept;
-void bh3(const char* fn, int l, const char* s=0) noexcept;
+void bh1(const char* fn, int l, const char* s = 0) noexcept;
+void bh2(const char* fn, int l, const char* s = 0) noexcept;
+void bh3(const char* fn, int l, const char* s = 0) noexcept;
 
 void flush_out(bool nl = false) noexcept;
 
 inline std::ostream& lout() noexcept { return std::cout; }
 
-std::string sToLower(const std::string& s) noexcept;
-std::string sToUpper(const std::string& s) noexcept;
-
-inline std::string sToLower(const char* cs) noexcept {
-    std::string e;
-    return (cs && *cs) ? sToLower(std::string(cs)) : e;
+inline char* p_strdup(const char* p) noexcept {
+  if (!p) return nullptr;
+  return ::strdup(p);
 }
-inline std::string sToUpper(const char* cs) noexcept {
-    std::string e;
-    return (cs && *cs) ? sToUpper(std::string(cs)) : e;
+inline size_t p_strlen(const char* p) noexcept { return p ? ::strlen(p) : 0; }
+inline void p_free(void* p) noexcept {
+  if (p) ::free(p);
 }
 
-std::string sReplicate(char c, uint num) noexcept;
-inline std::string sSpace(uint num) noexcept { return sReplicate(' ', num); }
+namespace str {
+
+using std::string;
+
+string sToLower(const string& s) noexcept;
+string sToUpper(const string& s) noexcept;
+
+inline string sToLower(const char* cs) noexcept {
+  string e;
+  return (cs && *cs) ? sToLower(string(cs)) : e;
+}
+inline string sToUpper(const char* cs) noexcept {
+  string e;
+  return (cs && *cs) ? sToUpper(string(cs)) : e;
+}
+
+string sReplicate(char c, uint num) noexcept;
+inline string mkSpace(uint num) noexcept { return sReplicate(' ', num); }
+
+inline string concat(const string& a, const string& b) noexcept { return a + b; }
+
+inline string concat(const string& a, const string& b, const string& c) noexcept {
+  string z;
+  z.reserve(a.length() + b.length() + c.length() + 1);
+  z = a + b + c;
+  return z;
+}
+inline string concat(const string& a, const string& b, const string& c, const string& d) noexcept {
+  string z;
+  z.reserve(a.length() + b.length() + c.length() + d.length() + 1);
+  z = a;
+  z += b;
+  z += c;
+  z += d;
+  return z;
+}
+inline string concat(const string& a, const char* b) noexcept { return b ? a + b : a; }
+
+inline string concat(const char* a, const string& b, const char* c = nullptr) noexcept {
+  size_t len = p_strlen(a) + p_strlen(c) + b.length();
+  if (!len) return {};
+  string z;
+  z.reserve(len + 1);
+  if (a) z = a;
+  z.append(b);
+  if (c) z.append(c);
+  return z;
+}
+
+inline string concat(const string& a, const char* b, const string& c) noexcept {
+  size_t len = a.length() + c.length() + p_strlen(b);
+  if (!len) return {};
+  string z;
+  z.reserve(len + 1);
+  z = a;
+  if (b) z.append(b);
+  z.append(c);
+  return z;
+}
+
+inline string concat(const char* a,
+                     const char* b,
+                     const char* c = nullptr,
+                     const char* d = nullptr) noexcept {
+  size_t len = p_strlen(a) + p_strlen(b) + p_strlen(c) + p_strlen(d);
+  if (!len) return {};
+  string z;
+  z.reserve(len + 1);
+  if (a) z.append(a);
+  if (b) z.append(b);
+  if (c) z.append(c);
+  if (d) z.append(d);
+  return z;
+}
+
+inline string concat(const char* a, const char* b, const string& c, const string& d = "") noexcept {
+  size_t len = c.length() + d.length() + p_strlen(b) + p_strlen(b);
+  if (!len) return {};
+  string z;
+  z.reserve(len + 1);
+  if (a) z.append(a);
+  if (b) z.append(b);
+  z.append(c);
+  z.append(d);
+  return z;
+}
+
+}  // NS str
 
 template <typename T>
 inline void logArray(const T* A, size_t n, const char* pref) noexcept {
@@ -102,8 +185,7 @@ inline void logArray(const T* A, size_t n, const char* pref) noexcept {
 }
 
 template <typename T>
-inline void
-prnArray(std::ostream& os, const T* A, size_t n, const char* pref) noexcept {
+inline void prnArray(std::ostream& os, const T* A, size_t n, const char* pref) noexcept {
   if (pref) os << pref;
   if (!A || !n) {
     os << " (empty)" << std::endl;
@@ -128,13 +210,6 @@ template <typename T>
 inline void logVec(const std::vector<T>& vec, const char* pref) noexcept {
   const T* A = (vec.empty() ? nullptr : vec.data());
   logArray(A, vec.size(), pref);
-}
-
-inline void p_free(void* p) noexcept { if (p) ::free(p); }
-
-inline char* p_strdup(const char* p) noexcept {
-  if (!p) return nullptr;
-  return ::strdup(p);
 }
 
 }  // namespace pinc

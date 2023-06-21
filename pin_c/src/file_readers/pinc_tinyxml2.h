@@ -1693,6 +1693,8 @@ public:
     */
     XMLError LoadFile( const char* filename ) noexcept;
 
+    inline XMLError LoadFile( const std::string& fn ) noexcept { return LoadFile(fn.c_str()); }
+
     /**
         Load an XML file from disk. You are responsible
         for providing and closing the FILE*.

@@ -10,6 +10,7 @@
 #define __rs_file_readers_Fio_H_h_
 
 #include "util/pinc_log.h"
+#include <string_view>
 
 namespace tinxml2 {
 class XMLDocument;
@@ -43,6 +44,7 @@ public:
   size_t sz_ = 0;         // data buffer size
   size_t fsz_ = 0;        // file size
   size_t num_lines_ = 0;  // number of lines
+  size_t max_llen_ = 0;   // max line length
 
   vector<char*> lines_;
 
@@ -56,10 +58,13 @@ public:
 
   virtual void reset(const char* nm, uint16_t tr = 0) noexcept;
 
+  virtual bool makeLines(bool cutComments, bool cutNL) noexcept { return false; }
+
   uint16_t trace() const noexcept { return trace_; }
   void setTrace(int t) noexcept;
 
   size_t numLines() const noexcept { return num_lines_; }
+  size_t maxLineLen() const noexcept { return max_llen_; }
 
   static constexpr size_t kilo2mega(size_t kb) noexcept { return (kb + 512) / 1024; }
   static constexpr size_t bytes2mega(size_t b) noexcept { return (b + 524288) / 1048576; }
@@ -69,11 +74,6 @@ public:
     if (!cs[0]) return 1;
     std::hash<std::string_view> h;
     return h(std::string_view{cs});
-  }
-
-  static constexpr uint64_t hashCombine(uint64_t a, uint64_t b) noexcept {
-    constexpr uint64_t m = 0xc6a4a7935bd1e995;
-    return (a ^ (b * m + (a << 6) + (a >> 2))) + 0xe6546b64;
   }
 
   static bool fileAccessible(const char*) noexcept;
@@ -95,6 +95,14 @@ public:
     return regularFileExists(fnm_.c_str()) and fileAccessible(fnm_.c_str());
   }
 
+  static bool split_com(const char* src, vector<string>& dat) noexcept; // comma
+  static bool split_spa(const char* src, vector<string>& dat) noexcept; // space
+  static bool split_pun(const char* src, vector<string>& dat) noexcept; // punctuation + space
+
+  static const char* firstSpace(const char* src) noexcept;
+  static const char* firstNonSpace(const char* src) noexcept;
+  static bool isEmptyLine(const char* src) noexcept;
+
 public:
   static constexpr size_t lr_MAX_LINE_LEN = 4194304;  //  4 MiB
   static constexpr size_t lr_DEFAULT_CAP = 50331647;  // 48 MiB
@@ -115,6 +123,49 @@ inline bool file_exists_accessible(const char* fn) noexcept {
 inline bool file_exists_accessible(const string& fn) noexcept {
   return Fio::regularFileExists(fn) && Fio::fileAccessible(fn);
 }
+
+namespace hashf {
+
+constexpr uint64_t hashCombine(uint64_t a, uint64_t b) noexcept {
+  constexpr uint64_t m = 0xc6a4a7935bd1e995;
+  return (a ^ (b * m + (a << 6) + (a >> 2))) + 0xe6546b64;
+}
+
+// Fowler,Noll,Vo FNV-64 hash function
+inline size_t hf_FNV64(const char* z) noexcept
+{
+  if (!z) return 0;
+  if (!z[0]) return 1;
+  constexpr size_t FNV_64_H0 = 14695981039346656037ULL;
+  size_t h = FNV_64_H0;
+  for (; *z; z++) {
+    h += (h << 1) + (h << 4) + (h << 5) + (h << 7) + (h << 8) + (h << 40);
+    h ^= *z;
+  }
+  return h;
+}
+inline size_t hf_FNV64(const char* z, size_t len) noexcept
+{
+  if (!z || !len) return 0;
+  if (!z[0]) return 1;
+  constexpr size_t FNV_64_H0 = 14695981039346656037ULL;
+  size_t h = FNV_64_H0;
+  for (size_t i = 0; i < len; i++) {
+    h += (h << 1) + (h << 4) + (h << 5) + (h << 7) + (h << 8) + (h << 40);
+    h ^= z[i];
+  }
+  return h;
+}
+
+inline size_t hf_std(const char* z) noexcept
+{
+  if (!z) return 0;
+  if (!z[0]) return 1;
+  std::hash<std::string_view> h;
+  return h(std::string_view{z});
+}
+
+} // NS hashf
 
 // ======== 1. MMapReader ============
 
@@ -145,9 +196,17 @@ public:
 
   bool read() noexcept;
 
-  bool makeLines(bool cutComments = false) noexcept;
+  virtual bool makeLines(bool cutComments, bool cutNL) noexcept override;
 
   int64_t countLines() const noexcept;
+
+  size_t setNumLines() noexcept {
+    num_lines_ = 0;
+    int64_t n = countLines();
+    if (n > 0)
+        num_lines_ = n;
+    return num_lines_;
+  }
 
   int64_t countWC(int64_t& numWords) const noexcept;  // ~ wc command
   int64_t printWC(std::ostream& os) const noexcept;   // ~ wc command
@@ -156,7 +215,8 @@ public:
   bool advanceLine(char*& curL) noexcept;
 
   uint64_t hashSum() const noexcept;
-  int dprint() const noexcept;
+  int dprint1() const noexcept;
+  int dprint2() const noexcept;
 }; // MMapReader
 
 
@@ -208,15 +268,13 @@ public:
 
   bool read(bool mkLines, bool cutComments = false) noexcept;
 
-  //bool readPipe() noexcept;
-
-  bool makeLines(bool cutComments = false) noexcept;
+  virtual bool makeLines(bool cutComments, bool cutNL) noexcept override;
 
   vector<string> getWords() const noexcept;
 
   uint64_t hashSum() const noexcept;
 
-  int dprint() const noexcept;
+  int dprint1() const noexcept;
 
   void print(std::ostream& os, bool nl) const noexcept;
   size_t printLines(std::ostream& os) const noexcept;
@@ -274,11 +332,6 @@ public:
 
   int dprint1() const noexcept;
 
-  static bool split(const char* src, vector<string>& dat) noexcept;
-
-  static const char* firstSpace(const char* src) noexcept;
-  static const char* firstNonSpace(const char* src) noexcept;
-  static bool isEmptyLine(const char* src) noexcept;
   static size_t countCommas(const char* src) noexcept;
 
 private:
