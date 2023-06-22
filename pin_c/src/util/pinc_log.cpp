@@ -121,38 +121,43 @@ void lprintf(const char* format, ...) {
   }
 }
 
-string sToLower(const string& s) noexcept {
-  if (s.empty()) return {};
-  const char* cs = s.c_str();
-  if (!cs || !cs[0]) return {};
+namespace str {
 
-  string result;
-  result.reserve(s.length() + 1);
-  for (const char* p = cs; *p; p++) result.push_back(std::tolower(*p));
-  return result;
-}
+  string sToLower(const string& s) noexcept {
+    if (s.empty()) return {};
+    const char* cs = s.c_str();
+    if (!cs || !cs[0]) return {};
 
-string sToUpper(const string& s) noexcept {
-  if (s.empty()) return {};
-  const char* cs = s.c_str();
-  if (!cs || !cs[0]) return {};
+    string result;
+    result.reserve(s.length() + 1);
+    for (const char* p = cs; *p; p++) result.push_back(std::tolower(*p));
+    return result;
+  }
 
-  string result;
-  result.reserve(s.length() + 1);
-  for (const char* p = cs; *p; p++) result.push_back(std::toupper(*p));
-  return result;
-}
+  string sToUpper(const string& s) noexcept {
+    if (s.empty()) return {};
+    const char* cs = s.c_str();
+    if (!cs || !cs[0]) return {};
 
-string sReplicate(char c, uint num) noexcept {
-  constexpr uint num_lim = INT_MAX;
-  assert(num < num_lim);
-  if (!num || num > num_lim) return {};
+    string result;
+    result.reserve(s.length() + 1);
+    for (const char* p = cs; *p; p++) result.push_back(std::toupper(*p));
+    return result;
+  }
 
-  string result;
-  result.reserve(num + 1);
-  result.insert(result.end(), num, c);
+  string sReplicate(char c, uint num) noexcept {
+    constexpr uint num_lim = INT_MAX;
+    assert(num < num_lim);
+    if (!num || num > num_lim) return {};
 
-  return result;
-}
+    string result;
+    result.reserve(num + 1);
+    result.insert(result.end(), num, c);
 
-}  // namespace pinc
+    return result;
+  }
+
+}  // NS str
+
+}  // NS pinc
+

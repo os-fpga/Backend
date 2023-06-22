@@ -461,7 +461,7 @@ void RapidCsvReader::print_csv() const {
   ls << "#row\tBump/Pin Name \t Customer Name \t Ball ID "
      << "\t IO_tile_pin\t IO_tile_pin_x\tIO_tile_pin_y\tIO_tile_pin_z"
      << " \t Customer Internal Name" << endl;
-  string dash = sReplicate('-', 139u);
+  string dash = str::sReplicate('-', 139u);
   ls << dash << endl;
 
   uint num_rows = numRows();

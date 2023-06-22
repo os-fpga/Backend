@@ -50,9 +50,183 @@ bool Fio::regularFileExists(const char* fn) noexcept {
 void Fio::reset(const char* nm, uint16_t tr) noexcept {
   sz_ = fsz_ = 0;
   num_lines_ = 0;
+  max_llen_ = 0;
   fnm_.clear();
   setTrace(tr);
   if (nm) fnm_ = nm;
+}
+
+static inline const char* trim_front(const char* z) noexcept
+{
+  if (z && *z) {
+    while (std::isspace(*z)) z++;
+  }
+  return z;
+}
+
+static inline void tokenize_A(char* A, size_t len, vector<string>& dat)
+{
+  assert(A && len);
+  if (!A or !len)
+    return;
+
+  const char* tk = A;
+  for (size_t i = 0; i <= len; i++) {
+    if (A[i]) continue;
+    dat.emplace_back(tk);
+    size_t j = i + 1;
+    for (; j <= len; j++)
+      if (A[j]) break;
+    if (j == len) break;
+    i = j;
+    tk = A + i;
+  }
+}
+
+bool Fio::split_com(const char* src, vector<string>& dat) noexcept {
+  dat.clear();
+  assert(src);
+  if (!src || !src[0]) return false;
+
+  src = trim_front(src);
+
+  if (!src || !src[0]) return false;
+
+  size_t len = ::strlen(src);
+  if (len < 2 || len > fio_MAX_STACK_USE) return false;
+
+  if (!::strchr(src, ',')) return false;
+
+  size_t cap = 2 * len + 4;
+  char scratch[cap];
+  scratch[len] = 0;
+  scratch[len + 1] = 0;
+  scratch[cap - 1] = 0;
+  scratch[cap - 2] = 0;
+
+  // copy 'src' to 'scratch', inserting space between double-commas ",,".
+  char* dest = scratch;
+  for (size_t i = 0; i < len - 1; i++) {
+    char c = src[i];
+    *dest++ = c;
+    if (c == ',' && src[i + 1] == ',') *dest++ = ' ';
+  }
+  *dest++ = src[len - 1];
+  *dest++ = '\0';
+  *dest++ = '\0';
+  len = ::strlen(scratch);
+
+  // tokenize using commas as delimiter:
+  for (char* p = scratch; *p; p++)
+    if (*p == ',') *p = '\0';
+
+  tokenize_A(scratch, len, dat);
+
+  if (dat.empty()) return false;
+
+  // single-space strings to empty strings:
+  for (auto& s : dat) {
+    if (s == " ") s.clear();
+  }
+
+  return true;
+}
+
+bool Fio::split_spa(const char* src, vector<string>& dat) noexcept {
+  dat.clear();
+  assert(src);
+  if (!src || !src[0]) return false;
+
+  src = trim_front(src);
+
+  if (!src || !src[0]) return false;
+
+  size_t len = ::strlen(src);
+  if (len < 2 || len > fio_MAX_STACK_USE) return false;
+
+  char scratch[len + 4];
+  scratch[len] = 0;
+  scratch[len + 1] = 0;
+
+  ::strcpy(scratch, src);
+
+  // write '\0' at delimiters
+  for (char* p = scratch; *p; p++) {
+    char c = *p;
+    if (std::isspace(c)) {
+      *p = '\0';
+    }
+  }
+
+  tokenize_A(scratch, len, dat);
+
+  if (dat.empty()) return false;
+
+  // single-space strings to empty strings:
+  for (auto& s : dat) {
+    if (s == " ") s.clear();
+  }
+
+  return true;
+}
+
+bool Fio::split_pun(const char* src, vector<string>& dat) noexcept {
+  dat.clear();
+  assert(src);
+  if (!src || !src[0]) return false;
+
+  src = trim_front(src);
+
+  if (!src || !src[0]) return false;
+
+  size_t len = ::strlen(src);
+  if (len < 2 || len > fio_MAX_STACK_USE) return false;
+
+  char scratch[len + 4];
+  scratch[len] = 0;
+  scratch[len + 1] = 0;
+
+  ::strcpy(scratch, src);
+
+  // write '\0' at delimiters
+  for (char* p = scratch; *p; p++) {
+    char c = *p;
+    if (c == ',' || std::isspace(c) || std::ispunct(c) || !std::isalnum(c)) {
+      *p = '\0';
+    }
+  }
+
+  tokenize_A(scratch, len, dat);
+
+  if (dat.empty()) return false;
+
+  // single-space strings to empty strings:
+  for (auto& s : dat) {
+    if (s == " ") s.clear();
+  }
+
+  return true;
+}
+
+const char* Fio::firstSpace(const char* src) noexcept {
+  if (!src || !src[0]) return nullptr;
+  for (const char* p = src; *p; p++)
+    if (std::isspace(*p)) return p;
+  return nullptr;
+}
+
+const char* Fio::firstNonSpace(const char* src) noexcept {
+  if (!src || !src[0]) return nullptr;
+  for (const char* p = src; *p; p++)
+    if (!std::isspace(*p)) return p;
+  return nullptr;
+}
+
+bool Fio::isEmptyLine(const char* src) noexcept {
+  if (!src || !src[0]) return true;
+  if (!firstNonSpace(src)) return true;
+  size_t len = ::strnlen(src, 4);
+  return len < 2;
 }
 
 
@@ -187,11 +361,47 @@ int64_t MMapReader::countLines() const noexcept {
   return cnt;
 }
 
-// unix command 'wc'
+static size_t count_words(const char* line) noexcept
+{
+  if (!line || !line[0])
+    return 0;
+  size_t len = ::strlen(line);
+
+  const size_t z = len + 1;
+  void* mem = (z <= fio_MAX_STACK_USE ? alloca(z) : malloc(z));
+  char* s = (char*)mem;
+  ::memcpy(s, line, z);
+  s[z] = '\0';
+  for (size_t i = 0; i < z; i++) {
+    if (!s[z]) s[z] = ' ';
+  }
+  const char* delim = " \t\n";
+
+  size_t nw = 0;
+  char* tk = strtok(s, delim);
+  while (tk) {
+    nw++;
+    tk = strtok(nullptr, delim);
+  }
+
+  if (z > fio_MAX_STACK_USE) ::free(mem);
+
+  return nw;
+}
+
 int64_t MMapReader::countWC(int64_t& numWords) const noexcept {
   assert(fsz_ == sz_);
   numWords = 0;
   if (!fsz_ || !sz_ || !buf_) return -1;
+
+  if (num_lines_ && lines_.size() > 2) {
+    for (size_t li = 1; li < lines_.size(); li++) {
+      char* line = lines_[li];
+      if (!line) continue;
+      numWords += count_words(line);
+    }
+    return num_lines_;
+  }
 
   const size_t z = sz_ + 1;
   void* mem = (z <= fio_MAX_STACK_USE ? alloca(z) : malloc(z));
@@ -231,58 +441,108 @@ uint64_t MMapReader::hashSum() const noexcept {
   assert(fsz_ == sz_);
   if (!fsz_ || !sz_ || !buf_) return 0;
 
-  uint64_t sum = 0;
   if (sz_ <= 16) {
-    for (size_t i = 0; i < sz_; i++) sum = hashCombine(buf_[i], sum);
-    return sum;
+    return hashf::hf_FNV64(buf_, sz_);
   }
 
   constexpr size_t i8 = sizeof(uint64_t);  // 8
 
+  uint64_t sum = 0;
   size_t k = sz_ / i8;
   size_t r = sz_ - k * i8;
 
   for (size_t i = 0; i < k; i += i8) {
     char* p = buf_ + i;
     uint64_t a = *((uint64_t*)p);
-    sum = hashCombine(a, sum);
+    sum = hashf::hashCombine(a, sum);
   }
 
   while (r) {
-    sum = hashCombine(buf_[sz_ - r], sum);
+    sum = hashf::hashCombine(buf_[sz_ - r], sum);
     r--;
   }
 
   return sum;
 }
 
-int MMapReader::dprint() const noexcept {
+int MMapReader::dprint1() const noexcept {
   lprintf(" fname: %s\n", fnm_.c_str());
-  lprintf("  fsz_ %zu  sz_= %zu \n", fsz_, sz_);
+  lprintf("  fsz_ %zu  sz_= %zu  num_lines_= %zu\n", fsz_, sz_, num_lines_);
+  lprintf("  mapped:%i\n", isMapped());
 
   return sz_;
 }
 
-bool MMapReader::makeLines(bool cutComments) noexcept {
+int MMapReader::dprint2() const noexcept {
+  dprint1();
+  if (!sz_)
+    return 0;
+  if (!num_lines_ || lines_.empty())
+    return 0;
+
+  lout() << "  hashSum= " << hashSum() << endl;
+  lprintf("  num_lines_= %zu  lines_.size()= %zu  max_llen_= %zu\n",
+          num_lines_, lines_.size(), max_llen_);
+
+  int64_t numLines, numWords = 0;
+  numLines = countWC(numWords);
+
+  lout() << "[WC]  L: " << numLines << "  W: " << numWords
+         << "  C: " << sz_ << "  " << fnm_ << endl;
+
+  return sz_;
+}
+
+bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
   lines_.clear();
+  max_llen_ = 0;
 
   if (!sz_ || !fsz_) return false;
   if (!buf_) return false;
-  if (!num_lines_) return false;
 
+  if (cutNL) {
+    num_lines_ = 0;
+    // count lines
+    for (size_t i = 0; i < sz_; i++) {
+      if (buf_[i] == '\n') num_lines_++;
+    }
+    if (!num_lines_) {
+      if (trace() >= 4) {
+        lputs("MReader::makeLines-1 not_OK: num_lines_ == 0");
+      }
+      return false;
+    }
+    // replace '\n' by 0
+    for (size_t i = 0; i < sz_; i++) {
+      if (buf_[i] == '\n') buf_[i] = 0;
+    }
+  }
+  else {
+    if (!num_lines_) {
+      if (trace() >= 4) {
+        lputs("MReader::makeLines-2 not_OK: num_lines_ == 0");
+      }
+      return false;
+    }
+  }
+
+  assert(num_lines_ > 0);
   lines_.reserve(num_lines_ + 4);
   lines_.push_back(nullptr);
 
   char* curLine = buf_;
 
-  size_t nL = 0;
+  size_t numL = 0;
   do {
     if (!curLine) break;
     lines_.push_back(curLine);
-    nL++;
+    numL++;
+    size_t len = ::strlen(curLine);
+    if (len > max_llen_)
+      max_llen_ = len;
   } while (advanceLine(curLine));
 
-  if (!nL) return false;
+  if (!numL) return false;
 
   lines_.push_back(nullptr);
 
@@ -297,8 +557,9 @@ bool MMapReader::makeLines(bool cutComments) noexcept {
     }
   }
 
-  if (trace() >= 2) {
-    lprintf("MReader::makeLines() OK:  lines_.size()= %zu  num_lines_= %zu\n", lines_.size(), num_lines_);
+  if (trace() >= 4) {
+    lprintf("MReader::makeLines() OK:  lines_.size()= %zu  num_lines_= %zu\n",
+             lines_.size(), num_lines_);
   }
 
   return true;
@@ -415,7 +676,7 @@ bool LineReader::readBuffer() noexcept {
   return true;
 }
 
-bool LineReader::makeLines(bool cutComments) noexcept {
+bool LineReader::makeLines(bool cutComments, bool cutNL) noexcept {
   lines_.clear();
 
   if (fnm_.empty()) return false;
@@ -524,7 +785,7 @@ bool LineReader::read(bool mkLines, bool cutComments) noexcept {
   assert(curLine_ && curLine2_);
   assert(curLine_ == curLine2_);
 
-  if (mkLines) read_ok = makeLines(cutComments);
+  if (mkLines) read_ok = makeLines(cutComments, true);
 
   assert(curLine_ && curLine2_);
   assert(curLine_ == curLine2_);
@@ -555,20 +816,19 @@ uint64_t LineReader::hashSum() const noexcept {
   assert(sz_ >= fsz_);
   if (!fsz_ || !sz_ || !buf_) return 0;
 
-  uint64_t sum = 0;
   if (fsz_ <= 16) {
-    for (size_t i = 0; i < fsz_; i++) sum = hashCombine(buf_[i], sum);
-    return sum;
+    return hashf::hf_FNV64(buf_, sz_);
   }
 
+  uint64_t sum = 0;
   reIterate2();
   do {
-    sum = hashCombine(getHash(curLine2_), sum);
+    sum = hashf::hashCombine(getHash(curLine2_), sum);
   } while (advanceLine2());
   return sum;
 }
 
-int LineReader::dprint() const noexcept {
+int LineReader::dprint1() const noexcept {
   lprintf(" fname: %s\n", fnm_.c_str());
   lprintf("  fsz_ %zu  sz_= %zu  num_lines_= %zu  lines_.size()=  %zu\n", fsz_, sz_, num_lines_,
           lines_.size());
@@ -611,7 +871,7 @@ bool addIncludeGuards(LineReader& lr) noexcept {
   assert(lr.fnm_.length() > 1);
   assert(lr.fnm_.length() < 4000);
 
-  char guard[4014] = "__rs_tt_";
+  char guard[4014] = "__rs_DD_";
   guard[4000] = 0;
   guard[4001] = 0;
   guard[4002] = 0;
@@ -695,7 +955,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
   if (num_lines_ < 2 || num_commas_ < 2) return false;
 
   // 2. make lines_
-  bool ok = makeLines(cutComments);
+  bool ok = makeLines(cutComments, false);
   if (!ok) return false;
 
   // 3. count non-empty lines
@@ -711,7 +971,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
   if (!headLine_) return false;
 
   // 4. split headLine_, make header_
-  ok = split(headLine_, header_);
+  ok = split_com(headLine_, header_);
   if (!ok) return false;
 
   // 5. header_ size() is the number of columns.
@@ -755,7 +1015,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     if (isEmptyLine(line)) continue;
     if (line == headLine_) continue;
     V.clear();
-    ok = split(line, V);
+    ok = split_com(line, V);
     if (!ok) {
       return false;
     }
@@ -779,7 +1039,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     if (isEmptyLine(line)) continue;
     if (line == headLine_) continue;
     V.clear();
-    ok = split(line, V);
+    ok = split_com(line, V);
     if (!ok) {
       return false;
     }
@@ -938,82 +1198,6 @@ int CSV_Reader::dprint1() const noexcept {
   if (lines_.size() > 3 && lines_[2] && nc_ < 400) lprintf("    lines_[2]  %s\n", lines_[2]);
 
   return sz_;
-}
-
-bool CSV_Reader::split(const char* src, vector<string>& dat) noexcept {
-  dat.clear();
-  assert(src);
-  if (!src || !src[0]) return false;
-
-  size_t len = ::strlen(src);
-  if (len < 2 || len > fio_MAX_STACK_USE) return false;
-
-  if (!::strchr(src, ',')) return false;
-
-  size_t cap = 2 * len + 4;
-  char scratch[cap];
-  scratch[len] = 0;
-  scratch[len + 1] = 0;
-  scratch[cap - 1] = 0;
-  scratch[cap - 2] = 0;
-
-  // copy 'src' to 'scratch', inserting space between double-commas ",,".
-  char* dest = scratch;
-  for (size_t i = 0; i < len - 1; i++) {
-    char c = src[i];
-    *dest++ = c;
-    if (c == ',' && src[i + 1] == ',') *dest++ = ' ';
-  }
-  *dest++ = src[len - 1];
-  *dest++ = '\0';
-  *dest++ = '\0';
-  len = ::strlen(scratch);
-
-  // tokenize using commas as delimiter:
-  for (char* p = scratch; *p; p++)
-    if (*p == ',') *p = '\0';
-
-  const char* tk = scratch;
-  for (size_t i = 0; i <= len; i++) {
-    if (scratch[i]) continue;
-    dat.emplace_back(tk);
-    size_t j = i + 1;
-    for (; j <= len; j++)
-      if (scratch[j]) break;
-    if (j == len) break;
-    i = j;
-    tk = scratch + i;
-  }
-
-  if (dat.empty()) return false;
-
-  // single-space strings to empty strings:
-  for (auto& s : dat) {
-    if (s == " ") s.clear();
-  }
-
-  return true;
-}
-
-const char* CSV_Reader::firstSpace(const char* src) noexcept {
-  if (!src || !src[0]) return nullptr;
-  for (const char* p = src; *p; p++)
-    if (std::isspace(*p)) return p;
-  return nullptr;
-}
-
-const char* CSV_Reader::firstNonSpace(const char* src) noexcept {
-  if (!src || !src[0]) return nullptr;
-  for (const char* p = src; *p; p++)
-    if (!std::isspace(*p)) return p;
-  return nullptr;
-}
-
-bool CSV_Reader::isEmptyLine(const char* src) noexcept {
-  if (!src || !src[0]) return true;
-  if (!firstNonSpace(src)) return true;
-  size_t len = ::strnlen(src, 4);
-  return len < 2;
 }
 
 size_t CSV_Reader::countCommas(const char* src) noexcept {
