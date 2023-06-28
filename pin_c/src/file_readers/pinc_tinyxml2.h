@@ -21,7 +21,7 @@ must not be misrepresented as being the original software.
 3. This notice may not be removed or altered from any source
 distribution.
 */
-// Modyfied by serge-rs.
+// Modified by serge-rs.
 
 #ifndef __pinc__TINYXML2_INCLUDED
 #define __pinc__TINYXML2_INCLUDED
@@ -868,7 +868,7 @@ public:
         no way processes or interprets user data.
         It is initially 0.
     */
-    void* GetUserData() const { return _userData; }
+    void* GetUserData() const noexcept { return _userData; }
 
 protected:
     explicit XMLNode( XMLDocument* ) noexcept;
@@ -925,9 +925,7 @@ public:
     virtual const XMLText* ToText() const  noexcept { return this; }
 
     /// Declare whether this should be CDATA or standard text.
-    void SetCData( bool isCData )    noexcept      {
-        _isCData = isCData;
-    }
+    void SetCData(bool isCData) noexcept { _isCData = isCData; }
 
     /// Returns true if this is a CDATA text element.
     bool CData() const noexcept { return _isCData; }
