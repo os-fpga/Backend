@@ -51,6 +51,8 @@ public:
 public:
   Fio() noexcept = default;
 
+  const string& fileName() const noexcept { return fnm_; }
+
   Fio(const char* nm) noexcept { if (nm) fnm_ = nm; }
   Fio(const string& nm) noexcept { fnm_ = nm; }
 
@@ -172,10 +174,7 @@ inline size_t hf_std(const char* z) noexcept
 class MMapReader : public Fio
 {
 public:
-  //static constexpr size_t  MIN_SIZE_for_MMAP = 2; // always mmap
   static constexpr size_t MIN_SIZE_for_MMAP = 2048;  // half-page
-  //static constexpr size_t  MIN_SIZE_for_MMAP = 4096; // one page
-  //static constexpr size_t  MIN_SIZE_for_MMAP = lr_DEFAULT_CAP; // temporary turn off mmap
 
   char* buf_ = nullptr;
   int fd_ = -1;
@@ -355,6 +354,9 @@ public:
   using Element = ::tinxml2::XMLElement;
   using Text = ::tinxml2::XMLText;
 
+  // attribute name=value pair
+  using APair = std::pair<const char*, const char*>;
+
   struct Visitor;  // : public  tinxml2::XMLVisitor
 
   XMLDocument*            doc_ = nullptr;
@@ -363,6 +365,7 @@ public:
 
   const char* headLine_ = nullptr;
   bool valid_xml_ = false;
+  bool has_device_list_ = false;
 
   // number of rows and columns in device xml
   size_t nr_ = 0, nc_ = 0;
@@ -382,10 +385,15 @@ public:
 
   bool readXml() noexcept;
 
+  int64_t countLeaves() const noexcept;
+
   int dprint1() const noexcept;
-  int print_nodes() const noexcept;
+  int printNodes() const noexcept;
+  int printLeaves() const noexcept;
 
 private:
+  static vector<APair> get_attrs(const Element& elem) noexcept;
+
 };  // XML_Reader
 
 bool addIncludeGuards(LineReader& lr) noexcept;

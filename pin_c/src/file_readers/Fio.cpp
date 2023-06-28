@@ -1242,6 +1242,7 @@ void XML_Reader::reset(const char* nm, uint16_t tr) noexcept {
   MMapReader::reset(nm, tr);
 
   valid_xml_ = false;
+  has_device_list_ = false;
   headLine_ = nullptr;
   nr_ = nc_ = 0;
 }
@@ -1301,6 +1302,7 @@ struct XML_Reader::Visitor : public XMLVisitor
 
 bool XML_Reader::parse() noexcept {
   valid_xml_ = false;
+  has_device_list_ = false;
   if (!sz_ || !fsz_) return false;
   if (!buf_) return false;
   if (sz_ < 4) return false;
@@ -1323,6 +1325,18 @@ bool XML_Reader::parse() noexcept {
   doc_->Accept(&vis);
 
   valid_xml_ = not elems_.empty();
+  if (!valid_xml_) return false;
+
+  // -- check if it contains 'device_list' element:
+  string device_list_s = "device_list";
+  for (const Element* nd : elems_) {
+    assert(nd);
+    const char* nm = nd->Name();
+    if (nm && device_list_s == nm) {
+      has_device_list_ = true;
+      break;
+    }
+  }
 
   return valid_xml_;
 }
@@ -1336,19 +1350,23 @@ bool XML_Reader::isValidXml() const noexcept {
 
 int XML_Reader::dprint1() const noexcept {
   lprintf("  fname: %s\n", fnm_.c_str());
-  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  nr_=%zu  nc_=%zu\n", fsz_, sz_, num_lines_, nr_, nc_);
+  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  nr_=%zu  nc_=%zu\n",
+          fsz_, sz_, num_lines_, nr_, nc_);
 
-  lprintf("    valid_xml_: %i\n", valid_xml_);
-  lprintf(" elems_.size(): %zu\n", elems_.size());
-  lprintf(" texts_.size(): %zu\n", texts_.size());
+  lprintf("        valid_xml_: %i\n", valid_xml_);
+  lprintf("  has_device_list_: %i\n", has_device_list_);
+  lprintf("     elems_.size(): %zu\n", elems_.size());
+  lprintf("     texts_.size(): %zu\n", texts_.size());
 
   return sz_;
 }
 
-int XML_Reader::print_nodes() const noexcept {
+int XML_Reader::printNodes() const noexcept {
   size_t nsz = elems_.size();
+  int64_t nLeaves = countLeaves();
   lprintf("    valid_xml_: %i\n", valid_xml_);
   lprintf(" elems_.size(): %zu\n", nsz);
+  lprintf("       #leaves: %zi\n", nLeaves);
   lprintf(" texts_.size(): %zu\n", texts_.size());
   if (!valid_xml_) return -1;
   if (elems_.empty()) return 0;
@@ -1365,6 +1383,86 @@ int XML_Reader::print_nodes() const noexcept {
   }
 
   return nsz;
+}
+
+vector<XML_Reader::APair> XML_Reader::get_attrs(const Element& elem) noexcept {
+  static const char* nul = "(NULL)";
+  vector<APair> result;
+
+  const XMLAttribute* a1 = elem.FirstAttribute();
+
+  while (a1) {
+    const char* nam = a1->Name();
+    if (!nam) nam = nul;
+    const char* val = a1->Value();
+    if (!val) val = nul;
+    result.emplace_back(nam, val);
+    a1 = a1->Next();
+  }
+
+  return result;
+}
+
+int XML_Reader::printLeaves() const noexcept {
+  size_t nsz = elems_.size();
+  int64_t nLeaves = countLeaves();
+  lprintf("    valid_xml_: %i\n", valid_xml_);
+  lprintf(" elems_.size(): %zu\n", nsz);
+  lprintf("       #leaves: %zi\n", nLeaves);
+  lprintf(" texts_.size(): %zu\n", texts_.size());
+  if (!valid_xml_) return -1;
+  if (elems_.empty()) return 0;
+
+  vector<APair> A;
+
+  for (size_t i = 0; i < nsz; i++) {
+    assert(elems_[i]);
+    const Element& nd = *elems_[i];
+    if (nd.FirstChildElement())
+      continue; // not leaf
+    const char* nm = nd.Name();
+    if (!nm) nm = "";
+    const char* txt = nd.GetText();
+    if (!txt) txt = "";
+    lprintf("Leaf-%zu:  name= %s  text= %s  line#%i\n",
+            i, nm, txt, nd.GetLineNum());
+    const XMLAttribute* a1 = nd.FirstAttribute();
+    if (!a1) {
+      lputs("    (no arrributes)");
+      continue;
+    }
+    nm = a1->Name();
+    if (!nm) nm = "";
+    const char* val = a1->Value();
+    if (!val) val = "";
+    lprintf("    1st attribute:  %s = %s\n", nm, val);
+    A = get_attrs(nd);
+    if (A.size()) {
+      lprintf("    (arrributes %zu):\n", A.size());
+      for (size_t j = 0; j < A.size(); j++) {
+        const APair& ap = A[j];
+        lprintf("      :%zu:  %s = %s\n", j+1, ap.first, ap.second);
+      }
+    }
+  }
+
+  return nLeaves;
+}
+
+int64_t XML_Reader::countLeaves() const noexcept {
+  if (not isValidXml()) return -1;
+  if (elems_.empty()) return 0;
+
+  int64_t cnt = 0;
+  for (int64_t i = int(elems_.size()) - 1; i >= 0; i--) {
+    const Element* nd = elems_[i];
+    assert(nd);
+    bool is_leaf = not nd->FirstChildElement();
+    if (is_leaf)
+      cnt++;
+  }
+
+  return cnt;
 }
 
 }  // NS fio
