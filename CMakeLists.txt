@@ -7,6 +7,7 @@ if (NOT RAPTOR)
 endif()
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
+set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
 
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
@@ -80,7 +81,7 @@ if (ADD_READ_VERILOG_TO_VPR)
     ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
     ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
     ${VPR_SRC_DIR}/src/base/read_options.h
-    ${VPR_SRC_DIR}/src/base/vpr_types.h
+     ${VPR_SRC_DIR}/src/base/vpr_types.h
     ${PACKER_SRC_DIR}/cluster_placement.cpp
     DESTINATION
     ${VPR_DEST_DIR}/src/base/)
@@ -90,6 +91,20 @@ file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
   ${VPR_DEST_DIR}/
 )
 endif()
+
+# FILE(COPY ${PLACER_SRC_DIR}/SetupVPR.cpp
+#           ${PLACER_SRC_DIR}/read_options.cpp
+#           ${PLACER_SRC_DIR}/read_options.h
+#           ${PLACER_SRC_DIR}/vpr_types.h
+#           DESTINATION
+#           ${VPR_DEST_DIR}/src/base/)
+          
+FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
+          ${PLACER_SRC_DIR}/place.cpp
+          ${PLACER_SRC_DIR}/place_util.cpp
+          ${PLACER_SRC_DIR}/place_util.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/place/)
 
 file(COPY ${PUGI_SRC}/pugixml_loc.cpp
   ${PUGI_SRC}/pugixml_loc.hpp
