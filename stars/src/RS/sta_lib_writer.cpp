@@ -100,6 +100,9 @@ void sta_lib_writer::write_cell(std::ostream& os, const lib_cell& cell) {
         case ENABLE:
           enable_name = in_pin.name();
           break;
+        case INVALID_PIN_TYPE:
+          assert(0);
+          break;
       }
     }
 

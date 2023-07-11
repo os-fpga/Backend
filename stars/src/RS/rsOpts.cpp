@@ -487,8 +487,7 @@ ret:
 // and2_gemini
 bool rsOpts::set_VPR_TC1() noexcept {
   lputs(" O-set_VPR_TC1: and2_gemini");
-  assert(argc_ > 0);
-  assert(argv_);
+  assert(argc_ > 0 && argv_);
 
 #ifdef RSBE_UNIT_TEST_ON
 
@@ -539,11 +538,9 @@ bool rsOpts::set_VPR_TC1() noexcept {
   return true;
 }
 
-// flop2flop
-bool rsOpts::set_VPR_TC2() noexcept {
-  lputs(" O-set_VPR_TC2: flop2flop");
-  assert(argc_ > 0);
-  assert(argv_);
+bool rsOpts::set_STA_TC2() noexcept {
+  lputs(" O-set_STA_TC2: arch 1GE100-ES1");
+  assert(argc_ > 0 && argv_);
 
 #ifdef RSBE_UNIT_TEST_ON
 
@@ -592,6 +589,82 @@ bool rsOpts::set_VPR_TC2() noexcept {
 #endif  // RSBE_UNIT_TEST_ON
 
   flush_out(true);
+  return true;
+}
+
+bool rsOpts::set_STA_TC3() noexcept {
+  lputs(" O-set_STA_TC3: flop2flop, arch GEMINI");
+  assert(argc_ > 0 && argv_);
+
+#ifdef RSBE_UNIT_TEST_ON
+
+  static const char* raw_TC3 = R"(
+    /home/serge/raps/10jul/Raptor/build/share/raptor/etc/devices/1GE100-ES1/gemini_vpr.xml
+    /home/serge/raps/10jul/Raptor/EDA-1704/stars_TC3/synth_1_1/synthesis/flop2flop_post_synth.v
+    --sdc_file /home/serge/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_openfpga.sdc
+    --route_chan_width 160 --suppress_warnings check_rr_node_warnings.log,check_rr_node
+    --clock_modeling ideal --absorb_buffer_luts off --skip_sync_clustering_and_routing_results off
+    --constant_net_method route --post_place_timing_report flop2flop_post_place_timing.rpt
+    --device castor104x68_heterogeneous --allow_unrelated_clustering on
+    --allow_dangling_combinational_nodes on --place_delta_delay_matrix_calculation_method dijkstra
+    --gen_post_synthesis_netlist on
+    --post_synth_netlist_unconn_inputs gnd
+    --inner_loop_recompute_divider 1 --max_router_iterations 1500
+    --timing_report_detail detailed --timing_report_npaths 100
+    --net_file /home/serge/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_post_synth.net
+    --place_file /home/serge/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/placement/flop2flop_post_synth.place
+    --route_file /home/serge/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/routing/flop2flop_post_synth.route
+    --place
+  )";
+
+  cout << '\n' << ::strlen(raw_TC3) << endl;
+
+  vector<string> W;
+  fio::Fio::split_spa(raw_TC3, W);
+
+  size_t sz = W.size();
+  cout << "W.size()= " << sz << endl;
+  if (sz < 3) return false;
+
+  cout << "created ARGV for VPR:" << endl;
+  for (size_t i = 0; i < sz; i++) {
+    lprintf("\t |%zu|  %s\n", i, W[i].c_str());
+  }
+
+  vprArgv_ = (char**)::calloc(sz + 4, sizeof(char*));
+  uint cnt = 0;
+  vprArgv_[cnt++] = ::strdup(argv_[0]);
+  for (size_t i = 0; i < sz; i++) {
+    const string& a = W[i];
+    vprArgv_[cnt++] = ::strdup(a.c_str());
+  }
+  vprArgc_ = cnt;
+
+#endif  // RSBE_UNIT_TEST_ON
+
+  flush_out(true);
+  return true;
+}
+
+bool rsOpts::createVprArgv(const vector<string>& W) noexcept {
+  size_t sz = W.size();
+  lout() << "W.size()= " << sz << endl;
+  if (sz < 3) return false;
+
+  lout() << "created ARGV for VPR:" << endl;
+  for (size_t i = 0; i < sz; i++) {
+    lprintf("\t |%zu|  %s\n", i, W[i].c_str());
+  }
+
+  vprArgv_ = (char**)::calloc(sz + 4, sizeof(char*));
+  uint cnt = 0;
+  vprArgv_[cnt++] = ::strdup(argv_[0]);
+  for (size_t i = 0; i < sz; i++) {
+    const string& a = W[i];
+    vprArgv_[cnt++] = ::strdup(a.c_str());
+  }
+  vprArgc_ = cnt;
+
   return true;
 }
 
