@@ -2,8 +2,8 @@
 #ifndef __rsbe__sta_lib_data_H_h_
 #define __rsbe__sta_lib_data_H_h_
 
-#include "pinc_log.h"
 #include <map>
+#include "pinc_log.h"
 
 namespace rsbe {
 
@@ -12,15 +12,7 @@ typedef enum { POSITIVE = 0, NEGATIVE, INVALID_SENSE } timing_sense_type;
 typedef enum { DATA = 0, CLOCK, RESET, SET, ENABLE, INVALID_PIN_TYPE } pin_type;
 typedef enum { TRANSITION = 0, SETUP, HOLD } timing_type_type;
 
-typedef enum {
-  INTERCONNECT = 0,
-  LUT,
-  BRAM,
-  DSP,
-  SEQUENTIAL,
-  BLACKBOX,
-  INVALID_CELL
-} cell_type;
+typedef enum { INTERCONNECT = 0, LUT, BRAM, DSP, SEQUENTIAL, BLACKBOX, INVALID_CELL } cell_type;
 
 // cell data container
 class timing_arch;
@@ -43,13 +35,11 @@ public:
   void direction(port_direction_type value) { dir_ = value; }
   pin_type type() const { return pin_type_; }
   void type(pin_type value) { pin_type_ = value; }
-  void add_timing_arch(timing_arch &arch) {
+  void add_timing_arch(timing_arch& arch) {
     timing_arch_list_.push_back(arch);
     return;
   }
-  const std::vector<timing_arch> &get_timing_arch() const {
-    return timing_arch_list_;
-  }
+  const std::vector<timing_arch>& get_timing_arch() const { return timing_arch_list_; }
 };
 
 class timing_arch {
@@ -84,7 +74,7 @@ public:
   void name(std::string name) { name_ = name; }
   cell_type type() const { return type_; }
   void type(cell_type type) { type_ = type; }
-  const std::vector<lib_pin> &get_pins(port_direction_type dir) const {
+  const std::vector<lib_pin>& get_pins(port_direction_type dir) const {
     if (dir == INPUT) {
       return input_pins_;
     } else if (dir == OUTPUT) {
@@ -94,7 +84,7 @@ public:
     }
     return null_pins;
   }
-  void add_pin(lib_pin &pin, port_direction_type dir) {
+  void add_pin(lib_pin& pin, port_direction_type dir) {
     if (dir == INPUT) {
       input_pins_.push_back(pin);
     } else if (dir == OUTPUT) {
@@ -123,7 +113,6 @@ public:
   */
 };
 
-} // end namespace rsbe
+}  // end namespace rsbe
 
 #endif
-

@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0033";
+static const char* _rsbe_VERSION_STR = "rsbe0035";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -10,8 +10,8 @@ static const char* _rsbe_VERSION_STR = "rsbe0033";
 #include "globals.h"
 #include "read_options.h"
 
-#include "RS/sta_file_writer.h"
 #include "RS/rsVPR.h"
+#include "RS/sta_file_writer.h"
 
 namespace rsbe {
 
@@ -21,17 +21,17 @@ using std::cerr;
 using std::endl;
 using std::string;
 
-static rsEnv  s_env;
+static rsEnv s_env;
 
-static bool do_stars(const rsOpts& opts, bool orig_args)
-{
-  int argc; const char** argv;
+static bool do_stars(const rsOpts& opts, bool orig_args) {
+  int argc;
+  const char** argv;
   if (orig_args) {
     argc = opts.argc_;
     argv = opts.argv_;
   } else {
     argc = opts.vprArgc_;
-    argv = (const char**) opts.vprArgv_;
+    argv = (const char**)opts.vprArgv_;
   }
 
   if (argc <= 0 || !argv) {
@@ -43,7 +43,7 @@ static bool do_stars(const rsOpts& opts, bool orig_args)
   cout << "\nSTARS: Preparing design data ... " << endl;
 
   // add --analysis if it's missing:
-  char** vprArgv = (char**) calloc(argc + 4, sizeof(char*));
+  char** vprArgv = (char**)calloc(argc + 4, sizeof(char*));
   int vprArgc = argc;
   bool found_analysis = false;
   std::string analysis = "--analysis";
@@ -76,8 +76,7 @@ static bool do_stars(const rsOpts& opts, bool orig_args)
   return status;
 }
 
-static void do_help(const rsOpts& opts)
-{
+static void do_help(const rsOpts& opts) {
   printf("RSBE ver. %s\n", _rsbe_VERSION_STR);
 
   if (opts.dev_ver_) {
@@ -91,101 +90,101 @@ static void do_help(const rsOpts& opts)
   }
 }
 
-static void do_units(const rsOpts& opts)
-{
+static void do_units(const rsOpts& opts) {
 #ifdef RSBE_UNIT_TEST_ON
   using namespace tes;
-  if (opts.unit1_)
-    tes::run_U1();
-  if (opts.unit2_)
-    tes::run_U2();
-  if (opts.unit3_)
-    tes::run_U3();
-  if (opts.unit4_)
-    tes::run_U4();
+  if (opts.unit1_) tes::run_U1();
+  if (opts.unit2_) tes::run_U2();
+  if (opts.unit3_) tes::run_U3();
+  if (opts.unit4_) tes::run_U4();
 #endif
 }
 
-} // NS rsbe
+}  // NS rsbe
 
-int main(int argc, char** argv)
-{
-    using namespace pinc;
-    using namespace rsbe;
-    using std::cout;
-    using std::endl;
-    using std::string;
+int main(int argc, char** argv) {
+  using namespace pinc;
+  using namespace rsbe;
+  using std::cout;
+  using std::endl;
+  using std::string;
 
-    rsOpts& opts = s_env.opts_;
-    const char* trace = getenv("rsbe_trace");
-    if (trace)
-        set_ltrace(atoi(trace));
-    else
-        set_ltrace(opts.trace_);
+  rsOpts& opts = s_env.opts_;
+  const char* trace = getenv("rsbe_trace");
+  if (trace)
+    set_ltrace(atoi(trace));
+  else
+    set_ltrace(opts.trace_);
 
-    cout << s_env.traceMarker_ << endl;
+  cout << s_env.traceMarker_ << endl;
 
-    s_env.initVersions(_rsbe_VERSION_STR);
+  s_env.initVersions(_rsbe_VERSION_STR);
 
-    if (ltrace() >= 2) {
-      s_env.printPids(_rsbe_VERSION_STR);
-      printf("\t compiled:  %s\n", s_env.compTimeCS());
-    }
+  if (ltrace() >= 2) {
+    s_env.printPids(_rsbe_VERSION_STR);
+    printf("\t compiled:  %s\n", s_env.compTimeCS());
+  }
 
-    s_env.parse(argc, argv);
+  s_env.parse(argc, argv);
 
-    if (opts.trace_ >= 4 || ltrace() >= 8 || getenv("rsbe_trace_env")) {
-        s_env.dump("\n----env----\n");
-        cout << "-----------" << endl;
-    }
+  if (opts.trace_ >= 4 || ltrace() >= 8 || getenv("rsbe_trace_env")) {
+    s_env.dump("\n----env----\n");
+    cout << "-----------" << endl;
+  }
 
-    if (opts.ver_or_help()) {
-        do_help(opts);
-        pinc::flush_out();
-        std::quick_exit(0);
-    }
+  if (opts.ver_or_help()) {
+    do_help(opts);
+    pinc::flush_out();
+    std::quick_exit(0);
+  }
 
-    if (opts.unit_specified()) {
-        do_units(opts);
-        ::exit(0);
-    }
+  if (opts.unit_specified()) {
+    do_units(opts);
+    ::exit(0);
+  }
 
-    if (ltrace() >= 2) {
-        lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
-    }
+  if (ltrace() >= 2) {
+    lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
+  }
 
-    int status = 1;
-    bool ok = false;
+  int status = 1;
+  bool ok = false;
 
-#if 0
-    if (0) {
-        ok = do_stars(opts, false);
-        if (ok) {
-            status = 0;
-        }
-    } else {
-        ok = opts.set_VPR_TC2();
-        if (ok) {
-          status = do_vpr(opts);
-          lprintf("DID vpr. status= %i\n", status);
-        }
-        else {
-          lputs(" [Error] set_VPR_TC FAILED");
-        }
-    }
-#endif ////0000
-
-    ok = do_stars(opts, true);
+#ifdef RSBE_UNIT_TEST_ON
+  bool rsbe_builtin_STA_TC = getenv("rsbe_builtin_STA_TC");
+  bool rsbe_builtin_VPR_TC = getenv("rsbe_builtin_VPR_TC");
+  if (rsbe_builtin_STA_TC) {
+    lputs("\n(rsbe_builtin_STA_TC)\n");
+    ok = opts.set_VPR_TC2();
     if (ok) {
-      if (ltrace() >= 2)
+      ok = do_stars(opts, false);
+      if (ok) {
         lputs("do_stars() succeeded.");
-      status = 0;
-    } else {
-      if (ltrace() >= 2)
-        lputs("do_stars() failed.");
+        status = 0;
+      }
     }
+  } else if (rsbe_builtin_VPR_TC) {
+    lputs("\n(rsbe_builtin_VPR_TC)\n");
+    ok = opts.set_VPR_TC2();
+    if (ok) {
+      status = do_vpr(opts);
+      lprintf("DID vpr. status= %i\n", status);
+    } else {
+      lputs(" [Error] set_VPR_TC FAILED");
+    }
+  }
+  goto ret;
+#endif  // RSBE_UNIT_TEST_ON
 
-    pinc::flush_out(true);
-    return status;
+  ok = do_stars(opts, true);
+  if (ok) {
+    if (ltrace() >= 2) lputs("do_stars() succeeded.");
+    status = 0;
+  } else {
+    if (ltrace() >= 2) lputs("do_stars() failed.");
+  }
+
+ret:
+  pinc::flush_out(true);
+  return status;
 }
-

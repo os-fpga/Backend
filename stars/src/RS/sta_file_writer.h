@@ -12,8 +12,7 @@ namespace rsbe {
 // API
 bool create_sta_files(int argc, const char** argv);
 
-class sta_file_writer
-{
+class sta_file_writer {
 private:
   // design info
   std::string design_name_;
@@ -29,4 +28,3 @@ public:
 }
 
 #endif
-

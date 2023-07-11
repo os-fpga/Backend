@@ -13,4 +13,3 @@ int do_vpr(const rsOpts& opts);
 }
 
 #endif
-
