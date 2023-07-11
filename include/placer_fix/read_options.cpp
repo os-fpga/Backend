@@ -407,7 +407,7 @@ struct ParsePlaceAlgorithm {
         } else if (str == "criticality_timing") {
             conv_value.set_value(CRITICALITY_TIMING_PLACE);
         } else if (str == "slack_timing") {
-            conv_value.set_value(SLACK_TIMING_PLACE); 
+            conv_value.set_value(SLACK_TIMING_PLACE);
         } else if (str == "congestion_aware"){
             conv_value.set_value(CONGESTION_AWARE_PLACE);
         } else {
@@ -430,7 +430,7 @@ struct ParsePlaceAlgorithm {
         if (val == BOUNDING_BOX_PLACE) {
             conv_value.set_value("bounding_box");
         } else if (val == CRITICALITY_TIMING_PLACE) {
-            conv_value.set_value("criticality_timing"); 
+            conv_value.set_value("criticality_timing");
         } else if (val == CONGESTION_AWARE_PLACE) {
             conv_value.set_value("congestion_aware");
         } else {

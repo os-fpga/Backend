@@ -1343,7 +1343,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
 
     // 3. read 'direction'
     if (obj.contains("direction")) {
-      s = sToLower(obj["direction"]);
+      s = str::sToLower(obj["direction"]);
       if (s == "input")
         last.dir_ = PinPlacer::PortDir::Input;
       else if (s == "output")
@@ -1352,7 +1352,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
 
     // 4. read 'type'
     if (obj.contains("type")) {
-      s = sToLower(obj["type"]);
+      s = str::sToLower(obj["type"]);
       if (s == "wire")
         last.type_ = PinPlacer::PortType::Wire;
       else if (s == "reg")
@@ -1382,7 +1382,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
 
     // 6. read 'define_order'
     if (obj.contains("define_order")) {
-      s = sToLower(obj["define_order"]);
+      s = str::sToLower(obj["define_order"]);
       if (s == "lsb_to_msb")
         last.order_ = PinPlacer::Order::LSB_to_MSB;
       else if (s == "msb_to_lsb")

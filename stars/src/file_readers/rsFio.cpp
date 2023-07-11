@@ -1,6 +1,6 @@
 // File IO - namespace fio
-#include "file_readers/Fio.h"
-#include "file_readers/pinc_tinyxml2.h"
+#include "rsFio.h"
+#include "pinc_tinyxml2.h"
 
 #include <alloca.h>
 #include <errno.h>
