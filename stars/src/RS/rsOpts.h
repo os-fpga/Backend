@@ -6,9 +6,8 @@
 
 namespace rsbe {
 
-inline void zFree(void* p) noexcept {
-  if (p) ::free(p);
-}
+using std::string;
+using std::vector;
 
 struct rsOpts {
   using CStr = const char*;
@@ -71,7 +70,10 @@ struct rsOpts {
   bool set_PINC_test() noexcept;
 
   bool set_VPR_TC1() noexcept;  // and2_gemini
-  bool set_VPR_TC2() noexcept;  // flop2flop
+  bool set_STA_TC2() noexcept;  // flop2flop, arch 1GE100-ES1
+  bool set_STA_TC3() noexcept;  // flop2flop, arch GEMINI
+
+  bool createVprArgv(const vector<string>& W) noexcept;
 
 private:
   bool sprintFiles(CStr subdir, CStr stem) noexcept;

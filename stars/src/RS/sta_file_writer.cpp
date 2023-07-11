@@ -27,13 +27,14 @@ using std::cout;
 using std::endl;
 using std::string;
 using std::stringstream;
+using std::ostream;
 using namespace pinc;
 
 // This pair cointains the following values:
 //      - double: hold, setup or clock-to-q delays of the port
 //      - string: port name of the associated source clock pin of the sequential
 //      port
-typedef std::pair<double, string> sequential_port_delay_pair;
+using sequential_port_delay_pair = std::pair<double, string>;
 
 /*enum class PortType {
  * IN,
@@ -46,10 +47,10 @@ typedef std::pair<double, string> sequential_port_delay_pair;
 ////////////////////////////////////////////////////////////////////////////////
 
 // Unconnected net prefix
-const string unconn_prefix = "__vpr__unconn";
+static const string unconn_prefix = "__vpr__unconn";
 
 ///@brief Returns a blank string for indenting the given depth
-string indent(size_t depth) {
+static string indent(size_t depth) noexcept {
   string indent_ = "    ";
   string new_indent;
   for (size_t i = 0; i < depth; ++i) {
@@ -59,7 +60,7 @@ string indent(size_t depth) {
 }
 
 ///@brief Returns the delay in pico-seconds from a floating point delay
-double get_delay_ps(double delay_sec) {
+inline static double get_delay_ps(double delay_sec) noexcept {
   return delay_sec * 1e12;  // Scale to picoseconds
 }
 
@@ -92,7 +93,7 @@ string escape_verilog_identifier(const string identifier) {
  *
  * Handles special cases like multi-bit and disconnected ports
  */
-void print_verilog_port(std::ostream& os,
+void print_verilog_port(ostream& os,
                         size_t& unconn_count,
                         const string& port_name,
                         const std::vector<string>& nets,
@@ -305,9 +306,9 @@ class Instance {
 public:
   virtual ~Instance() = default;
 
-  virtual void print_verilog(std::ostream& os, size_t& unconn_count, int depth = 0) = 0;
-  virtual void print_sdf(std::ostream& os, int depth = 0) = 0;
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, std::ostream& os) = 0;
+  virtual void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) = 0;
+  virtual void print_sdf(ostream& os, int depth = 0) = 0;
+  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) = 0;
   virtual string get_type_name() = 0;
 };
 
@@ -337,7 +338,7 @@ public:
 
 public:  // Instance interface method implementations
   string get_type_name() override { return "LUT_K"; }
-  void print_lib(rsbe::sta_lib_writer& lib_writer, std::ostream& os) override {
+  void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override {
     // lut only contains "in" and "out"
     assert(port_conns_.count("in"));
     assert(port_conns_.count("out"));
@@ -372,7 +373,7 @@ public:  // Instance interface method implementations
 
     return;
   }
-  void print_sdf(std::ostream& os, int depth) override {
+  void print_sdf(ostream& os, int depth) override {
     os << indent(depth) << "(CELL\n";
     os << indent(depth + 1) << "(CELLTYPE \"" << type() << "\")\n";
     os << indent(depth + 1) << "(INSTANCE " << escape_sdf_identifier(instance_name()) << ")\n";
@@ -404,7 +405,7 @@ public:  // Instance interface method implementations
     os << indent(depth) << ")\n";
     os << indent(depth) << "\n";
   }
-  void print_verilog(std::ostream& os, size_t& unconn_count, int depth) override {
+  void print_verilog(ostream& os, size_t& unconn_count, int depth) override {
     os << indent(depth) << type_ << "\n";
     os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
@@ -441,7 +442,7 @@ public:  // Public types
     ACTIVE_LOW,
     ASYNCHRONOUS,
   };
-  friend std::ostream& operator<<(std::ostream& os, const Type& type) {
+  friend ostream& operator<<(ostream& os, const Type& type) {
     if (type == Type::RISING_EDGE)
       os << "re";
     else if (type == Type::FALLING_EDGE)
@@ -492,13 +493,13 @@ public:
 
   string get_type_name() override { return "DFF"; }
 
-  void print_lib(rsbe::sta_lib_writer& lib_writer, std::ostream& os) override {
+  void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override {
     /*
     os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
        << escape_sdf_identifier(instance_name_) << ")\n";
        */
   }
-  void print_sdf(std::ostream& os, int depth = 0) override {
+  void print_sdf(ostream& os, int depth = 0) override {
     assert(type_ == Type::RISING_EDGE);
 
     os << indent(depth) << "(CELL\n";
@@ -542,7 +543,7 @@ public:
     os << indent(depth) << ")\n";
     os << indent(depth) << "\n";
   }
-  void print_verilog(std::ostream& os, size_t& /*unconn_count*/, int depth = 0) override {
+  void print_verilog(ostream& os, size_t& /*unconn_count*/, int depth = 0) override {
     // Currently assume a standard DFF
     assert(type_ == Type::RISING_EDGE);
 
@@ -611,7 +612,7 @@ public:
         ports_tcq_(ports_tcq),
         opts_(opts) {}
 
-  void print_lib(rsbe::sta_lib_writer& lib_writer, std::ostream& os) override {
+  void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override {
     // create cell info
     lib_cell cell;
     cell.name(type_name_);
@@ -822,7 +823,7 @@ public:
     return;
   }
 
-  void print_sdf(std::ostream& os, int depth = 0) override {
+  void print_sdf(ostream& os, int depth = 0) override {
     if (!timing_arcs_.empty() || !ports_tcq_.empty() || !ports_tsu_.empty() || !ports_thld_.empty()) {
       os << indent(depth) << "(CELL\n";
       os << indent(depth + 1) << "(CELLTYPE \"" << type_name_ << "\")\n";
@@ -953,7 +954,7 @@ public:
     }
   }
 
-  void print_verilog(std::ostream& os, size_t& unconn_count, int depth = 0) override {
+  void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) override {
     // Instance type
     os << indent(depth) << type_name_ << "\n";
 
@@ -1029,7 +1030,7 @@ public:
              string rval)  ///< The right value (assigned from)
       : lval_(lval), rval_(rval) {}
 
-  void print_verilog(std::ostream& os, string indent) {
+  void print_verilog(ostream& os, string indent) {
     os << indent << "assign " << escape_verilog_identifier(lval_) << " = " << escape_verilog_identifier(rval_)
        << ";\n";
   }
@@ -1048,12 +1049,17 @@ private:
  */
 class StaWriterVisitor : public NetlistVisitor {
 public:
-  StaWriterVisitor(std::ostream& verilog_os,
-                   std::ostream& sdf_os,
-                   std::ostream& lib_os,
+  StaWriterVisitor(ostream& verilog_os,
+                   ostream& sdf_os,
+                   ostream& lib_os,
                    std::shared_ptr<const AnalysisDelayCalculator> delay_calc,
                    const t_analysis_opts& opts)
-      : verilog_os_(verilog_os), sdf_os_(sdf_os), lib_os_(lib_os), delay_calc_(delay_calc), opts_(opts) {
+      : verilog_os_(verilog_os),
+        sdf_os_(sdf_os),
+        lib_os_(lib_os),
+        delay_calc_(delay_calc),
+        opts_(opts) {
+
     auto& atom_ctx = g_vpr_ctx.atom();
 
     // Initialize the pin to tnode look-up
@@ -2383,11 +2389,11 @@ private:
 
   // Output streams
 protected:
-  std::ostream& verilog_os_;
+  ostream& verilog_os_;
 
 private:
-  std::ostream& sdf_os_;
-  std::ostream& lib_os_;
+  ostream& sdf_os_;
+  ostream& lib_os_;
 
   // Look-up from pins to tnodes
   std::map<std::pair<ClusterBlockId, int>, tatum::NodeId> pin_id_to_tnode_lookup_;
@@ -2400,17 +2406,22 @@ private:
 // class methods
 ////////////////////////////////////////////////////////////////////////////////
 bool sta_file_writer::write_sta_files(int argc, const char** argv) const {
+  uint16_t tr = ltrace();
+  auto& ls = lout();
+  if (tr >= 2)
+    lprintf("sta_file_writer::write_sta_files( argc=%i )\n", argc);
+
   // vpr context
   auto& atom_ctx = g_vpr_ctx.atom();
-  auto& timing_ctx = g_vpr_ctx.timing();
-  auto& design_name_ = atom_ctx.nlist.netlist_name();
+  //auto& timing_ctx = g_vpr_ctx.timing();
+  string design_name = atom_ctx.nlist.netlist_name();
 
   // io initialization
-  cout << "STARS: Input design <" << design_name_ << ">" << endl;
-  string lib_filename = design_name_ + "_stars.lib";
-  string verilog_filename = design_name_ + "_stars.v";
-  string sdf_filename = design_name_ + "_stars.sdf";
-  string sdc_filename = design_name_ + "_stars.sdc";
+  ls << "STARS: Input design <" << design_name << ">" << endl;
+  string lib_filename = design_name + "_stars.lib";
+  string verilog_filename = design_name + "_stars.v";
+  string sdf_filename = design_name + "_stars.sdf";
+  string sdc_filename = design_name + "_stars.sdc";
   std::ofstream lib_os(lib_filename);
   std::ofstream verilog_os(verilog_filename);
   std::ofstream sdf_os(sdf_filename);
@@ -2447,8 +2458,8 @@ bool sta_file_writer::write_sta_files(int argc, const char** argv) const {
     }
   }
 
-  cout << "STARS: Created files <" << lib_filename << ">, <" << verilog_filename << ">, <" << sdf_filename
-       << ">, <" << sdc_filename << ">." << endl;
+  ls << "STARS: Created files <" << lib_filename << ">, <" << verilog_filename << ">, <" << sdf_filename
+     << ">, <" << sdc_filename << ">." << endl;
 
   return true;
 }
