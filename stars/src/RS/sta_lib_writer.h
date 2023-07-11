@@ -1,12 +1,13 @@
-#ifndef sta_lib_writer_H
-#define sta_lib_writer_H
+#pragma once
+#ifndef __rsbe__sta_lib_writer_H
+#define __rsbe__sta_lib_writer_H
 
 #include "sta_lib_data.h"
 #include <iostream>
 #include <map>
 #include <vector>
 
-namespace stars {
+namespace rsbe {
 
 // writer
 class sta_lib_writer {
@@ -98,5 +99,7 @@ public:
   void write_footer(std::ostream &os);
 };
 
-} // end namespace stars
+} // NS rsbe
+
 #endif
+

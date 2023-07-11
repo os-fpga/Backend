@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.9)
 project("stars")
 
 #
-# We require c++14 support minimum
+# We require c++17 support minimum
 #
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF) #No compiler specific extensions
 

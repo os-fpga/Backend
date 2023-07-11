@@ -1,12 +1,11 @@
 
 #include "sta_lib_writer.h"
+
 #include <fstream>
-#include <iostream>
 #include <map>
 #include <set>
-#include <sstream>
 
-namespace stars {
+namespace rsbe {
 
 void sta_lib_writer::write_header(std::ostream &os) {
 
@@ -268,4 +267,5 @@ void sta_lib_writer::write_footer(std::ostream &os) {
   return;
 };
 
-} // namespace stars
+} // NS rsbe
+

@@ -1,11 +1,11 @@
-#ifndef sta_lib_data_H
-#define sta_lib_data_H
+#pragma once
+#ifndef __rsbe__sta_lib_data_H_h_
+#define __rsbe__sta_lib_data_H_h_
 
-#include <iostream>
+#include "pinc_log.h"
 #include <map>
-#include <vector>
 
-namespace stars {
+namespace rsbe {
 
 typedef enum { INPUT = 0, OUTPUT, INVALID_DIR } port_direction_type;
 typedef enum { POSITIVE = 0, NEGATIVE, INVALID_SENSE } timing_sense_type;
@@ -123,5 +123,7 @@ public:
   */
 };
 
-} // end namespace stars
+} // end namespace rsbe
+
 #endif
+

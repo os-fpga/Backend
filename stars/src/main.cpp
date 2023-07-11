@@ -1,18 +1,48 @@
+static const char* _rsbe_VERSION_STR = "rsbe0033";
+
+#include "RS/rsEnv.h"
+#include "util/pinc_log.h"
+
+#ifdef RSBE_UNIT_TEST_ON
+#include "tes/tes_list.h"
+#endif
+
 #include "globals.h"
 #include "read_options.h"
-#include "sta_file_writer.h"
-#include "vpr_main.h"
 
-#include <cstring>
+#include "RS/sta_file_writer.h"
+#include "RS/rsVPR.h"
 
-int main(int argc, const char *argv[]) {
+namespace rsbe {
 
-  // run status
-  bool status = true;
+using namespace pinc;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::string;
 
-  std::cout << "STARS: Preparing design data ... " << std::endl;
+static rsEnv  s_env;
 
-  // 1. add --analysis option if missing:
+static bool do_stars(const rsOpts& opts, bool orig_args)
+{
+  int argc; const char** argv;
+  if (orig_args) {
+    argc = opts.argc_;
+    argv = opts.argv_;
+  } else {
+    argc = opts.vprArgc_;
+    argv = (const char**) opts.vprArgv_;
+  }
+
+  if (argc <= 0 || !argv) {
+    lputs("\n [Error] no args");
+    return false;
+  }
+
+  // call vpr to build design context
+  cout << "\nSTARS: Preparing design data ... " << endl;
+
+  // add --analysis if it's missing:
   char** vprArgv = (char**) calloc(argc + 4, sizeof(char*));
   int vprArgc = argc;
   bool found_analysis = false;
@@ -23,23 +53,139 @@ int main(int argc, const char *argv[]) {
     vprArgv[i] = strdup(a);
   }
   if (not found_analysis) {
-    std::cout << "STARS: added --analysis to options" << std::endl;
+    cout << "STARS: added --analysis to vpr options" << endl;
     vprArgv[argc] = strdup("--analysis");
     vprArgc++;
   }
 
-  // 2. call vpr to build design context
-  vpr::vpr(vprArgc, vprArgv);
+  vpr4stars(vprArgc, vprArgv);
 
-  // 3. write files for opensta
-  std::cout << "STARS: Creating sta files ... " << std::endl;
-  if (!stars::create_sta_files(argc, argv)) {
-    std::cerr << "STARS: Creating sta files failed." << std::endl;
+  // write files for opensta
+  //
+  bool status = true;
+  cout << "STARS: Creating sta files ... " << endl;
+  if (!create_sta_files(argc, argv)) {
+    lputs("\n[Error] STARS: Creating sta files failed.");
+    cerr << "[Error] STARS: Creating sta files failed." << endl;
     status = false;
   } else {
-    std::cout << "STARS: Creating sta files succeeded." << std::endl;
+    lputs("STARS: Creating sta files succeeded.");
     status = true;
   }
 
-  return status ? 0 : 1;
+  return status;
 }
+
+static void do_help(const rsOpts& opts)
+{
+  printf("RSBE ver. %s\n", _rsbe_VERSION_STR);
+
+  if (opts.dev_ver_) {
+    s_env.listDevEnv();
+  }
+  if (opts.dev_ver_ || opts.version_) {
+    return;
+  }
+  if (opts.help_) {
+    opts.printHelp();
+  }
+}
+
+static void do_units(const rsOpts& opts)
+{
+#ifdef RSBE_UNIT_TEST_ON
+  using namespace tes;
+  if (opts.unit1_)
+    tes::run_U1();
+  if (opts.unit2_)
+    tes::run_U2();
+  if (opts.unit3_)
+    tes::run_U3();
+  if (opts.unit4_)
+    tes::run_U4();
+#endif
+}
+
+} // NS rsbe
+
+int main(int argc, char** argv)
+{
+    using namespace pinc;
+    using namespace rsbe;
+    using std::cout;
+    using std::endl;
+    using std::string;
+
+    rsOpts& opts = s_env.opts_;
+    const char* trace = getenv("rsbe_trace");
+    if (trace)
+        set_ltrace(atoi(trace));
+    else
+        set_ltrace(opts.trace_);
+
+    cout << s_env.traceMarker_ << endl;
+
+    s_env.initVersions(_rsbe_VERSION_STR);
+
+    if (ltrace() >= 2) {
+      s_env.printPids(_rsbe_VERSION_STR);
+      printf("\t compiled:  %s\n", s_env.compTimeCS());
+    }
+
+    s_env.parse(argc, argv);
+
+    if (opts.trace_ >= 4 || ltrace() >= 8 || getenv("rsbe_trace_env")) {
+        s_env.dump("\n----env----\n");
+        cout << "-----------" << endl;
+    }
+
+    if (opts.ver_or_help()) {
+        do_help(opts);
+        pinc::flush_out();
+        std::quick_exit(0);
+    }
+
+    if (opts.unit_specified()) {
+        do_units(opts);
+        ::exit(0);
+    }
+
+    if (ltrace() >= 2) {
+        lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
+    }
+
+    int status = 1;
+    bool ok = false;
+
+#if 0
+    if (0) {
+        ok = do_stars(opts, false);
+        if (ok) {
+            status = 0;
+        }
+    } else {
+        ok = opts.set_VPR_TC2();
+        if (ok) {
+          status = do_vpr(opts);
+          lprintf("DID vpr. status= %i\n", status);
+        }
+        else {
+          lputs(" [Error] set_VPR_TC FAILED");
+        }
+    }
+#endif ////0000
+
+    ok = do_stars(opts, true);
+    if (ok) {
+      if (ltrace() >= 2)
+        lputs("do_stars() succeeded.");
+      status = 0;
+    } else {
+      if (ltrace() >= 2)
+        lputs("do_stars() failed.");
+    }
+
+    pinc::flush_out(true);
+    return status;
+}
+

@@ -1,33 +1,39 @@
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <set>
-#include <sstream>
+#include "pinc_log.h"
 
-#include "AnalysisDelayCalculator.h"
+// vpr/src/base
 #include "atom_netlist.h"
 #include "atom_netlist_utils.h"
 #include "globals.h"
 #include "logic_vec.h"
-#include "net_delay.h"
+#include "vpr_types.h"
+#include "vtr_version.h"
 #include "netlist_walker.h"
 #include "read_blif.h"
+
+// vpr/src/timing
+#include "AnalysisDelayCalculator.h"
+#include "net_delay.h"
+
 #include "sta_file_writer.h"
 #include "sta_lib_data.h"
 #include "sta_lib_writer.h"
-#include "stars_global.h"
-#include "vpr_main.h"
-#include "vpr_types.h"
-#include "vtr_version.h"
+#include "rsGlobal.h"
+#include "rsVPR.h"
 
-namespace stars {
+namespace rsbe {
+
+using std::cout;
+using std::endl;
+using std::string;
+using std::stringstream;
+using namespace pinc;
 
 // This pair cointains the following values:
 //      - double: hold, setup or clock-to-q delays of the port
 //      - string: port name of the associated source clock pin of the sequential
 //      port
-typedef std::pair<double, std::string> sequential_port_delay_pair;
+typedef std::pair<double, string> sequential_port_delay_pair;
 
 /*enum class PortType {
  * IN,
@@ -40,12 +46,12 @@ typedef std::pair<double, std::string> sequential_port_delay_pair;
 ////////////////////////////////////////////////////////////////////////////////
 
 // Unconnected net prefix
-const std::string unconn_prefix = "__vpr__unconn";
+const string unconn_prefix = "__vpr__unconn";
 
 ///@brief Returns a blank string for indenting the given depth
-std::string indent(size_t depth) {
-  std::string indent_ = "    ";
-  std::string new_indent;
+string indent(size_t depth) {
+  string indent_ = "    ";
+  string new_indent;
   for (size_t i = 0; i < depth; ++i) {
     new_indent += indent_;
   }
@@ -58,14 +64,14 @@ double get_delay_ps(double delay_sec) {
 }
 
 ///@brief Returns the name of a unique unconnected net
-std::string create_unconn_net(size_t &unconn_count) {
+string create_unconn_net(size_t &unconn_count) {
   // We increment unconn_count by reference so each
   // call generates a unique name
   return unconn_prefix + std::to_string(unconn_count++);
 }
 
 ///@brief Escapes the given identifier to be safe for verilog
-std::string escape_verilog_identifier(const std::string identifier) {
+string escape_verilog_identifier(const string identifier) {
   // Verilog allows escaped identifiers
   //
   // The escaped identifiers start with a literal back-slash '\'
@@ -74,9 +80,9 @@ std::string escape_verilog_identifier(const std::string identifier) {
   // We pre-pend the escape back-slash and append a space to avoid
   // the identifier gobbling up adjacent characters like commas which
   // are not actually part of the identifier
-  std::string prefix = "\\";
-  std::string suffix = " ";
-  std::string escaped_name = prefix + identifier + suffix;
+  string prefix = "\\";
+  string suffix = " ";
+  string escaped_name = prefix + identifier + suffix;
 
   return escaped_name;
 }
@@ -87,20 +93,20 @@ std::string escape_verilog_identifier(const std::string identifier) {
  * Handles special cases like multi-bit and disconnected ports
  */
 void print_verilog_port(std::ostream &os, size_t &unconn_count,
-                        const std::string &port_name,
-                        const std::vector<std::string> &nets, PortType type,
+                        const string &port_name,
+                        const std::vector<string> &nets, PortType type,
                         int depth, struct t_analysis_opts &opts) {
   auto unconn_inp_name = [&]() {
     switch (opts.post_synth_netlist_unconn_input_handling) {
     case e_post_synth_netlist_unconn_handling::GND:
-      return std::string("1'b0");
+      return string("1'b0");
     case e_post_synth_netlist_unconn_handling::VCC:
-      return std::string("1'b1");
+      return string("1'b1");
     case e_post_synth_netlist_unconn_handling::NETS:
       return create_unconn_net(unconn_count);
     case e_post_synth_netlist_unconn_handling::UNCONNECTED:
     default:
-      return std::string("1'bx");
+      return string("1'bx");
     }
   };
 
@@ -110,7 +116,7 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
       return create_unconn_net(unconn_count);
     case e_post_synth_netlist_unconn_handling::UNCONNECTED:
     default:
-      return std::string();
+      return string();
     }
   };
 
@@ -125,7 +131,7 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
       if (type == PortType::INPUT || type == PortType::CLOCK) {
         os << unconn_inp_name();
       } else {
-        VTR_ASSERT(type == PortType::OUTPUT);
+        assert(type == PortType::OUTPUT);
         os << unconn_out_name();
       }
     } else {
@@ -157,7 +163,7 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
         if (type == PortType::INPUT || type == PortType::CLOCK) {
           os << unconn_inp_name();
         } else {
-          VTR_ASSERT(type == PortType::OUTPUT);
+          assert(type == PortType::OUTPUT);
           // When concatenating output connection there cannot
           // be an empty placeholder so we have to create a
           // dummy net.
@@ -180,7 +186,7 @@ void print_verilog_port(std::ostream &os, size_t &unconn_count,
           if (type == PortType::INPUT || type == PortType::CLOCK) {
             os << unconn_inp_name();
           } else {
-            VTR_ASSERT(type == PortType::OUTPUT);
+            assert(type == PortType::OUTPUT);
             // When concatenating output connection there cannot
             // be an empty placeholder so we have to create a
             // dummy net.
@@ -231,12 +237,12 @@ bool is_special_sdf_char(char c) {
 }
 
 ///@brief Escapes the given identifier to be safe for sdf
-std::string escape_sdf_identifier(const std::string identifier) {
+string escape_sdf_identifier(const string identifier) {
   // SDF allows escaped characters
   //
   // We look at each character in the string and escape it if it is
   // a special character
-  std::string escaped_name;
+  string escaped_name;
 
   for (char c : identifier) {
     if (is_special_sdf_char(c)) {
@@ -250,37 +256,37 @@ std::string escape_sdf_identifier(const std::string identifier) {
 }
 
 ///@brief Joins two identifier strings
-std::string join_identifier(std::string lhs, std::string rhs) {
+string join_identifier(string lhs, string rhs) {
   return lhs + '_' + rhs;
 }
 
 // A combinational timing arc
 class Arc {
 public:
-  Arc(std::string src_port,  ///< Source of the arc
+  Arc(string src_port,  ///< Source of the arc
       int src_ipin,          ///< Source pin index
-      std::string snk_port,  ///< Sink of the arc
+      string snk_port,  ///< Sink of the arc
       int snk_ipin,          ///< Sink pin index
       float del,             ///< Delay on this arc
-      std::string cond = "") ///< Condition associated with the arc
+      string cond = "") ///< Condition associated with the arc
       : source_name_(src_port), source_ipin_(src_ipin), sink_name_(snk_port),
         sink_ipin_(snk_ipin), delay_(del), condition_(cond) {}
 
   // Accessors
-  std::string source_name() const { return source_name_; }
+  string source_name() const { return source_name_; }
   int source_ipin() const { return source_ipin_; }
-  std::string sink_name() const { return sink_name_; }
+  string sink_name() const { return sink_name_; }
   int sink_ipin() const { return sink_ipin_; }
   double delay() const { return delay_; }
-  std::string condition() const { return condition_; }
+  string condition() const { return condition_; }
 
 private:
-  std::string source_name_;
+  string source_name_;
   int source_ipin_;
-  std::string sink_name_;
+  string sink_name_;
   int sink_ipin_;
   double delay_;
-  std::string condition_;
+  string condition_;
 };
 
 /**
@@ -300,9 +306,9 @@ public:
   virtual void print_verilog(std::ostream &os, size_t &unconn_count,
                              int depth = 0) = 0;
   virtual void print_sdf(std::ostream &os, int depth = 0) = 0;
-  virtual void print_lib(stars::sta_lib_writer &lib_writer,
+  virtual void print_lib(rsbe::sta_lib_writer &lib_writer,
                          std::ostream &os) = 0;
-  virtual std::string get_type_name() = 0;
+  virtual string get_type_name() = 0;
 };
 
 ///@brief An instance representing a Look-Up Table
@@ -311,8 +317,8 @@ public: ///< Public methods
   LutInst(
       size_t lut_size,       ///< The LUT size
       LogicVec lut_mask,     ///< The LUT mask representing the logic function
-      std::string inst_name, ///< The name of this instance
-      std::map<std::string, std::vector<std::string>>
+      string inst_name, ///< The name of this instance
+      std::map<string, std::vector<string>>
           port_conns, ///< The port connections of this instance. Key: port
                       ///< name, Value: connected nets
       std::vector<Arc> timing_arc_values, ///< The timing arcs of this instance
@@ -323,17 +329,17 @@ public: ///< Public methods
 
   // Accessors
   const std::vector<Arc> &timing_arcs() { return timing_arcs_; }
-  std::string instance_name() { return inst_name_; }
-  std::string type() { return type_; }
+  string instance_name() { return inst_name_; }
+  string type() { return type_; }
 
 public: // Instance interface method implementations
-  std::string get_type_name() override { return "LUT_K"; }
-  void print_lib(stars::sta_lib_writer &lib_writer, std::ostream &os) override {
+  string get_type_name() override { return "LUT_K"; }
+  void print_lib(rsbe::sta_lib_writer &lib_writer, std::ostream &os) override {
 
     // lut only contains "in" and "out"
-    VTR_ASSERT(port_conns_.count("in"));
-    VTR_ASSERT(port_conns_.count("out"));
-    VTR_ASSERT(port_conns_.size() == 2);
+    assert(port_conns_.count("in"));
+    assert(port_conns_.count("out"));
+    assert(port_conns_.size() == 2);
 
     // count bus width to set bus type properly
     int in_bus_width = port_conns_["in"].size();
@@ -377,7 +383,7 @@ public: // Instance interface method implementations
       for (auto &arc : timing_arcs()) {
         double delay_ps = arc.delay();
 
-        std::stringstream delay_triple;
+        stringstream delay_triple;
         delay_triple << "(" << delay_ps << ":" << delay_ps << ":" << delay_ps
                      << ")";
 
@@ -388,7 +394,7 @@ public: // Instance interface method implementations
            << arc.source_ipin() << "]"
            << " ";
 
-        VTR_ASSERT(arc.sink_ipin() == 0); // Should only be one output
+        assert(arc.sink_ipin() == 0); // Should only be one output
         os << escape_sdf_identifier(arc.sink_name()) << " ";
         os << delay_triple.str() << " " << delay_triple.str() << ")\n";
       }
@@ -404,9 +410,9 @@ public: // Instance interface method implementations
     os << indent(depth) << type_ << "\n";
     os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
-    VTR_ASSERT(port_conns_.count("in"));
-    VTR_ASSERT(port_conns_.count("out"));
-    VTR_ASSERT(port_conns_.size() == 2);
+    assert(port_conns_.count("in"));
+    assert(port_conns_.count("out"));
+    assert(port_conns_.size() == 2);
 
     print_verilog_port(os, unconn_count, "in", port_conns_["in"],
                        PortType::INPUT, depth + 1, opts_);
@@ -420,11 +426,11 @@ public: // Instance interface method implementations
   }
 
 private:
-  std::string type_;
+  string type_;
   size_t lut_size_;
   LogicVec lut_mask_;
-  std::string inst_name_;
-  std::map<std::string, std::vector<std::string>> port_conns_;
+  string inst_name_;
+  std::map<string, std::vector<string>> port_conns_;
   std::vector<Arc> timing_arcs_;
   struct t_analysis_opts opts_;
 };
@@ -451,11 +457,11 @@ public: // Public types
     else if (type == Type::ASYNCHRONOUS)
       os << "as";
     else
-      VTR_ASSERT(false);
+      assert(false);
     return os;
   }
   friend std::istream &operator>>(std::istream &is, Type &type) {
-    std::string tok;
+    string tok;
     is >> tok;
     if (tok == "re")
       type = Type::RISING_EDGE;
@@ -468,14 +474,14 @@ public: // Public types
     else if (tok == "as")
       type = Type::ASYNCHRONOUS;
     else
-      VTR_ASSERT(false);
+      assert(false);
     return is;
   }
 
 public:
   LatchInst(
-      std::string inst_name, ///< Name of this instance
-      std::map<std::string, std::string>
+      string inst_name, ///< Name of this instance
+      std::map<string, string>
           port_conns,             ///< Instance's port-to-net connections
       Type type,                  ///< Type of this latch
       vtr::LogicValue init_value, ///< Initial value of the latch
@@ -486,16 +492,16 @@ public:
       : instance_name_(inst_name), port_connections_(port_conns), type_(type),
         initial_value_(init_value), tcq_(tcq), tsu_(tsu), thld_(thld) {}
 
-  std::string get_type_name() override { return "DFF"; }
+  string get_type_name() override { return "DFF"; }
 
-  void print_lib(stars::sta_lib_writer &lib_writer, std::ostream &os) override {
+  void print_lib(rsbe::sta_lib_writer &lib_writer, std::ostream &os) override {
     /*
     os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
        << escape_sdf_identifier(instance_name_) << ")\n";
        */
   }
   void print_sdf(std::ostream &os, int depth = 0) override {
-    VTR_ASSERT(type_ == Type::RISING_EDGE);
+    assert(type_ == Type::RISING_EDGE);
 
     os << indent(depth) << "(CELL\n";
     os << indent(depth + 1) << "(CELLTYPE \""
@@ -510,7 +516,7 @@ public:
       os << indent(depth + 2) << "(ABSOLUTE\n";
       double delay_ps = get_delay_ps(tcq_);
 
-      std::stringstream delay_triple;
+      stringstream delay_triple;
       delay_triple << "(" << delay_ps << ":" << delay_ps << ":" << delay_ps
                    << ")";
 
@@ -525,7 +531,7 @@ public:
     if (!std::isnan(tsu_) || !std::isnan(thld_)) {
       os << indent(depth + 1) << "(TIMINGCHECK\n";
       if (!std::isnan(tsu_)) {
-        std::stringstream setup_triple;
+        stringstream setup_triple;
         double setup_ps = get_delay_ps(tsu_);
         setup_triple << "(" << setup_ps << ":" << setup_ps << ":" << setup_ps
                      << ")";
@@ -533,7 +539,7 @@ public:
            << setup_triple.str() << ")\n";
       }
       if (!std::isnan(thld_)) {
-        std::stringstream hold_triple;
+        stringstream hold_triple;
         double hold_ps = get_delay_ps(thld_);
         hold_triple << "(" << hold_ps << ":" << hold_ps << ":" << hold_ps
                     << ")";
@@ -548,7 +554,7 @@ public:
   void print_verilog(std::ostream &os, size_t & /*unconn_count*/,
                      int depth = 0) override {
     // Currently assume a standard DFF
-    VTR_ASSERT(type_ == Type::RISING_EDGE);
+    assert(type_ == Type::RISING_EDGE);
 
     os << indent(depth) << "DFF"
        << " #(\n";
@@ -562,7 +568,7 @@ public:
     else if (initial_value_ == vtr::LogicValue::UNKOWN)
       os << "1'bx";
     else
-      VTR_ASSERT(false);
+      assert(false);
     os << ")\n";
     os << indent(depth) << ") " << escape_verilog_identifier(instance_name_)
        << " (\n";
@@ -582,8 +588,8 @@ public:
   }
 
 private:
-  std::string instance_name_;
-  std::map<std::string, std::string> port_connections_;
+  string instance_name_;
+  std::map<string, string> port_connections_;
   Type type_;
   vtr::LogicValue initial_value_;
   double tcq_;  ///< Clock delay + tcq
@@ -594,22 +600,22 @@ private:
 class BlackBoxInst : public Instance {
 public:
   BlackBoxInst(
-      std::string type_name, ///< Instance type
-      std::string inst_name, ///< Instance name
-      std::map<std::string, std::string>
+      string type_name, ///< Instance type
+      string inst_name, ///< Instance name
+      std::map<string, string>
           params, ///< Verilog parameters: Dictonary of <param_name,value>
-      std::map<std::string, std::string>
+      std::map<string, string>
           attrs, ///< Instance attributes: Dictonary of <attr_name,value>
-      std::map<std::string, std::vector<std::string>>
+      std::map<string, std::vector<string>>
           input_port_conns, ///< Port connections: Dictionary of <port,nets>
-      std::map<std::string, std::vector<std::string>>
+      std::map<string, std::vector<string>>
           output_port_conns, ///< Port connections: Dictionary of <port,nets>
       std::vector<Arc> timing_arcs, ///< Combinational timing arcs
-      std::map<std::string, sequential_port_delay_pair>
+      std::map<string, sequential_port_delay_pair>
           ports_tsu, ///< Port setup checks
-      std::map<std::string, sequential_port_delay_pair>
+      std::map<string, sequential_port_delay_pair>
           ports_thld, ///< Port hold checks
-      std::map<std::string, sequential_port_delay_pair>
+      std::map<string, sequential_port_delay_pair>
           ports_tcq, ///< Port clock-to-q delays
       struct t_analysis_opts opts)
       : type_name_(type_name), inst_name_(inst_name), params_(params),
@@ -618,7 +624,7 @@ public:
         ports_tsu_(ports_tsu), ports_thld_(ports_thld), ports_tcq_(ports_tcq),
         opts_(opts) {}
 
-  void print_lib(stars::sta_lib_writer &lib_writer, std::ostream &os) override {
+  void print_lib(rsbe::sta_lib_writer &lib_writer, std::ostream &os) override {
 
     // create cell info
     lib_cell cell;
@@ -626,8 +632,8 @@ public:
 
     // to make memory management simple, we are using static memory for each
     // objects here
-    std::map<std::string, lib_pin> written_in_pins;
-    std::map<std::string, lib_pin> written_out_pins;
+    std::map<string, lib_pin> written_in_pins;
+    std::map<string, lib_pin> written_out_pins;
 
     // create pin and annotate with timing info
     if (ports_tcq_.size() || ports_tsu_.size() || ports_thld_.size()) {
@@ -635,11 +641,13 @@ public:
 
       // for debug
       int i = 0;
+      if (::getenv("stars_trace"))
+        cout << i << endl; // TMP to suppress unused var warning
 
       // clock arch
       for (auto tcq_kv : ports_tcq_) {
 
-        std::string pin_name = tcq_kv.second.second;
+        string pin_name = tcq_kv.second.second;
         lib_pin related_pin;
         if (written_in_pins.find(pin_name) == written_in_pins.end()) {
           related_pin.name(pin_name);
@@ -647,7 +655,7 @@ public:
           related_pin.direction(INPUT);
           related_pin.type(CLOCK);
           written_in_pins.insert(
-              std::pair<std::string, lib_pin>(pin_name, related_pin));
+              std::pair<string, lib_pin>(pin_name, related_pin));
         } else {
           related_pin = written_in_pins[pin_name];
         }
@@ -655,10 +663,10 @@ public:
         pin_name = tcq_kv.first;
         int port_size = find_port_size(pin_name);
         for (int port_idex = 0; port_idex < port_size; port_idex++) {
-          std::string out_pin_name = pin_name;
+          string out_pin_name = pin_name;
           if (port_size > 1) {
             out_pin_name +=
-                std::string("[") + std::to_string(port_idex) + std::string("]");
+                string("[") + std::to_string(port_idex) + string("]");
           }
 
           lib_pin pin_out;
@@ -668,7 +676,7 @@ public:
             pin_out.direction(OUTPUT);
             pin_out.bus_width(1);
             written_out_pins.insert(
-                std::pair<std::string, lib_pin>(out_pin_name, pin_out));
+                std::pair<string, lib_pin>(out_pin_name, pin_out));
           } else {
             pin_out = written_out_pins[out_pin_name];
           }
@@ -685,7 +693,7 @@ public:
       // setup arch
       i = 0;
       for (auto tsu_kv : ports_tsu_) {
-        std::string pin_name = tsu_kv.second.second;
+        string pin_name = tsu_kv.second.second;
         lib_pin related_pin;
         if (written_in_pins.find(pin_name) == written_in_pins.end()) {
           related_pin.name(pin_name);
@@ -693,7 +701,7 @@ public:
           related_pin.direction(INPUT);
           related_pin.type(CLOCK);
           written_in_pins.insert(
-              std::pair<std::string, lib_pin>(pin_name, related_pin));
+              std::pair<string, lib_pin>(pin_name, related_pin));
         } else {
           related_pin = written_in_pins[pin_name];
         }
@@ -701,10 +709,10 @@ public:
         pin_name = tsu_kv.first;
         int port_size = find_port_size(pin_name);
         for (int port_idex = 0; port_idex < port_size; port_idex++) {
-          std::string in_pin_name = pin_name;
+          string in_pin_name = pin_name;
           if (port_size > 1) {
             in_pin_name +=
-                std::string("[") + std::to_string(port_idex) + std::string("]");
+                string("[") + std::to_string(port_idex) + string("]");
           }
           lib_pin pin_in;
           if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
@@ -713,7 +721,7 @@ public:
             pin_in.direction(INPUT);
             pin_in.type(DATA);
             written_in_pins.insert(
-                std::pair<std::string, lib_pin>(in_pin_name, pin_in));
+                std::pair<string, lib_pin>(in_pin_name, pin_in));
           } else {
             pin_in = written_in_pins[in_pin_name];
           }
@@ -729,7 +737,7 @@ public:
       // hold arch
       i = 0;
       for (auto thld_kv : ports_thld_) {
-        std::string pin_name = thld_kv.second.second;
+        string pin_name = thld_kv.second.second;
         lib_pin related_pin;
         if (written_in_pins.find(pin_name) == written_in_pins.end()) {
           related_pin.name(pin_name);
@@ -737,7 +745,7 @@ public:
           related_pin.direction(INPUT);
           related_pin.type(CLOCK);
           written_in_pins.insert(
-              std::pair<std::string, lib_pin>(pin_name, related_pin));
+              std::pair<string, lib_pin>(pin_name, related_pin));
         } else {
           related_pin = written_in_pins[pin_name];
         }
@@ -745,10 +753,10 @@ public:
         pin_name = thld_kv.first;
         int port_size = find_port_size(pin_name);
         for (int port_idex = 0; port_idex < port_size; port_idex++) {
-          std::string in_pin_name = pin_name;
+          string in_pin_name = pin_name;
           if (port_size > 1) {
             in_pin_name +=
-                std::string("[") + std::to_string(port_idex) + std::string("]");
+                string("[") + std::to_string(port_idex) + string("]");
           }
           lib_pin pin_in;
           if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
@@ -757,7 +765,7 @@ public:
             pin_in.direction(INPUT);
             pin_in.type(DATA);
             written_in_pins.insert(
-                std::pair<std::string, lib_pin>(in_pin_name, pin_in));
+                std::pair<string, lib_pin>(in_pin_name, pin_in));
           } else {
             pin_in = written_in_pins[in_pin_name];
           }
@@ -771,12 +779,12 @@ public:
       }
 
       // add pins to cell
-      for (std::map<std::string, lib_pin>::iterator itr =
+      for (std::map<string, lib_pin>::iterator itr =
                written_in_pins.begin();
            itr != written_in_pins.end(); itr++) {
         cell.add_pin(itr->second, INPUT);
       }
-      for (std::map<std::string, lib_pin>::iterator itr =
+      for (std::map<string, lib_pin>::iterator itr =
                written_out_pins.begin();
            itr != written_out_pins.end(); itr++) {
         cell.add_pin(itr->second, OUTPUT);
@@ -786,10 +794,10 @@ public:
       cell.name(type_name_);
       cell.type(BLACKBOX);
       for (auto &arc : timing_arcs_) {
-        std::string in_pin_name = arc.source_name();
+        string in_pin_name = arc.source_name();
         if (find_port_size(in_pin_name) > 1) {
-          in_pin_name += std::string("[") + std::to_string(arc.source_ipin()) +
-                         std::string("]");
+          in_pin_name += string("[") + std::to_string(arc.source_ipin()) +
+                         string("]");
         }
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
           lib_pin pin_in;
@@ -799,14 +807,14 @@ public:
           pin_in.type(DATA);
           // cell.add_pin(pin_in, INPUT);
           written_in_pins.insert(
-              std::pair<std::string, lib_pin>(in_pin_name, pin_in));
+              std::pair<string, lib_pin>(in_pin_name, pin_in));
         }
 
         // todo: add timing arch
-        std::string out_pin_name = arc.sink_name();
+        string out_pin_name = arc.sink_name();
         if (find_port_size(out_pin_name) > 1) {
-          out_pin_name += std::string("[") + std::to_string(arc.sink_ipin()) +
-                          std::string("]");
+          out_pin_name += string("[") + std::to_string(arc.sink_ipin()) +
+                          string("]");
         }
         timing_arch timing;
         timing.sense(POSITIVE);
@@ -821,17 +829,17 @@ public:
           pin_out.add_timing_arch(timing);
           // cell.add_pin(pin_out, OUTPUT);
           written_out_pins.insert(
-              std::pair<std::string, lib_pin>(out_pin_name, pin_out));
+              std::pair<string, lib_pin>(out_pin_name, pin_out));
         } else {
           written_out_pins[out_pin_name].add_timing_arch(timing);
         }
       }
-      for (std::map<std::string, lib_pin>::iterator itr =
+      for (std::map<string, lib_pin>::iterator itr =
                written_in_pins.begin();
            itr != written_in_pins.end(); itr++) {
         cell.add_pin(itr->second, INPUT);
       }
-      for (std::map<std::string, lib_pin>::iterator itr =
+      for (std::map<string, lib_pin>::iterator itr =
                written_out_pins.begin();
            itr != written_out_pins.end(); itr++) {
         cell.add_pin(itr->second, OUTPUT);
@@ -846,6 +854,7 @@ public:
 
     return;
   }
+
   void print_sdf(std::ostream &os, int depth = 0) override {
     if (!timing_arcs_.empty() || !ports_tcq_.empty() || !ports_tsu_.empty() ||
         !ports_thld_.empty()) {
@@ -863,7 +872,7 @@ public:
         for (const auto &arc : timing_arcs_) {
           double delay_ps = get_delay_ps(arc.delay());
 
-          std::stringstream delay_triple;
+          stringstream delay_triple;
           delay_triple << "(" << delay_ps << ":" << delay_ps << ":" << delay_ps
                        << ")";
 
@@ -877,18 +886,18 @@ public:
           int src_port_size = find_port_size(arc.source_name());
           for (int src_port_idex = 0; src_port_idex < src_port_size;
                src_port_idex++) {
-            std::string source_name = arc.source_name();
+            string source_name = arc.source_name();
             if (src_port_size > 1) {
-              source_name += std::string("[") + std::to_string(src_port_idex) +
-                             std::string("]");
+              source_name += string("[") + std::to_string(src_port_idex) +
+                             string("]");
             }
             int snk_port_size = find_port_size(arc.sink_name());
             for (int snk_port_idex = 0; snk_port_idex < snk_port_size;
                  snk_port_idex++) {
-              std::string sink_name = arc.sink_name();
+              string sink_name = arc.sink_name();
               if (snk_port_size > 1) {
-                sink_name += std::string("[") + std::to_string(snk_port_idex) +
-                             std::string("]");
+                sink_name += string("[") + std::to_string(snk_port_idex) +
+                             string("]");
               }
               os << indent(depth + 3) << "(IOPATH ";
               // os << escape_sdf_identifier(source_name);
@@ -907,25 +916,25 @@ public:
         for (auto kv : ports_tcq_) {
           double clock_to_q_ps = get_delay_ps(kv.second.first);
 
-          std::stringstream delay_triple;
+          stringstream delay_triple;
           delay_triple << "(" << clock_to_q_ps << ":" << clock_to_q_ps << ":"
                        << clock_to_q_ps << ")";
 
           int src_port_size = find_port_size(kv.second.second);
           for (int src_port_idex = 0; src_port_idex < src_port_size;
                src_port_idex++) {
-            std::string source_name = kv.second.second;
+            string source_name = kv.second.second;
             if (src_port_size > 1) {
-              source_name += std::string("[") + std::to_string(src_port_idex) +
-                             std::string("]");
+              source_name += string("[") + std::to_string(src_port_idex) +
+                             string("]");
             }
             int snk_port_size = find_port_size(kv.first);
             for (int snk_port_idex = 0; snk_port_idex < snk_port_size;
                  snk_port_idex++) {
-              std::string sink_name = kv.first;
+              string sink_name = kv.first;
               if (snk_port_size > 1) {
-                sink_name += std::string("[") + std::to_string(snk_port_idex) +
-                             std::string("]");
+                sink_name += string("[") + std::to_string(snk_port_idex) +
+                             string("]");
               }
               os << indent(depth + 3) << "(IOPATH (posedge " << source_name
                  << ") " << sink_name << " " << delay_triple.str() << " "
@@ -941,24 +950,24 @@ public:
           os << indent(depth + 1) << "(TIMINGCHECK\n";
           for (auto kv : ports_tsu_) {
             double setup_ps = get_delay_ps(kv.second.first);
-            std::stringstream delay_triple;
+            stringstream delay_triple;
             delay_triple << "(" << setup_ps << ":" << setup_ps << ":"
                          << setup_ps << ")";
             int data_port_size = find_port_size(kv.first);
             for (int data_port_idex = 0; data_port_idex < data_port_size;
                  data_port_idex++) {
-              std::string data_name = kv.first;
+              string data_name = kv.first;
               if (data_port_size > 1) {
-                data_name += std::string("[") + std::to_string(data_port_idex) +
-                             std::string("]");
+                data_name += string("[") + std::to_string(data_port_idex) +
+                             string("]");
               }
               int clk_port_size = find_port_size(kv.second.second);
               for (int clk_port_idex = 0; clk_port_idex < clk_port_size;
                    clk_port_idex++) {
-                std::string clk_name = kv.second.second;
+                string clk_name = kv.second.second;
                 if (clk_port_size > 1) {
-                  clk_name += std::string("[") + std::to_string(clk_port_idex) +
-                              std::string("]");
+                  clk_name += string("[") + std::to_string(clk_port_idex) +
+                              string("]");
                 }
                 os << indent(depth + 2) << "(SETUP " << data_name
                    << " (posedge  " << clk_name << ") " << delay_triple.str()
@@ -969,25 +978,25 @@ public:
           for (auto kv : ports_thld_) {
             double hold_ps = get_delay_ps(kv.second.first);
 
-            std::stringstream delay_triple;
+            stringstream delay_triple;
             delay_triple << "(" << hold_ps << ":" << hold_ps << ":" << hold_ps
                          << ")";
 
             int data_port_size = find_port_size(kv.first);
             for (int data_port_idex = 0; data_port_idex < data_port_size;
                  data_port_idex++) {
-              std::string data_name = kv.first;
+              string data_name = kv.first;
               if (data_port_size > 1) {
-                data_name += std::string("[") + std::to_string(data_port_idex) +
-                             std::string("]");
+                data_name += string("[") + std::to_string(data_port_idex) +
+                             string("]");
               }
               int clk_port_size = find_port_size(kv.second.second);
               for (int clk_port_idex = 0; clk_port_idex < clk_port_size;
                    clk_port_idex++) {
-                std::string clk_name = kv.second.second;
+                string clk_name = kv.second.second;
                 if (clk_port_size > 1) {
-                  clk_name += std::string("[") + std::to_string(clk_port_idex) +
-                              std::string("]");
+                  clk_name += string("[") + std::to_string(clk_port_idex) +
+                              string("]");
                 }
                 os << indent(depth + 2) << "(HOLD " << data_name << " (posedge "
                    << clk_name << ") " << delay_triple.str() << ")\n";
@@ -1038,7 +1047,7 @@ public:
     os << "\n";
   }
 
-  size_t find_port_size(std::string port_name) {
+  size_t find_port_size(string port_name) {
     auto iter = input_port_conns_.find(port_name);
     if (iter != input_port_conns_.end()) {
       return iter->second.size();
@@ -1055,21 +1064,21 @@ public:
     return -1; // Suppress warning
   }
 
-  std::string get_type_name() override { return type_name_; }
+  string get_type_name() override { return type_name_; }
 
 private:
-  std::string type_name_;
-  std::string inst_name_;
-  std::map<std::string, std::string> params_;
-  std::map<std::string, std::string> attrs_;
-  std::map<std::string, std::vector<std::string>> input_port_conns_;
-  std::map<std::string, std::vector<std::string>> output_port_conns_;
+  string type_name_;
+  string inst_name_;
+  std::map<string, string> params_;
+  std::map<string, string> attrs_;
+  std::map<string, std::vector<string>> input_port_conns_;
+  std::map<string, std::vector<string>> output_port_conns_;
   std::vector<Arc> timing_arcs_;
-  std::map<std::string, sequential_port_delay_pair> ports_tsu_;
-  std::map<std::string, sequential_port_delay_pair> ports_thld_;
-  std::map<std::string, sequential_port_delay_pair> ports_tcq_;
+  std::map<string, sequential_port_delay_pair> ports_tsu_;
+  std::map<string, sequential_port_delay_pair> ports_thld_;
+  std::map<string, sequential_port_delay_pair> ports_tcq_;
   struct t_analysis_opts opts_;
-}; // namespace stars
+}; // namespace rsbe
 
 /**
  * @brief Assignment represents the logical connection between two nets
@@ -1079,18 +1088,18 @@ private:
  */
 class Assignment {
 public:
-  Assignment(std::string lval, ///< The left value (assigned to)
-             std::string rval) ///< The right value (assigned from)
+  Assignment(string lval, ///< The left value (assigned to)
+             string rval) ///< The right value (assigned from)
       : lval_(lval), rval_(rval) {}
 
-  void print_verilog(std::ostream &os, std::string indent) {
+  void print_verilog(std::ostream &os, string indent) {
     os << indent << "assign " << escape_verilog_identifier(lval_) << " = "
        << escape_verilog_identifier(rval_) << ";\n";
   }
 
 private:
-  std::string lval_;
-  std::string rval_;
+  string lval_;
+  string rval_;
 };
 
 /**
@@ -1100,15 +1109,17 @@ private:
  * It implements the NetlistVisitor interface used by NetlistWalker (see
  * netlist_walker.h)
  */
-class StaWriterVisitor : public NetlistVisitor {
-public: // Public interface
-  StaWriterVisitor(std::ostream &verilog_os, std::ostream &sdf_os,
-                   std::ostream &lib_os,
+class StaWriterVisitor : public NetlistVisitor
+{
+public:
+  StaWriterVisitor(std::ostream& verilog_os, std::ostream& sdf_os,
+                   std::ostream& lib_os,
                    std::shared_ptr<const AnalysisDelayCalculator> delay_calc,
-                   struct t_analysis_opts opts)
+                   const t_analysis_opts& opts)
       : verilog_os_(verilog_os), sdf_os_(sdf_os), lib_os_(lib_os),
-        delay_calc_(delay_calc), opts_(opts) {
-    auto &atom_ctx = g_vpr_ctx.atom();
+        delay_calc_(delay_calc), opts_(opts)
+{
+    auto& atom_ctx = g_vpr_ctx.atom();
 
     // Initialize the pin to tnode look-up
     for (AtomPinId pin : atom_ctx.nlist.pins()) {
@@ -1116,7 +1127,7 @@ public: // Public interface
       ClusterBlockId clb_idx = atom_ctx.lookup.atom_clb(blk);
 
       const t_pb_graph_pin *gpin = atom_ctx.lookup.atom_pin_pb_graph_pin(pin);
-      VTR_ASSERT(gpin);
+      assert(gpin);
       int pb_pin_idx = gpin->pin_count_in_cluster;
 
       tatum::NodeId tnode_id = atom_ctx.lookup.atom_pin_tnode(pin);
@@ -1125,14 +1136,15 @@ public: // Public interface
       auto value = std::make_pair(key, tnode_id);
       auto ret = pin_id_to_tnode_lookup_.insert(value);
       VTR_ASSERT_MSG(ret.second, "Was inserted");
+      assert(ret.second);
     }
   }
 
-  // Non copyable/assignable/moveable
-  StaWriterVisitor(StaWriterVisitor &other) = delete;
-  StaWriterVisitor(StaWriterVisitor &&other) = delete;
-  StaWriterVisitor &operator=(StaWriterVisitor &rhs) = delete;
-  StaWriterVisitor &operator=(StaWriterVisitor &&rhs) = delete;
+  // No copy, No move
+  StaWriterVisitor(StaWriterVisitor& other) = delete;
+  StaWriterVisitor(StaWriterVisitor&& other) = delete;
+  StaWriterVisitor& operator=(StaWriterVisitor& rhs) = delete;
+  StaWriterVisitor& operator=(StaWriterVisitor&& rhs) = delete;
 
 private: // NetlistVisitor interface functions
   void visit_top_impl(const char *top_level_name) override {
@@ -1148,21 +1160,21 @@ private: // NetlistVisitor interface functions
     }
     const t_model *model = atom_ctx.nlist.block_model(atom_pb);
 
-    if (model->name == std::string(MODEL_INPUT)) {
+    if (model->name == string(MODEL_INPUT)) {
       inputs_.emplace_back(make_io(atom, PortType::INPUT));
-    } else if (model->name == std::string(MODEL_OUTPUT)) {
+    } else if (model->name == string(MODEL_OUTPUT)) {
       outputs_.emplace_back(make_io(atom, PortType::OUTPUT));
-    } else if (model->name == std::string(MODEL_NAMES)) {
+    } else if (model->name == string(MODEL_NAMES)) {
       cell_instances_.push_back(make_lut_instance(atom));
-    } else if (model->name == std::string(MODEL_LATCH)) {
+    } else if (model->name == string(MODEL_LATCH)) {
       cell_instances_.push_back(make_latch_instance(atom));
-    } else if (model->name == std::string("single_port_ram")) {
+    } else if (model->name == string("single_port_ram")) {
       cell_instances_.push_back(make_ram_instance(atom));
-    } else if (model->name == std::string("dual_port_ram")) {
+    } else if (model->name == string("dual_port_ram")) {
       cell_instances_.push_back(make_ram_instance(atom));
-    } else if (model->name == std::string("multiply")) {
+    } else if (model->name == string("multiply")) {
       cell_instances_.push_back(make_multiply_instance(atom));
-    } else if (model->name == std::string("adder")) {
+    } else if (model->name == string("adder")) {
       cell_instances_.push_back(make_adder_instance(atom));
     } else {
       cell_instances_.push_back(make_blackbox_instance(atom));
@@ -1239,11 +1251,11 @@ protected:
     for (const auto &kv : logical_net_sinks_) {
       auto atom_net_id = kv.first;
       auto driver_iter = logical_net_drivers_.find(atom_net_id);
-      VTR_ASSERT(driver_iter != logical_net_drivers_.end());
+      assert(driver_iter != logical_net_drivers_.end());
       const auto &driver_wire = driver_iter->second.first;
 
       for (auto &sink_wire_tnode_pair : kv.second) {
-        std::string inst_name =
+        string inst_name =
             interconnect_name(driver_wire, sink_wire_tnode_pair.first);
         verilog_os_ << indent(depth + 1) << "fpga_interconnect "
                     << escape_verilog_identifier(inst_name) << " (\n";
@@ -1257,7 +1269,7 @@ protected:
     }
 
     // All the cell instances (to an internal buffer for now)
-    std::stringstream instances_ss;
+    stringstream instances_ss;
 
     size_t unconn_count = 0;
     for (auto &inst : cell_instances_) {
@@ -1286,7 +1298,7 @@ protected:
 
 private: // Internal Helper functions
   void print_lib(int depth = 0) {
-    std::set<std::string> written_cells;
+    std::set<string> written_cells;
 
     sta_lib_writer lib_writer;
     lib_writer.write_header(lib_os_);
@@ -1351,7 +1363,7 @@ private: // Internal Helper functions
     for (const auto &kv : logical_net_sinks_) {
       auto atom_net_id = kv.first;
       auto driver_iter = logical_net_drivers_.find(atom_net_id);
-      VTR_ASSERT(driver_iter != logical_net_drivers_.end());
+      assert(driver_iter != logical_net_drivers_.end());
       auto driver_wire = driver_iter->second.first;
       auto driver_tnode = driver_iter->second.second;
 
@@ -1370,7 +1382,7 @@ private: // Internal Helper functions
 
         double delay = get_delay_ps(driver_tnode, sink_tnode);
 
-        std::stringstream delay_triple;
+        stringstream delay_triple;
         delay_triple << "(" << delay << ":" << delay << ":" << delay << ")";
 
         sdf_os_ << indent(depth + 4) << "(IOPATH datain dataout "
@@ -1397,14 +1409,14 @@ private: // Internal Helper functions
    *   @param atom  The implementation primitive representing the I/O
    *   @param dir   The IO direction
    */
-  std::string make_io(const t_pb *atom, PortType dir) {
+  string make_io(const t_pb *atom, PortType dir) {
     const t_pb_graph_node *pb_graph_node = atom->pb_graph_node;
 
-    std::string io_name;
+    string io_name;
     int cluster_pin_idx = -1;
     if (dir == PortType::INPUT) {
-      VTR_ASSERT(pb_graph_node->num_output_ports == 1);   // One output port
-      VTR_ASSERT(pb_graph_node->num_output_pins[0] == 1); // One output pin
+      assert(pb_graph_node->num_output_ports == 1);   // One output port
+      assert(pb_graph_node->num_output_pins[0] == 1); // One output pin
       cluster_pin_idx =
           pb_graph_node->output_pins[0][0]
               .pin_count_in_cluster; // Unique pin index in cluster
@@ -1412,8 +1424,8 @@ private: // Internal Helper functions
       io_name = atom->name;
 
     } else {
-      VTR_ASSERT(pb_graph_node->num_input_ports == 1);   // One input port
-      VTR_ASSERT(pb_graph_node->num_input_pins[0] == 1); // One input pin
+      assert(pb_graph_node->num_input_ports == 1);   // One input port
+      assert(pb_graph_node->num_input_pins[0] == 1); // One input pin
       cluster_pin_idx =
           pb_graph_node->input_pins[0][0]
               .pin_count_in_cluster; // Unique pin index in cluster
@@ -1459,22 +1471,22 @@ protected:
    *
    * The wire is recorded and instantiated by the top level output routines.
    */
-  std::string make_inst_wire(
+  string make_inst_wire(
       AtomNetId atom_net_id,  ///< The id of the net in the atom netlist
       tatum::NodeId tnode_id, ///< The tnode associated with the primitive pin
-      std::string
+      string
           inst_name,      ///< The name of the instance associated with the pin
       PortType port_type, ///< The port direction
       int port_idx,       ///< The instance port index
       int pin_idx) {      ///< The instance pin index
 
-    std::string wire_name = inst_name;
+    string wire_name = inst_name;
     if (port_type == PortType::INPUT) {
       wire_name = join_identifier(wire_name, "input");
     } else if (port_type == PortType::CLOCK) {
       wire_name = join_identifier(wire_name, "clock");
     } else {
-      VTR_ASSERT(port_type == PortType::OUTPUT);
+      assert(port_type == PortType::OUTPUT);
       wire_name = join_identifier(wire_name, "output");
     }
 
@@ -1488,11 +1500,11 @@ protected:
 
     } else {
       // Add the driver
-      VTR_ASSERT(port_type == PortType::OUTPUT);
+      assert(port_type == PortType::OUTPUT);
 
       auto ret =
           logical_net_drivers_.insert(std::make_pair(atom_net_id, value));
-      VTR_ASSERT(ret.second); // Was inserted, drivers are unique
+      assert(ret.second); // Was inserted, drivers are unique
     }
 
     return wire_name;
@@ -1510,15 +1522,15 @@ protected:
     auto inst_name = join_identifier("lut", atom->name);
 
     // Determine the port connections
-    std::map<std::string, std::vector<std::string>> port_conns;
+    std::map<string, std::vector<string>> port_conns;
 
     const t_pb_graph_node *pb_graph_node = atom->pb_graph_node;
-    VTR_ASSERT(pb_graph_node->num_input_ports == 1); // LUT has one input port
+    assert(pb_graph_node->num_input_ports == 1); // LUT has one input port
 
     const auto &top_pb_route = find_top_pb_route(atom);
 
-    VTR_ASSERT(pb_graph_node->num_output_ports == 1); // LUT has one output port
-    VTR_ASSERT(pb_graph_node->num_output_pins[0] == 1); // LUT has one output
+    assert(pb_graph_node->num_output_ports == 1); // LUT has one output port
+    assert(pb_graph_node->num_output_pins[0] == 1); // LUT has one output
                                                         // pin
     int sink_cluster_pin_idx =
         pb_graph_node->output_pins[0][0]
@@ -1532,7 +1544,7 @@ protected:
           pb_graph_node->input_pins[0][pin_idx]
               .pin_count_in_cluster; // Unique pin index in cluster
 
-      std::string net;
+      string net;
       if (!top_pb_route.count(cluster_pin_idx)) {
         // Disconnected
         net = "";
@@ -1540,7 +1552,7 @@ protected:
         // Connected to a net
         auto atom_net_id = top_pb_route[cluster_pin_idx]
                                .atom_net_id; // Connected net in atom netlist
-        VTR_ASSERT(atom_net_id);
+        assert(atom_net_id);
 
         // Look up the tnode associated with this pin (used for delay
         // calculation)
@@ -1565,7 +1577,7 @@ protected:
       auto atom_net_id = top_pb_route[sink_cluster_pin_idx]
                              .atom_net_id; // Connected net in atom netlist
 
-      std::string net;
+      string net;
       if (!atom_net_id) {
         // Disconnected
         net = "";
@@ -1590,30 +1602,30 @@ protected:
 
   ///@brief Returns an Instance object representing the Latch
   std::shared_ptr<Instance> make_latch_instance(const t_pb *atom) {
-    std::string inst_name = join_identifier("latch", atom->name);
+    string inst_name = join_identifier("latch", atom->name);
 
     const auto &top_pb_route = find_top_pb_route(atom);
     const t_pb_graph_node *pb_graph_node = atom->pb_graph_node;
 
     // We expect a single input, output and clock ports
-    VTR_ASSERT(pb_graph_node->num_input_ports == 1);
-    VTR_ASSERT(pb_graph_node->num_output_ports == 1);
-    VTR_ASSERT(pb_graph_node->num_clock_ports == 1);
-    VTR_ASSERT(pb_graph_node->num_input_pins[0] == 1);
-    VTR_ASSERT(pb_graph_node->num_output_pins[0] == 1);
-    VTR_ASSERT(pb_graph_node->num_clock_pins[0] == 1);
+    assert(pb_graph_node->num_input_ports == 1);
+    assert(pb_graph_node->num_output_ports == 1);
+    assert(pb_graph_node->num_clock_ports == 1);
+    assert(pb_graph_node->num_input_pins[0] == 1);
+    assert(pb_graph_node->num_output_pins[0] == 1);
+    assert(pb_graph_node->num_clock_pins[0] == 1);
 
     // The connections
-    std::map<std::string, std::string> port_conns;
+    std::map<string, string> port_conns;
 
     // Input (D)
     int input_cluster_pin_idx =
         pb_graph_node->input_pins[0][0]
             .pin_count_in_cluster; // Unique pin index in cluster
-    VTR_ASSERT(top_pb_route.count(input_cluster_pin_idx));
+    assert(top_pb_route.count(input_cluster_pin_idx));
     auto input_atom_net_id = top_pb_route[input_cluster_pin_idx]
                                  .atom_net_id; // Connected net in atom netlist
-    std::string input_net = make_inst_wire(
+    string input_net = make_inst_wire(
         input_atom_net_id, find_tnode(atom, input_cluster_pin_idx), inst_name,
         PortType::INPUT, 0, 0);
     port_conns["D"] = input_net;
@@ -1624,10 +1636,10 @@ protected:
     int output_cluster_pin_idx =
         pb_graph_node->output_pins[0][0]
             .pin_count_in_cluster; // Unique pin index in cluster
-    VTR_ASSERT(top_pb_route.count(output_cluster_pin_idx));
+    assert(top_pb_route.count(output_cluster_pin_idx));
     auto output_atom_net_id = top_pb_route[output_cluster_pin_idx]
                                   .atom_net_id; // Connected net in atom netlist
-    std::string output_net = make_inst_wire(
+    string output_net = make_inst_wire(
         output_atom_net_id, find_tnode(atom, output_cluster_pin_idx), inst_name,
         PortType::OUTPUT, 0, 0);
     port_conns["Q"] = output_net;
@@ -1638,11 +1650,11 @@ protected:
     int control_cluster_pin_idx =
         pb_graph_node->clock_pins[0][0]
             .pin_count_in_cluster; // Unique pin index in cluster
-    VTR_ASSERT(top_pb_route.count(control_cluster_pin_idx));
+    assert(top_pb_route.count(control_cluster_pin_idx));
     auto control_atom_net_id =
         top_pb_route[control_cluster_pin_idx]
             .atom_net_id; // Connected net in atom netlist
-    std::string control_net = make_inst_wire(
+    string control_net = make_inst_wire(
         control_atom_net_id, find_tnode(atom, control_cluster_pin_idx),
         inst_name, PortType::CLOCK, 0, 0);
     port_conns["clock"] = control_net;
@@ -1666,18 +1678,18 @@ protected:
     const t_pb_graph_node *pb_graph_node = atom->pb_graph_node;
     const t_pb_type *pb_type = pb_graph_node->pb_type;
 
-    VTR_ASSERT(pb_type->class_type == MEMORY_CLASS);
+    assert(pb_type->class_type == MEMORY_CLASS);
 
-    std::string type = pb_type->model->name;
-    std::string inst_name = join_identifier(type, atom->name);
-    std::map<std::string, std::string> params;
-    std::map<std::string, std::string> attrs;
-    std::map<std::string, std::vector<std::string>> input_port_conns;
-    std::map<std::string, std::vector<std::string>> output_port_conns;
+    string type = pb_type->model->name;
+    string inst_name = join_identifier(type, atom->name);
+    std::map<string, string> params;
+    std::map<string, string> attrs;
+    std::map<string, std::vector<string>> input_port_conns;
+    std::map<string, std::vector<string>> output_port_conns;
     std::vector<Arc> timing_arcs;
-    std::map<std::string, sequential_port_delay_pair> ports_tsu;
-    std::map<std::string, sequential_port_delay_pair> ports_thld;
-    std::map<std::string, sequential_port_delay_pair> ports_tcq;
+    std::map<string, sequential_port_delay_pair> ports_tsu;
+    std::map<string, sequential_port_delay_pair> ports_thld;
+    std::map<string, sequential_port_delay_pair> ports_tcq;
 
     params["ADDR_WIDTH"] = "0";
     params["DATA_WIDTH"] = "0";
@@ -1687,24 +1699,24 @@ protected:
       for (int ipin = 0; ipin < pb_graph_node->num_input_pins[iport]; ++ipin) {
         const t_pb_graph_pin *pin = &pb_graph_node->input_pins[iport][ipin];
         const t_port *port = pin->port;
-        std::string port_class = port->port_class;
+        string port_class = port->port_class;
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
           net = make_inst_wire(atom_net_id, find_tnode(atom, cluster_pin_idx),
                                inst_name, PortType::INPUT, iport, ipin);
         }
 
         // RAMs use a port class specification to identify the purpose of each
         // port
-        std::string port_name;
+        string port_name;
         if (port_class == "address") {
           port_name = "addr";
           params["ADDR_WIDTH"] = std::to_string(port->num_pins);
@@ -1747,23 +1759,23 @@ protected:
       for (int ipin = 0; ipin < pb_graph_node->num_output_pins[iport]; ++ipin) {
         const t_pb_graph_pin *pin = &pb_graph_node->output_pins[iport][ipin];
         const t_port *port = pin->port;
-        std::string port_class = port->port_class;
+        string port_class = port->port_class;
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
 
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
           net = make_inst_wire(atom_net_id, find_tnode(atom, cluster_pin_idx),
                                inst_name, PortType::OUTPUT, iport, ipin);
         }
 
-        std::string port_name;
+        string port_name;
         if (port_class == "data_out") {
           port_name = "out";
         } else if (port_class == "data_out1") {
@@ -1784,26 +1796,26 @@ protected:
 
     // Process the clock ports
     for (int iport = 0; iport < pb_graph_node->num_clock_ports; ++iport) {
-      VTR_ASSERT(pb_graph_node->num_clock_pins[iport] ==
+      assert(pb_graph_node->num_clock_pins[iport] ==
                  1); // Expect a single clock port
 
       for (int ipin = 0; ipin < pb_graph_node->num_clock_pins[iport]; ++ipin) {
         const t_pb_graph_pin *pin = &pb_graph_node->clock_pins[iport][ipin];
         const t_port *port = pin->port;
-        std::string port_class = port->port_class;
+        string port_class = port->port_class;
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
-        VTR_ASSERT(top_pb_route.count(cluster_pin_idx));
+        assert(top_pb_route.count(cluster_pin_idx));
         auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
 
-        VTR_ASSERT(atom_net_id); // Must have a clock
+        assert(atom_net_id); // Must have a clock
 
-        std::string net =
+        string net =
             make_inst_wire(atom_net_id, find_tnode(atom, cluster_pin_idx),
                            inst_name, PortType::CLOCK, iport, ipin);
 
         if (port_class == "clock") {
-          VTR_ASSERT(pb_graph_node->num_clock_pins[iport] ==
+          assert(pb_graph_node->num_clock_pins[iport] ==
                      1); // Expect a single clock pin
           input_port_conns["clock"].push_back(net);
         } else {
@@ -1828,21 +1840,21 @@ protected:
     const t_pb_graph_node *pb_graph_node = atom->pb_graph_node;
     const t_pb_type *pb_type = pb_graph_node->pb_type;
 
-    std::string type_name = pb_type->model->name;
-    std::string inst_name = join_identifier(type_name, atom->name);
-    std::map<std::string, std::string> params;
-    std::map<std::string, std::string> attrs;
-    std::map<std::string, std::vector<std::string>> input_port_conns;
-    std::map<std::string, std::vector<std::string>> output_port_conns;
+    string type_name = pb_type->model->name;
+    string inst_name = join_identifier(type_name, atom->name);
+    std::map<string, string> params;
+    std::map<string, string> attrs;
+    std::map<string, std::vector<string>> input_port_conns;
+    std::map<string, std::vector<string>> output_port_conns;
     std::vector<Arc> timing_arcs;
-    std::map<std::string, sequential_port_delay_pair> ports_tsu;
-    std::map<std::string, sequential_port_delay_pair> ports_thld;
-    std::map<std::string, sequential_port_delay_pair> ports_tcq;
+    std::map<string, sequential_port_delay_pair> ports_tsu;
+    std::map<string, sequential_port_delay_pair> ports_thld;
+    std::map<string, sequential_port_delay_pair> ports_tcq;
 
     params["WIDTH"] = "0";
 
     // Delay matrix[sink_tnode] -> tuple of source_port_name, pin index, delay
-    std::map<tatum::NodeId, std::vector<std::tuple<std::string, int, double>>>
+    std::map<tatum::NodeId, std::vector<std::tuple<string, int, double>>>
         tnode_delay_matrix;
 
     // Process the input ports
@@ -1855,14 +1867,14 @@ protected:
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
 
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
           auto src_tnode = find_tnode(atom, cluster_pin_idx);
           net = make_inst_wire(atom_net_id, src_tnode, inst_name,
                                PortType::INPUT, iport, ipin);
@@ -1891,14 +1903,14 @@ protected:
         const t_port *port = pin->port;
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
 
           auto inode = find_tnode(atom, cluster_pin_idx);
           net = make_inst_wire(atom_net_id, inode, inst_name, PortType::OUTPUT,
@@ -1918,7 +1930,7 @@ protected:
       }
     }
 
-    VTR_ASSERT(pb_graph_node->num_clock_ports == 0); // No clocks
+    assert(pb_graph_node->num_clock_ports == 0); // No clocks
 
     return std::make_shared<BlackBoxInst>(type_name, inst_name, params, attrs,
                                           input_port_conns, output_port_conns,
@@ -1934,21 +1946,21 @@ protected:
     const t_pb_graph_node *pb_graph_node = atom->pb_graph_node;
     const t_pb_type *pb_type = pb_graph_node->pb_type;
 
-    std::string type_name = pb_type->model->name;
-    std::string inst_name = join_identifier(type_name, atom->name);
-    std::map<std::string, std::string> params;
-    std::map<std::string, std::string> attrs;
-    std::map<std::string, std::vector<std::string>> input_port_conns;
-    std::map<std::string, std::vector<std::string>> output_port_conns;
+    string type_name = pb_type->model->name;
+    string inst_name = join_identifier(type_name, atom->name);
+    std::map<string, string> params;
+    std::map<string, string> attrs;
+    std::map<string, std::vector<string>> input_port_conns;
+    std::map<string, std::vector<string>> output_port_conns;
     std::vector<Arc> timing_arcs;
-    std::map<std::string, sequential_port_delay_pair> ports_tsu;
-    std::map<std::string, sequential_port_delay_pair> ports_thld;
-    std::map<std::string, sequential_port_delay_pair> ports_tcq;
+    std::map<string, sequential_port_delay_pair> ports_tsu;
+    std::map<string, sequential_port_delay_pair> ports_thld;
+    std::map<string, sequential_port_delay_pair> ports_tcq;
 
     params["WIDTH"] = "0";
 
     // Delay matrix[sink_tnode] -> tuple of source_port_name, pin index, delay
-    std::map<tatum::NodeId, std::vector<std::tuple<std::string, int, double>>>
+    std::map<tatum::NodeId, std::vector<std::tuple<string, int, double>>>
         tnode_delay_matrix;
 
     // Process the input ports
@@ -1957,21 +1969,21 @@ protected:
         const t_pb_graph_pin *pin = &pb_graph_node->input_pins[iport][ipin];
         const t_port *port = pin->port;
 
-        if (port->name == std::string("a") || port->name == std::string("b")) {
+        if (port->name == string("a") || port->name == string("b")) {
           params["WIDTH"] =
               std::to_string(port->num_pins); // Assume same width on all ports
         }
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
 
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
 
           // Connected
           auto src_tnode = find_tnode(atom, cluster_pin_idx);
@@ -2003,14 +2015,14 @@ protected:
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
 
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
 
           auto inode = find_tnode(atom, cluster_pin_idx);
           net = make_inst_wire(atom_net_id, inode, inst_name, PortType::OUTPUT,
@@ -2042,12 +2054,12 @@ protected:
     const t_pb_type *pb_type = pb_graph_node->pb_type;
 
     auto &timing_ctx = g_vpr_ctx.timing();
-    std::string type_name = pb_type->model->name;
-    std::string inst_name = join_identifier(type_name, atom->name);
-    std::map<std::string, std::string> params;
-    std::map<std::string, std::string> attrs;
-    std::map<std::string, std::vector<std::string>> input_port_conns;
-    std::map<std::string, std::vector<std::string>> output_port_conns;
+    string type_name = pb_type->model->name;
+    string inst_name = join_identifier(type_name, atom->name);
+    std::map<string, string> params;
+    std::map<string, string> attrs;
+    std::map<string, std::vector<string>> input_port_conns;
+    std::map<string, std::vector<string>> output_port_conns;
     std::vector<Arc> timing_arcs;
 
     // Maps to store a sink's port with the corresponding timing edge to that
@@ -2058,12 +2070,12 @@ protected:
     //  tsu : Setup
     //  thld: Hold
     //  tcq : Clock-to-Q
-    std::map<std::string, sequential_port_delay_pair> ports_tsu;
-    std::map<std::string, sequential_port_delay_pair> ports_thld;
-    std::map<std::string, sequential_port_delay_pair> ports_tcq;
+    std::map<string, sequential_port_delay_pair> ports_tsu;
+    std::map<string, sequential_port_delay_pair> ports_thld;
+    std::map<string, sequential_port_delay_pair> ports_tcq;
 
     // Delay matrix[sink_tnode] -> tuple of source_port_name, pin index, delay
-    std::map<tatum::NodeId, std::vector<std::tuple<std::string, int, double>>>
+    std::map<tatum::NodeId, std::vector<std::tuple<string, int, double>>>
         tnode_delay_matrix;
 
     // Process the input ports
@@ -2074,7 +2086,7 @@ protected:
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
 
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
@@ -2082,7 +2094,7 @@ protected:
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
 
           auto src_tnode = find_tnode(atom, cluster_pin_idx);
           net = make_inst_wire(atom_net_id, src_tnode, inst_name,
@@ -2120,14 +2132,14 @@ protected:
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
 
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id);
+          assert(atom_net_id);
 
           auto inode = find_tnode(atom, cluster_pin_idx);
           net = make_inst_wire(atom_net_id, inode, inst_name, PortType::OUTPUT,
@@ -2157,14 +2169,14 @@ protected:
 
         int cluster_pin_idx = pin->pin_count_in_cluster;
 
-        std::string net;
+        string net;
         if (!top_pb_route.count(cluster_pin_idx)) {
           // Disconnected
           net = "";
         } else {
           // Connected
           auto atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-          VTR_ASSERT(atom_net_id); // Must have a clock
+          assert(atom_net_id); // Must have a clock
 
           auto src_tnode = find_tnode(atom, cluster_pin_idx);
           net = make_inst_wire(atom_net_id, src_tnode, inst_name,
@@ -2206,10 +2218,10 @@ protected:
 
     auto key = std::make_pair(clb_index, cluster_pin_idx);
     auto iter = pin_id_to_tnode_lookup_.find(key);
-    VTR_ASSERT(iter != pin_id_to_tnode_lookup_.end());
+    assert(iter != pin_id_to_tnode_lookup_.end());
 
     tatum::NodeId tnode_id = iter->second;
-    VTR_ASSERT(tnode_id);
+    assert(tnode_id);
 
     return tnode_id;
   }
@@ -2234,10 +2246,10 @@ private:
 
     const t_model *model =
         atom_ctx.nlist.block_model(atom_ctx.lookup.pb_atom(atom));
-    VTR_ASSERT(model->name == std::string(MODEL_NAMES));
+    assert(model->name == string(MODEL_NAMES));
 
 #ifdef DEBUG_LUT_MASK
-    std::cout << "Loading LUT mask for: " << atom->name << std::endl;
+    cout << "Loading LUT mask for: " << atom->name << endl;
 #endif
 
     // Figure out how the inputs were permuted (compared to the input netlist)
@@ -2256,7 +2268,7 @@ private:
         truth_table_to_lut_mask(permuted_truth_table, num_inputs);
 
 #ifdef DEBUG_LUT_MASK
-    std::cout << "\tLUT_MASK: " << lut_mask << std::endl;
+    cout << "\tLUT_MASK: " << lut_mask << endl;
 #endif
 
     return lut_mask;
@@ -2283,11 +2295,11 @@ private:
     std::vector<int> permute(num_inputs, OPEN);
 
 #ifdef DEBUG_LUT_MASK
-    std::cout << "\tInit Permute: {";
+    cout << "\tInit Permute: {";
     for (size_t i = 0; i < permute.size(); i++) {
-      std::cout << permute[i] << ", ";
+      cout << permute[i] << ", ";
     }
-    std::cout << "}" << std::endl;
+    cout << "}" << endl;
 #endif
 
     // Determine the permutation
@@ -2299,8 +2311,8 @@ private:
         atom_ctx.nlist.block_input_ports(atom_ctx.lookup.pb_atom(atom_pb));
     if (ports.size() == 1) {
       const t_pb_graph_node *gnode = atom_pb->pb_graph_node;
-      VTR_ASSERT(gnode->num_input_ports == 1);
-      VTR_ASSERT(gnode->num_input_pins[0] >= (int)num_inputs);
+      assert(gnode->num_input_ports == 1);
+      assert(gnode->num_input_pins[0] >= (int)num_inputs);
 
       AtomPortId port_id = *ports.begin();
 
@@ -2337,7 +2349,7 @@ private:
       }
     } else {
       // May have no inputs on a constant generator
-      VTR_ASSERT(ports.size() == 0);
+      assert(ports.size() == 0);
     }
 
     // Fill in any missing values in the permutation (i.e. zeros)
@@ -2354,14 +2366,14 @@ private:
     }
 
 #ifdef DEBUG_LUT_MASK
-    std::cout << "\tPermute: {";
+    cout << "\tPermute: {";
     for (size_t k = 0; k < permute.size(); k++) {
-      std::cout << permute[k] << ", ";
+      cout << permute[k] << ", ";
     }
-    std::cout << "}" << std::endl;
+    cout << "}" << endl;
 
-    std::cout << "\tBLIF = Input ->  Rotated" << std::endl;
-    std::cout << "\t------------------------" << std::endl;
+    cout << "\tBLIF = Input ->  Rotated" << endl;
+    cout << "\t------------------------" << endl;
 #endif
     return permute;
   }
@@ -2393,7 +2405,7 @@ private:
       //  .names can encode either the ON or OFF set (of which only one will
       //  be encoded in a single .names)
       //
-      const std::string names_first_row =
+      const string names_first_row =
           (const char *)names_row_ptr->data_vptr;
       auto names_first_row_output_iter = names_first_row.end() - 1;
 
@@ -2417,20 +2429,20 @@ private:
    *
    * Converts the given names_row string to a LogicVec
    */
-  LogicVec names_row_to_logic_vec(const std::string names_row,
+  LogicVec names_row_to_logic_vec(const string names_row,
                                   size_t num_inputs, bool encoding_on_set) {
     // Get an iterator to the last character (i.e. the output value)
     auto output_val_iter = names_row.end() - 1;
 
     // Sanity-check, the 2nd last character should be a space
     auto space_iter = names_row.end() - 2;
-    VTR_ASSERT(*space_iter == ' ');
+    assert(*space_iter == ' ');
 
     // Extract the truth (output value) for this row
     if (*output_val_iter == '1') {
-      VTR_ASSERT(encoding_on_set);
+      assert(encoding_on_set);
     } else if (*output_val_iter == '0') {
-      VTR_ASSERT(!encoding_on_set);
+      assert(!encoding_on_set);
     } else {
       VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER,
                       "Invalid .names encoding both ON and OFF set\n");
@@ -2484,9 +2496,9 @@ private:
   }
 
   ///@brief Returns the name of the routing segment between two wires
-  std::string interconnect_name(std::string driver_wire,
-                                std::string sink_wire) {
-    std::string name = join_identifier("routing_segment", driver_wire);
+  string interconnect_name(string driver_wire,
+                                string sink_wire) {
+    string name = join_identifier("routing_segment", driver_wire);
     name = join_identifier(name, "to");
     name = join_identifier(name, sink_wire);
 
@@ -2498,20 +2510,20 @@ private:
     auto &timing_ctx = g_vpr_ctx.timing();
 
     tatum::EdgeId edge = timing_ctx.graph->find_edge(source_tnode, sink_tnode);
-    VTR_ASSERT(edge);
+    assert(edge);
 
     double delay_sec = delay_calc_->max_edge_delay(*timing_ctx.graph, edge);
 
-    return stars::get_delay_ps(
+    return rsbe::get_delay_ps(
         delay_sec); // Class overload hides file-scope by default
   }
 
 private: // Data
-  std::string
+  string
       top_module_name_; ///< Name of the top level module (i.e. the circuit)
 protected:
-  std::vector<std::string> inputs_;  ///< Name of circuit inputs
-  std::vector<std::string> outputs_; ///< Name of circuit outputs
+  std::vector<string> inputs_;  ///< Name of circuit inputs
+  std::vector<string> outputs_; ///< Name of circuit outputs
   std::vector<Assignment>
       assignments_; ///< Set of assignments (i.e. net-to-net connections)
   std::vector<std::shared_ptr<Instance>>
@@ -2520,22 +2532,22 @@ protected:
 private:
   // Drivers of logical nets.
   // Key: logic net id, Value: pair of wire_name and tnode_id
-  std::map<AtomNetId, std::pair<std::string, tatum::NodeId>>
+  std::map<AtomNetId, std::pair<string, tatum::NodeId>>
       logical_net_drivers_;
 
   // Sinks of logical nets.
   // Key: logical net id, Value: vector wire_name tnode_id pairs
-  std::map<AtomNetId, std::vector<std::pair<std::string, tatum::NodeId>>>
+  std::map<AtomNetId, std::vector<std::pair<string, tatum::NodeId>>>
       logical_net_sinks_;
-  std::map<std::string, float> logical_net_sink_delays_;
+  std::map<string, float> logical_net_sink_delays_;
 
   // Output streams
 protected:
-  std::ostream &verilog_os_;
+  std::ostream& verilog_os_;
 
 private:
-  std::ostream &sdf_os_;
-  std::ostream &lib_os_;
+  std::ostream& sdf_os_;
+  std::ostream& lib_os_;
 
   // Look-up from pins to tnodes
   std::map<std::pair<ClusterBlockId, int>, tatum::NodeId>
@@ -2548,19 +2560,19 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 // class methods
 ////////////////////////////////////////////////////////////////////////////////
-bool sta_file_writer::write_sta_files(int argc, const char **argv) {
-
+bool sta_file_writer::write_sta_files(int argc, const char** argv) const
+{
   // vpr context
-  auto &atom_ctx = g_vpr_ctx.atom();
-  auto &timing_ctx = g_vpr_ctx.timing();
-  auto &design_name_ = atom_ctx.nlist.netlist_name();
+  auto& atom_ctx = g_vpr_ctx.atom();
+  auto& timing_ctx = g_vpr_ctx.timing();
+  auto& design_name_ = atom_ctx.nlist.netlist_name();
 
   // io initialization
-  std::cout << "STARS: Input design <" << design_name_ << ">" << std::endl;
-  std::string lib_filename = design_name_ + "_stars.lib";
-  std::string verilog_filename = design_name_ + "_stars.v";
-  std::string sdf_filename = design_name_ + "_stars.sdf";
-  std::string sdc_filename = design_name_ + "_stars.sdc";
+  cout << "STARS: Input design <" << design_name_ << ">" << endl;
+  string lib_filename = design_name_ + "_stars.lib";
+  string verilog_filename = design_name_ + "_stars.v";
+  string sdf_filename = design_name_ + "_stars.sdf";
+  string sdc_filename = design_name_ + "_stars.sdc";
   std::ofstream lib_os(lib_filename);
   std::ofstream verilog_os(verilog_filename);
   std::ofstream sdf_os(sdf_filename);
@@ -2577,7 +2589,7 @@ bool sta_file_writer::write_sta_files(int argc, const char **argv) {
 
   // walk netlist to dump info
   StaWriterVisitor visitor(verilog_os, sdf_os, lib_os, analysis_delay_calc,
-                           vpr_setup.AnalysisOpts);
+                           get_vprSetup()->AnalysisOpts);
   NetlistWalker nl_walker(visitor);
   nl_walker.walk();
 
@@ -2587,10 +2599,10 @@ bool sta_file_writer::write_sta_files(int argc, const char **argv) {
   for (int i = 0; i < argc; i++) {
     if (std::strcmp(argv[i], "--sdc_file") == 0) {
       std::ifstream in_file(argv[i + 1]);
-      std::string line;
+      string line;
       if (in_file) {
         while (getline(in_file, line)) {
-          sdc_os << line << std::endl;
+          sdc_os << line << endl;
         }
       }
       in_file.close();
@@ -2598,25 +2610,20 @@ bool sta_file_writer::write_sta_files(int argc, const char **argv) {
     }
   }
 
-  // close io
-  lib_os.close();
-  verilog_os.close();
-  sdf_os.close();
-  sdc_os.close();
-
-  std::cout << "STARS: Created files <" << lib_filename << ">, <"
+  cout << "STARS: Created files <" << lib_filename << ">, <"
             << verilog_filename << ">, <" << sdf_filename << ">, <"
-            << sdc_filename << ">." << std::endl;
+            << sdc_filename << ">." << endl;
 
   return true;
-};
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // API methods
 ////////////////////////////////////////////////////////////////////////////////
-bool create_sta_files(int argc, const char **argv) {
-  sta_file_writer sta_writer;
-  return sta_writer.write_sta_files(argc, argv);
-};
+bool create_sta_files(int argc, const char** argv) {
+  sta_file_writer wr;
+  return wr.write_sta_files(argc, argv);
+}
 
-} // namespace stars
+}  // NS rsbe
+
