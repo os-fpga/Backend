@@ -17,4 +17,3 @@ t_vpr_setup* get_vprSetup() noexcept;
 }
 
 #endif
-

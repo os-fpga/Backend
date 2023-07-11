@@ -2,16 +2,15 @@
 #ifndef __rsbe__sta_lib_writer_H
 #define __rsbe__sta_lib_writer_H
 
-#include "sta_lib_data.h"
 #include <iostream>
 #include <map>
 #include <vector>
+#include "sta_lib_data.h"
 
 namespace rsbe {
 
 // writer
 class sta_lib_writer {
-
 // writer formater macros
 #define INDENT1 "\t"
 #define INDENT2 "\t\t"
@@ -28,8 +27,7 @@ private:
   std::map<std::string, std::string> lib_cap_load;
   std::map<std::string, std::string> lib_feature;
   std::map<std::string, std::string> lib_data_setting;
-  std::map<std::string, std::map<std::string, std::string>>
-      lib_operating_conditions;
+  std::map<std::string, std::map<std::string, std::string>> lib_operating_conditions;
   std::map<std::string, std::string> lib_operating_typical;
   std::map<std::string, std::string> lib_bus_type;
 
@@ -91,15 +89,14 @@ public:
     // bus naming style
     lib_bus_type["bus_naming_style"] = "%s[%d]";
   };
-  void write_header(std::ostream &os);
-  void write_bus_type(std::ostream &os, int from, int to, bool down_to);
-  void write_cell(std::ostream &os, const lib_cell &cell);
-  void write_cell_pin(std::ostream &os, const lib_cell &cell);
-  void write_timing_relation(std::ostream &os, const timing_arch &timing);
-  void write_footer(std::ostream &os);
+  void write_header(std::ostream& os);
+  void write_bus_type(std::ostream& os, int from, int to, bool down_to);
+  void write_cell(std::ostream& os, const lib_cell& cell);
+  void write_cell_pin(std::ostream& os, const lib_cell& cell);
+  void write_timing_relation(std::ostream& os, const timing_arch& timing);
+  void write_footer(std::ostream& os);
 };
 
-} // NS rsbe
+}  // NS rsbe
 
 #endif
-
