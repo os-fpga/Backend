@@ -89,6 +89,9 @@ public:
 
   void write_csv(string csv_file_name) const;
   void print_csv() const;
+  uint print_bcd(std::ostream& os) const noexcept;
+  uint print_axi_bcd(std::ostream& os) const noexcept;
+
   bool sanity_check() const;
 
   static bool prepare_mode_header(string& hdr) noexcept;
@@ -145,15 +148,11 @@ private:
   vector<string> col_headers_; // all column headers
   vector<string> mode_names_;  // column headers that contain "Mode_/MODE_"
 
-  // below vectors are indexed by csv row, size() == #rows
-
-  vector<BCD> bcd_; // all BCD records
+  vector<BCD> bcd_; // all BCD records, indexed by csv row
 
   vector<BCD*> bcd_AXI_; // BCD records with .isCustomerInternalOnly() predicate (AXI pins)
 
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
-
-  vector<string> io_tile_pin_;    // "IO_tile_pin"
 
   int start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
 

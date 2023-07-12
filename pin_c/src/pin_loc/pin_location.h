@@ -103,7 +103,6 @@ public:
     return placed_inputs_.size() + placed_outputs_.size();
   }
 
-  bool generate_csv_file_for_os_flow();
   bool read_csv_file(RapidCsvReader&);
   bool read_design_ports();
 
@@ -114,8 +113,6 @@ public:
   bool create_temp_pcf(const RapidCsvReader& rdr);
 
   static void shuffle_candidates(vector<int>& v);
-
-  bool convert_pcf_for_os_flow(const string& pcf_name);
 
   // get_available_ methods return pin_and_mode pair, empty strings on error
   //
@@ -137,6 +134,10 @@ public:
                              vector<string>& outputs);
 
   bool write_logical_clocks_to_physical_clks();
+
+  static string err_lookup(const string& key) noexcept; // err_map lookup
+  static void clear_err_code() noexcept;
+  static void set_err_code(const char* cs) noexcept;
 
 private:
 
