@@ -474,7 +474,9 @@ void RapidCsvReader::print_csv() const {
   ls << "Total Records: " << num_rows << endl;
 }
 
-XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name) const noexcept {
+XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
+                                        uint& pt_row ) const noexcept {
+  pt_row = 0;
   assert(!bcd_AXI_.empty());
   XYZ result;
 
@@ -482,6 +484,7 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name) const noexcept {
     assert(p);
     if (p->customerInternal_ == axi_name) {
       result = p->xyz_;
+      pt_row = p->row_;
       break;
     }
   }
@@ -491,9 +494,12 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name) const noexcept {
 
 XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
                                         const string& customerPin_or_ID,
-                                        const string& gbox_pin_name) const {
+                                        const string& gbox_pin_name,
+                                        uint& pt_row) const noexcept {
+  pt_row = 0;
+
   // 1. if customerPin_or_ID is an AXI-pin, then skip the mode="Y" check
-  XYZ result = get_axi_xyz_by_name(customerPin_or_ID);
+  XYZ result = get_axi_xyz_by_name(customerPin_or_ID, pt_row);
   if (result.valid())
     return result;
 
@@ -515,6 +521,7 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
     if (mode_vector[i] != "Y") continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
       result = bcd.xyz_;
+      pt_row = i;
       assert(result.valid());
       break;
     }

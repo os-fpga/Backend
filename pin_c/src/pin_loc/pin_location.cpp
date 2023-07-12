@@ -11,8 +11,8 @@
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/xml_reader.h"
 #include "file_readers/Fio.h"
+#include "file_readers/nlohmann3_11_2_json.h"
 
-#include "util/nlohmann3_11_2/json.hpp"
 #include "util/cmd_line.h"
 
 #include <unistd.h>
@@ -155,7 +155,7 @@ bool PinPlacer::reader_and_writer() {
       pin_assign_def_order_ = true;
     } else {
       CERROR << err_map["INCORRECT_ASSIGN_PIN_METHOD"] << endl;
-      CERROR << err_map["MISSING_IN_OUT_FILES"] << endl
+      CERROR << err_map["MISSING_IN_OUT_FILES"] << '\n' << endl
              << USAGE_MSG_1 << ", or" << endl
              << USAGE_MSG_2 << endl;
       return false;
@@ -332,7 +332,8 @@ void PinPlacer::print_stats() const
       ls << "     in  " << nm;
       const Pin* pp = find_udes_pin(placed_inputs_, nm);
       if (pp) {
-        ls << "  placed at " << pp->xyz_ << "  device: " << pp->device_pin_name_;
+        ls << "  placed at " << pp->xyz_
+           << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_;
       }
       ls << endl;
     }
@@ -342,7 +343,8 @@ void PinPlacer::print_stats() const
       ls << "    out  " << nm;
       const Pin* pp = find_udes_pin(placed_outputs_, nm);
       if (pp)
-        ls << "  placed at " << pp->xyz_ << "  device: " << pp->device_pin_name_;
+        ls << "  placed at " << pp->xyz_
+           << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_;
       ls << endl;
     }
     lputs();
@@ -567,7 +569,8 @@ static bool vec_contains(const vector<string>& V, const string& s) noexcept {
   return false;
 }
 
-bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd) {
+bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
+{
   placed_inputs_.clear();
   placed_outputs_.clear();
   string out_fn = cl_.get_param("--output");
@@ -692,7 +695,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd) {
     string mode = pcf_cmd[4];
     RapidCsvReader::prepare_mode_header(mode);
 
-    XYZ xyz = csv_rd.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name);
+    uint pt_row = 0;
+    XYZ xyz = csv_rd.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
     if (!xyz.valid()) {
         CERROR << " PRE-ASSERT: no valid coordinates" << endl;
         lputs("\n [Error] (ERROR) PRE-ASSERT");
@@ -708,21 +712,23 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd) {
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
     if (tr >= 4) {
         out_file << "    #  device: " << device_pin_name;
+        out_file << "  pt_row: " << pt_row;
     }
     out_file << endl;
     out_file.flush();
 
     if (tr >= 4) {
       ls << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
-      ls << "    #  device: " << device_pin_name << endl;
-      ls.flush();
+      ls << "    #  device: " << device_pin_name;
+      ls << "  pt_row: " << pt_row;
+      flush_out(true);
     }
 
     // save for statistics:
     if (is_in_pin)
-      placed_inputs_.emplace_back(user_design_pin_name, device_pin_name, xyz);
+      placed_inputs_.emplace_back(user_design_pin_name, device_pin_name, xyz, pt_row);
     else
-      placed_outputs_.emplace_back(user_design_pin_name, device_pin_name, xyz);
+      placed_outputs_.emplace_back(user_design_pin_name, device_pin_name, xyz, pt_row);
   }
 
   if (tr >= 2) {

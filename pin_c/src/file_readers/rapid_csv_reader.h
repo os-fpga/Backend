@@ -15,7 +15,7 @@ using std::vector;
 class PinPlacer;
 
 class RapidCsvReader {
- public:
+public:
 
   // BCD is a "reduced row record" RRR (subset of important columns)
   struct BCD {
@@ -96,9 +96,9 @@ class RapidCsvReader {
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
                           const string& customerPin_or_ID,
-                          const string& gbox_pin_name) const;
+                          const string& gbox_pin_name, uint& pt_row) const noexcept;
 
-  XYZ get_axi_xyz_by_name(const string& axi_name) const noexcept;
+  XYZ get_axi_xyz_by_name(const string& axi_name, uint& pt_row) const noexcept;
 
   uint numRows() const noexcept { return bcd_.size(); }
 
@@ -139,7 +139,7 @@ class RapidCsvReader {
   vector<string> get_AXI_inputs() const;
   vector<string> get_AXI_outputs() const;
 
- private:
+private:
   std::map<string, vector<string>> modes_map_;
 
   vector<string> col_headers_; // all column headers
