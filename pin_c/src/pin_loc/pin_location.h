@@ -21,6 +21,7 @@ class RapidCsvReader;
 
 using std::string;
 using std::vector;
+using StringPair = std::pair<std::string, std::string>;
 
 class PinPlacer {
 
@@ -116,12 +117,13 @@ public:
 
   // get_available_ methods return pin_and_mode pair, empty strings on error
   //
-  std::pair<string, string> get_available_device_pin(const RapidCsvReader& rdr, bool is_inp);
+  StringPair get_available_device_pin(const RapidCsvReader& rdr,
+                                      bool is_inp, const string& udesName);
   //
-  std::pair<string, string> get_available_bump_ipin(const RapidCsvReader& rdr);
-  std::pair<string, string> get_available_bump_opin(const RapidCsvReader& rdr);
-  std::pair<string, string> get_available_axi_ipin(vector<string>& Q);
-  std::pair<string, string> get_available_axi_opin(vector<string>& Q);
+  StringPair get_available_bump_ipin(const RapidCsvReader& rdr, const string& udesName);
+  StringPair get_available_bump_opin(const RapidCsvReader& rdr, const string& udesName);
+  StringPair get_available_axi_ipin(vector<string>& Q);
+  StringPair get_available_axi_opin(vector<string>& Q);
   //
   bool no_more_inp_bumps_ = false, no_more_out_bumps_ = false; // state for get_available_device_pin()
   uint num_warnings_ = 0;
