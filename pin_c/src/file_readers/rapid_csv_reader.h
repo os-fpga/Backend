@@ -17,25 +17,32 @@ class PinPlacer;
 class RapidCsvReader {
  public:
 
-  // BCD is a "reduced row record" RRR
+  // BCD is a "reduced row record" RRR (subset of important columns)
   struct BCD {
 
     string groupA_; // 0-A  Group
 
-    // columns B, C, D, BU(#72) of the table
+    // columns: B, C, D, I, J, K, L, BU(#72)
     // --- 1-B    Bump/Pin Name
     // --- 2-C    Customer Name
     // --- 3-D    Ball ID
+    // --- 8-I    IO_tile_pin
+    // --- 9-J    IO_tile_pin_x
+    // --- 10-K   IO_tile_pin_y
+    // --- 11-L   IO_tile_pin_z
     // --- 72-BU  Customer Internal Name
-    string bump_,
+    string bump_,     // 1-B
            customer_, // 2-C Customer Name
-           ball_ID_;
+           ball_ID_;  // 3-D
 
     string fullchipName_; // 13-N  Fullchip_NAME
 
     string customerInternal_; // 72-BU  Customer Internal Name
 
     int row_ = 0;
+
+    string  IO_tile_pin_; // column I
+    XYZ     xyz_;         // columns J,K,L
 
     bool is_axi_ = false;
     bool is_GBOX_GPIO_ = false;
@@ -93,10 +100,7 @@ class RapidCsvReader {
 
   XYZ get_axi_xyz_by_name(const string& axi_name) const noexcept;
 
-  uint numRows() const noexcept {
-    assert(bcd_.size() == io_tile_pin_xyz_.size());
-    return bcd_.size();
-  }
+  uint numRows() const noexcept { return bcd_.size(); }
 
   bool has_io_pin(const string& pin_name_or_ID) const noexcept;
 
@@ -150,8 +154,6 @@ class RapidCsvReader {
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
   vector<string> io_tile_pin_;    // "IO_tile_pin"
-
-  vector<XYZ> io_tile_pin_xyz_;   // "IO_tile_pin_x", "_y", "_z"
 
   int start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
 

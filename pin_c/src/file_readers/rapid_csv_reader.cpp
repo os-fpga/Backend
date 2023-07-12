@@ -26,6 +26,7 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  " << b.bump_
      << "  " << b.customer_
      << "  " << b.ball_ID_
+     << "  ITP:" << b.IO_tile_pin_
      << "  fc:" << b.fullchipName_
      << "  ci:" << b.customerInternal_
      << "  axi:" << int(b.is_axi_)
@@ -358,12 +359,11 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   vector<int> tmp = crd.getColumnInt("IO_tile_pin_x");
   assert(tmp.size() == num_rows);
-  io_tile_pin_xyz_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
     int x = tmp[i];
     assert(x >= -1);
     assert(x < 2000);
-    io_tile_pin_xyz_[i].x_ = x;
+    bcd_[i].xyz_.x_ = x;
   }
 
   tmp = crd.getColumnInt("IO_tile_pin_y");
@@ -372,7 +372,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     int y = tmp[i];
     assert(y >= -1);
     assert(y < 2000);
-    io_tile_pin_xyz_[i].y_ = y;
+    bcd_[i].xyz_.y_ = y;
   }
 
   tmp = crd.getColumnInt("IO_tile_pin_z");
@@ -381,17 +381,8 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     int z = tmp[i];
     assert(z >= -1);
     assert(z < 100);
-    io_tile_pin_xyz_[i].z_ = z;
+    bcd_[i].xyz_.z_ = z;
   }
-
-  // do a sanity check
-  //if (0&& check) {
-  //  bool check_ok = sanity_check();
-  //  if (!check_ok) {
-  //    ls << "\nWARNING: !check_ok" << endl;
-  //    //      return false;
-  //  }
-  //}
 
   // print data of interest for test
   if (tr >= 5) print_csv();
@@ -466,16 +457,15 @@ void RapidCsvReader::print_csv() const {
 
   uint num_rows = numRows();
   assert(bcd_.size() == num_rows);
-  assert(io_tile_pin_xyz_.size() == num_rows);
   for (uint i = 0; i < num_rows; i++) {
     const BCD& b = bcd_[i];
-    const XYZ& p = io_tile_pin_xyz_[i];
+    const XYZ& p = b.xyz_;
     lprintf("%-5u ", i+2);
     lprintf(" %12s ", b.bump_.c_str());
     lprintf(" %22s ", b.customer_.c_str());
     lprintf(" %6s ", b.ball_ID_.c_str());
-    ls << "\t " << io_tile_pin_[i] << "\t" << p.x_ << "\t" << p.y_ << "\t"
-       << p.z_;
+    ls << "\t " << io_tile_pin_[i]
+       << "\t " << p.x_ << " " << p.y_ << " " << p.z_;
     lprintf(" %22s ", b.customerInternal_.c_str());
     ls << endl;
   }
@@ -488,12 +478,10 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name) const noexcept {
   assert(!bcd_AXI_.empty());
   XYZ result;
 
-  for (const BCD* x : bcd_AXI_) {
-    assert(x);
-    if (x->customerInternal_ == axi_name) {
-      uint row = x->row_;
-      assert(row < io_tile_pin_xyz_.size());
-      result = io_tile_pin_xyz_[row];
+  for (const BCD* p : bcd_AXI_) {
+    assert(p);
+    if (p->customerInternal_ == axi_name) {
+      result = p->xyz_;
       break;
     }
   }
@@ -518,7 +506,6 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
   uint num_rows = numRows();
   assert(num_rows > 1);
   assert(mode_vector.size() == num_rows);
-  assert(io_tile_pin_xyz_.size() == num_rows);
   assert(bcd_.size() == num_rows);
 
   // 3.
@@ -527,7 +514,7 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
     if (!bcd.match(customerPin_or_ID)) continue;
     if (mode_vector[i] != "Y") continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
-      result = io_tile_pin_xyz_[i];
+      result = bcd.xyz_;
       assert(result.valid());
       break;
     }
@@ -552,7 +539,6 @@ RapidCsvReader::bumpName2CustomerName(const string& bump_nm) const noexcept {
   assert(!bump_nm.empty());
   uint num_rows = numRows();
   assert(num_rows > 1);
-  assert(io_tile_pin_xyz_.size() == num_rows);
   assert(bcd_.size() == num_rows);
 
   // tmp linear search

@@ -156,7 +156,7 @@ inline std::ostream& operator<<(std::ostream& os, XY p) {
 }
 
 inline std::ostream& operator<<(std::ostream& os, const XYZ& u) {
-  os << '(' << u.x_ << ' ' << u.y_ << " z" << u.z_ << ')';
+  os << '(' << u.x_ << ' ' << u.y_ << " _" << u.z_ << ')';
   return os;
 }
 
