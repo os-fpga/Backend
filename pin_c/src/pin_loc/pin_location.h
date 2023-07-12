@@ -28,11 +28,13 @@ class PinPlacer {
     string user_design_name_;
     string device_pin_name_;
     XYZ xyz_;
+    uint pt_row_ = 0; // row in pin table
 
     Pin() noexcept = default;
 
-    Pin(const string& u, const string& d, const XYZ& xyz) noexcept
-      : user_design_name_(u), device_pin_name_(d), xyz_(xyz)
+    Pin(const string& u, const string& d, const XYZ& xyz, uint r) noexcept
+      : user_design_name_(u), device_pin_name_(d),
+        xyz_(xyz), pt_row_(r)
     {}
   };
 
