@@ -15,6 +15,8 @@ namespace fio {
 using namespace pinc;
 using namespace std;
 
+int get_PID() noexcept { return ::getpid(); }
+
 static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
 
 void Fio::setTrace(int t) noexcept {

@@ -26,7 +26,8 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  " << b.bump_
      << "  " << b.customer_
      << "  " << b.ball_ID_
-     << "  ITP:" << b.IO_tile_pin_
+     << "  ITP: " << b.IO_tile_pin_
+     << "  XYZ: " << b.xyz_
      << "  fc:" << b.fullchipName_
      << "  ci:" << b.customerInternal_
      << "  axi:" << int(b.is_axi_)
@@ -302,7 +303,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   S_tmp.resize(num_rows);
   const vector<string>& bump_pin_name = S_tmp;
 
-  if (tr >= 6) {
+  if (tr >= 9) {
     ls << endl;
     if (num_rows > 3000) {
       const string* A = bump_pin_name.data();
@@ -336,26 +337,16 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     assert(!bcd.bump_.empty());
   }
 
-  if (tr >= 6) {
-    ls << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;
-    for (uint i = 0; i < num_rows; i++) {
-      const BCD& bcd = bcd_[i];
-      ls << "\t " << bcd << endl;
-    }
-    ls << "--- BCD dump^^^" << '\n' << endl;
-  }
-  if (tr >= 5) {
-    ls << "+++ bcd_AXI_ dump (" << bcd_AXI_.size()
-       << ") ::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;
-    for (const BCD* bcd_p : bcd_AXI_) {
-      assert(bcd_p);
-      ls << "\t " << *bcd_p << endl;
-    }
-    ls << "--- bcd_AXI_ dump^^^" << '\n' << endl;
+  vector<string> io_tile_pins = crd.getColumn("IO_tile_pin");
+  io_tile_pins.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    bcd_[i].IO_tile_pin_ = io_tile_pins[i];
   }
 
-  io_tile_pin_ = crd.getColumn("IO_tile_pin");
-  io_tile_pin_.resize(num_rows);
+  //if (tr >= 6)
+  //  print_bcd(ls);
+  //if (tr >= 5)
+  //  print_axi_bcd(ls);
 
   vector<int> tmp = crd.getColumnInt("IO_tile_pin_x");
   assert(tmp.size() == num_rows);
@@ -384,8 +375,12 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     bcd_[i].xyz_.z_ = z;
   }
 
-  // print data of interest for test
-  if (tr >= 5) print_csv();
+  if (tr >= 6)
+    print_bcd(ls);
+  if (tr >= 5)
+    print_axi_bcd(ls);
+  if (tr >= 5)
+    print_csv();
 
   return true;
 }
@@ -446,6 +441,31 @@ void RapidCsvReader::write_csv(string file_name) const {
   return;
 }
 
+uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept
+{
+  uint nr = numRows();
+  os << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::" << endl;
+  for (uint i = 0; i < nr; i++) {
+    const BCD& bcd = bcd_[i];
+    os << "\t " << bcd << endl;
+  }
+  os << "--- BCD dump ^^^ (nr=" << nr << ")\n" << endl;
+  return nr;
+}
+
+uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept
+{
+  uint n = bcd_AXI_.size();
+  os << "+++ bcd_AXI_ dump (" << n
+     << ") ::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::" << endl;
+  for (const BCD* bcd_p : bcd_AXI_) {
+    assert(bcd_p);
+    os << "\t " << *bcd_p << endl;
+  }
+  os << "--- bcd_AXI_ dump (n=" << n << ")\n" << endl;
+  return n;
+}
+
 void RapidCsvReader::print_csv() const {
   lputs("print_csv()");
   auto& ls = lout();
@@ -464,7 +484,7 @@ void RapidCsvReader::print_csv() const {
     lprintf(" %12s ", b.bump_.c_str());
     lprintf(" %22s ", b.customer_.c_str());
     lprintf(" %6s ", b.ball_ID_.c_str());
-    ls << "\t " << io_tile_pin_[i]
+    ls << "\t " << b.IO_tile_pin_
        << "\t " << p.x_ << " " << p.y_ << " " << p.z_;
     lprintf(" %22s ", b.customerInternal_.c_str());
     ls << endl;

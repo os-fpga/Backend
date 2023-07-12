@@ -34,6 +34,8 @@ inline char* p_strdup(const char* p) noexcept {
   return ::strdup(p);
 }
 
+int get_PID() noexcept; // wrapper for getpid() to reduce usage of unistd.h
+
 using std::string;
 using std::vector;
 
