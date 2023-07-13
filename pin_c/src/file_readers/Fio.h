@@ -333,8 +333,8 @@ public:
 
   int dprint1() const noexcept;
 
-  bool writeCsv(const string& fn) const noexcept;
-  bool printCsv(std::ostream& os) const noexcept;
+  bool writeCsv(const string& fn, uint minRow, uint maxRow) const noexcept;
+  bool printCsv(std::ostream& os, uint minRow, uint maxRow) const noexcept;
 
   static size_t countCommas(const char* src) noexcept;
 

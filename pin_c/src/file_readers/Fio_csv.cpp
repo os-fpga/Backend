@@ -34,7 +34,7 @@ bool CSV_Reader::readCsv(bool cutComments) noexcept {
   return ok;
 }
 
-bool CSV_Reader::writeCsv(const string& fn) const noexcept
+bool CSV_Reader::writeCsv(const string& fn, uint minRow, uint maxRow) const noexcept
 {
   uint16_t tr = trace();
   if (fn.empty())
@@ -52,7 +52,7 @@ bool CSV_Reader::writeCsv(const string& fn) const noexcept
   std::ofstream fos(fn);
 
   if (fos.is_open()) {
-    ok = printCsv(fos);
+    ok = printCsv(fos, minRow, maxRow);
     if (tr >= 2)
       lprintf("writeCsv:  written %s  ok:%i\n", fn.c_str(), ok);
   } else {
@@ -64,7 +64,7 @@ bool CSV_Reader::writeCsv(const string& fn) const noexcept
   return ok;
 }
 
-bool CSV_Reader::printCsv(std::ostream& os) const noexcept
+bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noexcept
 {
   if (not isValidCsv())
     return false;
@@ -75,13 +75,18 @@ bool CSV_Reader::printCsv(std::ostream& os) const noexcept
   if (header_.empty())
     return false;
   assert(header_.size() == nc_);
+  assert(maxRow > 1);
+  assert(minRow <= maxRow);
 
   os << header_[0];
   for (size_t c = 1; c < nc_; c++) {
     os << ',' << header_[c];
   }
 
-  for (size_t r = 0; r < nr_; r++) {
+  if (minRow > maxRow)
+    minRow = 0;
+
+  for (size_t r = minRow; r < nr_; r++) {
     const string* row = smat_[r];
     assert(row);
     os << row[0];
@@ -89,6 +94,8 @@ bool CSV_Reader::printCsv(std::ostream& os) const noexcept
       os << ',' << row[c];
     }
     os << endl;
+    if (r > maxRow)
+      break;
   }
   return true;
 }
