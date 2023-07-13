@@ -781,22 +781,22 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                                   const char* top_mod)
 {
     AtomNetlist netlist;
+    std::string blif_file_ = blif_file;
 
     gb_constructs gb;
     prune_verilog(blif_file, gb);
-    std::cout << "GB STR = " << gb.mod_str << std::endl;
-    mod_str = gb.mod_str;
-     std::cout << " NOW GB STR = " << mod_str << std::endl;
-    std::string new_file_name = blif_file;
-    new_file_name.insert(new_file_name.find_last_of("."), "_"); // Insert underscore before the file extension
-    std::ofstream new_file(new_file_name.c_str());
-    new_file << mod_str;
-    new_file.close();
-    
-    intf_mod_str = gb.intf_mod_str;
-    top_mod_str = gb.top_mod_str;
+    if (gb.contains_io_prem) {
+        mod_str = gb.mod_str;
+        blif_file_.insert(blif_file_.find_last_of("."), "_"); // Insert underscore before the file extension
+        std::ofstream new_file(blif_file_.c_str());
+        new_file << mod_str;
+        new_file.close();
 
-    std::string netlist_id = vtr::secure_digest_file(new_file_name.c_str());
+        intf_mod_str = gb.intf_mod_str;
+        top_mod_str = gb.top_mod_str;
+    }
+
+    std::string netlist_id = vtr::secure_digest_file(blif_file_.c_str());
 
     BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
 
@@ -807,7 +807,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
 
     FILE *infile = tmpfile();
     simple_netlist n_l;
-    parse_verilog(new_file_name.c_str(), n_l, key_file, top_mod);
+    parse_verilog(blif_file_.c_str(), n_l, key_file, top_mod);
     {
         std::stringstream ss;
         n_l.b_print(ss);
@@ -817,7 +817,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     if (infile != NULL)
     {
         // Parse the file
-        blif_parse_file(infile, alloc_callback, new_file_name.c_str());
+        blif_parse_file(infile, alloc_callback, blif_file_.c_str());
 
         std::fclose(infile);
     }
