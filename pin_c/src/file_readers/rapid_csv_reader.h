@@ -90,7 +90,7 @@ public:
 
   bool read_csv(const string& fn, bool check);
 
-  bool write_csv(const string& fn) const;
+  bool write_csv(const string& fn, uint minRow, uint maxRow) const;
 
   void print_csv() const;
   uint print_bcd(std::ostream& os) const noexcept;
@@ -146,6 +146,9 @@ public:
   vector<string> get_AXI_inputs() const;
   vector<string> get_AXI_outputs() const;
 
+  uint row0_GBOX_GPIO() const noexcept { return start_GBOX_GPIO_row_; }
+  uint row0_CustomerInternal() const noexcept { return start_CustomerInternal_row_; }
+
 private:
 
   fio::CSV_Reader* crd_ = nullptr;
@@ -161,9 +164,9 @@ private:
 
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
-  int start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
+  uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
 
-  int start_CustomerInternal_row_ = 0;
+  uint start_CustomerInternal_row_ = 0;
 
   friend class PinPlacer;
 };

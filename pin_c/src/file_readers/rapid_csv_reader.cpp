@@ -442,18 +442,23 @@ bool RapidCsvReader::sanity_check() const {
   return true;
 }
 
-bool RapidCsvReader::write_csv(const string& fn) const
+bool RapidCsvReader::write_csv(const string& fn, uint minRow, uint maxRow) const
 {
   uint16_t tr = ltrace();
-  if (tr >= 2)
-    lprintf("RapidCsvReader::write_csv( %s )\n", fn.c_str());
+  if (tr >= 2) {
+    lprintf("RapidCsvReader::write_csv( %s )  minRow= %u  maxRow= %u\n",
+             fn.c_str(), minRow, maxRow);
+  }
 
   if (fn.empty())
     return false;
   if (!crd_)
     return false;
 
-  bool ok = crd_->writeCsv(fn);
+  if (maxRow == 0)
+    maxRow = UINT_MAX;
+
+  bool ok = crd_->writeCsv(fn, minRow, maxRow);
   if (tr >= 2)
     lprintf("done RapidCsvReader::write_csv( %s )  ok:%i\n", fn.c_str(), ok);
 

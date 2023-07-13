@@ -52,6 +52,7 @@ class PinPlacer {
   std::set<string> used_bump_pins_;
 
   vector<Pin> placed_inputs_, placed_outputs_;
+  uint min_pt_row_ = UINT_MAX, max_pt_row_ = 0;
 
   bool pin_assign_def_order_ = true;
 
@@ -93,10 +94,11 @@ public:
   PinPlacer(const cmd_line& cl)
    : cl_(cl) {
     pin_assign_def_order_ = true;
+    min_pt_row_ = UINT_MAX; max_pt_row_ = 0;
   }
   ~PinPlacer();
 
-  const cmd_line& get_cmd() const noexcept { return cl_; }
+  // const cmd_line& get_cmd() const noexcept { return cl_; }
 
   bool reader_and_writer();
 

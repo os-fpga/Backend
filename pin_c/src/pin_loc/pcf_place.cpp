@@ -81,9 +81,22 @@ void PinPlacer::print_stats(const RapidCsvReader& csv_rd) const
        << placed_outputs_.size() << " outputs" << endl;
   }
 
+  ls << "  min_pt_row= " << min_pt_row_ << "  max_pt_row= " << max_pt_row_ << '\n';
+  ls << "  row0_GBOX_GPIO()= " << csv_rd.row0_GBOX_GPIO()
+     << "  row0_CustomerInternal()= " << csv_rd.row0_CustomerInternal() << endl;
+
   ls << "======== end stats." << endl;
   if (tr >= 7) {
-    csv_rd.write_csv("LAST_PINC_PT.csv");
+    uint nr = csv_rd.numRows();
+    if (max_pt_row_ > 0 && nr > 10 && max_pt_row_ < nr - 1) {
+      uint minRow = std::min(csv_rd.row0_GBOX_GPIO(), csv_rd.row0_CustomerInternal());
+      minRow = std::min(minRow, min_pt_row_);
+      if (minRow > 0)
+        minRow--;
+      csv_rd.write_csv("LAST_PINC_PT_reduced.csv", minRow, max_pt_row_ + 1);
+    } else if (nr > 2) {
+      csv_rd.write_csv("LAST_PINC_PT_full.csv", 0, UINT_MAX);
+    }
   }
 }
 
@@ -167,8 +180,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
   ofstream out_file;
   out_file.open(out_fn);
   if (out_file.fail()) {
-    if (tr >= 2) {
-        ls << "\n (EE) pinc::write_dot_place() FAILED to write " << out_fn << endl;
+    if (tr >= 1) {
+        ls << "\n[Error] pinc::write_dot_place() FAILED to write " << out_fn << endl;
     }
     return false;
   }
@@ -190,6 +203,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
       constrained_device_pins;  // for sanity check
 
   string gbox_pin_name, search_name;
+
+  min_pt_row_ = UINT_MAX; max_pt_row_ = 0;
 
   for (uint cmd_i = 0; cmd_i < pcf_pin_cmds_.size(); cmd_i++) {
 
@@ -292,6 +307,11 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
         return false;
     }
 
+    if (pt_row < min_pt_row_)
+      min_pt_row_ = pt_row;
+    if (pt_row > max_pt_row_)
+      max_pt_row_ = pt_row;
+
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
     if (tr >= 4) {
         out_file << "    #  device: " << device_pin_name;
@@ -316,6 +336,9 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
 
   if (tr >= 2) {
     ls << "\nwritten " << num_placed_pins() << " pins to " << out_fn << endl;
+    if (tr >= 3) {
+      ls << "  min_pt_row= " << min_pt_row_ << "  max_pt_row= " << max_pt_row_ << endl;
+    }
   }
 
   return true;
@@ -737,8 +760,7 @@ bool PinPlacer::create_temp_pcf(const RapidCsvReader& csv_rd)
         "\n  !!! (ERROR) create_temp_pcf(): could not open %s for "
         "writing\n",
         temp_pcf_name_.c_str());
-    CERROR << "(EE) could not open " << temp_pcf_name_ << " for writing\n"
-           << endl;
+    CERROR << "(EE) could not open " << temp_pcf_name_ << " for writing\n" << endl;
     return false;
   }
 
