@@ -542,28 +542,26 @@ StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& rdr, const s
       continue;
     }
 
-    for (uint j = 0; j < rdr.mode_names_.size(); j++) {
-      const string& mode_name = rdr.mode_names_[j];
+    for (const string& mode_name : rdr.mode_names_) {
       const vector<string>* mode_data = rdr.getModeData(mode_name);
       assert(mode_data);
       assert(mode_data->size() == num_rows);
 
-      if (is_input_mode(mode_name)) {
-        for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
-          if (mode_data->at(k) == "Y" && bump_pin_name == rdr.bumpPinName(k)) {
-            result.first = bump_pin_name;
-            result.second = mode_name;
-            used_bump_pins_.insert(bump_pin_name);
-            if (tr >= 5) {
-              lprintf("\t\t  get_available_bump_ipin() used_bump_pins_.insert( %s )  row_i= %u  row_k= %u\n",
-                  bump_pin_name.c_str(), i, k);
-            }
-            found = true;
-            goto ret;
-          }
-        }
-      } else {
+      if (not is_input_mode(mode_name))
         continue;
+
+      for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
+        if (mode_data->at(k) == "Y" and bump_pin_name == rdr.bumpPinName(k)) {
+          result.first = bump_pin_name;
+          result.second = mode_name;
+          used_bump_pins_.insert(bump_pin_name);
+          if (tr >= 5) {
+            lprintf("\t\t  get_available_bump_ipin() used_bump_pins_.insert( %s )  row_i= %u  row_k= %u\n",
+                bump_pin_name.c_str(), i, k);
+          }
+          found = true;
+          goto ret;
+        }
       }
     }
   }
@@ -611,7 +609,7 @@ StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& rdr, const s
     lprintf("get_available_bump_opin()# %u  for udes-pin %s\n", ocnt, udesName.c_str());
   }
 
-  constexpr bool is_input_port = false;
+  // constexpr bool is_input_port = false;
 
   bool found = false;
   StringPair result; // pin_and_mode
@@ -627,42 +625,21 @@ StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& rdr, const s
       continue;
     }
 
-    for (uint j = 0; j < rdr.mode_names_.size(); j++) {
-      const string& mode_name = rdr.mode_names_[j];
+    for (const string& mode_name : rdr.mode_names_) {
       const vector<string>* mode_data = rdr.getModeData(mode_name);
       assert(mode_data);
       assert(mode_data->size() == num_rows);
-      if (is_input_port) {
-        //if (is_input_mode(mode_name)) {
-        //  for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
-        //    if (mode_data->at(k) == "Y" &&
-        //        bump_pin_name == rdr.bumpPinName(k)) {
-        //      result.first = bump_pin_name;
-        //      result.second = mode_name;
-        //      used_bump_pins_.insert(bump_pin_name);
-        //      if (tr >= 5) {
-        //        lprintf("\t\t  get_available_bump_opin() used_bump_pins_.insert( %s )  row_i= %u  row_k= %u\n",
-        //            bump_pin_name.c_str(), i, k);
-        //      }
-        //      found = true;
-        //      goto ret;
-        //    }
-        //  }
-        //} else {
-        //  continue;
-        //}
-      } else { // OUTPUT port
-        if (is_output_mode(mode_name)) {
-          for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
-            if (mode_data->at(k) == "Y" &&
-                bump_pin_name == rdr.bumpPinName(k)) {
-              result.first = bump_pin_name;
-              result.second = mode_name;
-              used_bump_pins_.insert(bump_pin_name);
-              found = true;
-              goto ret;
-            }
-          }
+
+      if (not is_output_mode(mode_name))
+        continue;
+
+      for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
+        if (mode_data->at(k) == "Y" and bump_pin_name == rdr.bumpPinName(k)) {
+          result.first = bump_pin_name;
+          result.second = mode_name;
+          used_bump_pins_.insert(bump_pin_name);
+          found = true;
+          goto ret;
         }
       }
     }
