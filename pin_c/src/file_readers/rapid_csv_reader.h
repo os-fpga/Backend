@@ -7,6 +7,10 @@
 #include "util/geo/xyz.h"
 #include "util/pinc_log.h"
 
+namespace fio {
+class CSV_Reader;
+}
+
 namespace pinc {
 
 using std::string;
@@ -84,10 +88,10 @@ public:
 
   void reset() noexcept;
 
-  // file i/o
-  bool read_csv(const std::string& f, bool check);
+  bool read_csv(const string& fn, bool check);
 
-  void write_csv(string csv_file_name) const;
+  bool write_csv(const string& fn) const;
+
   void print_csv() const;
   uint print_bcd(std::ostream& os) const noexcept;
   uint print_axi_bcd(std::ostream& os) const noexcept;
@@ -143,6 +147,9 @@ public:
   vector<string> get_AXI_outputs() const;
 
 private:
+
+  fio::CSV_Reader* crd_ = nullptr;
+
   std::map<string, vector<string>> modes_map_;
 
   vector<string> col_headers_; // all column headers

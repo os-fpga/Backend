@@ -39,7 +39,7 @@ PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noexcept
   return nullptr;
 }
 
-void PinPlacer::print_stats() const
+void PinPlacer::print_stats(const RapidCsvReader& csv_rd) const
 {
   uint16_t tr = ltrace();
   if (!tr) return;
@@ -82,6 +82,9 @@ void PinPlacer::print_stats() const
   }
 
   ls << "======== end stats." << endl;
+  if (tr >= 7) {
+    csv_rd.write_csv("LAST_PINC_PT.csv");
+  }
 }
 
 bool PinPlacer::read_pcf(const RapidCsvReader& csvReader)

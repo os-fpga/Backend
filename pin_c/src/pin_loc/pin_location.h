@@ -99,7 +99,9 @@ public:
   const cmd_line& get_cmd() const noexcept { return cl_; }
 
   bool reader_and_writer();
-  void print_stats() const;
+
+  void print_stats(const RapidCsvReader& csv_rd) const;
+
   size_t num_placed_pins() const noexcept {
     return placed_inputs_.size() + placed_outputs_.size();
   }
