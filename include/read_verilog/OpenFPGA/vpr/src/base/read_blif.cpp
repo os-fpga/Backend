@@ -18,6 +18,7 @@
 #include <cstring>
 #include <ctime>
 #include <sstream>
+#include <fstream>
 #include <unordered_set>
 #include <cctype> //std::isdigit
 
@@ -43,6 +44,9 @@
 #include "veri_prune.h"
 
 bool isNestEncrypted = false;
+char* intf_mod_str = nullptr;
+char* top_mod_str = nullptr;
+char *mod_str = nullptr;
 vtr::LogicValue to_vtr_logic_value(blifparse::LogicValue);
 
 struct BlifAllocCallback : public blifparse::Callback {
@@ -779,11 +783,20 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     AtomNetlist netlist;
 
     gb_constructs gb;
-    const char *wrapper_file_name = nullptr;
+    prune_verilog(blif_file, gb);
+    std::cout << "GB STR = " << gb.mod_str << std::endl;
+    mod_str = gb.mod_str;
+     std::cout << " NOW GB STR = " << mod_str << std::endl;
+    std::string new_file_name = blif_file;
+    new_file_name.insert(new_file_name.find_last_of("."), "_"); // Insert underscore before the file extension
+    std::ofstream new_file(new_file_name.c_str());
+    new_file << mod_str;
+    new_file.close();
+    
+    intf_mod_str = gb.intf_mod_str;
+    top_mod_str = gb.top_mod_str;
 
-    prune_verilog(blif_file, blif_file,  wrapper_file_name, gb);
-
-    std::string netlist_id = vtr::secure_digest_file(blif_file);
+    std::string netlist_id = vtr::secure_digest_file(new_file_name.c_str());
 
     BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
 
@@ -794,7 +807,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
 
     FILE *infile = tmpfile();
     simple_netlist n_l;
-    parse_verilog(blif_file, n_l, key_file, top_mod);
+    parse_verilog(new_file_name.c_str(), n_l, key_file, top_mod);
     {
         std::stringstream ss;
         n_l.b_print(ss);
@@ -804,7 +817,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     if (infile != NULL)
     {
         // Parse the file
-        blif_parse_file(infile, alloc_callback, blif_file);
+        blif_parse_file(infile, alloc_callback, new_file_name.c_str());
 
         std::fclose(infile);
     }

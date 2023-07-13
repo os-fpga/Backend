@@ -1140,8 +1140,8 @@ protected:
             formating_encrypt_file(2);
 #endif
         verilog_os_ << indent(depth) << "endmodule\n";
-        char* intf_mod_str = GetINTFModString();
-        char* top_mod_str = GetTOPModString();
+        //char* intf_mod_str = GetINTFModString();
+        //char* top_mod_str = GetTOPModString();
         verilog_os_<<intf_mod_str<<"\n";
         verilog_os_<<top_mod_str<<"\n";
     }
