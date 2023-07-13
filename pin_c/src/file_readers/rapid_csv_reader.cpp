@@ -7,7 +7,9 @@ using namespace std;
 
 RapidCsvReader::RapidCsvReader() {}
 
-RapidCsvReader::~RapidCsvReader() {}
+RapidCsvReader::~RapidCsvReader() {
+  delete crd_;
+}
 
 void RapidCsvReader::reset() noexcept {
   start_GBOX_GPIO_row_ = 0;
@@ -18,6 +20,9 @@ void RapidCsvReader::reset() noexcept {
   modes_map_.clear();
   col_headers_.clear();
   mode_names_.clear();
+
+  delete crd_;
+  crd_ = nullptr;
 }
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
@@ -98,16 +103,20 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   reset();
 
+  crd_ = new fio::CSV_Reader(fn);
+  fio::CSV_Reader& crd = *crd_;
+
   // check file accessability and format:
-  fio::CSV_Reader crd(fn);
   crd.setTrace(tr);
   if (! crd.fileExistsAccessible()) {
-      ls << "\nERROR reading csv: file is not accessible: " << fn << '\n' << endl;
-      return false;
+    ls << "\nERROR reading csv: file is not accessible: " << fn << '\n' << endl;
+    delete crd_; crd_ = nullptr;
+    return false;
   }
   if (! crd.readCsv(false)) {
-      ls << "\nERROR reading csv: wrong format: " << fn << '\n' << endl;
-      return false;
+    ls << "\nERROR reading csv: wrong format: " << fn << '\n' << endl;
+    delete crd_; crd_ = nullptr;
+    return false;
   }
   if (tr >= 4)
     crd.dprint1();
@@ -433,12 +442,22 @@ bool RapidCsvReader::sanity_check() const {
   return true;
 }
 
-// file i/o
-void RapidCsvReader::write_csv(string file_name) const {
-  // to do
-  lout() << "Not Implement Yet - Write content of interest to a csv file <"
-         << file_name << ">" << endl;
-  return;
+bool RapidCsvReader::write_csv(const string& fn) const
+{
+  uint16_t tr = ltrace();
+  if (tr >= 2)
+    lprintf("RapidCsvReader::write_csv( %s )\n", fn.c_str());
+
+  if (fn.empty())
+    return false;
+  if (!crd_)
+    return false;
+
+  bool ok = crd_->writeCsv(fn);
+  if (tr >= 2)
+    lprintf("done RapidCsvReader::write_csv( %s )  ok:%i\n", fn.c_str(), ok);
+
+  return ok;
 }
 
 uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept

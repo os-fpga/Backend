@@ -305,7 +305,7 @@ bool PinPlacer::reader_and_writer() {
     ls << endl;
     ls << "pin_c done: reader_and_writer() done successfully" << endl;
     if (tr >= 3) {
-        print_stats();
+      print_stats(csv_rd);
     }
   }
   return true;
