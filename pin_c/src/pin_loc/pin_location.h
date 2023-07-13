@@ -51,8 +51,11 @@ class PinPlacer {
   vector<vector<string>> pcf_pin_cmds_;
   std::set<string> used_bump_pins_;
 
-  vector<Pin> placed_inputs_, placed_outputs_;
-  uint min_pt_row_ = UINT_MAX, max_pt_row_ = 0;
+  // vector<StringPair>  picked_inputs_, picked_outputs_;  // for debug stats
+
+  vector<Pin>  placed_inputs_, placed_outputs_;  // for debug stats
+
+  uint min_pt_row_ = UINT_MAX, max_pt_row_ = 0;  // for debug stats
 
   bool pin_assign_def_order_ = true;
 

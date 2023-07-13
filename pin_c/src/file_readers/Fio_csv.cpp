@@ -1,4 +1,5 @@
 #include "file_readers/Fio.h"
+#include <set>
 
 namespace fio {
 
@@ -78,8 +79,15 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
   assert(maxRow > 1);
   assert(minRow <= maxRow);
 
+  static std::set<string> skip_cols = {
+    "Remark", "Voltage2", "Discription", "Power Pad", "Voltage", "Mbist Mode",
+    "Scan Mode", "Debug Mode", "ALT Function", "MODE_ETH", "MODE_USB"
+  };
+
   os << header_[0];
   for (size_t c = 1; c < nc_; c++) {
+    if (skip_cols.count(header_[c]))
+      continue;
     os << ',' << header_[c];
   }
 
@@ -91,6 +99,8 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
     assert(row);
     os << row[0];
     for (size_t c = 1; c < nc_; c++) {
+      if (skip_cols.count(header_[c]))
+        continue;
       os << ',' << row[c];
     }
     os << endl;
