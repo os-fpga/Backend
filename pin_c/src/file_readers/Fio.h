@@ -331,6 +331,9 @@ public:
     return getColumnInt(colName.c_str());
   }
 
+  size_t numRows() const noexcept { return nr_; }
+  size_t numCols() const noexcept { return nc_; }
+
   int dprint1() const noexcept;
 
   bool writeCsv(const string& fn, uint minRow, uint maxRow) const noexcept;
