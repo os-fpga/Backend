@@ -44,7 +44,7 @@ bool CSV_Reader::writeCsv(const string& fn, uint minRow, uint maxRow) const noex
     return false;
   if (!smat_ || !nmat_)
     return false;
-  if (nr_ < 3 || nc_ < 3)
+  if (nr_ < 2 || nc_ < 2)
     return false;
   if (header_.empty())
     return false;
@@ -71,7 +71,7 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
     return false;
   if (!smat_ || !nmat_)
     return false;
-  if (nr_ < 3 || nc_ < 3)
+  if (nr_ < 2 || nc_ < 2)
     return false;
   if (header_.empty())
     return false;
@@ -81,15 +81,18 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
 
   static std::set<string> skip_cols = {
     "Remark", "Voltage2", "Discription", "Power Pad", "Voltage", "Mbist Mode",
-    "Scan Mode", "Debug Mode", "ALT Function", "MODE_ETH", "MODE_USB"
+    "Scan Mode", "Debug Mode", "ALT Function", "MODE_ETH", "MODE_USB",
+    "MODE_GPIO", "MODE_UART0", "MODE_UART1", "MODE_I2C", "MODE_SPI0",
+    "MODE_PWM", "MODE_DDR", "Ref clock"
   };
 
   os << header_[0];
   for (size_t c = 1; c < nc_; c++) {
-    if (skip_cols.count(header_[c]))
+    if (nc_ > 2 && skip_cols.count(header_[c]))
       continue;
     os << ',' << header_[c];
   }
+  os << endl;
 
   if (minRow > maxRow)
     minRow = 0;
@@ -135,6 +138,13 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
 
   if (num_lines_ < 2 || num_commas_ < 2) return false;
 
+  // 2. cut possible '\r' at end of lines (DOS/windows CR)
+  for (size_t i = 1; i < sz_; i++) {
+    if (buf_[i] == 0 && buf_[i-1] == '\r') {
+      buf_[i-1] = 0;
+    }
+  }
+
   // 2. make lines_
   bool ok = makeLines(cutComments, false);
   if (!ok) return false;
@@ -150,6 +160,11 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
   }
   if (nel < 2) return false;
   if (!headLine_) return false;
+
+  if (trace() >= 5) {
+    lprintf("_csv:  #nonEmptyLines= %zu  len(headLine_)= %zu\n  headLine_: %s\n",
+            nel, ::strlen(headLine_), headLine_);
+  }
 
   // 4. split headLine_, make header_
   ok = split_com(headLine_, header_);

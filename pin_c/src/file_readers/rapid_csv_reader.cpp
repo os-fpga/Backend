@@ -34,7 +34,7 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  ITP: " << b.IO_tile_pin_
      << "  XYZ: " << b.xyz_
      << "  fc:" << b.fullchipName_
-     << "  ci:" << b.customerInternal_
+     << "  ci:" << b.customerInternal()
      << "  axi:" << int(b.is_axi_)
      << "  isGPIO:" << int(b.is_GPIO_)
      << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
@@ -228,7 +228,12 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) bcd_[i].customer_ = S_tmp[i];
 
   ok = get_column(crd, "Customer Internal Name", S_tmp);
-  if (!ok) return false;
+  if (!ok) {
+    lputs("\n pin_c WARNING: could not read Customer Internal Name column\n");
+    return false;
+  }
+  //lputs9();
+
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
@@ -237,7 +242,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) {
     const string& nm = S_tmp[i];
     if (nm.length()) {
-      bcd_[i].customerInternal_ = nm;
+      bcd_[i].setCustomerInternal(nm);
       custIntNameRows.push_back(i);
     }
   }
@@ -337,9 +342,10 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     BCD& bcd = bcd_[i];
     bcd.bump_ = bump_pin_name[i];
     if (bcd.bump_.empty()) {
-      if (bcd.customerInternal_.empty() && tr >= 2) {
+      if (bcd.customerInternal().empty() && tr >= 2) {
         ls << " (WW) both bcd.bump_ and bcd.customerInternal_ are empty"
            << " on row# " << i << endl;
+        //assert(0);
       }
     }
     bcd.normalize();
@@ -510,7 +516,7 @@ void RapidCsvReader::print_csv() const {
     lprintf(" %6s ", b.ball_ID_.c_str());
     ls << "\t " << b.IO_tile_pin_
        << "\t " << p.x_ << " " << p.y_ << " " << p.z_;
-    lprintf(" %22s ", b.customerInternal_.c_str());
+    lprintf(" %22s ", b.customerInternal().c_str());
     ls << endl;
   }
 
@@ -526,7 +532,7 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
 
   for (const BCD* p : bcd_AXI_) {
     assert(p);
-    if (p->customerInternal_ == axi_name) {
+    if (p->customerInternal() == axi_name) {
       result = p->xyz_;
       pt_row = p->row_;
       break;
@@ -616,7 +622,7 @@ bool RapidCsvReader::hasCustomerInternalName(const string& nm) const noexcept {
 
   for (const BCD* x : bcd_AXI_) {
     assert(x);
-    if (x->customerInternal_ == nm)
+    if (x->customerInternal() == nm)
       return true;
   }
   return false;
@@ -640,8 +646,8 @@ vector<string> RapidCsvReader::get_AXI_inputs() const
 
   for (const BCD* p : bcd_AXI_) {
     assert(p);
-    if (is_axi_inp(p->customerInternal_))
-      result.emplace_back(p->customerInternal_);
+    if (is_axi_inp(p->customerInternal()))
+      result.emplace_back(p->customerInternal());
   }
 
   return result;
@@ -665,8 +671,8 @@ vector<string> RapidCsvReader::get_AXI_outputs() const
 
   for (const BCD* p : bcd_AXI_) {
     assert(p);
-    if (is_axi_out(p->customerInternal_))
-      result.emplace_back(p->customerInternal_);
+    if (is_axi_out(p->customerInternal()))
+      result.emplace_back(p->customerInternal());
   }
 
   return result;

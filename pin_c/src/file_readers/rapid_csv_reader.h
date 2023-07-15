@@ -22,7 +22,11 @@ class RapidCsvReader {
 public:
 
   // BCD is a "reduced row record" RRR (subset of important columns)
-  struct BCD {
+  class BCD {
+
+    string customerInternal_; // 72-BU  Customer Internal Name
+  
+  public:
 
     string groupA_; // 0-A  Group
 
@@ -40,8 +44,6 @@ public:
            ball_ID_;  // 3-D
 
     string fullchipName_; // 13-N  Fullchip_NAME
-
-    string customerInternal_; // 72-BU  Customer Internal Name
 
     int row_ = 0;
 
@@ -64,7 +66,9 @@ public:
       return false;
     }
 
+    const string& customerInternal() const noexcept { return customerInternal_; }
     bool isCustomerInternal() const noexcept { return !customerInternal_.empty(); }
+    void setCustomerInternal(const string& nm) noexcept { customerInternal_ = nm; }
 
     bool isCustomerInternalUnique() const noexcept {
       return !customerInternal_.empty() && customerInternal_ != customer_; }
@@ -124,7 +128,7 @@ public:
   }
   const string& customerInternalName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].customerInternal_;
+    return bcd_[row].customerInternal();
   }
 
   bool hasMode(const string& key) const noexcept { return modes_map_.count(key); }
