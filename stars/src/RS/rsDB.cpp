@@ -690,5 +690,26 @@ void BlackBoxInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
   os << "\n";
 }
 
+size_t BlackBoxInst::find_port_size(const string& port_name) const {
+  auto fitr = input_port_conns_.find(port_name);
+  if (fitr != input_port_conns_.end()) {
+    return fitr->second.size();
+  }
+
+  fitr = output_port_conns_.find(port_name);
+  if (fitr != output_port_conns_.end()) {
+    return fitr->second.size();
+  }
+
+  lprintf("\n[Error] STARS-assert: Could not find port %s on %s of type %s\n\n",
+                  port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
+  assert(0);
+
+  VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER, "Could not find port %s on %s of type %s\n",
+                  port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
+
+  return -1;  // Suppress warning
+}
+
 }
 
