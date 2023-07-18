@@ -7,7 +7,9 @@ using namespace std;
 
 RapidCsvReader::RapidCsvReader() {}
 
-RapidCsvReader::~RapidCsvReader() {}
+RapidCsvReader::~RapidCsvReader() {
+  delete crd_;
+}
 
 void RapidCsvReader::reset() noexcept {
   start_GBOX_GPIO_row_ = 0;
@@ -18,6 +20,9 @@ void RapidCsvReader::reset() noexcept {
   modes_map_.clear();
   col_headers_.clear();
   mode_names_.clear();
+
+  delete crd_;
+  crd_ = nullptr;
 }
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
@@ -26,8 +31,10 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  " << b.bump_
      << "  " << b.customer_
      << "  " << b.ball_ID_
+     << "  ITP: " << b.IO_tile_pin_
+     << "  XYZ: " << b.xyz_
      << "  fc:" << b.fullchipName_
-     << "  ci:" << b.customerInternal_
+     << "  ci:" << b.customerInternal()
      << "  axi:" << int(b.is_axi_)
      << "  isGPIO:" << int(b.is_GPIO_)
      << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
@@ -96,16 +103,20 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   reset();
 
+  crd_ = new fio::CSV_Reader(fn);
+  fio::CSV_Reader& crd = *crd_;
+
   // check file accessability and format:
-  fio::CSV_Reader crd(fn);
   crd.setTrace(tr);
   if (! crd.fileExistsAccessible()) {
-      ls << "\nERROR reading csv: file is not accessible: " << fn << '\n' << endl;
-      return false;
+    ls << "\nERROR reading csv: file is not accessible: " << fn << '\n' << endl;
+    delete crd_; crd_ = nullptr;
+    return false;
   }
   if (! crd.readCsv(false)) {
-      ls << "\nERROR reading csv: wrong format: " << fn << '\n' << endl;
-      return false;
+    ls << "\nERROR reading csv: wrong format: " << fn << '\n' << endl;
+    delete crd_; crd_ = nullptr;
+    return false;
   }
   if (tr >= 4)
     crd.dprint1();
@@ -217,7 +228,12 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) bcd_[i].customer_ = S_tmp[i];
 
   ok = get_column(crd, "Customer Internal Name", S_tmp);
-  if (!ok) return false;
+  if (!ok) {
+    lputs("\n pin_c WARNING: could not read Customer Internal Name column\n");
+    return false;
+  }
+  //lputs9();
+
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
@@ -226,7 +242,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) {
     const string& nm = S_tmp[i];
     if (nm.length()) {
-      bcd_[i].customerInternal_ = nm;
+      bcd_[i].setCustomerInternal(nm);
       custIntNameRows.push_back(i);
     }
   }
@@ -301,7 +317,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   S_tmp.resize(num_rows);
   const vector<string>& bump_pin_name = S_tmp;
 
-  if (tr >= 6) {
+  if (tr >= 9) {
     ls << endl;
     if (num_rows > 3000) {
       const string* A = bump_pin_name.data();
@@ -326,44 +342,34 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     BCD& bcd = bcd_[i];
     bcd.bump_ = bump_pin_name[i];
     if (bcd.bump_.empty()) {
-      if (bcd.customerInternal_.empty() && tr >= 2) {
+      if (bcd.customerInternal().empty() && tr >= 2) {
         ls << " (WW) both bcd.bump_ and bcd.customerInternal_ are empty"
            << " on row# " << i << endl;
+        //assert(0);
       }
     }
     bcd.normalize();
     assert(!bcd.bump_.empty());
   }
 
-  if (tr >= 6) {
-    ls << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;
-    for (uint i = 0; i < num_rows; i++) {
-      const BCD& bcd = bcd_[i];
-      ls << "\t " << bcd << endl;
-    }
-    ls << "--- BCD dump^^^" << '\n' << endl;
-  }
-  if (tr >= 5) {
-    ls << "+++ bcd_AXI_ dump (" << bcd_AXI_.size()
-       << ") ::: Bump/Pin Name , Customer Name , Ball ID :::" << endl;
-    for (const BCD* bcd_p : bcd_AXI_) {
-      assert(bcd_p);
-      ls << "\t " << *bcd_p << endl;
-    }
-    ls << "--- bcd_AXI_ dump^^^" << '\n' << endl;
+  vector<string> io_tile_pins = crd.getColumn("IO_tile_pin");
+  io_tile_pins.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    bcd_[i].IO_tile_pin_ = io_tile_pins[i];
   }
 
-  io_tile_pin_ = crd.getColumn("IO_tile_pin");
-  io_tile_pin_.resize(num_rows);
+  //if (tr >= 6)
+  //  print_bcd(ls);
+  //if (tr >= 5)
+  //  print_axi_bcd(ls);
 
   vector<int> tmp = crd.getColumnInt("IO_tile_pin_x");
   assert(tmp.size() == num_rows);
-  io_tile_pin_xyz_.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
     int x = tmp[i];
     assert(x >= -1);
     assert(x < 2000);
-    io_tile_pin_xyz_[i].x_ = x;
+    bcd_[i].xyz_.x_ = x;
   }
 
   tmp = crd.getColumnInt("IO_tile_pin_y");
@@ -372,7 +378,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     int y = tmp[i];
     assert(y >= -1);
     assert(y < 2000);
-    io_tile_pin_xyz_[i].y_ = y;
+    bcd_[i].xyz_.y_ = y;
   }
 
   tmp = crd.getColumnInt("IO_tile_pin_z");
@@ -381,20 +387,15 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     int z = tmp[i];
     assert(z >= -1);
     assert(z < 100);
-    io_tile_pin_xyz_[i].z_ = z;
+    bcd_[i].xyz_.z_ = z;
   }
 
-  // do a sanity check
-  //if (0&& check) {
-  //  bool check_ok = sanity_check();
-  //  if (!check_ok) {
-  //    ls << "\nWARNING: !check_ok" << endl;
-  //    //      return false;
-  //  }
-  //}
-
-  // print data of interest for test
-  if (tr >= 5) print_csv();
+  if (tr >= 6)
+    print_bcd(ls);
+  if (tr >= 5)
+    print_axi_bcd(ls);
+  if (tr >= 5)
+    print_csv();
 
   return true;
 }
@@ -447,12 +448,52 @@ bool RapidCsvReader::sanity_check() const {
   return true;
 }
 
-// file i/o
-void RapidCsvReader::write_csv(string file_name) const {
-  // to do
-  lout() << "Not Implement Yet - Write content of interest to a csv file <"
-         << file_name << ">" << endl;
-  return;
+bool RapidCsvReader::write_csv(const string& fn, uint minRow, uint maxRow) const
+{
+  uint16_t tr = ltrace();
+  if (tr >= 2) {
+    lprintf("RapidCsvReader::write_csv( %s )  minRow= %u  maxRow= %u\n",
+             fn.c_str(), minRow, maxRow);
+  }
+
+  if (fn.empty())
+    return false;
+  if (!crd_)
+    return false;
+
+  if (maxRow == 0)
+    maxRow = UINT_MAX;
+
+  bool ok = crd_->writeCsv(fn, minRow, maxRow);
+  if (tr >= 2)
+    lprintf("done RapidCsvReader::write_csv( %s )  ok:%i\n", fn.c_str(), ok);
+
+  return ok;
+}
+
+uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept
+{
+  uint nr = numRows();
+  os << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::" << endl;
+  for (uint i = 0; i < nr; i++) {
+    const BCD& bcd = bcd_[i];
+    os << "\t " << bcd << endl;
+  }
+  os << "--- BCD dump ^^^ (nr=" << nr << ")\n" << endl;
+  return nr;
+}
+
+uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept
+{
+  uint n = bcd_AXI_.size();
+  os << "+++ bcd_AXI_ dump (" << n
+     << ") ::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::" << endl;
+  for (const BCD* bcd_p : bcd_AXI_) {
+    assert(bcd_p);
+    os << "\t " << *bcd_p << endl;
+  }
+  os << "--- bcd_AXI_ dump (n=" << n << ")\n" << endl;
+  return n;
 }
 
 void RapidCsvReader::print_csv() const {
@@ -466,17 +507,16 @@ void RapidCsvReader::print_csv() const {
 
   uint num_rows = numRows();
   assert(bcd_.size() == num_rows);
-  assert(io_tile_pin_xyz_.size() == num_rows);
   for (uint i = 0; i < num_rows; i++) {
     const BCD& b = bcd_[i];
-    const XYZ& p = io_tile_pin_xyz_[i];
+    const XYZ& p = b.xyz_;
     lprintf("%-5u ", i+2);
     lprintf(" %12s ", b.bump_.c_str());
     lprintf(" %22s ", b.customer_.c_str());
     lprintf(" %6s ", b.ball_ID_.c_str());
-    ls << "\t " << io_tile_pin_[i] << "\t" << p.x_ << "\t" << p.y_ << "\t"
-       << p.z_;
-    lprintf(" %22s ", b.customerInternal_.c_str());
+    ls << "\t " << b.IO_tile_pin_
+       << "\t " << p.x_ << " " << p.y_ << " " << p.z_;
+    lprintf(" %22s ", b.customerInternal().c_str());
     ls << endl;
   }
 
@@ -484,16 +524,17 @@ void RapidCsvReader::print_csv() const {
   ls << "Total Records: " << num_rows << endl;
 }
 
-XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name) const noexcept {
+XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
+                                        uint& pt_row ) const noexcept {
+  pt_row = 0;
   assert(!bcd_AXI_.empty());
   XYZ result;
 
-  for (const BCD* x : bcd_AXI_) {
-    assert(x);
-    if (x->customerInternal_ == axi_name) {
-      uint row = x->row_;
-      assert(row < io_tile_pin_xyz_.size());
-      result = io_tile_pin_xyz_[row];
+  for (const BCD* p : bcd_AXI_) {
+    assert(p);
+    if (p->customerInternal() == axi_name) {
+      result = p->xyz_;
+      pt_row = p->row_;
       break;
     }
   }
@@ -503,9 +544,12 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name) const noexcept {
 
 XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
                                         const string& customerPin_or_ID,
-                                        const string& gbox_pin_name) const {
+                                        const string& gbox_pin_name,
+                                        uint& pt_row) const noexcept {
+  pt_row = 0;
+
   // 1. if customerPin_or_ID is an AXI-pin, then skip the mode="Y" check
-  XYZ result = get_axi_xyz_by_name(customerPin_or_ID);
+  XYZ result = get_axi_xyz_by_name(customerPin_or_ID, pt_row);
   if (result.valid())
     return result;
 
@@ -518,7 +562,6 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
   uint num_rows = numRows();
   assert(num_rows > 1);
   assert(mode_vector.size() == num_rows);
-  assert(io_tile_pin_xyz_.size() == num_rows);
   assert(bcd_.size() == num_rows);
 
   // 3.
@@ -527,7 +570,8 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
     if (!bcd.match(customerPin_or_ID)) continue;
     if (mode_vector[i] != "Y") continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
-      result = io_tile_pin_xyz_[i];
+      result = bcd.xyz_;
+      pt_row = i;
       assert(result.valid());
       break;
     }
@@ -552,7 +596,6 @@ RapidCsvReader::bumpName2CustomerName(const string& bump_nm) const noexcept {
   assert(!bump_nm.empty());
   uint num_rows = numRows();
   assert(num_rows > 1);
-  assert(io_tile_pin_xyz_.size() == num_rows);
   assert(bcd_.size() == num_rows);
 
   // tmp linear search
@@ -579,7 +622,7 @@ bool RapidCsvReader::hasCustomerInternalName(const string& nm) const noexcept {
 
   for (const BCD* x : bcd_AXI_) {
     assert(x);
-    if (x->customerInternal_ == nm)
+    if (x->customerInternal() == nm)
       return true;
   }
   return false;
@@ -603,8 +646,8 @@ vector<string> RapidCsvReader::get_AXI_inputs() const
 
   for (const BCD* p : bcd_AXI_) {
     assert(p);
-    if (is_axi_inp(p->customerInternal_))
-      result.emplace_back(p->customerInternal_);
+    if (is_axi_inp(p->customerInternal()))
+      result.emplace_back(p->customerInternal());
   }
 
   return result;
@@ -628,8 +671,8 @@ vector<string> RapidCsvReader::get_AXI_outputs() const
 
   for (const BCD* p : bcd_AXI_) {
     assert(p);
-    if (is_axi_out(p->customerInternal_))
-      result.emplace_back(p->customerInternal_);
+    if (is_axi_out(p->customerInternal()))
+      result.emplace_back(p->customerInternal());
   }
 
   return result;

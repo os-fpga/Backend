@@ -34,6 +34,8 @@ inline char* p_strdup(const char* p) noexcept {
   return ::strdup(p);
 }
 
+int get_PID() noexcept; // wrapper for getpid() to reduce usage of unistd.h
+
 using std::string;
 using std::vector;
 
@@ -329,7 +331,13 @@ public:
     return getColumnInt(colName.c_str());
   }
 
+  size_t numRows() const noexcept { return nr_; }
+  size_t numCols() const noexcept { return nc_; }
+
   int dprint1() const noexcept;
+
+  bool writeCsv(const string& fn, uint minRow, uint maxRow) const noexcept;
+  bool printCsv(std::ostream& os, uint minRow, uint maxRow) const noexcept;
 
   static size_t countCommas(const char* src) noexcept;
 

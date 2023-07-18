@@ -7,6 +7,10 @@
 #include "util/geo/xyz.h"
 #include "util/pinc_log.h"
 
+namespace fio {
+class CSV_Reader;
+}
+
 namespace pinc {
 
 using std::string;
@@ -15,27 +19,36 @@ using std::vector;
 class PinPlacer;
 
 class RapidCsvReader {
- public:
+public:
 
-  // BCD is a "reduced row record" RRR
-  struct BCD {
+  // BCD is a "reduced row record" RRR (subset of important columns)
+  class BCD {
+
+    string customerInternal_; // 72-BU  Customer Internal Name
+  
+  public:
 
     string groupA_; // 0-A  Group
 
-    // columns B, C, D, BU(#72) of the table
+    // columns: B, C, D, I, J, K, L, BU(#72)
     // --- 1-B    Bump/Pin Name
     // --- 2-C    Customer Name
     // --- 3-D    Ball ID
+    // --- 8-I    IO_tile_pin
+    // --- 9-J    IO_tile_pin_x
+    // --- 10-K   IO_tile_pin_y
+    // --- 11-L   IO_tile_pin_z
     // --- 72-BU  Customer Internal Name
-    string bump_,
+    string bump_,     // 1-B
            customer_, // 2-C Customer Name
-           ball_ID_;
+           ball_ID_;  // 3-D
 
     string fullchipName_; // 13-N  Fullchip_NAME
 
-    string customerInternal_; // 72-BU  Customer Internal Name
-
     int row_ = 0;
+
+    string  IO_tile_pin_; // column I
+    XYZ     xyz_;         // columns J,K,L
 
     bool is_axi_ = false;
     bool is_GBOX_GPIO_ = false;
@@ -53,7 +66,9 @@ class RapidCsvReader {
       return false;
     }
 
+    const string& customerInternal() const noexcept { return customerInternal_; }
     bool isCustomerInternal() const noexcept { return !customerInternal_.empty(); }
+    void setCustomerInternal(const string& nm) noexcept { customerInternal_ = nm; }
 
     bool isCustomerInternalUnique() const noexcept {
       return !customerInternal_.empty() && customerInternal_ != customer_; }
@@ -77,11 +92,14 @@ class RapidCsvReader {
 
   void reset() noexcept;
 
-  // file i/o
-  bool read_csv(const std::string& f, bool check);
+  bool read_csv(const string& fn, bool check);
 
-  void write_csv(string csv_file_name) const;
+  bool write_csv(const string& fn, uint minRow, uint maxRow) const;
+
   void print_csv() const;
+  uint print_bcd(std::ostream& os) const noexcept;
+  uint print_axi_bcd(std::ostream& os) const noexcept;
+
   bool sanity_check() const;
 
   static bool prepare_mode_header(string& hdr) noexcept;
@@ -89,14 +107,11 @@ class RapidCsvReader {
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
                           const string& customerPin_or_ID,
-                          const string& gbox_pin_name) const;
+                          const string& gbox_pin_name, uint& pt_row) const noexcept;
 
-  XYZ get_axi_xyz_by_name(const string& axi_name) const noexcept;
+  XYZ get_axi_xyz_by_name(const string& axi_name, uint& pt_row) const noexcept;
 
-  uint numRows() const noexcept {
-    assert(bcd_.size() == io_tile_pin_xyz_.size());
-    return bcd_.size();
-  }
+  uint numRows() const noexcept { return bcd_.size(); }
 
   bool has_io_pin(const string& pin_name_or_ID) const noexcept;
 
@@ -113,7 +128,7 @@ class RapidCsvReader {
   }
   const string& customerInternalName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].customerInternal_;
+    return bcd_[row].customerInternal();
   }
 
   bool hasMode(const string& key) const noexcept { return modes_map_.count(key); }
@@ -135,27 +150,27 @@ class RapidCsvReader {
   vector<string> get_AXI_inputs() const;
   vector<string> get_AXI_outputs() const;
 
- private:
+  uint row0_GBOX_GPIO() const noexcept { return start_GBOX_GPIO_row_; }
+  uint row0_CustomerInternal() const noexcept { return start_CustomerInternal_row_; }
+
+private:
+
+  fio::CSV_Reader* crd_ = nullptr;
+
   std::map<string, vector<string>> modes_map_;
 
   vector<string> col_headers_; // all column headers
   vector<string> mode_names_;  // column headers that contain "Mode_/MODE_"
 
-  // below vectors are indexed by csv row, size() == #rows
-
-  vector<BCD> bcd_; // all BCD records
+  vector<BCD> bcd_; // all BCD records, indexed by csv row
 
   vector<BCD*> bcd_AXI_; // BCD records with .isCustomerInternalOnly() predicate (AXI pins)
 
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
-  vector<string> io_tile_pin_;    // "IO_tile_pin"
+  uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
 
-  vector<XYZ> io_tile_pin_xyz_;   // "IO_tile_pin_x", "_y", "_z"
-
-  int start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
-
-  int start_CustomerInternal_row_ = 0;
+  uint start_CustomerInternal_row_ = 0;
 
   friend class PinPlacer;
 };

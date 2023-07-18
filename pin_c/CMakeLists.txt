@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.9)
 
 project("pin_c")
 
+#
+# We require c++17 support minimum
+#
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #
 # Build Configuration

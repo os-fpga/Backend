@@ -21,6 +21,7 @@ class RapidCsvReader;
 
 using std::string;
 using std::vector;
+using StringPair = std::pair<std::string, std::string>;
 
 class PinPlacer {
 
@@ -28,11 +29,13 @@ class PinPlacer {
     string user_design_name_;
     string device_pin_name_;
     XYZ xyz_;
+    uint pt_row_ = 0; // row in pin table
 
     Pin() noexcept = default;
 
-    Pin(const string& u, const string& d, const XYZ& xyz) noexcept
-      : user_design_name_(u), device_pin_name_(d), xyz_(xyz)
+    Pin(const string& u, const string& d, const XYZ& xyz, uint r) noexcept
+      : user_design_name_(u), device_pin_name_(d),
+        xyz_(xyz), pt_row_(r)
     {}
   };
 
@@ -48,7 +51,11 @@ class PinPlacer {
   vector<vector<string>> pcf_pin_cmds_;
   std::set<string> used_bump_pins_;
 
-  vector<Pin> placed_inputs_, placed_outputs_;
+  // vector<StringPair>  picked_inputs_, picked_outputs_;  // for debug stats
+
+  vector<Pin>  placed_inputs_, placed_outputs_;  // for debug stats
+
+  uint min_pt_row_ = UINT_MAX, max_pt_row_ = 0;  // for debug stats
 
   bool pin_assign_def_order_ = true;
 
@@ -90,18 +97,20 @@ public:
   PinPlacer(const cmd_line& cl)
    : cl_(cl) {
     pin_assign_def_order_ = true;
+    min_pt_row_ = UINT_MAX; max_pt_row_ = 0;
   }
   ~PinPlacer();
 
-  const cmd_line& get_cmd() const noexcept { return cl_; }
+  // const cmd_line& get_cmd() const noexcept { return cl_; }
 
   bool reader_and_writer();
-  void print_stats() const;
+
+  void print_stats(const RapidCsvReader& csv_rd) const;
+
   size_t num_placed_pins() const noexcept {
     return placed_inputs_.size() + placed_outputs_.size();
   }
 
-  bool generate_csv_file_for_os_flow();
   bool read_csv_file(RapidCsvReader&);
   bool read_design_ports();
 
@@ -113,16 +122,15 @@ public:
 
   static void shuffle_candidates(vector<int>& v);
 
-  bool convert_pcf_for_os_flow(const string& pcf_name);
-
   // get_available_ methods return pin_and_mode pair, empty strings on error
   //
-  std::pair<string, string> get_available_device_pin(const RapidCsvReader& rdr, bool is_inp);
+  StringPair get_available_device_pin(const RapidCsvReader& rdr,
+                                      bool is_inp, const string& udesName);
   //
-  std::pair<string, string> get_available_bump_ipin(const RapidCsvReader& rdr);
-  std::pair<string, string> get_available_bump_opin(const RapidCsvReader& rdr);
-  std::pair<string, string> get_available_axi_ipin(vector<string>& Q);
-  std::pair<string, string> get_available_axi_opin(vector<string>& Q);
+  StringPair get_available_bump_ipin(const RapidCsvReader& rdr, const string& udesName);
+  StringPair get_available_bump_opin(const RapidCsvReader& rdr, const string& udesName);
+  StringPair get_available_axi_ipin(vector<string>& Q);
+  StringPair get_available_axi_opin(vector<string>& Q);
   //
   bool no_more_inp_bumps_ = false, no_more_out_bumps_ = false; // state for get_available_device_pin()
   uint num_warnings_ = 0;
@@ -135,6 +143,10 @@ public:
                              vector<string>& outputs);
 
   bool write_logical_clocks_to_physical_clks();
+
+  static string err_lookup(const string& key) noexcept; // err_map lookup
+  static void clear_err_code() noexcept;
+  static void set_err_code(const char* cs) noexcept;
 
 private:
 

@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0035";
+static const char* _rsbe_VERSION_STR = "rsbe0040";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -24,6 +24,8 @@ using std::string;
 static rsEnv s_env;
 
 static bool do_stars(const rsOpts& opts, bool orig_args) {
+  uint16_t tr = ltrace();
+  auto& ls = lout();
   int argc;
   const char** argv;
   if (orig_args) {
@@ -40,7 +42,7 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
   }
 
   // call vpr to build design context
-  cout << "\nSTARS: Preparing design data ... " << endl;
+  ls << "\nSTARS: Preparing design data ... " << endl;
 
   // add --analysis if it's missing:
   char** vprArgv = (char**)calloc(argc + 4, sizeof(char*));
@@ -53,24 +55,33 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
     vprArgv[i] = strdup(a);
   }
   if (not found_analysis) {
-    cout << "STARS: added --analysis to vpr options" << endl;
+    ls << "STARS: added --analysis to vpr options" << endl;
     vprArgv[argc] = strdup("--analysis");
     vprArgc++;
   }
 
-  vpr4stars(vprArgc, vprArgv);
-
-  // write files for opensta
-  //
   bool status = true;
-  cout << "STARS: Creating sta files ... " << endl;
-  if (!create_sta_files(argc, argv)) {
-    lputs("\n[Error] STARS: Creating sta files failed.");
-    cerr << "[Error] STARS: Creating sta files failed." << endl;
-    status = false;
-  } else {
-    lputs("STARS: Creating sta files succeeded.");
-    status = true;
+  ls << "STARS: Initializing VPR data ... " << endl;
+
+  int vpr_code = vpr4stars(vprArgc, vprArgv);
+  if (tr >= 2)
+    lprintf("vpr4stars returned: %i\n", vpr_code);
+  if (vpr_code != 0) {
+      lputs("\n[Error] STARS: VPR init failed.");
+      cerr << "[Error] STARS: VPR init failed." << endl;
+      status = false;
+  }
+
+  if (status) {
+    ls << "STARS: Creating sta files ... " << endl;
+    if (!sta_file_writer::create_files(argc, argv)) {
+      lputs("\n[Error] STARS: Creating sta files failed.");
+      cerr << "[Error] STARS: Creating sta files failed." << endl;
+      status = false;
+    } else {
+      lputs("STARS: Creating sta files succeeded.");
+      status = true;
+    }
   }
 
   return status;
@@ -155,7 +166,7 @@ int main(int argc, char** argv) {
   bool rsbe_builtin_VPR_TC = getenv("rsbe_builtin_VPR_TC");
   if (rsbe_builtin_STA_TC) {
     lputs("\n(rsbe_builtin_STA_TC)\n");
-    ok = opts.set_VPR_TC2();
+    ok = opts.set_STA_TC3();
     if (ok) {
       ok = do_stars(opts, false);
       if (ok) {
@@ -165,7 +176,7 @@ int main(int argc, char** argv) {
     }
   } else if (rsbe_builtin_VPR_TC) {
     lputs("\n(rsbe_builtin_VPR_TC)\n");
-    ok = opts.set_VPR_TC2();
+    ok = opts.set_VPR_TC1();
     if (ok) {
       status = do_vpr(opts);
       lprintf("DID vpr. status= %i\n", status);
