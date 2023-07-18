@@ -168,20 +168,22 @@ void LutInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
 
   // create cell info
   lib_cell cell;
-  cell.name(type_);
+  cell.setName(type_);
   cell.type(LUT);
   lib_pin pin_in;
-  pin_in.name("in");
+  pin_in.setName("in");
   pin_in.direction(INPUT);
   pin_in.bus_width(in_bus_width);
   cell.add_pin(pin_in, INPUT);
   lib_pin pin_out;
-  pin_out.name("out");
+  pin_out.setName("out");
   pin_out.direction(OUTPUT);
-  timing_arch timing;
-  timing.sense(POSITIVE);
-  timing.type(TRANSITION);
+
+  TimingArc timing;
+  timing.setSense(POSITIVE);
+  timing.setType(TRANSITION);
   timing.related_pin(pin_in);
+
   pin_out.add_timing_arch(timing);
   pin_out.bus_width(out_bus_width);
   cell.add_pin(pin_out, OUTPUT);
@@ -319,7 +321,7 @@ void LatchInst::print_verilog(ostream& os, size_t& /*unconn_count*/, int depth) 
 void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
   // create cell info
   lib_cell cell;
-  cell.name(type_name_);
+  cell.setName(type_name_);
 
   // to make memory management simple, we are using static memory for each
   // objects here
@@ -339,7 +341,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       string pin_name = tcq_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
-        related_pin.name(pin_name);
+        related_pin.setName(pin_name);
         related_pin.bus_width(1);
         related_pin.direction(INPUT);
         related_pin.type(CLOCK);
@@ -359,16 +361,17 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
         lib_pin pin_out;
         if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
           pin_out.type(DATA);
-          pin_out.name(out_pin_name);
+          pin_out.setName(out_pin_name);
           pin_out.direction(OUTPUT);
           pin_out.bus_width(1);
           written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
         } else {
           pin_out = written_out_pins[out_pin_name];
         }
-        timing_arch timing;
-        timing.sense(POSITIVE);
-        timing.type(TRANSITION);
+
+        TimingArc timing;
+        timing.setSense(POSITIVE);
+        timing.setType(TRANSITION);
         timing.related_pin(related_pin);
         pin_out.add_timing_arch(timing);
         // update pin_out
@@ -382,7 +385,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       string pin_name = tsu_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
-        related_pin.name(pin_name);
+        related_pin.setName(pin_name);
         related_pin.bus_width(1);
         related_pin.direction(INPUT);
         related_pin.type(CLOCK);
@@ -400,7 +403,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
         }
         lib_pin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
-          pin_in.name(in_pin_name);
+          pin_in.setName(in_pin_name);
           pin_in.bus_width(1);
           pin_in.direction(INPUT);
           pin_in.type(DATA);
@@ -408,9 +411,9 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
-        timing_arch timing;
-        timing.sense(POSITIVE);
-        timing.type(SETUP);
+        TimingArc timing;
+        timing.setSense(POSITIVE);
+        timing.setType(SETUP);
         timing.related_pin(related_pin);
         pin_in.add_timing_arch(timing);
         written_in_pins[in_pin_name] = pin_in;
@@ -423,7 +426,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       string pin_name = thld_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
-        related_pin.name(pin_name);
+        related_pin.setName(pin_name);
         related_pin.bus_width(1);
         related_pin.direction(INPUT);
         related_pin.type(CLOCK);
@@ -441,7 +444,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
         }
         lib_pin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
-          pin_in.name(in_pin_name);
+          pin_in.setName(in_pin_name);
           pin_in.bus_width(1);
           pin_in.direction(INPUT);
           pin_in.type(DATA);
@@ -449,9 +452,9 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
-        timing_arch timing;
-        timing.sense(POSITIVE);
-        timing.type(HOLD);
+        TimingArc timing;
+        timing.setSense(POSITIVE);
+        timing.setType(HOLD);
         timing.related_pin(related_pin);
         pin_in.add_timing_arch(timing);
         written_in_pins[in_pin_name] = pin_in;
@@ -469,7 +472,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
     }
   } else if (!timing_arcs_.empty()) {
     // just write out timing arcs
-    cell.name(type_name_);
+    cell.setName(type_name_);
     cell.type(BLACKBOX);
     for (auto& arc : timing_arcs_) {
       string in_pin_name = arc.source_name();
@@ -478,7 +481,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       }
       if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
         lib_pin pin_in;
-        pin_in.name(in_pin_name);
+        pin_in.setName(in_pin_name);
         pin_in.bus_width(1);
         pin_in.direction(INPUT);
         pin_in.type(DATA);
@@ -491,13 +494,14 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       if (find_port_size(out_pin_name) > 1) {
         out_pin_name += string("[") + std::to_string(arc.sink_ipin()) + string("]");
       }
-      timing_arch timing;
-      timing.sense(POSITIVE);
-      timing.type(TRANSITION);
+
+      TimingArc timing;
+      timing.setSense(POSITIVE);
+      timing.setType(TRANSITION);
       timing.related_pin(written_in_pins[in_pin_name]);
       if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
         lib_pin pin_out;
-        pin_out.name(out_pin_name);
+        pin_out.setName(out_pin_name);
         pin_out.bus_width(1);
         pin_out.direction(OUTPUT);
         pin_out.type(DATA);

@@ -164,34 +164,7 @@ private:
 
   ///@brief Returns a LogicVec representing the LUT mask of the given LUT atom
   LogicVec load_lut_mask(size_t num_inputs,   // LUT size
-                         const t_pb* atom) {  // LUT primitive
-    auto& atom_ctx = g_vpr_ctx.atom();
-
-    const t_model* model = atom_ctx.nlist.block_model(atom_ctx.lookup.pb_atom(atom));
-    assert(model->name == string(MODEL_NAMES));
-
-#ifdef DEBUG_LUT_MASK
-    cout << "Loading LUT mask for: " << atom->name << endl;
-#endif
-
-    // Figure out how the inputs were permuted (compared to the input netlist)
-    std::vector<int> permute = determine_lut_permutation(num_inputs, atom);
-
-    // Retrieve the truth table
-    const auto& truth_table = atom_ctx.nlist.block_truth_table(atom_ctx.lookup.pb_atom(atom));
-
-    // Apply the permutation
-    auto permuted_truth_table = permute_truth_table(truth_table, num_inputs, permute);
-
-    // Convert to lut mask
-    LogicVec lut_mask = truth_table_to_lut_mask(permuted_truth_table, num_inputs);
-
-#ifdef DEBUG_LUT_MASK
-    cout << "\tLUT_MASK: " << lut_mask << endl;
-#endif
-
-    return lut_mask;
-  }
+                         const t_pb* atom);   // LUT primitive
 
   /**
    * @brief Helper function for load_lut_mask() which determines how the LUT
@@ -207,90 +180,7 @@ private:
    * The net in the atom netlist which was originally connected to pin i, is
    * connected to pin permute[i] in the implementation.
    */
-  std::vector<int> determine_lut_permutation(size_t num_inputs, const t_pb* atom_pb) {
-    auto& atom_ctx = g_vpr_ctx.atom();
-
-    std::vector<int> permute(num_inputs, OPEN);
-
-#ifdef DEBUG_LUT_MASK
-    cout << "\tInit Permute: {";
-    for (size_t i = 0; i < permute.size(); i++) {
-      cout << permute[i] << ", ";
-    }
-    cout << "}" << endl;
-#endif
-
-    // Determine the permutation
-    //
-    // We walk through the logical inputs to this atom (i.e. in the original
-    // truth table/netlist) and find the corresponding input in the
-    // implementation atom (i.e. in the current netlist)
-    auto ports = atom_ctx.nlist.block_input_ports(atom_ctx.lookup.pb_atom(atom_pb));
-    if (ports.size() == 1) {
-      const t_pb_graph_node* gnode = atom_pb->pb_graph_node;
-      assert(gnode->num_input_ports == 1);
-      assert(gnode->num_input_pins[0] >= (int)num_inputs);
-
-      AtomPortId port_id = *ports.begin();
-
-      for (size_t ipin = 0; ipin < num_inputs; ++ipin) {
-        AtomNetId impl_input_net_id =
-            find_atom_input_logical_net(atom_pb, ipin);  // The net currently connected to input j
-
-        // Find the original pin index
-        const t_pb_graph_pin* gpin = &gnode->input_pins[0][ipin];
-        BitIndex orig_index = atom_pb->atom_pin_bit_index(gpin);
-
-        if (impl_input_net_id) {
-          // If there is a valid net connected in the implementation
-          AtomNetId logical_net_id = atom_ctx.nlist.port_net(port_id, orig_index);
-
-          // Fatal error should be flagged when the net marked in
-          // implementation does not match the net marked in input netlist
-          if (impl_input_net_id != logical_net_id) {
-            VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER,
-                            "Unmatch:\n\tlogical net is '%s' at pin "
-                            "'%lu'\n\timplmented net is '%s' at pin '%s'\n",
-                            atom_ctx.nlist.net_name(logical_net_id).c_str(), size_t(orig_index),
-                            atom_ctx.nlist.net_name(impl_input_net_id).c_str(), gpin->to_string().c_str());
-          }
-
-          // Mark the permutation.
-          //  The net originally located at orig_index in the atom netlist
-          //  was moved to ipin in the implementation
-          permute[orig_index] = ipin;
-        }
-      }
-    } else {
-      // May have no inputs on a constant generator
-      assert(ports.size() == 0);
-    }
-
-    // Fill in any missing values in the permutation (i.e. zeros)
-    std::set<int> perm_indicies(permute.begin(), permute.end());
-    size_t unused_index = 0;
-    for (size_t i = 0; i < permute.size(); i++) {
-      if (permute[i] == OPEN) {
-        while (perm_indicies.count(unused_index)) {
-          unused_index++;
-        }
-        permute[i] = unused_index;
-        perm_indicies.insert(unused_index);
-      }
-    }
-
-#ifdef DEBUG_LUT_MASK
-    cout << "\tPermute: {";
-    for (size_t k = 0; k < permute.size(); k++) {
-      cout << permute[k] << ", ";
-    }
-    cout << "}" << endl;
-
-    cout << "\tBLIF = Input ->  Rotated" << endl;
-    cout << "\t------------------------" << endl;
-#endif
-    return permute;
-  }
+  std::vector<int> determine_lut_permutation(size_t num_inputs, const t_pb* atom_pb);
 
   /**
    * @brief Helper function for load_lut_mask() which determines if the
