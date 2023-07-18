@@ -213,23 +213,25 @@ void StaWriterVisitor::print_lib(int depth) {
   // Interconnect
   // create cell info
   lib_cell cell;
-  cell.name("fpga_interconnect");
+  cell.setName("fpga_interconnect");
   cell.type(INTERCONNECT);
   lib_pin pin_in;
-  pin_in.name("datain");
+  pin_in.setName("datain");
   pin_in.bus_width(1);
   pin_in.direction(INPUT);
   pin_in.type(DATA);
   cell.add_pin(pin_in, INPUT);
   lib_pin pin_out;
-  pin_out.name("dataout");
+  pin_out.setName("dataout");
   pin_out.bus_width(1);
   pin_out.direction(OUTPUT);
   pin_out.type(DATA);
-  timing_arch timing;
-  timing.sense(POSITIVE);
-  timing.type(TRANSITION);
+
+  TimingArc timing;
+  timing.setSense(POSITIVE);
+  timing.setType(TRANSITION);
   timing.related_pin(pin_in);
+
   pin_out.add_timing_arch(timing);
   cell.add_pin(pin_out, OUTPUT);
   lib_writer.write_cell(lib_os_, cell);
@@ -410,7 +412,7 @@ std::shared_ptr<Instance> StaWriterVisitor::make_lut_instance(const t_pb* atom) 
   auto inst_name = join_identifier("lut", atom->name);
 
   // Determine the port connections
-  std::map<string, std::vector<string>> port_conns;
+  std::map<string, vector<string>> port_conns;
 
   const t_pb_graph_node* pb_graph_node = atom->pb_graph_node;
   assert(pb_graph_node->num_input_ports == 1);  // LUT has one input port
@@ -424,7 +426,7 @@ std::shared_ptr<Instance> StaWriterVisitor::make_lut_instance(const t_pb* atom) 
       pb_graph_node->output_pins[0][0].pin_count_in_cluster;  // Unique pin index in cluster
 
   // Add inputs connections
-  std::vector<Arc> timing_arcs;
+  vector<Arc> timing_arcs;
   for (int pin_idx = 0; pin_idx < pb_graph_node->num_input_pins[0]; pin_idx++) {
     int cluster_pin_idx =
         pb_graph_node->input_pins[0][pin_idx].pin_count_in_cluster;  // Unique pin index in cluster
@@ -556,9 +558,9 @@ std::shared_ptr<Instance> StaWriterVisitor::make_ram_instance(const t_pb* atom) 
   string inst_name = join_identifier(type, atom->name);
   std::map<string, string> params;
   std::map<string, string> attrs;
-  std::map<string, std::vector<string>> input_port_conns;
-  std::map<string, std::vector<string>> output_port_conns;
-  std::vector<Arc> timing_arcs;
+  std::map<string, vector<string>> input_port_conns;
+  std::map<string, vector<string>> output_port_conns;
+  vector<Arc> timing_arcs;
   std::map<string, sequential_port_delay_pair> ports_tsu;
   std::map<string, sequential_port_delay_pair> ports_thld;
   std::map<string, sequential_port_delay_pair> ports_tcq;
@@ -707,9 +709,9 @@ std::shared_ptr<Instance> StaWriterVisitor::make_multiply_instance(const t_pb* a
   string inst_name = join_identifier(type_name, atom->name);
   std::map<string, string> params;
   std::map<string, string> attrs;
-  std::map<string, std::vector<string>> input_port_conns;
-  std::map<string, std::vector<string>> output_port_conns;
-  std::vector<Arc> timing_arcs;
+  std::map<string, vector<string>> input_port_conns;
+  std::map<string, vector<string>> output_port_conns;
+  vector<Arc> timing_arcs;
   std::map<string, sequential_port_delay_pair> ports_tsu;
   std::map<string, sequential_port_delay_pair> ports_thld;
   std::map<string, sequential_port_delay_pair> ports_tcq;
@@ -717,7 +719,7 @@ std::shared_ptr<Instance> StaWriterVisitor::make_multiply_instance(const t_pb* a
   params["WIDTH"] = "0";
 
   // Delay matrix[sink_tnode] -> tuple of source_port_name, pin index, delay
-  std::map<tatum::NodeId, std::vector<std::tuple<string, int, double>>> tnode_delay_matrix;
+  std::map<tatum::NodeId, vector<std::tuple<string, int, double>>> tnode_delay_matrix;
 
   // Process the input ports
   for (int iport = 0; iport < pb_graph_node->num_input_ports; ++iport) {
@@ -805,9 +807,9 @@ std::shared_ptr<Instance> StaWriterVisitor::make_adder_instance(const t_pb* atom
   string inst_name = join_identifier(type_name, atom->name);
   std::map<string, string> params;
   std::map<string, string> attrs;
-  std::map<string, std::vector<string>> input_port_conns;
-  std::map<string, std::vector<string>> output_port_conns;
-  std::vector<Arc> timing_arcs;
+  std::map<string, vector<string>> input_port_conns;
+  std::map<string, vector<string>> output_port_conns;
+  vector<Arc> timing_arcs;
   std::map<string, sequential_port_delay_pair> ports_tsu;
   std::map<string, sequential_port_delay_pair> ports_thld;
   std::map<string, sequential_port_delay_pair> ports_tcq;
@@ -815,7 +817,7 @@ std::shared_ptr<Instance> StaWriterVisitor::make_adder_instance(const t_pb* atom
   params["WIDTH"] = "0";
 
   // Delay matrix[sink_tnode] -> tuple of source_port_name, pin index, delay
-  std::map<tatum::NodeId, std::vector<std::tuple<string, int, double>>> tnode_delay_matrix;
+  std::map<tatum::NodeId, vector<std::tuple<string, int, double>>> tnode_delay_matrix;
 
   // Process the input ports
   for (int iport = 0; iport < pb_graph_node->num_input_ports; ++iport) {
@@ -905,9 +907,9 @@ std::shared_ptr<Instance> StaWriterVisitor::make_blackbox_instance(const t_pb* a
   string inst_name = join_identifier(type_name, atom->name);
   std::map<string, string> params;
   std::map<string, string> attrs;
-  std::map<string, std::vector<string>> input_port_conns;
-  std::map<string, std::vector<string>> output_port_conns;
-  std::vector<Arc> timing_arcs;
+  std::map<string, vector<string>> input_port_conns;
+  std::map<string, vector<string>> output_port_conns;
+  vector<Arc> timing_arcs;
 
   // Maps to store a sink's port with the corresponding timing edge to that
   // sink
@@ -922,7 +924,7 @@ std::shared_ptr<Instance> StaWriterVisitor::make_blackbox_instance(const t_pb* a
   std::map<string, sequential_port_delay_pair> ports_tcq;
 
   // Delay matrix[sink_tnode] -> tuple of source_port_name, pin index, delay
-  std::map<tatum::NodeId, std::vector<std::tuple<string, int, double>>> tnode_delay_matrix;
+  std::map<tatum::NodeId, vector<std::tuple<string, int, double>>> tnode_delay_matrix;
 
   // Process the input ports
   for (int iport = 0; iport < pb_graph_node->num_input_ports; ++iport) {
@@ -1037,6 +1039,137 @@ std::shared_ptr<Instance> StaWriterVisitor::make_blackbox_instance(const t_pb* a
   return std::make_shared<BlackBoxInst>(type_name, inst_name, params, attrs, input_port_conns,
                                         output_port_conns, timing_arcs, ports_tsu, ports_thld, ports_tcq,
                                         opts_);
+}
+
+///@brief Returns a LogicVec representing the LUT mask of the given LUT atom
+LogicVec StaWriterVisitor::load_lut_mask(
+                        size_t num_inputs,   // LUT size
+                        const t_pb* atom) {  // LUT primitive
+  auto& atom_ctx = g_vpr_ctx.atom();
+
+  const t_model* model = atom_ctx.nlist.block_model(atom_ctx.lookup.pb_atom(atom));
+  assert(model->name == string(MODEL_NAMES));
+
+#ifdef DEBUG_LUT_MASK
+  cout << "Loading LUT mask for: " << atom->name << endl;
+#endif
+
+  // Figure out how the inputs were permuted (compared to the input netlist)
+  vector<int> permute = determine_lut_permutation(num_inputs, atom);
+
+  // Retrieve the truth table
+  const auto& truth_table = atom_ctx.nlist.block_truth_table(atom_ctx.lookup.pb_atom(atom));
+
+  // Apply the permutation
+  auto permuted_truth_table = permute_truth_table(truth_table, num_inputs, permute);
+
+  // Convert to lut mask
+  LogicVec lut_mask = truth_table_to_lut_mask(permuted_truth_table, num_inputs);
+
+#ifdef DEBUG_LUT_MASK
+  cout << "\tLUT_MASK: " << lut_mask << endl;
+#endif
+
+  return lut_mask;
+}
+
+/**
+ * @brief Helper function for load_lut_mask() which determines how the LUT
+ * inputs were permuted compared to the input BLIF
+ *
+ * Since the LUT inputs may have been rotated from the input blif
+ * specification we need to figure out this permutation to reflect the
+ * physical implementation connectivity.
+ *
+ * We return a permutation map (which is a list of swaps from index to
+ * index) which is then applied to do the rotation of the lutmask.
+ *
+ * The net in the atom netlist which was originally connected to pin i, is
+ * connected to pin permute[i] in the implementation.
+ */
+vector<int> StaWriterVisitor::determine_lut_permutation(size_t num_inputs, const t_pb* atom_pb) {
+  auto& atom_ctx = g_vpr_ctx.atom();
+
+  vector<int> permute(num_inputs, OPEN);
+
+#ifdef DEBUG_LUT_MASK
+  cout << "\tInit Permute: {";
+  for (size_t i = 0; i < permute.size(); i++) {
+    cout << permute[i] << ", ";
+  }
+  cout << "}" << endl;
+#endif
+
+  // Determine the permutation
+  //
+  // We walk through the logical inputs to this atom (i.e. in the original
+  // truth table/netlist) and find the corresponding input in the
+  // implementation atom (i.e. in the current netlist)
+  auto ports = atom_ctx.nlist.block_input_ports(atom_ctx.lookup.pb_atom(atom_pb));
+  if (ports.size() == 1) {
+    const t_pb_graph_node* gnode = atom_pb->pb_graph_node;
+    assert(gnode->num_input_ports == 1);
+    assert(gnode->num_input_pins[0] >= (int)num_inputs);
+
+    AtomPortId port_id = *ports.begin();
+
+    for (size_t ipin = 0; ipin < num_inputs; ++ipin) {
+      AtomNetId impl_input_net_id =
+          find_atom_input_logical_net(atom_pb, ipin);  // The net currently connected to input j
+
+      // Find the original pin index
+      const t_pb_graph_pin* gpin = &gnode->input_pins[0][ipin];
+      BitIndex orig_index = atom_pb->atom_pin_bit_index(gpin);
+
+      if (impl_input_net_id) {
+        // If there is a valid net connected in the implementation
+        AtomNetId logical_net_id = atom_ctx.nlist.port_net(port_id, orig_index);
+
+        // Fatal error should be flagged when the net marked in
+        // implementation does not match the net marked in input netlist
+        if (impl_input_net_id != logical_net_id) {
+          VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER,
+                          "Unmatch:\n\tlogical net is '%s' at pin "
+                          "'%lu'\n\timplmented net is '%s' at pin '%s'\n",
+                          atom_ctx.nlist.net_name(logical_net_id).c_str(), size_t(orig_index),
+                          atom_ctx.nlist.net_name(impl_input_net_id).c_str(), gpin->to_string().c_str());
+        }
+
+        // Mark the permutation.
+        //  The net originally located at orig_index in the atom netlist
+        //  was moved to ipin in the implementation
+        permute[orig_index] = ipin;
+      }
+    }
+  } else {
+    // May have no inputs on a constant generator
+    assert(ports.size() == 0);
+  }
+
+  // Fill in any missing values in the permutation (i.e. zeros)
+  std::set<int> perm_indicies(permute.begin(), permute.end());
+  size_t unused_index = 0;
+  for (size_t i = 0; i < permute.size(); i++) {
+    if (permute[i] == OPEN) {
+      while (perm_indicies.count(unused_index)) {
+        unused_index++;
+      }
+      permute[i] = unused_index;
+      perm_indicies.insert(unused_index);
+    }
+  }
+
+#ifdef DEBUG_LUT_MASK
+  cout << "\tPermute: {";
+  for (size_t k = 0; k < permute.size(); k++) {
+    cout << permute[k] << ", ";
+  }
+  cout << "}" << endl;
+
+  cout << "\tBLIF = Input ->  Rotated" << endl;
+  cout << "\t------------------------" << endl;
+#endif
+  return permute;
 }
 
 }
