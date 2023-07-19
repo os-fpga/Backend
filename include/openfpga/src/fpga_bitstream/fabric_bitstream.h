@@ -82,8 +82,8 @@ struct FabricBitstreamMemoryBank {
    **************************/
   // Store the BL WL of each region
   std::vector<fabric_blwl_length> blwl_lengths;
-  // Store config ID raw data (redundant which might not need it)
-  // But it only use 100+ mega byte for a 100K LE device - so still manageable
+  // Store config ID raw data. Not used by bitstream generation
+  // Used by XML generation
   std::vector<fabric_bit_data> fabric_bit_datas;
   // 100K only need few mega bytes
   std::vector<std::vector<std::vector<uint8_t>>> datas;
