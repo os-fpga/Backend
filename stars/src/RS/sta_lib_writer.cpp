@@ -19,6 +19,26 @@ using std::endl;
 using std::string;
 using namespace pinc;
 
+static const char* str_Pin_type(Pin_type t) noexcept {
+  // enum Pin_type             {  DATA,   CLOCK,   RESET,   SET,   ENABLE,   INVALID_PIN_TYPE  };
+  static const char* enumS[] = { "DATA", "CLOCK", "RESET", "SET", "ENABLE", "INVALID_PIN_TYPE" };
+  constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
+  static_assert( n == INVALID_PIN_TYPE + 1 );
+  uint i = uint(t);
+  assert(i < sizeof(enumS) / sizeof(enumS[0]));
+  return enumS[i];
+}
+
+static const char* str_Arc_type(Timing_arc_type t) noexcept {
+  // enum Timing_arc_type      {  TRANSITION,  SETUP,    HOLD  };
+  static const char* enumS[] = { "TRANSITION", "SETUP", "HOLD" };
+  constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
+  static_assert( n == HOLD + 1 );
+  uint i = uint(t);
+  assert(i < sizeof(enumS) / sizeof(enumS[0]));
+  return enumS[i];
+}
+
 void LibWriter::init_lib() {
   // todo: develop an utility for smart configuration and query
   // lib header
@@ -154,7 +174,8 @@ void LibWriter::write_lcell(std::ostream& os, const lib_cell& lc) const {
       q_name = out_pin.name();
       break;
     }
-    for (auto const& in_pin : lc.get_inputs()) {
+    const vector<lib_pin>& inputs = lc.get_inputs();
+    for (const lib_pin& in_pin : inputs) {
       switch (in_pin.type()) {
         case CLOCK:
           clk_name = in_pin.name();
@@ -167,6 +188,9 @@ void LibWriter::write_lcell(std::ostream& os, const lib_cell& lc) const {
           break;
         case ENABLE:
           enable_name = in_pin.name();
+          break;
+        case DATA:
+          // explicitely ignore DATA to suppress warning
           break;
         case INVALID_PIN_TYPE:
           assert(0);
@@ -202,8 +226,9 @@ void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
     if (lc.type() == SEQUENTIAL) {
       os << INDENT2 << "pin(" << out_pin.name() << ") {\n";
       os << INDENT3 << "direction: output;\n";
-      for (auto const& timing_arch : out_pin.get_timing_arcs()) {
-        write_timing_relation(os, timing_arch);
+      const vector<TimingArc>& A = out_pin.get_timing_arcs();
+      for (auto const& tarc : A) {
+        write_timing_arc(os, out_pin, tarc);
       }
     } else {
       if (out_pin.bus_width() > 1) {
@@ -213,8 +238,8 @@ void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
         os << INDENT2 << "pin(" << out_pin.name() << ") {\n";
       }
       os << INDENT3 << "direction: output;\n";
-      for (auto const& timing_arch : out_pin.get_timing_arcs()) {
-        write_timing_relation(os, timing_arch);
+      for (auto const& tarc : out_pin.get_timing_arcs()) {
+        write_timing_arc(os, out_pin, tarc);
       }
     }
     os << INDENT2 << "}\n";
@@ -233,8 +258,8 @@ void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
         os << INDENT3 << "clock: true;\n";
       } else {
         os << INDENT3 << "direction: input;\n";
-        for (auto const& timing_arch : in_pin.get_timing_arcs()) {
-          write_timing_relation(os, timing_arch);
+        for (auto const& tarc : in_pin.get_timing_arcs()) {
+          write_timing_arc(os, in_pin, tarc);
         }
       }
       os << INDENT2 << "}\n";
@@ -246,29 +271,41 @@ void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
         os << INDENT2 << "pin(" << in_pin.name() << ") {\n";
       }
       os << INDENT3 << "direction: input;\n";
-      for (auto const& timing_arch : in_pin.get_timing_arcs()) {
-        write_timing_relation(os, timing_arch);
+      for (auto const& tarc : in_pin.get_timing_arcs()) {
+        write_timing_arc(os, in_pin, tarc);
       }
       os << INDENT2 << "}\n";
     }
   }
 }
 
-void LibWriter::write_timing_relation(std::ostream& os, const TimingArc& arc) const {
-  lib_pin related_pin = arc.related_pin();
-  string related_pin_nm = related_pin.name();
+void LibWriter::write_timing_arc(std::ostream& os,
+                                 const lib_pin& basePin,
+                                 const TimingArc& arc) const
+{
+  const string& basePin_nm = basePin.name();
+  Pin_type base_pt = basePin.type();
+
+  lib_pin relatedPin = arc.related_pin();
+  const string& relatedPin_nm = relatedPin.name();
+  Pin_type related_pt = relatedPin.type();
+
+  Timing_arc_type arc_type = arc.type();
   bool positive = (arc.sense() == POSITIVE);
+  bool is_check_arc = (arc_type == SETUP or arc_type == HOLD);
 
   uint16_t tr = ltrace();
   if (tr >= 4) {
-    lprintf("  LW::write_timing_relation()  related_pin= %s  positive:%i\n",
-               related_pin_nm.c_str(), positive);
+    lprintf("  LW::write_timing_arc()  baseP= %s (%s)  relatedP= %s (%s)  arc_t:%s  arc-positive:%i\n",
+               basePin_nm.c_str(), str_Pin_type(base_pt),
+               relatedPin_nm.c_str(), str_Pin_type(related_pt),
+               str_Arc_type(arc_type), positive);
   }
 
   os << INDENT3 << "timing() {\n";
-  os << INDENT4 << "related_pin: \"" << related_pin_nm << "\";\n";
+  os << INDENT4 << "related_pin: \"" << relatedPin_nm << "\";\n";
 
-  if (related_pin.type() == RESET) {
+  if (related_pt == RESET) {
     os << INDENT4 << "timing_type: clear;\n";
     os << INDENT4 << "timing_sense: " << (positive ? "positive_unate" : "negative_unate")
        << ";\n";
@@ -284,7 +321,9 @@ void LibWriter::write_timing_relation(std::ostream& os, const TimingArc& arc) co
     os << INDENT4 << "fall_transition(scalar) {\n";
     os << INDENT5 << "values(\"0\");\n";
     os << INDENT4 << "}\n";
-  } else if (related_pin.type() == SET) {
+
+  } else if (related_pt == SET) {
+
     os << INDENT4 << "timing_type: clear;\n";
     os << INDENT4 << "timing_sense: " << (positive ? "positive_unate" : "negative_unate")
        << ";\n";
@@ -300,10 +339,20 @@ void LibWriter::write_timing_relation(std::ostream& os, const TimingArc& arc) co
     os << INDENT4 << "fall_transition(scalar) {\n";
     os << INDENT5 << "values(\"0\");\n";
     os << INDENT4 << "}\n";
-  } else if (related_pin.type() == CLOCK) {
 
-    os << INDENT4 << "timing_type: " << (positive ? "rising_edge" : "falling_edge") << ";\n";
-    //os << INDENT4 << "timing_type: " << (positive ? "setup_rising" : "falling_edge") << ";\n";
+  } else if (related_pt == CLOCK) {
+
+    os << INDENT4 << "timing_type: ";
+    if (is_check_arc) {
+      if (arc_type == SETUP)
+        os << (positive ? "setup_rising" : "setup_falling");
+      else
+        os << (positive ? "hold_rising" : "hold_falling");
+    }
+    else {
+      os << (positive ? "rising_edge" : "falling_edge");
+    }
+    os << ";\n";
 
     os << INDENT4 << "cell_rise(scalar) {\n";
     os << INDENT5 << "values(\"0\");\n";
@@ -317,7 +366,9 @@ void LibWriter::write_timing_relation(std::ostream& os, const TimingArc& arc) co
     os << INDENT4 << "fall_transition(scalar) {\n";
     os << INDENT5 << "values(\"0\");\n";
     os << INDENT4 << "}\n";
+
   } else {
+
     os << INDENT4 << "timing_sense: " << (positive ? "positive_unate" : "negative_unate")
        << ";\n";
     os << INDENT4 << "cell_rise(scalar) {\n";
