@@ -12,16 +12,9 @@
 #include "vtr_time.h"
 
 /* Headers from openfpgautil library */
-#include <capnp/message.h>
-#include <capnp/serialize-packed.h>
-#include <stdio.h>
-
-#include <iostream>
-
 #include "bitstream_manager_utils.h"
 #include "build_fabric_bitstream_memory_bank.h"
 #include "decoder_library_utils.h"
-#include "fabric_bitstream_schema.capnp.h"
 #include "memory_bank_utils.h"
 #include "memory_utils.h"
 #include "openfpga_decode.h"
@@ -181,6 +174,11 @@ static void rec_build_module_fabric_dependent_ql_memory_bank_regional_bitstream(
        bitstream_manager.block_bits(parent_block)) {
     FabricBitId fabric_bit = fabric_bitstream.add_bit(config_bit);
 
+    /*
+      If both BL and WL protocols are Flatten, we will have new way of
+      storing information in fabric_bitstream. This will save high
+      memory usage, fast processing
+    */
     /* The BL address to be decoded depends on the protocol
      * - flatten BLs: use 1-hot decoding
      * - BL decoders: fully encoded
@@ -188,38 +186,51 @@ static void rec_build_module_fabric_dependent_ql_memory_bank_regional_bitstream(
      */
     size_t cur_bl_index = bl_start_index_per_tile.at(tile_coord.x()) +
                           cur_mem_index[tile_coord] % num_bls_cur_tile;
-    std::vector<char> bl_addr_bits_vec;
-    if (BLWL_PROTOCOL_DECODER == config_protocol.bl_protocol_type()) {
-      bl_addr_bits_vec = itobin_charvec(cur_bl_index, bl_addr_size);
-    } else if (BLWL_PROTOCOL_FLATTEN == config_protocol.bl_protocol_type() ||
-               BLWL_PROTOCOL_SHIFT_REGISTER ==
-                 config_protocol.bl_protocol_type()) {
-      bl_addr_bits_vec =
-        ito1hot_charvec(cur_bl_index, bl_addr_size, DONT_CARE_CHAR);
+    if (BLWL_PROTOCOL_FLATTEN != config_protocol.bl_protocol_type() ||
+        BLWL_PROTOCOL_FLATTEN != config_protocol.wl_protocol_type()) {
+      // We only do this kind of resource wasting storing if
+      // either protocol is not flatten
+      std::vector<char> bl_addr_bits_vec;
+      if (BLWL_PROTOCOL_DECODER == config_protocol.bl_protocol_type()) {
+        bl_addr_bits_vec = itobin_charvec(cur_bl_index, bl_addr_size);
+      } else if (BLWL_PROTOCOL_FLATTEN == config_protocol.bl_protocol_type() ||
+                 BLWL_PROTOCOL_SHIFT_REGISTER ==
+                   config_protocol.bl_protocol_type()) {
+        bl_addr_bits_vec =
+          ito1hot_charvec(cur_bl_index, bl_addr_size, DONT_CARE_CHAR);
+      }
+      /* Set BL address */
+      fabric_bitstream.set_bit_bl_address(
+        fabric_bit, bl_addr_bits_vec,
+        BLWL_PROTOCOL_DECODER != config_protocol.bl_protocol_type());
     }
 
     /* Find WL address */
     size_t cur_wl_index =
       wl_start_index_per_tile.at(tile_coord.y()) +
       std::floor(cur_mem_index[tile_coord] / num_bls_cur_tile);
-    std::vector<char> wl_addr_bits_vec;
-    if (BLWL_PROTOCOL_DECODER == config_protocol.wl_protocol_type()) {
-      wl_addr_bits_vec = itobin_charvec(cur_wl_index, wl_addr_size);
-    } else if (BLWL_PROTOCOL_FLATTEN == config_protocol.wl_protocol_type() ||
-               BLWL_PROTOCOL_SHIFT_REGISTER ==
-                 config_protocol.wl_protocol_type()) {
-      wl_addr_bits_vec = ito1hot_charvec(cur_wl_index, wl_addr_size);
+    if (BLWL_PROTOCOL_FLATTEN != config_protocol.bl_protocol_type() ||
+        BLWL_PROTOCOL_FLATTEN != config_protocol.wl_protocol_type()) {
+      // We only do this kind of resource wasting storing if
+      // either protocol is not flatten
+      std::vector<char> wl_addr_bits_vec;
+      if (BLWL_PROTOCOL_DECODER == config_protocol.wl_protocol_type()) {
+        wl_addr_bits_vec = itobin_charvec(cur_wl_index, wl_addr_size);
+      } else if (BLWL_PROTOCOL_FLATTEN == config_protocol.wl_protocol_type() ||
+                 BLWL_PROTOCOL_SHIFT_REGISTER ==
+                   config_protocol.wl_protocol_type()) {
+        wl_addr_bits_vec = ito1hot_charvec(cur_wl_index, wl_addr_size);
+      }
+      /* Set WL address */
+      fabric_bitstream.set_bit_wl_address(
+        fabric_bit, wl_addr_bits_vec,
+        BLWL_PROTOCOL_DECODER != config_protocol.wl_protocol_type());
     }
 
-    /* Set BL address */
-    fabric_bitstream.set_bit_bl_address(
-      fabric_bit, bl_addr_bits_vec,
-      BLWL_PROTOCOL_DECODER != config_protocol.bl_protocol_type());
-
-    /* Set WL address */
-    fabric_bitstream.set_bit_wl_address(
-      fabric_bit, wl_addr_bits_vec,
-      BLWL_PROTOCOL_DECODER != config_protocol.wl_protocol_type());
+    /* New way of storing information in compact way*/
+    fabric_bitstream.set_memory_bank_info(
+      fabric_bit, fabric_bitstream_region, cur_bl_index, cur_wl_index,
+      bl_addr_size, wl_addr_size, bitstream_manager.bit_value(config_bit));
 
     /* Set data input */
     fabric_bitstream.set_bit_din(fabric_bit,
@@ -437,68 +448,6 @@ void build_module_fabric_dependent_bitstream_ql_memory_bank(
       cur_wl_addr_port_info.get_width(), temp_num_bls_cur_tile,
       bl_start_index_per_tile, temp_num_wls_cur_tile, wl_start_index_per_tile,
       temp_coord, cur_mem_index, fabric_bitstream, fabric_bitstream_region);
-  }
-}
-
-void load_module_fabric_dependent_bitstream_ql_memory_bank(
-  const ConfigProtocol& config_protocol, const CircuitLibrary& circuit_lib,
-  const BitstreamManager& bitstream_manager, const ConfigBlockId& top_block,
-  const ModuleManager& module_manager, const ModuleId& top_module,
-  FabricBitstream& fabric_bitstream, const std::string& infile) {
-  /* Ensure we are in the correct type of configuration protocol*/
-  VTR_LOG("in load function\n");
-
-  VTR_ASSERT(config_protocol.type() == CONFIG_MEM_QL_MEMORY_BANK);
-
-  // only flatten is supported
-
-  ModulePortId bl_addr_port;
-  BasicPort bl_addr_port_info;
-  VTR_ASSERT(BLWL_PROTOCOL_FLATTEN == config_protocol.bl_protocol_type());
-  for (const ConfigRegionId& config_region :
-       module_manager.regions(top_module)) {
-    ModulePortId temp_bl_addr_port = module_manager.find_module_port(
-      top_module, generate_regional_blwl_port_name(
-                    std::string(MEMORY_BL_PORT_NAME), config_region));
-    BasicPort temp_bl_addr_port_info =
-      module_manager.module_port(top_module, temp_bl_addr_port);
-    if (!bl_addr_port ||
-        (temp_bl_addr_port_info.get_width() > bl_addr_port_info.get_width())) {
-      bl_addr_port = temp_bl_addr_port;
-      bl_addr_port_info = temp_bl_addr_port_info;
-    }
-  }
-
-  ModulePortId wl_addr_port;
-  BasicPort wl_addr_port_info;
-  for (const ConfigRegionId& config_region :
-       module_manager.regions(top_module)) {
-    ModulePortId temp_wl_addr_port = module_manager.find_module_port(
-      top_module, generate_regional_blwl_port_name(
-                    std::string(MEMORY_WL_PORT_NAME), config_region));
-    BasicPort temp_wl_addr_port_info =
-      module_manager.module_port(top_module, temp_wl_addr_port);
-    if (!wl_addr_port ||
-        (temp_wl_addr_port_info.get_width() > wl_addr_port_info.get_width())) {
-      wl_addr_port = temp_wl_addr_port;
-      wl_addr_port_info = temp_wl_addr_port_info;
-    }
-  }
-  VTR_LOG("reserve bits\n");
-
-  /* Reserve bits before build-up */
-  fabric_bitstream.set_use_address(true);
-  fabric_bitstream.set_use_wl_address(true);
-  fabric_bitstream.set_bl_address_length(bl_addr_port_info.get_width());
-  fabric_bitstream.set_wl_address_length(wl_addr_port_info.get_width());
-  fabric_bitstream.reserve_bits(bitstream_manager.num_bits());
-  // copy bit IDs & addresses from DB
-  VTR_LOG("calling read_fabric_bitstream_db\n");
-
-  int status = fabric_bitstream.read_fabric_bitstream_db(infile);
-  for (const FabricBitId& bit_id : fabric_bitstream.bits()) {
-    //with a single region this is correct, but it's brittle
-    fabric_bitstream.set_bit_din(bit_id, bitstream_manager.bit_value(fabric_bitstream.config_bit(bit_id)));
   }
 }
 
