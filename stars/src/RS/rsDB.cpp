@@ -156,7 +156,7 @@ LutInst::LutInst(
 
 LutInst::~LutInst() { }
 
-void LutInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
+void LutInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
   // lut only contains "in" and "out"
   assert(port_conns_.count("in"));
   assert(port_conns_.count("out"));
@@ -168,26 +168,28 @@ void LutInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
 
   // create cell info
   lib_cell cell;
-  cell.name(type_);
-  cell.type(LUT);
-  lib_pin pin_in;
-  pin_in.name("in");
-  pin_in.direction(INPUT);
-  pin_in.bus_width(in_bus_width);
-  cell.add_pin(pin_in, INPUT);
-  lib_pin pin_out;
-  pin_out.name("out");
-  pin_out.direction(OUTPUT);
-  timing_arch timing;
-  timing.sense(POSITIVE);
-  timing.type(TRANSITION);
-  timing.related_pin(pin_in);
-  pin_out.add_timing_arch(timing);
-  pin_out.bus_width(out_bus_width);
-  cell.add_pin(pin_out, OUTPUT);
+  cell.setName(type_);
+  cell.setType(LUT);
 
-  // write cell lib
-  lib_writer.write_cell(os, cell);
+  lib_pin pin_in;
+  pin_in.setName("in");
+  pin_in.setDirection(INPUT);
+  pin_in.bus_width(in_bus_width);
+  cell.add_input(pin_in);
+  lib_pin pin_out;
+  pin_out.setName("out");
+  pin_out.setDirection(OUTPUT);
+
+  TimingArc arc;
+  arc.setSense(POSITIVE);
+  arc.setType(TRANSITION);
+  arc.setRelatedPin(pin_in);
+
+  pin_out.add_timing_arc(arc);
+  pin_out.bus_width(out_bus_width);
+  cell.add_output(pin_out);
+
+  lib_writer.write_lcell(os, cell);
 }
 
 void LutInst::print_sdf(ostream& os, int depth) {
@@ -316,10 +318,10 @@ void LatchInst::print_verilog(ostream& os, size_t& /*unconn_count*/, int depth) 
   os << "\n";
 }
 
-void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
+void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
   // create cell info
   lib_cell cell;
-  cell.name(type_name_);
+  cell.setName(type_name_);
 
   // to make memory management simple, we are using static memory for each
   // objects here
@@ -328,7 +330,7 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
 
   // create pin and annotate with timing info
   if (ports_tcq_.size() || ports_tsu_.size() || ports_thld_.size()) {
-    cell.type(SEQUENTIAL);
+    cell.setType(SEQUENTIAL);
 
     // for debug
     int i = 0;
@@ -339,10 +341,10 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       string pin_name = tcq_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
-        related_pin.name(pin_name);
+        related_pin.setName(pin_name);
         related_pin.bus_width(1);
-        related_pin.direction(INPUT);
-        related_pin.type(CLOCK);
+        related_pin.setDirection(INPUT);
+        related_pin.setType(CLOCK);
         written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
@@ -358,19 +360,20 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
 
         lib_pin pin_out;
         if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
-          pin_out.type(DATA);
-          pin_out.name(out_pin_name);
-          pin_out.direction(OUTPUT);
+          pin_out.setType(DATA);
+          pin_out.setName(out_pin_name);
+          pin_out.setDirection(OUTPUT);
           pin_out.bus_width(1);
           written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
         } else {
           pin_out = written_out_pins[out_pin_name];
         }
-        timing_arch timing;
-        timing.sense(POSITIVE);
-        timing.type(TRANSITION);
-        timing.related_pin(related_pin);
-        pin_out.add_timing_arch(timing);
+
+        TimingArc arc;
+        arc.setSense(POSITIVE);
+        arc.setType(TRANSITION);
+        arc.setRelatedPin(related_pin);
+        pin_out.add_timing_arc(arc);
         // update pin_out
         written_out_pins[out_pin_name] = pin_out;
       }
@@ -382,10 +385,10 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       string pin_name = tsu_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
-        related_pin.name(pin_name);
+        related_pin.setName(pin_name);
         related_pin.bus_width(1);
-        related_pin.direction(INPUT);
-        related_pin.type(CLOCK);
+        related_pin.setDirection(INPUT);
+        related_pin.setType(CLOCK);
         written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
@@ -400,19 +403,19 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
         }
         lib_pin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
-          pin_in.name(in_pin_name);
+          pin_in.setName(in_pin_name);
           pin_in.bus_width(1);
-          pin_in.direction(INPUT);
-          pin_in.type(DATA);
+          pin_in.setDirection(INPUT);
+          pin_in.setType(DATA);
           written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
-        timing_arch timing;
-        timing.sense(POSITIVE);
-        timing.type(SETUP);
-        timing.related_pin(related_pin);
-        pin_in.add_timing_arch(timing);
+        TimingArc arc;
+        arc.setSense(POSITIVE);
+        arc.setType(SETUP);
+        arc.setRelatedPin(related_pin);
+        pin_in.add_timing_arc(arc);
         written_in_pins[in_pin_name] = pin_in;
       }
     }
@@ -423,10 +426,10 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       string pin_name = thld_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
-        related_pin.name(pin_name);
+        related_pin.setName(pin_name);
         related_pin.bus_width(1);
-        related_pin.direction(INPUT);
-        related_pin.type(CLOCK);
+        related_pin.setDirection(INPUT);
+        related_pin.setType(CLOCK);
         written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
@@ -441,36 +444,34 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
         }
         lib_pin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
-          pin_in.name(in_pin_name);
+          pin_in.setName(in_pin_name);
           pin_in.bus_width(1);
-          pin_in.direction(INPUT);
-          pin_in.type(DATA);
+          pin_in.setDirection(INPUT);
+          pin_in.setType(DATA);
           written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
-        timing_arch timing;
-        timing.sense(POSITIVE);
-        timing.type(HOLD);
-        timing.related_pin(related_pin);
-        pin_in.add_timing_arch(timing);
+        TimingArc arc;
+        arc.setSense(POSITIVE);
+        arc.setType(HOLD);
+        arc.setRelatedPin(related_pin);
+        pin_in.add_timing_arc(arc);
         written_in_pins[in_pin_name] = pin_in;
       }
     }
 
     // add pins to cell
-    for (std::map<string, lib_pin>::iterator itr = written_in_pins.begin(); itr != written_in_pins.end();
-         itr++) {
-      cell.add_pin(itr->second, INPUT);
+    for (auto I = written_in_pins.cbegin(); I != written_in_pins.cend(); ++I) {
+      cell.add_input(I->second);
     }
-    for (std::map<string, lib_pin>::iterator itr = written_out_pins.begin(); itr != written_out_pins.end();
-         itr++) {
-      cell.add_pin(itr->second, OUTPUT);
+    for (auto I = written_out_pins.cbegin(); I != written_out_pins.cend(); ++I) {
+      cell.add_output(I->second);
     }
   } else if (!timing_arcs_.empty()) {
     // just write out timing arcs
-    cell.name(type_name_);
-    cell.type(BLACKBOX);
+    cell.setName(type_name_);
+    cell.setType(BLACKBOX);
     for (auto& arc : timing_arcs_) {
       string in_pin_name = arc.source_name();
       if (find_port_size(in_pin_name) > 1) {
@@ -478,10 +479,10 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       }
       if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
         lib_pin pin_in;
-        pin_in.name(in_pin_name);
+        pin_in.setName(in_pin_name);
         pin_in.bus_width(1);
-        pin_in.direction(INPUT);
-        pin_in.type(DATA);
+        pin_in.setDirection(INPUT);
+        pin_in.setType(DATA);
         // cell.add_pin(pin_in, INPUT);
         written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
       }
@@ -491,40 +492,36 @@ void BlackBoxInst::print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) {
       if (find_port_size(out_pin_name) > 1) {
         out_pin_name += string("[") + std::to_string(arc.sink_ipin()) + string("]");
       }
-      timing_arch timing;
-      timing.sense(POSITIVE);
-      timing.type(TRANSITION);
-      timing.related_pin(written_in_pins[in_pin_name]);
+
+      TimingArc tarc;
+      tarc.setSense(POSITIVE);
+      tarc.setType(TRANSITION);
+      tarc.setRelatedPin(written_in_pins[in_pin_name]);
       if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
         lib_pin pin_out;
-        pin_out.name(out_pin_name);
+        pin_out.setName(out_pin_name);
         pin_out.bus_width(1);
-        pin_out.direction(OUTPUT);
-        pin_out.type(DATA);
-        pin_out.add_timing_arch(timing);
+        pin_out.setDirection(OUTPUT);
+        pin_out.setType(DATA);
+        pin_out.add_timing_arc(tarc);
         // cell.add_pin(pin_out, OUTPUT);
         written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
       } else {
-        written_out_pins[out_pin_name].add_timing_arch(timing);
+        written_out_pins[out_pin_name].add_timing_arc(tarc);
       }
     }
-    for (std::map<string, lib_pin>::iterator itr = written_in_pins.begin(); itr != written_in_pins.end();
-         itr++) {
-      cell.add_pin(itr->second, INPUT);
+    for (auto I = written_in_pins.cbegin(); I != written_in_pins.cend(); ++I) {
+      cell.add_input(I->second);
     }
-    for (std::map<string, lib_pin>::iterator itr = written_out_pins.begin(); itr != written_out_pins.end();
-         itr++) {
-      cell.add_pin(itr->second, OUTPUT);
+    for (auto I = written_out_pins.cbegin(); I != written_out_pins.cend(); ++I) {
+      cell.add_output(I->second);
     }
   } else {
     std::cerr << "STARS: NYI - Create cell for blackbox.\n";
     return;
   }
 
-  // write cell lib
-  lib_writer.write_cell(os, cell);
-
-  return;
+  lib_writer.write_lcell(os, cell);
 }
 
 void BlackBoxInst::print_sdf(ostream& os, int depth) {
@@ -688,6 +685,27 @@ void BlackBoxInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
   }
   os << indent(depth) << ");\n";
   os << "\n";
+}
+
+size_t BlackBoxInst::find_port_size(const string& port_name) const {
+  auto fitr = input_port_conns_.find(port_name);
+  if (fitr != input_port_conns_.end()) {
+    return fitr->second.size();
+  }
+
+  fitr = output_port_conns_.find(port_name);
+  if (fitr != output_port_conns_.end()) {
+    return fitr->second.size();
+  }
+
+  lprintf("\n[Error] STARS-assert: Could not find port %s on %s of type %s\n\n",
+                  port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
+  assert(0);
+
+  VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER, "Could not find port %s on %s of type %s\n",
+                  port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
+
+  return -1;  // Suppress warning
 }
 
 }

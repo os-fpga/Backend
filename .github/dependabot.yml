@@ -6,14 +6,20 @@ updates:
       interval: "daily"
       time: "00:00"
       timezone: "America/Denver"
-    #assignees:
-    #  - "username"
+    assignees:
+      - "nadeemyaseen-rs"
     #labels: need to add the required label to the repo first!
     #  - "submodule-updates"
     # must use the full team name, including the organization, as if you were @mentioning the team
     reviewers:
       - "alain-rs"
-      - "nadeemyaseen-rs"
+      - "behnam-rs"
+      - "ManadherRS"
+      - "behzadmehmood-rs"
+      - "umariqbal-rs"
+      - "bbambhania1"
+      - "chungshien"
+      - "georgechen-rs"
     # Allow dependabot to open up to 10 open pull requests. Default is 5.
     # open-pull-requests-limit: 10
     allow:

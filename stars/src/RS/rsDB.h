@@ -33,39 +33,41 @@ using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
+using std::vector;
 using namespace pinc;
 
 // A combinational timing arc
-class Arc {
-public:
-  Arc(string src_port,   ///< Source of the arc
-      int src_ipin,      ///< Source pin index
-      string snk_port,   ///< Sink of the arc
-      int snk_ipin,      ///< Sink pin index
-      float del,         ///< Delay on this arc
-      string cond = "")  ///< Condition associated with the arc
-      : source_name_(src_port),
-        source_ipin_(src_ipin),
-        sink_name_(snk_port),
-        sink_ipin_(snk_ipin),
-        delay_(del),
-        condition_(cond) {}
+struct Arc
+{
+  Arc(const string& src_port,  ///< Source of the arc
+      int src_ipin,            ///< Source pin index
+      const string& snk_port,  ///< Sink of the arc
+      int snk_ipin,            ///< Sink pin index
+      float del,               ///< Delay on this arc
+      const string& cond = "") noexcept
+  : source_name_(src_port),
+    sink_name_(snk_port),
+    condition_(cond),
+    source_ipin_(src_ipin),
+    sink_ipin_(snk_ipin),
+    delay_(del)
+  { }
 
   // Accessors
-  string source_name() const { return source_name_; }
-  int source_ipin() const { return source_ipin_; }
-  string sink_name() const { return sink_name_; }
-  int sink_ipin() const { return sink_ipin_; }
-  double delay() const { return delay_; }
-  string condition() const { return condition_; }
+  const string& source_name() const noexcept { return source_name_; }
+  int source_ipin() const noexcept { return source_ipin_; }
+  const string& sink_name() const noexcept { return sink_name_; }
+  int sink_ipin() const noexcept { return sink_ipin_; }
+  double delay() const noexcept { return delay_; }
+  const string& condition() const noexcept { return condition_; }
 
-private:
+//DATA:
   string source_name_;
-  int source_ipin_ = -1;
   string sink_name_;
+  string condition_;
+  int source_ipin_ = -1;
   int sink_ipin_ = -1;
   double delay_ = -1;
-  string condition_;
 };
 
 /**
@@ -84,7 +86,7 @@ public:
 
   virtual void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) = 0;
   virtual void print_sdf(ostream& os, int depth = 0) = 0;
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) = 0;
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) = 0;
   virtual string get_type_name() = 0;
 };
 
@@ -95,22 +97,22 @@ public:
       size_t lut_size,                                   ///< The LUT size
       LogicVec lut_mask,                                 ///< The LUT mask representing the logic function
       const string& inst_name,                           ///< The name of this instance
-      std::map<string, std::vector<string>> port_conns,  ///< The port connections of this instance. Key: port
+      std::map<string, vector<string>> port_conns,  ///< The port connections of this instance. Key: port
                                                          ///< name, Value: connected nets
-      std::vector<Arc> timing_arc_values,                ///< The timing arcs of this instance
+      vector<Arc> timing_arc_values,                ///< The timing arcs of this instance
       struct t_analysis_opts opts);
 
   virtual ~LutInst();
 
   // Accessors
-  const std::vector<Arc>& timing_arcs() { return timing_arcs_; }
+  const vector<Arc>& timing_arcs() { return timing_arcs_; }
   string instance_name() { return inst_name_; }
   string type() { return type_; }
 
 public:  // Instance interface method implementations
   virtual string get_type_name() override { return "LUT_K"; }
 
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override;
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override;
 
   virtual void print_sdf(ostream& os, int depth) override;
 
@@ -121,8 +123,8 @@ private:
   size_t lut_size_ = 0;
   LogicVec lut_mask_;
   string inst_name_;
-  std::map<string, std::vector<string>> port_conns_;
-  std::vector<Arc> timing_arcs_;
+  std::map<string, vector<string>> port_conns_;
+  vector<Arc> timing_arcs_;
   struct t_analysis_opts opts_;
 };
 
@@ -187,7 +189,7 @@ public:
 
   virtual string get_type_name() override { return "DFF"; }
 
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override {
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override {
     /*
     os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
        << escape_sdf_identifier(instance_name_) << ")\n";
@@ -203,9 +205,9 @@ private:
   std::map<string, string> port_connections_;
   Type type_;
   vtr::LogicValue initial_value_;
-  double tcq_;   ///< Clock delay + tcq
-  double tsu_;   ///< Setup time
-  double thld_;  ///< Hold time
+  double tcq_  = -1;  ///< Clock delay + tcq
+  double tsu_  = -1;  ///< Setup time
+  double thld_ = -1;  ///< Hold time
 };
 
 class BlackBoxInst : public Instance {
@@ -214,11 +216,11 @@ public:
                string inst_name,                 ///< Instance name
                std::map<string, string> params,  ///< Verilog parameters: Dictonary of <param_name,value>
                std::map<string, string> attrs,   ///< Instance attributes: Dictonary of <attr_name,value>
-               std::map<string, std::vector<string>>
+               std::map<string, vector<string>>
                    input_port_conns,  ///< Port connections: Dictionary of <port,nets>
-               std::map<string, std::vector<string>>
+               std::map<string, vector<string>>
                    output_port_conns,         ///< Port connections: Dictionary of <port,nets>
-               std::vector<Arc> timing_arcs,  ///< Combinational timing arcs
+               vector<Arc> timing_arcs,  ///< Combinational timing arcs
                std::map<string, sequential_port_delay_pair> ports_tsu,   ///< Port setup checks
                std::map<string, sequential_port_delay_pair> ports_thld,  ///< Port hold checks
                std::map<string, sequential_port_delay_pair> ports_tcq,   ///< Port clock-to-q delays
@@ -235,27 +237,13 @@ public:
         ports_tcq_(ports_tcq),
         opts_(opts) {}
 
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override;
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override;
 
   virtual void print_sdf(ostream& os, int depth = 0) override;
 
   virtual void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) override;
 
-  size_t find_port_size(string port_name) {
-    auto iter = input_port_conns_.find(port_name);
-    if (iter != input_port_conns_.end()) {
-      return iter->second.size();
-    }
-
-    iter = output_port_conns_.find(port_name);
-    if (iter != output_port_conns_.end()) {
-      return iter->second.size();
-    }
-    VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER, "Could not find port %s on %s of type %s\n",
-                    port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
-
-    return -1;  // Suppress warning
-  }
+  size_t find_port_size(const string& port_name) const;
 
   virtual string get_type_name() override { return type_name_; }
 
@@ -264,9 +252,9 @@ private:
   string inst_name_;
   std::map<string, string> params_;
   std::map<string, string> attrs_;
-  std::map<string, std::vector<string>> input_port_conns_;
-  std::map<string, std::vector<string>> output_port_conns_;
-  std::vector<Arc> timing_arcs_;
+  std::map<string, vector<string>> input_port_conns_;
+  std::map<string, vector<string>> output_port_conns_;
+  vector<Arc> timing_arcs_;
   std::map<string, sequential_port_delay_pair> ports_tsu_;
   std::map<string, sequential_port_delay_pair> ports_thld_;
   std::map<string, sequential_port_delay_pair> ports_tcq_;
