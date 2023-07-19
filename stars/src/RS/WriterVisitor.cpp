@@ -219,13 +219,13 @@ void StaWriterVisitor::print_lib(int depth) {
   lib_pin pin_in;
   pin_in.setName("datain");
   pin_in.bus_width(1);
-  pin_in.direction(INPUT);
+  pin_in.setDirection(INPUT);
   pin_in.setType(DATA);
-  cell.add_pin(pin_in, INPUT);
+  cell.add_input(pin_in);
   lib_pin pin_out;
   pin_out.setName("dataout");
   pin_out.bus_width(1);
-  pin_out.direction(OUTPUT);
+  pin_out.setDirection(OUTPUT);
   pin_out.setType(DATA);
 
   TimingArc arc;
@@ -234,7 +234,7 @@ void StaWriterVisitor::print_lib(int depth) {
   arc.setRelatedPin(pin_in);
 
   pin_out.add_timing_arc(arc);
-  cell.add_pin(pin_out, OUTPUT);
+  cell.add_output(pin_out);
   lib_writer.write_lcell(lib_os_, cell);
   written_cells.insert("fpga_interconnect");
 
