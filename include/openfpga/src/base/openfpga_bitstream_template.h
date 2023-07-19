@@ -69,41 +69,15 @@ template <class T>
 int build_fabric_bitstream_template(T& openfpga_ctx, const Command& cmd,
                                     const CommandContext& cmd_context) {
   CommandOptionId opt_verbose = cmd.option("verbose");
-  CommandOptionId opt_write_file = cmd.option("write_file");
-  CommandOptionId opt_read_file = cmd.option("read_file");
 
-  int status = CMD_EXEC_SUCCESS;
-
-  if (true == cmd_context.option_enable(cmd, opt_read_file)) {
-    // deserialize fabric dependent bitstream data structure for improved
-    // runtime when running multiple designs on single architecture
-    openfpga_ctx.mutable_fabric_bitstream() = load_fabric_dependent_bitstream(
-      openfpga_ctx.bitstream_manager(), openfpga_ctx.module_graph(),
-      openfpga_ctx.arch().circuit_lib, openfpga_ctx.arch().config_protocol,
-      cmd_context.option_enable(cmd, opt_verbose),
-      cmd_context.option_value(cmd, opt_read_file));
-  } else {
-    /* Build fabric bitstream here */
-    openfpga_ctx.mutable_fabric_bitstream() = build_fabric_dependent_bitstream(
-      openfpga_ctx.bitstream_manager(), openfpga_ctx.module_graph(),
-      openfpga_ctx.arch().circuit_lib, openfpga_ctx.arch().config_protocol,
-      cmd_context.option_enable(cmd, opt_verbose));
-  }
-
-  if (true == cmd_context.option_enable(cmd, opt_write_file)) {
-    std::string src_dir_path =
-      find_path_dir_name(cmd_context.option_value(cmd, opt_write_file));
-
-    /* Create directories */
-    create_directory(src_dir_path);
-
-    // serialize fabric dependent bitstream data structre
-    status = openfpga_ctx.mutable_fabric_bitstream().write_fabric_bitstream_db(
-      cmd_context.option_value(cmd, opt_write_file));
-  }
+  /* Build fabric bitstream here */
+  openfpga_ctx.mutable_fabric_bitstream() = build_fabric_dependent_bitstream(
+    openfpga_ctx.bitstream_manager(), openfpga_ctx.module_graph(),
+    openfpga_ctx.arch().circuit_lib, openfpga_ctx.arch().config_protocol,
+    cmd_context.option_enable(cmd, opt_verbose));
 
   /* TODO: should identify the error code from internal function execution */
-  return status;
+  return CMD_EXEC_SUCCESS;
 }
 
 /********************************************************************
@@ -117,6 +91,7 @@ int write_fabric_bitstream_template(const T& openfpga_ctx, const Command& cmd,
   CommandOptionId opt_file_format = cmd.option("format");
   CommandOptionId opt_fast_config = cmd.option("fast_configuration");
   CommandOptionId opt_keep_dont_care_bits = cmd.option("keep_dont_care_bits");
+  CommandOptionId opt_wl_incremental_order = cmd.option("wl_incremental_order");
   CommandOptionId opt_no_time_stamp = cmd.option("no_time_stamp");
 
   /* Write fabric bitstream if required */
@@ -153,6 +128,7 @@ int write_fabric_bitstream_template(const T& openfpga_ctx, const Command& cmd,
       cmd_context.option_value(cmd, opt_file),
       cmd_context.option_enable(cmd, opt_fast_config),
       cmd_context.option_enable(cmd, opt_keep_dont_care_bits),
+      cmd_context.option_enable(cmd, opt_wl_incremental_order),
       !cmd_context.option_enable(cmd, opt_no_time_stamp),
       cmd_context.option_enable(cmd, opt_verbose));
   }
