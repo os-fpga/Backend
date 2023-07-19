@@ -202,7 +202,7 @@ void StaWriterVisitor::print_lib(int depth) {
 
   std::set<string> written_cells;
 
-  sta_lib_writer lib_writer;
+  LibWriter lib_writer;
   lib_writer.write_header(lib_os_);
 
   // this is hard coded, need to be re-written
@@ -214,27 +214,28 @@ void StaWriterVisitor::print_lib(int depth) {
   // create cell info
   lib_cell cell;
   cell.setName("fpga_interconnect");
-  cell.type(INTERCONNECT);
+  cell.setType(INTERCONNECT);
+
   lib_pin pin_in;
   pin_in.setName("datain");
   pin_in.bus_width(1);
   pin_in.direction(INPUT);
-  pin_in.type(DATA);
+  pin_in.setType(DATA);
   cell.add_pin(pin_in, INPUT);
   lib_pin pin_out;
   pin_out.setName("dataout");
   pin_out.bus_width(1);
   pin_out.direction(OUTPUT);
-  pin_out.type(DATA);
+  pin_out.setType(DATA);
 
-  TimingArc timing;
-  timing.setSense(POSITIVE);
-  timing.setType(TRANSITION);
-  timing.related_pin(pin_in);
+  TimingArc arc;
+  arc.setSense(POSITIVE);
+  arc.setType(TRANSITION);
+  arc.setRelatedPin(pin_in);
 
-  pin_out.add_timing_arch(timing);
+  pin_out.add_timing_arc(arc);
   cell.add_pin(pin_out, OUTPUT);
-  lib_writer.write_cell(lib_os_, cell);
+  lib_writer.write_lcell(lib_os_, cell);
   written_cells.insert("fpga_interconnect");
 
   // cells

@@ -86,7 +86,7 @@ public:
 
   virtual void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) = 0;
   virtual void print_sdf(ostream& os, int depth = 0) = 0;
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) = 0;
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) = 0;
   virtual string get_type_name() = 0;
 };
 
@@ -112,7 +112,7 @@ public:
 public:  // Instance interface method implementations
   virtual string get_type_name() override { return "LUT_K"; }
 
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override;
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override;
 
   virtual void print_sdf(ostream& os, int depth) override;
 
@@ -189,7 +189,7 @@ public:
 
   virtual string get_type_name() override { return "DFF"; }
 
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override {
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override {
     /*
     os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
        << escape_sdf_identifier(instance_name_) << ")\n";
@@ -237,7 +237,7 @@ public:
         ports_tcq_(ports_tcq),
         opts_(opts) {}
 
-  virtual void print_lib(rsbe::sta_lib_writer& lib_writer, ostream& os) override;
+  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override;
 
   virtual void print_sdf(ostream& os, int depth = 0) override;
 
