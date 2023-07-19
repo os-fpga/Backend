@@ -111,9 +111,9 @@ struct FabricBitstreamMemoryBank {
     but masks presents data that being used
     for exampe:
       if mask's uint8_t #0 value = 0x41 it means for this WL
-      a. BL #0 is being used, and its Din is recoreded in datas
-      b. BL #6 is being used, and its Din is recoreded in datas
-      c. Other BLs #1, 2, 3, 4, 5, 7 are don't care bit (not being used)
+        a. BL #0 is being used, and its Din is recoreded in datas
+        b. BL #6 is being used, and its Din is recoreded in datas
+        c. Other BLs #1, 2, 3, 4, 5, 7 are don't care bit (not being used)
   */
   std::vector<std::vector<std::vector<uint8_t>>> masks;
   // This track which WL to skip because of fast configuration
