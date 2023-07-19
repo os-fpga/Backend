@@ -202,8 +202,8 @@ ShellCommandId add_write_fabric_bitstream_command_template(
 
   /* Add an option '--wl_incremental_order' */
   shell_cmd.add_option(
-    "wl_incremental_order", false,
-    "Generate bitstream in WL incremental addressing order if supported");
+    "wl_decremental_order", false,
+    "Generate bitstream in WL decremental addressing order if supported");
 
   /* Add an option '--no_time_stamp' */
   shell_cmd.add_option("no_time_stamp", false,
