@@ -84,9 +84,37 @@ struct FabricBitstreamMemoryBank {
   std::vector<fabric_blwl_length> blwl_lengths;
   // Store config ID raw data. Not used by bitstream generation
   // Used by XML generation
+  /*
+      fabric_bit_datas[Bit #0] = (region, bl, wl)
+      fabric_bit_datas[Bit #1] = (region, bl, wl)
+      fabric_bit_datas[Bit #2] = (region, bl, wl)
+    */
   std::vector<fabric_bit_data> fabric_bit_datas;
-  // 100K only need few mega bytes
+  // 100K LE FPGA only need few mega bytes
+  /*
+    datas represent the Din value of a given WL and BL (1bit)
+      datas[region #0][wl #0] = std::vector<uint8_t> to represent BLs
+        where uint8_t #0 = MSB{ BL#7, BL#6, .... BL #1, BL #0 } LSB
+        where uint8_t #1 = MSB{ BL#15, BL#14, .... BL #9, BL #8 } LSB
+      datas[region #0][wl #1] = std::vector<uint8_t> to represent BLs
+      datas[region #0][wl #2] = std::vector<uint8_t> to represent BLs
+      ......
+      datas[region #0][wl #n-1] = std::vector<uint8_t> to represent BLs
+      ......
+      datas[region #1][wl #0] = std::vector<uint8_t> to represent BLs
+      datas[region #1][wl #1] = std::vector<uint8_t> to represent BLs
+      ......
+  */
   std::vector<std::vector<std::vector<uint8_t>>> datas;
+  /*
+    masks has same structure as datas
+    but masks presents data that being used
+    for exampe:
+      if mask's uint8_t #0 value = 0x41 it means for this WL
+      a. BL #0 is being used, and its Din is recoreded in datas
+        b. BL #6 is being used, and its Din is recoreded in datas
+        c. Other BLs #1, 2, 3, 4, 5, 7 are don't care bit (not being used)
+  */
   std::vector<std::vector<std::vector<uint8_t>>> masks;
   // This track which WL to skip because of fast configuration
   std::vector<std::vector<fabric_size_t>> wls_to_skip;
