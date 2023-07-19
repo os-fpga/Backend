@@ -83,13 +83,17 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
     "Remark", "Voltage2", "Discription", "Power Pad", "Voltage", "Mbist Mode",
     "Scan Mode", "Debug Mode", "ALT Function", "MODE_ETH", "MODE_USB",
     "MODE_GPIO", "MODE_UART0", "MODE_UART1", "MODE_I2C", "MODE_SPI0",
-    "MODE_PWM", "MODE_DDR", "Ref clock"
+    "MODE_PWM", "MODE_DDR", "Ref clock", "IS_FPGA_GPIO", "Main Function",
+    "Identifier", "Direction", "Type", "BANK", "MODE_MIPI"
   };
+  uint skipped_cnt = 0;
 
   os << header_[0];
   for (size_t c = 1; c < nc_; c++) {
-    if (nc_ > 2 && skip_cols.count(header_[c]))
+    if (nc_ > 2 && skip_cols.count(header_[c])) {
+      skipped_cnt++;
       continue;
+    }
     os << ',' << header_[c];
   }
   os << endl;
@@ -102,7 +106,7 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
     assert(row);
     os << row[0];
     for (size_t c = 1; c < nc_; c++) {
-      if (skip_cols.count(header_[c]))
+      if (nc_ > 2 && skip_cols.count(header_[c]))
         continue;
       os << ',' << row[c];
     }
@@ -110,6 +114,11 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
     if (r > maxRow)
       break;
   }
+
+  if (skipped_cnt && trace() >= 5) {
+    lprintf("printCsv() skipped %u columns\n", skipped_cnt);
+  }
+
   return true;
 }
 

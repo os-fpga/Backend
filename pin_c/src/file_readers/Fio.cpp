@@ -58,16 +58,14 @@ void Fio::reset(const char* nm, uint16_t tr) noexcept {
   if (nm) fnm_ = nm;
 }
 
-static inline const char* trim_front(const char* z) noexcept
-{
+static inline const char* trim_front(const char* z) noexcept {
   if (z && *z) {
     while (std::isspace(*z)) z++;
   }
   return z;
 }
 
-static inline void tokenize_A(char* A, size_t len, vector<string>& dat)
-{
+static inline void tokenize_A(char* A, size_t len, vector<string>& dat) {
   assert(A && len);
   if (!A or !len)
     return;
