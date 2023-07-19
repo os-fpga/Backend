@@ -29,14 +29,16 @@ using std::string;
 using std::vector;
 using namespace pinc;
 
-typedef enum { INPUT = 0, OUTPUT, INVALID_DIR } port_direction_type;
-typedef enum { POSITIVE = 0, NEGATIVE, INVALID_SENSE } timing_sense_type;
-typedef enum { DATA = 0, CLOCK, RESET, SET, ENABLE, INVALID_PIN_TYPE } pin_type;
-typedef enum { TRANSITION = 0, SETUP, HOLD } timing_type_type;
+enum port_direction_type { INPUT = 0, OUTPUT, INVALID_DIR };
 
-typedef enum { INTERCONNECT = 0, LUT, BRAM, DSP, SEQUENTIAL, BLACKBOX, INVALID_CELL } cell_type;
+enum timing_sense_type { POSITIVE = 0, NEGATIVE, INVALID_SENSE };
 
-// cell data container
+enum pin_type { DATA = 0, CLOCK, RESET, SET, ENABLE, INVALID_PIN_TYPE };
+
+enum Timing_type_type { TRANSITION = 0, SETUP, HOLD };
+
+enum Cell_type { INTERCONNECT = 0, LUT, BRAM, DSP, SEQUENTIAL, BLACKBOX, INVALID_CELL };
+
 class TimingArc;
 
 class lib_pin {
@@ -53,25 +55,25 @@ public:
   const string& name() const noexcept { return name_; }
   void setName(const string& name) noexcept { name_ = name; }
 
-  int bus_width() const { return bus_width_; }
+  int bus_width() const noexcept { return bus_width_; }
   void bus_width(int value) { bus_width_ = value; }
-  port_direction_type direction() const { return dir_; }
+
+  port_direction_type direction() const noexcept { return dir_; }
   void direction(port_direction_type value) { dir_ = value; }
 
-  pin_type type() const { return pin_type_; }
-  void type(pin_type value) { pin_type_ = value; }
+  pin_type type() const noexcept { return pin_type_; }
+  void setType(pin_type value) noexcept { pin_type_ = value; }
 
-  void add_timing_arch(TimingArc& arch) {
+  void add_timing_arc(TimingArc& arch) noexcept {
     timing_arch_list_.push_back(arch);
-    return;
   }
-  const vector<TimingArc>& get_timing_arch() const { return timing_arch_list_; }
+  const vector<TimingArc>& get_timing_arcs() const noexcept { return timing_arch_list_; }
 };
 
 class TimingArc {
 private:
   timing_sense_type sense_ = POSITIVE;
-  timing_type_type type_ = TRANSITION;
+  Timing_type_type type_ = TRANSITION;
   lib_pin related_pin_;
 
 public:
@@ -80,20 +82,19 @@ public:
   timing_sense_type sense() const noexcept { return sense_; }
   void setSense(timing_sense_type value) noexcept { sense_ = value; }
 
-  timing_type_type type() const noexcept { return type_; }
-  void setType(timing_type_type value) noexcept { type_ = value; }
+  Timing_type_type type() const noexcept { return type_; }
+  void setType(Timing_type_type value) noexcept { type_ = value; }
 
-  lib_pin related_pin() const { return related_pin_; }
-  void related_pin(lib_pin value) { related_pin_ = value; }
+  lib_pin related_pin() const noexcept { return related_pin_; }
+  void setRelatedPin(lib_pin value) noexcept { related_pin_ = value; }
 };
 
 class lib_cell {
 private:
   string name_;
-  cell_type type_ = INTERCONNECT;
+  Cell_type type_ = INTERCONNECT;
   vector<lib_pin> input_pins_;
   vector<lib_pin> output_pins_;
-  vector<lib_pin> null_pins;
 
 public:
   lib_cell() = default;
@@ -101,9 +102,13 @@ public:
   const string& name() const noexcept { return name_; }
   void setName(const string& name) noexcept { name_ = name; }
 
-  cell_type type() const { return type_; }
-  void type(cell_type type) { type_ = type; }
+  Cell_type type() const noexcept { return type_; }
+  void setType(Cell_type type) noexcept { type_ = type; }
 
+  const vector<lib_pin>& get_inputs() const noexcept { return input_pins_; }
+  const vector<lib_pin>& get_outputs() const noexcept { return output_pins_; }
+
+/*
   const vector<lib_pin>& get_pins(port_direction_type dir) const {
     if (dir == INPUT) {
       return input_pins_;
@@ -114,7 +119,9 @@ public:
     }
     return null_pins;
   }
-  void add_pin(lib_pin& pin, port_direction_type dir) {
+*/
+
+  void add_pin(const lib_pin& pin, port_direction_type dir) {
     if (dir == INPUT) {
       input_pins_.push_back(pin);
     } else if (dir == OUTPUT) {
@@ -122,8 +129,8 @@ public:
     } else {
       std::cerr << "[STARS] Reject adding invalid pin." << std::endl;
     }
-    return;
   }
+
   /*
   lib_pin &get_pin_by_name(string name) {
     for (auto pin : input_pins_) {
