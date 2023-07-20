@@ -3,23 +3,140 @@
  ******************************************************************************/
 #include "fabric_bitstream.h"
 
-#include <capnp/message.h>
-#include <capnp/serialize-packed.h>
-#include <capnp/serialize.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #include <algorithm>
-#include <iostream>
 
-#include "fabric_bitstream_schema.capnp.h"
 #include "openfpga_decode.h"
 #include "vtr_assert.h"
 
 /* begin namespace openfpga */
 namespace openfpga {
+
+/**************************************************
+ * FabricBitstreamMemoryBank
+ *************************************************/
+void FabricBitstreamMemoryBank::add_bit(const fabric_size_t& bit_id,
+                                        const fabric_size_t& region_id,
+                                        const fabric_size_t& bl,
+                                        const fabric_size_t& wl,
+                                        const fabric_size_t& bl_addr_size,
+                                        const fabric_size_t& wl_addr_size,
+                                        bool bit) {
+  // Fabric Bit is added in sequential manner and each bit is unique
+  VTR_ASSERT((size_t)(bit_id) == fabric_bit_datas.size());
+  // Region is added in sequntial manner but it is not unique from fabric bit
+  // perspective
+  VTR_ASSERT((size_t)(region_id) <= blwl_lengths.size());
+  if ((size_t)(region_id) == blwl_lengths.size()) {
+    // Add if this is first time
+    blwl_lengths.push_back(fabric_blwl_length(bl_addr_size, wl_addr_size));
+  } else {
+    // Otherwise if the region had been added, it must always be consistent
+    VTR_ASSERT(blwl_lengths[region_id].bl == bl_addr_size);
+    VTR_ASSERT(blwl_lengths[region_id].wl == wl_addr_size);
+  }
+  // The BL/WL index must be within respective length
+  VTR_ASSERT(bl < blwl_lengths[region_id].bl);
+  VTR_ASSERT(wl < blwl_lengths[region_id].wl);
+  // We might not need this at all to track the raw data
+  // But since it does not use a lot of memory, tracking for good
+  fabric_bit_datas.push_back(fabric_bit_data((fabric_size_t)(size_t)(region_id),
+                                             (fabric_size_t)(bl),
+                                             (fabric_size_t)(wl), bit));
+  // This is real compact data
+  VTR_ASSERT(datas.size() == masks.size());
+  while ((size_t)(region_id) >= datas.size()) {
+    datas.emplace_back();
+    masks.emplace_back();
+  }
+  VTR_ASSERT(datas[region_id].size() == masks[region_id].size());
+  while ((size_t)(wl) >= datas[region_id].size()) {
+    datas[region_id].push_back(std::vector<uint8_t>((bl_addr_size + 7) / 8, 0));
+    masks[region_id].push_back(std::vector<uint8_t>((bl_addr_size + 7) / 8, 0));
+  }
+  // Same uniqie config bit cannot be set twice
+  VTR_ASSERT((masks[region_id][wl][bl >> 3] & (1 << (bl & 7))) == 0);
+  if (bit) {
+    // Mark the data value if bit (or din) is true
+    datas[region_id][wl][bl >> 3] |= (1 << (bl & 7));
+  }
+  // Mark the mask to indicate we had used this bit
+  masks[region_id][wl][bl >> 3] |= (1 << (bl & 7));
+}
+
+void FabricBitstreamMemoryBank::fast_configuration(
+  const bool& fast, const bool& bit_value_to_skip) {
+  for (auto& wls : wls_to_skip) {
+    wls.clear();
+  }
+  wls_to_skip.clear();
+  // If we had processed it before, we do not need to process again
+  if (wls_to_skip.size() == 0) {
+    for (size_t region = 0; region < datas.size(); region++) {
+      wls_to_skip.emplace_back();
+      if (fast) {
+        for (fabric_size_t wl = 0; wl < blwl_lengths[region].wl; wl++) {
+          VTR_ASSERT((size_t)(wl) < datas[region].size());
+          bool skip_wl = true;
+          for (fabric_size_t bl = 0; bl < blwl_lengths[region].bl && skip_wl;
+               bl++) {
+            // Only check the bit that being used (marked in the mask),
+            // otherwise it is just a don't care, we can skip
+            if (masks[region][wl][bl >> 3] & (1 << (bl & 7))) {
+              if (datas[region][wl][bl >> 3] & (1 << (bl & 7))) {
+                // If bit_value_to_skip=true, and yet the din (recorded in
+                // datas) also 1, then we can skip
+                skip_wl = bit_value_to_skip;
+              } else {
+                skip_wl = !bit_value_to_skip;
+              }
+            }
+          }
+          if (skip_wl) {
+            // Record down that for this region, we will skip this WL
+            wls_to_skip[region].push_back(wl);
+          }
+        }
+      }
+    }
+  } else {
+    VTR_ASSERT(wls_to_skip.size() == datas.size());
+  }
+}
+
+fabric_size_t FabricBitstreamMemoryBank::get_lontest_effective_wl_addr_size()
+  const {
+  // This function check effective WL addr size
+  // Where effective WL is the WL that we wantt to program after considering
+  // fast configuration From all the region, it return the longest
+  fabric_size_t longest_wl = 0;
+  for (size_t region = 0; region < datas.size(); region++) {
+    VTR_ASSERT((size_t)(region) < wls_to_skip.size());
+    fabric_size_t current_wl =
+      (fabric_size_t)(datas[region].size() - wls_to_skip[region].size());
+    if (current_wl > longest_wl) {
+      longest_wl = current_wl;
+    }
+  }
+  return longest_wl;
+}
+
+fabric_size_t FabricBitstreamMemoryBank::get_total_bl_addr_size() const {
+  // Simply total up all the BL addr size
+  fabric_size_t bl = 0;
+  for (size_t region = 0; region < datas.size(); region++) {
+    bl += blwl_lengths[region].bl;
+  }
+  return bl;
+}
+
+fabric_size_t FabricBitstreamMemoryBank::get_total_wl_addr_size() const {
+  // Simply total up all the WL addr size
+  fabric_size_t wl = 0;
+  for (size_t region = 0; region < datas.size(); region++) {
+    wl += blwl_lengths[region].wl;
+  }
+  return wl;
+}
 
 /**************************************************
  * Public Constructor
@@ -88,8 +205,8 @@ std::vector<char> FabricBitstream::bit_address(
   addr_bits.reserve(address_length_);
   for (size_t curr_idx = 0; curr_idx < bit_address_1bits_[bit_id].size();
        curr_idx++) {
-    size_t curr_addr_len = //size_t(64);
-    std::min(size_t(64), address_length_ - curr_idx * 64);
+    size_t curr_addr_len =
+      std::min(size_t(64), address_length_ - curr_idx * 64);
     std::vector<char> curr_addr_vec =
       decode_address_bits(bit_address_1bits_[bit_id][curr_idx],
                           bit_address_xbits_[bit_id][curr_idx], curr_addr_len);
@@ -116,8 +233,8 @@ std::vector<char> FabricBitstream::bit_wl_address(
   addr_bits.reserve(wl_address_length_);
   for (size_t curr_idx = 0; curr_idx < bit_wl_address_1bits_[bit_id].size();
        curr_idx++) {
-    size_t curr_addr_len = size_t(64);
-    // std::min(size_t(64), wl_address_length_ - curr_idx * 64);
+    size_t curr_addr_len =
+      std::min(size_t(64), wl_address_length_ - curr_idx * 64);
     std::vector<char> curr_addr_vec = decode_address_bits(
       bit_wl_address_1bits_[bit_id][curr_idx],
       bit_wl_address_xbits_[bit_id][curr_idx], curr_addr_len);
@@ -138,6 +255,12 @@ char FabricBitstream::bit_din(const FabricBitId& bit_id) const {
 bool FabricBitstream::use_address() const { return use_address_; }
 
 bool FabricBitstream::use_wl_address() const { return use_wl_address_; }
+
+const FabricBitstreamMemoryBank* FabricBitstream::memory_bank_info() const {
+  VTR_ASSERT(true == use_address_);
+  VTR_ASSERT(true == use_wl_address_);
+  return &memory_bank_data_;
+}
 
 /******************************************************************************
  * Public Mutators
@@ -216,7 +339,6 @@ void FabricBitstream::set_bit_wl_address(const FabricBitId& bit_id,
   } else {
     VTR_ASSERT(wl_address_length_ == address.size());
   }
-
   /* Split the address into several 64 vectors */
   for (size_t start_idx = 0; start_idx < address.size();
        start_idx = start_idx + 64) {
@@ -252,6 +374,26 @@ void FabricBitstream::set_address_length(const size_t& length) {
 
 void FabricBitstream::set_bl_address_length(const size_t& length) {
   set_address_length(length);
+}
+
+void FabricBitstream::set_memory_bank_info(const FabricBitId& bit_id,
+                                           const FabricBitRegionId& region_id,
+                                           const size_t& bl, const size_t& wl,
+                                           const size_t& bl_addr_size,
+                                           const size_t& wl_addr_size,
+                                           bool bit) {
+  // Bit must be valid one
+  // We only support this in protocol that use BL and WL address
+  VTR_ASSERT(true == valid_bit_id(bit_id));
+  VTR_ASSERT(true == use_address_);
+  VTR_ASSERT(true == use_wl_address_);
+  VTR_ASSERT(bl_addr_size);
+  VTR_ASSERT(wl_addr_size);
+  // All the basic checking had pass, we can add the data into memory_bank_data_
+  memory_bank_data_.add_bit(
+    (fabric_size_t)(size_t)(bit_id), (fabric_size_t)(size_t)(region_id),
+    (fabric_size_t)(bl), (fabric_size_t)(wl), (fabric_size_t)(bl_addr_size),
+    (fabric_size_t)(wl_addr_size), bit);
 }
 
 void FabricBitstream::set_use_wl_address(const bool& enable) {
@@ -322,136 +464,6 @@ bool FabricBitstream::valid_region_id(
   return (size_t(region_id) < num_regions_);
 }
 
-/******************************************************************************
- * Serialize/deserialize data structure for faster benchmarking after fabric
- *generation
- ******************************************************************************/
-
-int FabricBitstream::write_fabric_bitstream_db(std::string filename) {
-  ::capnp::MallocMessageBuilder message;
-
-  QLMem_db::FabricBitstreamQLMem::Builder bitstreamDb =
-    message.initRoot<QLMem_db::FabricBitstreamQLMem>();
-
-  // configBitIds @0 :List(UInt64);
-  auto config_id_builder = bitstreamDb.initConfigBitIds(config_bit_ids_.size());
-  for (size_t j = 0; j < config_bit_ids_.size(); ++j) {
-    config_id_builder.set(j, size_t(config_bit_ids_[FabricBitId(j)]));
-  }
-
-  // bitAddress1bits @1 :List(UInt64);
-  auto bl1_builder = bitstreamDb.initBitAddress1bits(bit_address_1bits_.size());
-  for (size_t j = 0; j < bit_address_1bits_.size(); ++j) {
-    auto working_bl =
-      bl1_builder.init(j, bit_address_1bits_[FabricBitId(j)].size());
-    for (size_t k = 0; k < bit_address_1bits_[FabricBitId(j)].size(); ++k) {
-      working_bl.set(k, bit_address_1bits_[FabricBitId(j)][k]);
-    }
-  }
-
-  // bitAddressXbits @2 :List(UInt64);
-  auto blx_builder = bitstreamDb.initBitAddressXbits(bit_address_xbits_.size());
-  for (size_t j = 0; j < bit_address_xbits_.size(); ++j) {
-    auto working_bl =
-      blx_builder.init(j, bit_address_xbits_[FabricBitId(j)].size());
-    for (size_t k = 0; k < bit_address_1bits_[FabricBitId(j)].size(); ++k) {
-      working_bl.set(k, bit_address_xbits_[FabricBitId(j)][k]);
-    }
-  }
-
-  // bitWlAddress1bits @3 :List(UInt64);
-  auto wl1_builder =
-    bitstreamDb.initBitWlAddress1bits(bit_wl_address_1bits_.size());
-  for (size_t j = 0; j < bit_wl_address_1bits_.size(); ++j) {
-    auto working_wl =
-      wl1_builder.init(j, bit_wl_address_1bits_[FabricBitId(j)].size());
-    for (size_t k = 0; k < bit_wl_address_1bits_[FabricBitId(j)].size(); ++k) {
-      working_wl.set(k, bit_wl_address_1bits_[FabricBitId(j)][k]);
-    }
-  }
-
-  // This is POSIX only because of the use of fds.
-  // it seems like writing to an fd is the only way to get the packing I want in
-  // capnproto 0.81 it will also allow implementing mmap for larger reads in the
-  // future. But it's not portable. TO-DO: investigate size and speed difference
-  // of something like creating a string of bytes & writing & compressing
-  FILE* f = fopen(filename.c_str(), "w");
-  int fd = fileno(f);
-  writePackedMessageToFd(fd, message);
-  // This should be a void function because the underlying writer is void so I
-  // can't pass its exit status along TO-DO: change to void and/or reimplement
-  // to handle i/o more nicely
-  return 0;
-}
-
-int FabricBitstream::read_fabric_bitstream_db(std::string infile) {
-  FILE* f = fopen(infile.c_str(), "r");
-  int fd = fileno(f);
-  //::capnp::StreamFdMessageReader message(fd);
-  //because we have 4 arrays for every bit and millions of bits, message size exceeds the default limit (which is 8*1024*1024)
-  //so we need to adjust traversalLimitInWords to make it work
-  //for 104x68 that's 2286409793. Documentation says the limit should be well over the expected value, so setting to ~2x expected value
-  ::capnp::ReaderOptions my_options = {
-    uint64_t(4294967296), //traversalLimitInWords 
-    64, //nesting limit
-  };
-  ::capnp::PackedFdMessageReader message(fd, my_options);
-
-  QLMem_db::FabricBitstreamQLMem::Reader bitstreamDbReader =
-    message.getRoot<QLMem_db::FabricBitstreamQLMem>();
-
-  // current device only uses one region. Handle it here instead of
-  // build_fabric_bitstream. region bits are handled with config bits
-  num_regions_ = 1;
-  region_bit_ids_.emplace_back();
-
-  // config bit IDs
-  auto configBitReader = bitstreamDbReader.getConfigBitIds();
-  num_bits_ = configBitReader.size();
-
-  for (size_t j = 0; j < configBitReader.size(); ++j) {
-    config_bit_ids_.push_back(ConfigBitId(configBitReader[j]));
-    // there's only 1 config region on the current design, so let's save
-    // ourselves a loop by adding the IDs to the region list too
-    region_bit_ids_[FabricBitRegionId(0)].push_back(
-      FabricBitId(configBitReader[j]));
-  }
-  // bitAddress1bits
-  auto bl1Reader = bitstreamDbReader.getBitAddress1bits();
-
-  for (size_t j = 0; j < bl1Reader.size(); ++j) {
-    auto working_reader = bl1Reader[j];
-    for (size_t k = 0; k < working_reader.size(); ++k) {
-      bit_address_1bits_[FabricBitId(j)].push_back(working_reader[k]);
-    }
-  }
-
-  // bitAddressXbits
-  auto blXReader = bitstreamDbReader.getBitAddressXbits();
-
-  for (size_t j = 0; j < blXReader.size(); ++j) {
-    auto working_reader = blXReader[j];
-
-    for (size_t k = 0; k < working_reader.size(); ++k) {
-      bit_address_xbits_[FabricBitId(j)].push_back(working_reader[k]);
-    }
-  }
-
-  // bit_wl_Address1bits
-  auto wl1Reader = bitstreamDbReader.getBitWlAddress1bits();
-
-  for (size_t j = 0; j < wl1Reader.size(); ++j) {
-    auto working_reader = wl1Reader[j];
-    bit_wl_address_xbits_.emplace_back();
-    for (size_t k = 0; k < working_reader.size(); ++k) {
-      bit_wl_address_1bits_[FabricBitId(j)].push_back(working_reader[k]);
-      bit_wl_address_xbits_[FabricBitId(j)].push_back(0); //no don't cares in wls, but the structure must be well formed
-    }
-  }
-  return 0;
-}
-
-// private encoding functions
 uint64_t FabricBitstream::encode_address_1bits(
   const std::vector<char>& address) const {
   /* Convert all the 'x' bit into 0 */

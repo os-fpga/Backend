@@ -218,14 +218,18 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) bcd_[i].fullchipName_ = S_tmp[i];
+  for (uint i = 0; i < num_rows; i++) {
+    bcd_[i].fullchipName_ = std::move(S_tmp[i]);
+  }
 
   ok = get_column(crd, "Customer Name", S_tmp);
   if (!ok) return false;
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) bcd_[i].customer_ = S_tmp[i];
+  for (uint i = 0; i < num_rows; i++) {
+    bcd_[i].customer_ = std::move(S_tmp[i]);
+  }
 
   ok = get_column(crd, "Customer Internal Name", S_tmp);
   if (!ok) {
@@ -263,7 +267,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
         break;
       }
     }
-    if (firs_ri_only && firs_ri_only < last_ri && bcd_[firs_ri_only].isCustomerInternalOnly()) {
+    if (firs_ri_only < last_ri && bcd_[firs_ri_only].isCustomerInternalOnly()) {
       start_CustomerInternal_row_ = firs_ri_only;
       bcd_AXI_.clear();
       bcd_AXI_.reserve(last_ri - firs_ri_only + 1);
