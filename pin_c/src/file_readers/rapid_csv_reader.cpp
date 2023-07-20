@@ -1,5 +1,6 @@
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/Fio.h"
+#include <iomanip>
 
 namespace pinc {
 
@@ -25,6 +26,16 @@ void RapidCsvReader::reset() noexcept {
   crd_ = nullptr;
 }
 
+const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
+  // enum ModeDir              {  No_dir,   Input_dir,   Output_dir,   HasBoth_dir,   AllEnabled_dir  };
+  static const char* enumS[] = { "No_dir", "Input_dir", "Output_dir", "HasBoth_dir", "AllEnabled_dir" };
+  constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
+  static_assert( n == BCD::AllEnabled_dir + 1 );
+  uint i = uint(t);
+  assert(i < n);
+  return enumS[i];
+}
+
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
   os << "(bcd "
      << "  grp:" << b.groupA_
@@ -38,6 +49,7 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  axi:" << int(b.is_axi_)
      << "  isGPIO:" << int(b.is_GPIO_)
      << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
+     << "  dir:" << RapidCsvReader::str_Mode_dir(b.dir_)
      << "  row:" << b.row_
      << ')';
   return os;
@@ -75,24 +87,100 @@ static bool get_column(const fio::CSV_Reader& crd,
   return true;
 }
 
+static inline bool starts_with_mode(const char* z) noexcept {
+  assert(z);
+  return z[0] == 'm' && z[1] == 'o' && z[2] == 'd' && z[3] == 'e' && z[4] == '_';
+}
+
+static inline bool ends_with_tx_rx(const char* z, size_t len) noexcept {
+  assert(z);
+  if (len < 4)
+    return false;
+  return
+    z[len-1] == 'x' and (z[len-2] == 't' or z[len-2] == 'r') and z[len-3] == '_';
+}
+
+static inline bool ends_with_rx(const char* z, size_t len) noexcept {
+  assert(z);
+  if (len < 4)
+    return false;
+  return
+    z[len-1] == 'x' and z[len-2] == 'r' and z[len-3] == '_';
+}
+
+struct RX_TX_val
+{
+  string hdr_;
+  string val_;
+  RX_TX_val() noexcept = default;
+  RX_TX_val(const string& h, const string& v) noexcept
+    : hdr_(h), val_(v) { }
+
+  bool enabled() const noexcept { return val_ == "Y"; }
+  bool is_rx() const noexcept { return ends_with_rx(hdr_.c_str(), hdr_.length()); }
+};
+
+std::ostream& operator<<(std::ostream& os, const RX_TX_val& v) {
+  os << '(' << v.hdr_ << " : " << v.val_ << ')';
+  return os;
+}
+
+static bool get_row_modes(const fio::CSV_Reader& crd,
+                          uint rowNum,
+                          vector<RX_TX_val>& V) noexcept {
+  V.clear();
+  assert(rowNum < crd.numRows());
+  uint nc = crd.numCols();
+  assert(nc > 2);
+  const vector<string>& H = crd.lowHeader_;
+  assert(H.size() == nc);
+
+  const string* R = crd.getRow(rowNum);
+  if (!R) {
+    lout() << "\nERROR reading csv: failed row: " << rowNum << endl;
+    return false;
+  }
+
+  string s;
+  for (uint c = 1; c < nc; c++) {
+    size_t len = H[c].length(); 
+    if (len < 7) // mode_ is at least 5 chars, plus _rx/_tx
+      continue;
+    const char* hs = H[c].c_str();
+    if (not starts_with_mode(hs))
+      continue;
+    if (not ends_with_tx_rx(hs, len))
+      continue;
+    V.emplace_back(H[c], R[c]);
+  }
+
+  if (ltrace() >= 8) {
+    lout() << "ROW-" << rowNum;
+    for (uint c = 0; c < nc; c++) 
+      lout() << " | " << R[c];
+    lputs(" |");
+  }
+
+  return true;
+}
+
 // if 'hdr' starts with "Mode_"/"MODE_" then convert
 // the prefix to upper case and return true.
-bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept
-{
-    if (hdr.size() < 6) return false;
-    const char* cs = hdr.c_str();
-    char p[8] = {};
-    for (int i = 0; i < 5; i++) {
-      p[i] = tolower(cs[i]);
-    }
-    if (p[0] == 'm' && p[1] == 'o' && p[2] == 'd' && p[3] == 'e' && p[4] == '_') {
-        hdr[0] = 'M';
-        hdr[1] = 'O';
-        hdr[2] = 'D';
-        hdr[3] = 'E';
-        return true;
-    }
-    return false;
+bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept {
+  if (hdr.size() < 6) return false;
+  const char* cs = hdr.c_str();
+  char p[8] = {};
+  for (int i = 0; i < 5; i++) {
+    p[i] = tolower(cs[i]);
+  }
+  if (p[0] == 'm' && p[1] == 'o' && p[2] == 'd' && p[3] == 'e' && p[4] == '_') {
+    hdr[0] = 'M';
+    hdr[1] = 'O';
+    hdr[2] = 'D';
+    hdr[3] = 'E';
+    return true;
+  }
+  return false;
 }
 
 bool RapidCsvReader::read_csv(const string& fn, bool check) {
@@ -394,10 +482,69 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     bcd_[i].xyz_.z_ = z;
   }
 
-  if (tr >= 6)
+  // classify row directions BCD::dir_
+  vector<RX_TX_val> RX_TX_values;
+  RX_TX_values.reserve(crd.numCols());
+  for (uint r = 0; r < num_rows; r++) {
+    bcd_[r].dir_ = BCD::No_dir;
+    ok = get_row_modes(crd, r, RX_TX_values);
+    if (!ok) {
+      lprintf("\n [Error] pin_c csv row %u\n\n", r);
+      return false;
+    }
+    size_t n = RX_TX_values.size();
+    assert(n > 1);
+    uint num_Y_rx = 0, num_Y_tx = 0;
+    for (size_t j = 0; j < n; j++) {
+      const RX_TX_val& rtv = RX_TX_values[j];
+      if (not rtv.enabled())
+        continue;
+      if (rtv.is_rx())
+        num_Y_rx++;
+      else
+        num_Y_tx++;
+    }
+    if (!num_Y_rx && !num_Y_tx) {
+      bcd_[r].dir_ = BCD::No_dir;
+      continue;
+    }
+    if (!num_Y_rx) {
+      // device does not receive - outputs only
+      bcd_[r].dir_ = BCD::Output_dir;
+      continue;
+    }
+    if (!num_Y_tx) {
+      // device does not transmit - inputs only
+      bcd_[r].dir_ = BCD::Input_dir;
+      continue;
+    }
+    assert(num_Y_rx && num_Y_tx);
+    assert(num_Y_rx + num_Y_tx <= n);
+    // there are both tranmitters and receivers on this row:
+    bcd_[r].dir_ = BCD::HasBoth_dir;
+    if (num_Y_rx + num_Y_tx == n) {
+        // there are no blanks on this row - all modes enabled:
+        bcd_[r].dir_ = BCD::AllEnabled_dir;
+    }
+
+    //if (tr >= 6) {
+    //  lprintf("row:%u RX_TX_values.size()= %zu  num_Y_rx= %u  num_Y_tx= %u\n",
+    //          r, n, num_Y_rx, num_Y_tx);
+    //  if (tr >= 8) {
+    //    logVec(RX_TX_values, "  RX_TX_values ");
+    //  }
+    //  //lputs8();
+    //}
+  }
+
+  if (tr >= 6) {
     print_bcd(ls);
-  if (tr >= 5)
+  }
+  if (tr >= 5) {
+    print_bcd_stats(ls);
+    lputs();
     print_axi_bcd(ls);
+  }
   if (tr >= 5)
     print_csv();
 
@@ -452,8 +599,7 @@ bool RapidCsvReader::sanity_check() const {
   return true;
 }
 
-bool RapidCsvReader::write_csv(const string& fn, uint minRow, uint maxRow) const
-{
+bool RapidCsvReader::write_csv(const string& fn, uint minRow, uint maxRow) const {
   uint16_t tr = ltrace();
   if (tr >= 2) {
     lprintf("RapidCsvReader::write_csv( %s )  minRow= %u  maxRow= %u\n",
@@ -475,20 +621,47 @@ bool RapidCsvReader::write_csv(const string& fn, uint minRow, uint maxRow) const
   return ok;
 }
 
-uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept
-{
+uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
+  uint nr = numRows();
+  if (!nr) return 0;
+
+  constexpr uint N_dirs = BCD::AllEnabled_dir + 1;
+  uint dir_counters[N_dirs] = {};
+  uint axi_cnt = 0, gbox_gpio_cnt = 0, gpio_cnt = 0;
+
+  for (uint i = 0; i < nr; i++) {
+    const BCD& bcd = bcd_[i];
+    dir_counters[bcd.dir_]++;
+    axi_cnt += int(bcd.is_axi_);
+    gbox_gpio_cnt += int(bcd.is_GBOX_GPIO_);
+    gpio_cnt += int(bcd.is_GPIO_);
+  }
+
+  os << "bcd_stats( numRows= " << nr << " )\n";
+  for (uint i = 0; i < N_dirs; i++) {
+    os << std::setw(20) << str_Mode_dir(BCD::ModeDir(i))
+       << " : " << dir_counters[i] << '\n';
+  }
+
+  os << "        #AXI = " << axi_cnt << '\n';
+  os << "       #GPIO = " << gpio_cnt << '\n';
+  os << "  #GBOX_GPIO = " << gbox_gpio_cnt << endl;
+
+  return nr;
+}
+
+uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept {
   uint nr = numRows();
   os << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::" << endl;
   for (uint i = 0; i < nr; i++) {
     const BCD& bcd = bcd_[i];
-    os << "\t " << bcd << endl;
+    os << "   " << bcd << endl;
   }
   os << "--- BCD dump ^^^ (nr=" << nr << ")\n" << endl;
   return nr;
 }
 
-uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept
-{
+uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept {
   uint n = bcd_AXI_.size();
   os << "+++ bcd_AXI_ dump (" << n
      << ") ::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::" << endl;

@@ -24,6 +24,7 @@ void CSV_Reader::reset(const char* nm, uint16_t tr) noexcept {
   valid_csv_ = false;
   headLine_ = nullptr;
   header_.clear();
+  lowHeader_.clear();
   nr_ = nc_ = 0;
 }
 
@@ -132,6 +133,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
   valid_csv_ = false;
   headLine_ = nullptr;
   header_.clear();
+  lowHeader_.clear();
   nr_ = nc_ = 0;
   smat_ = nullptr;
   nmat_ = nullptr;
@@ -181,11 +183,17 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
 
   // 5. header_ size() is the number of columns.
   //    data rows should now have more columns than the header.
-  if (header_.size() < 2 || header_.size() > size_t(INT_MAX)) return false;
+  if (header_.size() < 2 || header_.size() > size_t(INT_MAX))
+    return false;
+  nc_ = header_.size();
+  if (nc_ < 2)
+    return false;
+  lowHeader_.resize(nc_);
+  for (size_t c = 0; c < nc_; c++)
+    lowHeader_[c] = str::sToLower(header_[c]);
+
   nr_ = nel - 1;
   if (nr_ < 2) return false;
-  nc_ = header_.size();
-  if (nc_ < 2) return false;
   if (trace() >= 3) {
     lprintf("CReader::parse()  nr_= %zu  nc_= %zu\n", nr_, nc_);
   }
@@ -398,7 +406,13 @@ int CSV_Reader::dprint1() const noexcept {
   lprintf("    valid_csv_: %i\n", valid_csv_);
   lprintf("    headLine_: %s\n", headLine_ ? headLine_ : "(NULL)");
   lprintf("    header_.size()= %zu\n", header_.size());
+
   logVec(header_, "    header_:");
+
+  lputs();
+  logVec(lowHeader_, "    lowHeader_:");
+  lputs();
+
   lprintf("    lines_.size()= %zu\n", lines_.size());
   if (lines_.size() > 3 && lines_[2] && nc_ < 400) lprintf("    lines_[2]  %s\n", lines_[2]);
 
