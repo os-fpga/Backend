@@ -292,8 +292,8 @@ public:
   size_t num_commas_ = 0;
   bool valid_csv_ = false;
 
-  // data matrix:
-  vector<string> header_;
+  vector<string> header_;     // original header
+  vector<string> lowHeader_;  // low-case header
 
   // number of rows and columns, without header_
   size_t nr_ = 0, nc_ = 0;
@@ -329,6 +329,17 @@ public:
   vector<int> getColumnInt(const string& colName) const noexcept {
     if (colName.empty()) return {};
     return getColumnInt(colName.c_str());
+  }
+
+  const string* getRow(uint r) const noexcept {
+    assert(isValidCsv());
+    assert(smat_);
+    assert(nr_ > 0);
+    assert(r < nr_);
+    if (!isValidCsv() || !smat_)
+      return nullptr;
+    assert(smat_[r]);
+    return smat_[r];
   }
 
   size_t numRows() const noexcept { return nr_; }

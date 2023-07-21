@@ -60,7 +60,7 @@ void PinPlacer::print_stats(const RapidCsvReader& csv_rd) const
       const Pin* pp = find_udes_pin(placed_inputs_, nm);
       if (pp) {
         ls << "  placed at " << pp->xyz_
-           << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_;
+           << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
       }
       ls << endl;
     }
@@ -71,7 +71,7 @@ void PinPlacer::print_stats(const RapidCsvReader& csv_rd) const
       const Pin* pp = find_udes_pin(placed_outputs_, nm);
       if (pp)
         ls << "  placed at " << pp->xyz_
-           << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_;
+           << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
       ls << endl;
     }
     lputs();
@@ -81,9 +81,12 @@ void PinPlacer::print_stats(const RapidCsvReader& csv_rd) const
        << placed_outputs_.size() << " outputs" << endl;
   }
 
-  ls << "  min_pt_row= " << min_pt_row_ << "  max_pt_row= " << max_pt_row_ << '\n';
+  ls << "  min_pt_row= " << min_pt_row_+2 << "  max_pt_row= " << max_pt_row_+2 << '\n';
   ls << "  row0_GBOX_GPIO()= " << csv_rd.row0_GBOX_GPIO()
      << "  row0_CustomerInternal()= " << csv_rd.row0_CustomerInternal() << endl;
+
+  ls << endl;
+  csv_rd.print_bcd_stats(ls);
 
   ls << "======== end stats." << endl;
   if (tr >= 7) {
@@ -315,7 +318,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
     if (tr >= 4) {
         out_file << "    #  device: " << device_pin_name;
-        out_file << "  pt_row: " << pt_row;
+        out_file << "  pt_row: " << pt_row+2;
     }
     out_file << endl;
     out_file.flush();
@@ -323,7 +326,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
     if (tr >= 4) {
       ls << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
       ls << "    #  device: " << device_pin_name;
-      ls << "  pt_row: " << pt_row;
+      ls << "  pt_row: " << pt_row+2;
       flush_out(true);
     }
 
