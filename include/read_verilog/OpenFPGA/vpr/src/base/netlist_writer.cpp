@@ -30,13 +30,14 @@
 #include "atom_netlist.h"
 #include "atom_netlist_utils.h"
 #include "logic_vec.h"
-
+#include "veri_prune.h"
 #ifdef VPR_ENABLE_VERIFIC
 #include "ieee_1735.h"
 #include "hdl_encrypt.h"
 #include "VerificStream.h"
 #include "Strings.h"
 #include "vcs_enc_support.h"
+
 #include <filesystem>
 
 #endif
@@ -1139,6 +1140,8 @@ protected:
             formating_encrypt_file(2);
 #endif
         verilog_os_ << indent(depth) << "endmodule\n";
+        verilog_os_<<intf_mod_str<<"\n";
+        verilog_os_<<top_mod_str<<"\n";
     }
 
 private: // Internal Helper functions
