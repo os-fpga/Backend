@@ -72,11 +72,13 @@ struct rsOpts {
   bool set_VPR_TC1() noexcept;  // and2_gemini
   bool set_STA_TC2() noexcept;  // flop2flop, arch 1GE100-ES1
   bool set_STA_TC3() noexcept;  // flop2flop, arch GEMINI
+  bool set_STA_TC4() noexcept;  // vex_soc_no_carry
 
   bool createVprArgv(const vector<string>& W) noexcept;
 
 private:
   bool sprintFiles(CStr subdir, CStr stem) noexcept;
+  bool set_VPR_TC_args(CStr raw_tc) noexcept;
 };
 
 }
