@@ -488,9 +488,9 @@ ret:
 bool rsOpts::set_VPR_TC1() noexcept {
   lputs(" O-set_VPR_TC1: and2_gemini");
   assert(argc_ > 0 && argv_);
+  bool ok = false;
 
 #ifdef RSBE_UNIT_TEST_ON
-
   static const char* raw_TC1 = R"(
    /home/serge/raps/5jul/Raptor/build/share/raptor/etc/devices/gemini_compact_104x68/gemini_vpr.xml
    /home/serge/raps/5jul/Raptor/and2_gemini/run_1/synth_1_1/synthesis/and2_gemini_post_synth.v
@@ -508,42 +508,19 @@ bool rsOpts::set_VPR_TC1() noexcept {
    --route_file /home/serge/raps/5jul/Raptor/and2_gemini/run_1/impl_1_1/routing/and2_gemini_post_synth.route
    --place
   )";
-
-  cout << '\n' << ::strlen(raw_TC1) << endl;
-
-  vector<string> W;
-  fio::Fio::split_spa(raw_TC1, W);
-
-  size_t sz = W.size();
-  cout << "W.size()= " << sz << endl;
-  if (sz < 3) return false;
-
-  cout << "created ARGV for VPR:" << endl;
-  for (size_t i = 0; i < sz; i++) {
-    lprintf("\t |%zu|  %s\n", i, W[i].c_str());
-  }
-
-  vprArgv_ = (char**)::calloc(sz + 4, sizeof(char*));
-  uint cnt = 0;
-  vprArgv_[cnt++] = ::strdup(argv_[0]);
-  for (size_t i = 0; i < sz; i++) {
-    const string& a = W[i];
-    vprArgv_[cnt++] = ::strdup(a.c_str());
-  }
-  vprArgc_ = cnt;
-
+  ok = set_VPR_TC_args(raw_TC1);
 #endif  // RSBE_UNIT_TEST_ON
 
   flush_out(true);
-  return true;
+  return ok;
 }
 
 bool rsOpts::set_STA_TC2() noexcept {
   lputs(" O-set_STA_TC2: arch 1GE100-ES1");
   assert(argc_ > 0 && argv_);
+  bool ok = false;
 
 #ifdef RSBE_UNIT_TEST_ON
-
   static const char* raw_TC2 = R"(
     /home/serge/raps/5jul/Raptor/build/share/raptor/etc/devices/1GE100-ES1/gemini_vpr.xml
     /home/serge/raps/5jul/Raptor/EDA-1704/stars_TC/synth_1_1/synthesis/flop2flop_post_synth.v
@@ -562,42 +539,19 @@ bool rsOpts::set_STA_TC2() noexcept {
     --route_file /home/serge/raps/5jul/Raptor/EDA-1704/stars_TC/impl_1_1/routing/flop2flop_post_synth.route
     --place
   )";
-
-  cout << '\n' << ::strlen(raw_TC2) << endl;
-
-  vector<string> W;
-  fio::Fio::split_spa(raw_TC2, W);
-
-  size_t sz = W.size();
-  cout << "W.size()= " << sz << endl;
-  if (sz < 3) return false;
-
-  cout << "created ARGV for VPR:" << endl;
-  for (size_t i = 0; i < sz; i++) {
-    lprintf("\t |%zu|  %s\n", i, W[i].c_str());
-  }
-
-  vprArgv_ = (char**)::calloc(sz + 4, sizeof(char*));
-  uint cnt = 0;
-  vprArgv_[cnt++] = ::strdup(argv_[0]);
-  for (size_t i = 0; i < sz; i++) {
-    const string& a = W[i];
-    vprArgv_[cnt++] = ::strdup(a.c_str());
-  }
-  vprArgc_ = cnt;
-
+  ok = set_VPR_TC_args(raw_TC2);
 #endif  // RSBE_UNIT_TEST_ON
 
   flush_out(true);
-  return true;
+  return ok;
 }
 
 bool rsOpts::set_STA_TC3() noexcept {
   lputs(" O-set_STA_TC3: flop2flop, arch GEMINI");
   assert(argc_ > 0 && argv_);
+  bool ok = false;
 
 #ifdef RSBE_UNIT_TEST_ON
-
   static const char* raw_TC3 = R"(
     /home/serge/raps/10jul/Raptor/build/share/raptor/etc/devices/1GE100-ES1/gemini_vpr.xml
     /home/serge/raps/10jul/Raptor/EDA-1704/stars_TC3/synth_1_1/synthesis/flop2flop_post_synth.v
@@ -616,34 +570,58 @@ bool rsOpts::set_STA_TC3() noexcept {
     --route_file /home/serge/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/routing/flop2flop_post_synth.route
     --place
   )";
-
-  cout << '\n' << ::strlen(raw_TC3) << endl;
-
-  vector<string> W;
-  fio::Fio::split_spa(raw_TC3, W);
-
-  size_t sz = W.size();
-  cout << "W.size()= " << sz << endl;
-  if (sz < 3) return false;
-
-  cout << "created ARGV for VPR:" << endl;
-  for (size_t i = 0; i < sz; i++) {
-    lprintf("\t |%zu|  %s\n", i, W[i].c_str());
-  }
-
-  vprArgv_ = (char**)::calloc(sz + 4, sizeof(char*));
-  uint cnt = 0;
-  vprArgv_[cnt++] = ::strdup(argv_[0]);
-  for (size_t i = 0; i < sz; i++) {
-    const string& a = W[i];
-    vprArgv_[cnt++] = ::strdup(a.c_str());
-  }
-  vprArgc_ = cnt;
-
+  ok = set_VPR_TC_args(raw_TC3);
 #endif  // RSBE_UNIT_TEST_ON
 
   flush_out(true);
-  return true;
+  return ok;
+}
+
+bool rsOpts::set_STA_TC4() noexcept {
+  lputs(" O-set_STA_TC4: vex_soc_no_carry, arch GEMINI");
+  assert(argc_ > 0 && argv_);
+  bool ok = false;
+
+#ifdef RSBE_UNIT_TEST_ON
+  static const char* raw_TC4 = R"(
+  /home/serge/raps/01STA_vex/Raptor/build/share/raptor/etc/devices/gemini/gemini_vpr.xml
+  /home/serge/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/synthesis/vex_soc_no_carry_post_synth.v
+  --sdc_file /home/serge/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_openfpga.sdc
+  --route_chan_width 192
+  --suppress_warnings check_rr_node_warnings.log,check_rr_node
+  --clock_modeling ideal --absorb_buffer_luts off
+  --skip_sync_clustering_and_routing_results on
+  --constant_net_method route
+  --post_place_timing_report vex_soc_no_carry_post_place_timing.rpt
+  --device castor82x68_heterogeneous --allow_unrelated_clustering on
+  --gen_post_synthesis_netlist on
+  --allow_dangling_combinational_nodes on
+  --post_synth_netlist_unconn_inputs gnd
+  --inner_loop_recompute_divider 1
+  --max_router_iterations 1500
+  --timing_report_detail detailed
+  --timing_report_npaths 100
+  --top vex_soc
+  --net_file /home/serge/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_post_synth.net
+  --place_file /home/serge/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/placement/vex_soc_no_carry_post_synth.place
+  --route_file /home/serge/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/routing/vex_soc_no_carry_post_synth.route
+  )";
+  ok = set_VPR_TC_args(raw_TC4);
+#endif  // RSBE_UNIT_TEST_ON
+
+  flush_out(true);
+  return ok;
+}
+
+bool rsOpts::set_VPR_TC_args(CStr raw_tc) noexcept {
+  assert(raw_tc);
+  cout << '\n' << ::strlen(raw_tc) << endl;
+  assert(::strlen(raw_tc) > 3);
+
+  vector<string> W;
+  fio::Fio::split_spa(raw_tc, W);
+
+  return createVprArgv(W);
 }
 
 bool rsOpts::createVprArgv(const vector<string>& W) noexcept {
