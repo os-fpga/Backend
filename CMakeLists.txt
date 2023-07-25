@@ -111,12 +111,12 @@ endif()
 #           DESTINATION
 #           ${VPR_DEST_DIR}/src/base/)
           
-FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
-          ${PLACER_SRC_DIR}/place.cpp
-          ${PLACER_SRC_DIR}/place_util.cpp
-          ${PLACER_SRC_DIR}/place_util.h
-          DESTINATION
-          ${VPR_DEST_DIR}/src/place/)
+# FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
+#           ${PLACER_SRC_DIR}/place.cpp
+#           ${PLACER_SRC_DIR}/place_util.cpp
+#           ${PLACER_SRC_DIR}/place_util.h
+#           DESTINATION
+#           ${VPR_DEST_DIR}/src/place/)
 
 file(COPY ${PUGI_SRC}/pugixml_loc.cpp
   ${PUGI_SRC}/pugixml_loc.hpp
