@@ -28,6 +28,14 @@ public:
   
   public:
 
+    enum ModeDir {
+        No_dir       = 0,    // row has no Ys in RX/TX cols
+        Input_dir    = 1,    // row has Ys in RX cols
+        Output_dir   = 2,    // row has Ys in TX cols
+        HasBoth_dir  = 3,    // row has at least one Y in both RX and TX cols, and some blanks
+        AllEnabled_dir  = 4  // row has no blanks - Ys in all RX/TX cols (i.e. all modes enabled)
+    };
+
     string groupA_; // 0-A  Group
 
     // columns: B, C, D, I, J, K, L, BU(#72)
@@ -46,6 +54,7 @@ public:
     string fullchipName_; // 13-N  Fullchip_NAME
 
     int row_ = 0;
+    ModeDir dir_ = No_dir;
 
     string  IO_tile_pin_; // column I
     XYZ     xyz_;         // columns J,K,L
@@ -97,6 +106,8 @@ public:
   bool write_csv(const string& fn, uint minRow, uint maxRow) const;
 
   void print_csv() const;
+
+  uint print_bcd_stats(std::ostream& os) const noexcept;
   uint print_bcd(std::ostream& os) const noexcept;
   uint print_axi_bcd(std::ostream& os) const noexcept;
 
@@ -152,6 +163,8 @@ public:
 
   uint row0_GBOX_GPIO() const noexcept { return start_GBOX_GPIO_row_; }
   uint row0_CustomerInternal() const noexcept { return start_CustomerInternal_row_; }
+
+  static const char* str_Mode_dir(BCD::ModeDir t) noexcept;
 
 private:
 

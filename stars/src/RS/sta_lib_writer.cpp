@@ -25,17 +25,17 @@ static const char* str_Pin_type(Pin_type t) noexcept {
   constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
   static_assert( n == INVALID_PIN_TYPE + 1 );
   uint i = uint(t);
-  assert(i < sizeof(enumS) / sizeof(enumS[0]));
+  assert(i < n);
   return enumS[i];
 }
 
 static const char* str_Arc_type(Timing_arc_type t) noexcept {
-  // enum Timing_arc_type      {  TRANSITION,  SETUP,    HOLD  };
+  // enum Timing_arc_type      {  TRANSITION,   SETUP,   HOLD  };
   static const char* enumS[] = { "TRANSITION", "SETUP", "HOLD" };
   constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
   static_assert( n == HOLD + 1 );
   uint i = uint(t);
-  assert(i < sizeof(enumS) / sizeof(enumS[0]));
+  assert(i < n);
   return enumS[i];
 }
 

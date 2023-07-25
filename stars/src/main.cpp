@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0042";
+static const char* _rsbe_VERSION_STR = "rsbe0051";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -166,7 +166,7 @@ int main(int argc, char** argv) {
   bool rsbe_builtin_VPR_TC = getenv("rsbe_builtin_VPR_TC");
   if (rsbe_builtin_STA_TC) {
     lputs("\n(rsbe_builtin_STA_TC)\n");
-    ok = opts.set_STA_TC3();
+    ok = opts.set_STA_TC4();
     if (ok) {
       ok = do_stars(opts, false);
       if (ok) {
