@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0051";
+static const char* _rsbe_VERSION_STR = "rsbe0057";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -74,7 +74,7 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
 
   if (status) {
     ls << "STARS: Creating sta files ... " << endl;
-    if (!sta_file_writer::create_files(argc, argv)) {
+    if (!FileWriter::create_files(argc, argv)) {
       lputs("\n[Error] STARS: Creating sta files failed.");
       cerr << "[Error] STARS: Creating sta files failed." << endl;
       status = false;

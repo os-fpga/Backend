@@ -34,8 +34,27 @@ inline char* p_strdup(const char* p) noexcept {
   return ::strdup(p);
 }
 
+int get_PID() noexcept; // wrapper for getpid() to reduce usage of unistd.h
+
 using std::string;
 using std::vector;
+
+struct Info
+{
+  string name_, absName_;
+
+  size_t size_ = 0;
+  bool exists_ = false;
+  bool accessible_ = false;
+  bool absolute_ = false;
+
+public:
+  Info() noexcept = default;
+
+  Info(const char* nm) noexcept;
+  Info(const string& nm) noexcept;
+  void init() noexcept;
+};
 
 class Fio {
 public:
@@ -290,8 +309,8 @@ public:
   size_t num_commas_ = 0;
   bool valid_csv_ = false;
 
-  // data matrix:
-  vector<string> header_;
+  vector<string> header_;     // original header
+  vector<string> lowHeader_;  // low-case header
 
   // number of rows and columns, without header_
   size_t nr_ = 0, nc_ = 0;
@@ -329,7 +348,24 @@ public:
     return getColumnInt(colName.c_str());
   }
 
+  const string* getRow(uint r) const noexcept {
+    assert(isValidCsv());
+    assert(smat_);
+    assert(nr_ > 0);
+    assert(r < nr_);
+    if (!isValidCsv() || !smat_)
+      return nullptr;
+    assert(smat_[r]);
+    return smat_[r];
+  }
+
+  size_t numRows() const noexcept { return nr_; }
+  size_t numCols() const noexcept { return nc_; }
+
   int dprint1() const noexcept;
+
+  bool writeCsv(const string& fn, uint minRow, uint maxRow) const noexcept;
+  bool printCsv(std::ostream& os, uint minRow, uint maxRow) const noexcept;
 
   static size_t countCommas(const char* src) noexcept;
 

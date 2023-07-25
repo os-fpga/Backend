@@ -15,7 +15,7 @@ using namespace pinc;
 static string create_unconn_net(size_t& unconn_count) noexcept {
   // We increment unconn_count by reference so each
   // call generates a unique name
-  return str::concat(sta_file_writer::unconn_prefix, std::to_string(unconn_count++));
+  return str::concat(FileWriter::unconn_prefix, std::to_string(unconn_count++));
 }
 
 /**
