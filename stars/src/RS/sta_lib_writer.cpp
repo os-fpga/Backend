@@ -216,7 +216,7 @@ void LibWriter::write_lcell(std::ostream& os, const lib_cell& lc) const {
 void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
   uint16_t tr = ltrace();
   const string& lc_name = lc.name();
-  if (tr >= 4) {
+  if (tr >= 7) {
     lprintf("  LW::write_cell_pins( lc= %s )\n", lc_name.c_str());
   }
 
@@ -295,7 +295,7 @@ void LibWriter::write_timing_arc(std::ostream& os,
   bool is_check_arc = (arc_type == SETUP or arc_type == HOLD);
 
   uint16_t tr = ltrace();
-  if (tr >= 4) {
+  if (tr >= 7) {
     lprintf("  LW::write_timing_arc()  baseP= %s (%s)  relatedP= %s (%s)  arc_t:%s  arc-positive:%i\n",
                basePin_nm.c_str(), str_Pin_type(base_pt),
                relatedPin_nm.c_str(), str_Pin_type(related_pt),

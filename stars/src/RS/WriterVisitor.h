@@ -26,7 +26,6 @@
 
 namespace rsbe {
 
-using std::cout;
 using std::endl;
 using std::string;
 using std::stringstream;
@@ -40,21 +39,21 @@ using namespace pinc;
  * It implements the NetlistVisitor interface used by NetlistWalker (see
  * netlist_walker.h)
  */
-class StaWriterVisitor : public NetlistVisitor {
+class WriterVisitor : public NetlistVisitor {
 public:
-  StaWriterVisitor(ostream& verilog_os,
-                   ostream& sdf_os,
-                   ostream& lib_os,
-                   std::shared_ptr<const AnalysisDelayCalculator> delay_calc,
-                   const t_analysis_opts& opts);
+  WriterVisitor(ostream& verilog_os,
+                ostream& sdf_os,
+                ostream& lib_os,
+                const AnalysisDelayCalculator* del_calc,
+                const t_analysis_opts& opts);
 
-  virtual ~StaWriterVisitor();
+  virtual ~WriterVisitor();
 
   // No copy, No move
-  StaWriterVisitor(StaWriterVisitor& other) = delete;
-  StaWriterVisitor(StaWriterVisitor&& other) = delete;
-  StaWriterVisitor& operator=(StaWriterVisitor& rhs) = delete;
-  StaWriterVisitor& operator=(StaWriterVisitor&& rhs) = delete;
+  WriterVisitor(WriterVisitor& other) = delete;
+  WriterVisitor(WriterVisitor&& other) = delete;
+  WriterVisitor& operator=(WriterVisitor& rhs) = delete;
+  WriterVisitor& operator=(WriterVisitor&& rhs) = delete;
 
 private:  // NetlistVisitor interface functions
   void visit_top_impl(const char* top_level_name) override { top_module_name_ = top_level_name; }
@@ -163,8 +162,8 @@ private:
   }
 
   ///@brief Returns a LogicVec representing the LUT mask of the given LUT atom
-  LogicVec load_lut_mask(size_t num_inputs,   // LUT size
-                         const t_pb* atom);   // LUT primitive
+  LogicVec load_lut_mask(uint num_inputs,    // LUT size
+                         const t_pb* atom);  // LUT primitive
 
   /**
    * @brief Helper function for load_lut_mask() which determines how the LUT
@@ -180,120 +179,19 @@ private:
    * The net in the atom netlist which was originally connected to pin i, is
    * connected to pin permute[i] in the implementation.
    */
-  std::vector<int> determine_lut_permutation(size_t num_inputs, const t_pb* atom_pb);
-
-  /**
-   * @brief Helper function for load_lut_mask() which determines if the
-   *        names is encodeing the ON (returns true) or OFF (returns false)
-   * set.
-   */
-  bool names_encodes_on_set(vtr::t_linked_vptr* names_row_ptr) {
-    // Determine the truth (output value) for this row
-    // By default we assume the on-set is encoded to correctly handle
-    // constant true/false
-    //
-    // False output:
-    //      .names j
-    //
-    // True output:
-    //      .names j
-    //      1
-    bool encoding_on_set = true;
-
-    // We may get a nullptr if the output is always false
-    if (names_row_ptr) {
-      // Determine whether the truth table stores the ON or OFF set
-      //
-      //  In blif, the 'output values' of a .names must be either '1' or '0',
-      //  and must be consistent within a single .names -- that is a single
-      //  .names can encode either the ON or OFF set (of which only one will
-      //  be encoded in a single .names)
-      //
-      const string names_first_row = (const char*)names_row_ptr->data_vptr;
-      auto names_first_row_output_iter = names_first_row.end() - 1;
-
-      if (*names_first_row_output_iter == '1') {
-        encoding_on_set = true;
-      } else if (*names_first_row_output_iter == '0') {
-        encoding_on_set = false;
-      } else {
-        VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER,
-                        "Invalid .names truth-table character '%c'. Must be "
-                        "one of '1', '0' or '-'. \n",
-                        *names_first_row_output_iter);
-      }
-    }
-
-    return encoding_on_set;
-  }
-
-  /**
-   * @brief Helper function for load_lut_mask()
-   *
-   * Converts the given names_row string to a LogicVec
-   */
-  LogicVec names_row_to_logic_vec(const string names_row, size_t num_inputs, bool encoding_on_set) {
-    // Get an iterator to the last character (i.e. the output value)
-    auto output_val_iter = names_row.end() - 1;
-
-    // Sanity-check, the 2nd last character should be a space
-    auto space_iter = names_row.end() - 2;
-    assert(*space_iter == ' ');
-
-    // Extract the truth (output value) for this row
-    if (*output_val_iter == '1') {
-      assert(encoding_on_set);
-    } else if (*output_val_iter == '0') {
-      assert(!encoding_on_set);
-    } else {
-      VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER, "Invalid .names encoding both ON and OFF set\n");
-    }
-
-    // Extract the input values for this row
-    LogicVec input_values(num_inputs, vtr::LogicValue::FALSE);
-    size_t i = 0;
-    // Walk through each input in the input cube for this row
-    while (names_row[i] != ' ') {
-      vtr::LogicValue input_val = vtr::LogicValue::UNKOWN;
-      if (names_row[i] == '1') {
-        input_val = vtr::LogicValue::TRUE;
-      } else if (names_row[i] == '0') {
-        input_val = vtr::LogicValue::FALSE;
-      } else if (names_row[i] == '-') {
-        input_val = vtr::LogicValue::DONT_CARE;
-      } else {
-        VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER,
-                        "Invalid .names truth-table character '%c'. Must be "
-                        "one of '1', '0' or '-'. \n",
-                        names_row[i]);
-      }
-
-      input_values[i] = input_val;
-      i++;
-    }
-    return input_values;
-  }
+  std::vector<int> determine_lut_permutation(uint num_inputs, const t_pb* atom_pb);
 
   ///@brief Returns the total number of input pins on the given pb
-  int find_num_inputs(const t_pb* pb) {
-    int count = 0;
-    for (int i = 0; i < pb->pb_graph_node->num_input_ports; i++) {
-      count += pb->pb_graph_node->num_input_pins[i];
+  static uint count_atom_inputs(const t_pb& pb) noexcept {
+    uint count = 0;
+    for (int i = 0; i < pb.pb_graph_node->num_input_ports; i++) {
+      count += pb.pb_graph_node->num_input_pins[i];
     }
     return count;
   }
-  ///@brief Returns the logical net ID
-  AtomNetId find_atom_input_logical_net(const t_pb* atom, int atom_input_idx) {
-    const t_pb_graph_node* pb_node = atom->pb_graph_node;
 
-    int cluster_pin_idx = pb_node->input_pins[0][atom_input_idx].pin_count_in_cluster;
-    const auto& top_pb_route = find_top_pb_route(atom);
-    AtomNetId atom_net_id;
-    if (top_pb_route.count(cluster_pin_idx)) {
-      atom_net_id = top_pb_route[cluster_pin_idx].atom_net_id;
-    }
-    return atom_net_id;
-  }
+  ///@brief Returns the logical net ID
+  AtomNetId find_atom_input_logical_net(const t_pb* atom, int atom_input_idx);
 
   ///@brief Returns the name of the routing segment between two wires
   string interconnect_name(string driver_wire, string sink_wire) {

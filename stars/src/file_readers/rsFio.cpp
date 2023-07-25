@@ -9,13 +9,63 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <filesystem>
 
 namespace fio {
 
 using namespace pinc;
 using namespace std;
 
+int get_PID() noexcept { return ::getpid(); }
+
 static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
+
+Info::Info(const char* nm) noexcept {
+  if (!nm)
+    return;
+  name_ = nm;
+  if (name_.empty())
+    return;
+  init();
+}
+
+Info::Info(const string& nm) noexcept {
+  name_ = nm;
+  if (name_.empty())
+    return;
+  init();
+}
+
+void Info::init() noexcept {
+  namespace fs = std::filesystem;
+  absName_.clear();
+  size_ = 0;
+  exists_ = false;
+  accessible_ = false;
+  absolute_ = false;
+  if (name_.empty())
+    return;
+
+  exists_ = regular_file_exists(name_);
+  if (not exists_)
+    return;
+
+  accessible_ = file_accessible(name_);
+  if (not accessible_)
+    return;
+
+  try {
+    fs::path p{name_};
+    size_ = fs::file_size(p);
+    p = p.lexically_normal();
+    absolute_ = p.is_absolute();
+    p = fs::absolute(p);
+    absName_ = p.string();
+  }
+  catch (...) {
+    // noexcept
+  }
+}
 
 void Fio::setTrace(int t) noexcept {
   if (t <= 0) {
@@ -56,16 +106,14 @@ void Fio::reset(const char* nm, uint16_t tr) noexcept {
   if (nm) fnm_ = nm;
 }
 
-static inline const char* trim_front(const char* z) noexcept
-{
+static inline const char* trim_front(const char* z) noexcept {
   if (z && *z) {
     while (std::isspace(*z)) z++;
   }
   return z;
 }
 
-static inline void tokenize_A(char* A, size_t len, vector<string>& dat)
-{
+static inline void tokenize_A(char* A, size_t len, vector<string>& dat) {
   assert(A && len);
   if (!A or !len)
     return;
@@ -871,7 +919,7 @@ bool addIncludeGuards(LineReader& lr) noexcept {
   assert(lr.fnm_.length() > 1);
   assert(lr.fnm_.length() < 4000);
 
-  char guard[4014] = "__rs_DD_";
+  char guard[4014] = "__rsbe__";
   guard[4000] = 0;
   guard[4001] = 0;
   guard[4002] = 0;
@@ -900,316 +948,7 @@ bool addIncludeGuards(LineReader& lr) noexcept {
 }
 
 
-// ======== 3. CSV_Reader ==============================================
-
-CSV_Reader::~CSV_Reader() {
-  free_num_matrix();
-  free_str_matrix();
-}
-
-void CSV_Reader::reset(const char* nm, uint16_t tr) noexcept {
-  MMapReader::reset(nm, tr);
-
-  free_num_matrix();
-  free_str_matrix();
-
-  num_lines_ = 0;
-  num_commas_ = 0;
-  valid_csv_ = false;
-  headLine_ = nullptr;
-  header_.clear();
-  nr_ = nc_ = 0;
-}
-
-bool CSV_Reader::readCsv(bool cutComments) noexcept {
-  bool ok = read();
-  if (!ok) return false;
-
-  ok = parse(cutComments);
-  return ok;
-}
-
-bool CSV_Reader::parse(bool cutComments) noexcept {
-  if (!sz_ || !fsz_) return false;
-  if (!buf_) return false;
-  if (sz_ < 4) return false;
-
-  num_lines_ = 0;
-  num_commas_ = 0;
-  valid_csv_ = false;
-  headLine_ = nullptr;
-  header_.clear();
-  nr_ = nc_ = 0;
-  smat_ = nullptr;
-  nmat_ = nullptr;
-
-  // 1. replace '\n' by 0 and count lines and commas
-  for (size_t i = 0; i < sz_; i++) {
-    if (buf_[i] == '\n') {
-      buf_[i] = 0;
-      num_lines_++;
-    }
-    if (buf_[i] == ',') num_commas_++;
-  }
-
-  if (num_lines_ < 2 || num_commas_ < 2) return false;
-
-  // 2. make lines_
-  bool ok = makeLines(cutComments, false);
-  if (!ok) return false;
-
-  // 3. count non-empty lines
-  size_t nel = 0;
-  headLine_ = nullptr;
-  for (size_t li = 1; li < lines_.size(); li++) {
-    char* line = lines_[li];
-    if (isEmptyLine(line)) continue;
-    nel++;
-    if (!headLine_) headLine_ = line;
-  }
-  if (nel < 2) return false;
-  if (!headLine_) return false;
-
-  // 4. split headLine_, make header_
-  ok = split_com(headLine_, header_);
-  if (!ok) return false;
-
-  // 5. header_ size() is the number of columns.
-  //    data rows should now have more columns than the header.
-  if (header_.size() < 2 || header_.size() > size_t(INT_MAX)) return false;
-  nr_ = nel - 1;
-  if (nr_ < 2) return false;
-  nc_ = header_.size();
-  if (nc_ < 2) return false;
-  if (trace() >= 3) {
-    lprintf("CReader::parse()  nr_= %zu  nc_= %zu\n", nr_, nc_);
-  }
-  for (size_t li = 1; li <= num_lines_; li++) {
-    char* line = lines_[li];
-    if (isEmptyLine(line)) continue;
-    size_t nCom = countCommas(line);
-    if (!nCom || nCom >= nc_) {
-      if (trace() >= 2) {
-        lprintf("CReader::parse() ERROR: unexpected #commas(%zu) at line %zu of %s\n", nCom, li,
-                fnm_.c_str());
-      }
-      return false;
-    }
-  }
-
-  // 6. allocate matrixes
-  //
-  alloc_num_matrix();
-  assert(nmat_);
-  //
-  alloc_str_matrix();
-  assert(smat_);
-
-  // 6. populate string matrix
-  //
-  vector<string> V;
-  V.reserve(nc_ + 1);
-  size_t lcnt = 0;
-  for (size_t li = 1; li < lines_.size(); li++) {
-    char* line = lines_[li];
-    if (isEmptyLine(line)) continue;
-    if (line == headLine_) continue;
-    V.clear();
-    ok = split_com(line, V);
-    if (!ok) {
-      return false;
-    }
-    assert(!V.empty());
-    assert(V.size() <= nc_);
-    if (V.size() < nc_) V.resize(nc_);
-    string* row = smat_[lcnt];
-    assert(row);
-    for (size_t i = 0; i < nc_; i++) row[i] = V[i];
-    lcnt++;
-  }
-  if (trace() >= 4) lprintf("lcnt= %zu\n", lcnt);
-  assert(lcnt == nr_);
-
-  // 7. populate number-martrix
-  //
-  V.clear();
-  lcnt = 0;
-  for (size_t li = 1; li < lines_.size(); li++) {
-    char* line = lines_[li];
-    if (isEmptyLine(line)) continue;
-    if (line == headLine_) continue;
-    V.clear();
-    ok = split_com(line, V);
-    if (!ok) {
-      return false;
-    }
-    assert(!V.empty());
-    assert(V.size() <= nc_);
-    if (V.size() < nc_) V.resize(nc_);
-    int* row = nmat_[lcnt];
-    assert(row);
-    for (size_t i = 0; i < nc_; i++) {
-      if (V[i].empty()) {
-        row[i] = -1;
-        continue;
-      }
-      const char* cs = V[i].c_str();
-      if (!is_integer(cs)) {
-        row[i] = -1;
-        continue;
-      }
-      row[i] = ::atoi(cs);
-    }
-    lcnt++;
-  }
-  if (trace() >= 4) lprintf("lcnt= %zu\n", lcnt);
-  assert(lcnt == nr_);
-
-  valid_csv_ = true;
-  return true;
-}
-
-void CSV_Reader::alloc_num_matrix() noexcept {
-  assert(!nmat_);
-  assert(nr_ > 1 && nc_ > 1);
-
-  nmat_ = new int*[nr_ + 2];
-  for (size_t r = 0; r < nr_ + 2; r++) {
-    nmat_[r] = new int[nc_ + 2];
-    ::memset(nmat_[r], 0, (nc_ + 2) * sizeof(int));
-  }
-}
-
-void CSV_Reader::alloc_str_matrix() noexcept {
-  assert(!smat_);
-  assert(nr_ > 1 && nc_ > 1);
-
-  smat_ = new string*[nr_ + 2];
-  for (size_t r = 0; r < nr_ + 2; r++) {
-    smat_[r] = new string[nc_ + 2];
-  }
-}
-
-void CSV_Reader::free_num_matrix() noexcept {
-  if (!nmat_) {
-    nr_ = nc_ = 0;
-    return;
-  }
-  if (nr_ < 2) {
-    nmat_ = nullptr;
-    return;
-  }
-
-  for (size_t r = 0; r < nr_ + 2; r++) delete[] nmat_[r];
-
-  delete[] nmat_;
-  nmat_ = nullptr;
-}
-
-void CSV_Reader::free_str_matrix() noexcept {
-  if (!smat_) {
-    nr_ = nc_ = 0;
-    return;
-  }
-  if (nr_ < 2) {
-    smat_ = nullptr;
-    return;
-  }
-
-  for (size_t r = 0; r < nr_ + 2; r++) delete[] smat_[r];
-
-  delete[] smat_;
-  smat_ = nullptr;
-}
-
-bool CSV_Reader::isValidCsv() const noexcept {
-  if (!sz_ || !fsz_) return false;
-  if (!buf_) return false;
-
-  if (num_lines_ < 2 || num_commas_ < 2) return false;
-
-  return valid_csv_;
-}
-
-uint CSV_Reader::findColumn(const char* colName) const noexcept {
-  if (!colName || !colName[0]) return UINT_MAX;
-  if (!isValidCsv()) return UINT_MAX;
-  if (!smat_ || nr_ < 2 || nc_ < 2 || header_.empty()) return UINT_MAX;
-
-  assert(nc_ == header_.size());
-  assert(nc_ < UINT_MAX);
-
-  uint idx = UINT_MAX;
-  for (size_t i = 0; i < nc_; i++) {
-    if (header_[i] == colName) {
-      idx = i;
-      break;
-    }
-  }
-  return idx;
-}
-
-vector<string> CSV_Reader::getColumn(const char* colName) const noexcept {
-  assert(nmat_);
-  uint idx = findColumn(colName);
-  if (idx == UINT_MAX) {
-    if (trace() >= 3) lprintf("CSV_Reader: column not found: %s\n", colName);
-    return {};
-  }
-
-  vector<string> result;
-  result.resize(nr_);
-  for (size_t r = 0; r < nr_; r++) {
-    assert(smat_[r]);
-    result[r] = smat_[r][idx];
-  }
-
-  return result;
-}
-
-vector<int> CSV_Reader::getColumnInt(const char* colName) const noexcept {
-  assert(nmat_);
-  uint idx = findColumn(colName);
-  if (idx == UINT_MAX) {
-    if (trace() >= 3) lprintf("CSV_Reader: column not found: %s\n", colName);
-    return {};
-  }
-
-  vector<int> result;
-  result.resize(nr_);
-  for (size_t r = 0; r < nr_; r++) {
-    assert(nmat_[r]);
-    result[r] = nmat_[r][idx];
-  }
-
-  return result;
-}
-
-int CSV_Reader::dprint1() const noexcept {
-  lprintf("  fname: %s\n", fnm_.c_str());
-  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  num_commas_=%zu  nr_=%zu  nc_=%zu\n", fsz_, sz_,
-          num_lines_, num_commas_, nr_, nc_);
-
-  lprintf("    valid_csv_: %i\n", valid_csv_);
-  lprintf("    headLine_: %s\n", headLine_ ? headLine_ : "(NULL)");
-  lprintf("    header_.size()= %zu\n", header_.size());
-  logVec(header_, "    header_:");
-  lprintf("    lines_.size()= %zu\n", lines_.size());
-  if (lines_.size() > 3 && lines_[2] && nc_ < 400) lprintf("    lines_[2]  %s\n", lines_[2]);
-
-  return sz_;
-}
-
-size_t CSV_Reader::countCommas(const char* src) noexcept {
-  if (!src || !src[0]) return 0;
-  size_t cnt = 0;
-  for (const char* p = src; *p; p++) {
-    if (*p == ',') cnt++;
-  }
-  return cnt;
-}
-
-// ======== 3. XML_Reader ==============================================
+// ======== 4. XML_Reader ==============================================
 
 using namespace tinxml2;
 

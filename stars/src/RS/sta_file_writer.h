@@ -11,13 +11,21 @@ namespace rsbe {
 
 using std::string;
 
-class sta_file_writer {
+class FileWriter {
 private:
-  // design info
-  std::string design_name_;
+  string design_name_;
+
+  string lib_fn_;      // = design_name_ + "_stars.lib";
+  string verilog_fn_;  // = design_name_ + "_stars.v";
+  string sdf_fn_;      // = design_name_ + "_stars.sdf";
+  string sdc_fn_;      // = design_name_ + "_stars.sdc";
+
+  FileWriter() { design_name_ = g_vpr_ctx.atom().nlist.netlist_name(); }
+
+  bool do_files(int argc, const char** argv);
+  void printStats() const;
 
 public:
-  // utilities
 
   // Unconnected net prefix
   static constexpr const char* unconn_prefix = "__vpr__unconn";
@@ -26,10 +34,6 @@ public:
 
   // API
   static bool create_files(int argc, const char** argv);
-
-  sta_file_writer() { design_name_ = g_vpr_ctx.atom().nlist.netlist_name(); }
-
-  bool do_files(int argc, const char** argv);
 };
 
 // This pair cointains the following values:
