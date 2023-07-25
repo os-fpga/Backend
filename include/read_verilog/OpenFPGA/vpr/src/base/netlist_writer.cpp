@@ -36,6 +36,7 @@
 #include "hdl_encrypt.h"
 #include "VerificStream.h"
 #include "Strings.h"
+
 #include "vcs_enc_support.h"
 
 #include <filesystem>

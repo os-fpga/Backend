@@ -9,6 +9,7 @@
 #include "vtr_log.h"
 #include "vtr_util.h"
 #include "vtr_path.h"
+#include <string>
 
 using argparse::ConvertedValue;
 using argparse::Provenance;
@@ -407,9 +408,7 @@ struct ParsePlaceAlgorithm {
         } else if (str == "criticality_timing") {
             conv_value.set_value(CRITICALITY_TIMING_PLACE);
         } else if (str == "slack_timing") {
-            conv_value.set_value(SLACK_TIMING_PLACE); 
-        } else if (str == "congestion_aware"){
-            conv_value.set_value(CONGESTION_AWARE_PLACE);
+            conv_value.set_value(SLACK_TIMING_PLACE);
         } else {
             std::stringstream msg;
             msg << "Invalid conversion from '" << str << "' to e_place_algorithm (expected one of: " << argparse::join(default_choices(), ", ") << ")";
@@ -430,9 +429,7 @@ struct ParsePlaceAlgorithm {
         if (val == BOUNDING_BOX_PLACE) {
             conv_value.set_value("bounding_box");
         } else if (val == CRITICALITY_TIMING_PLACE) {
-            conv_value.set_value("criticality_timing"); 
-        } else if (val == CONGESTION_AWARE_PLACE) {
-            conv_value.set_value("congestion_aware");
+            conv_value.set_value("criticality_timing");
         } else {
             VTR_ASSERT(val == SLACK_TIMING_PLACE);
             conv_value.set_value("slack_timing");
@@ -441,7 +438,7 @@ struct ParsePlaceAlgorithm {
     }
 
     std::vector<std::string> default_choices() {
-       return {"bounding_box", "criticality_timing", "slack_timing","congestion_aware"};
+        return {"bounding_box", "criticality_timing", "slack_timing"};
     }
 };
 
@@ -1570,8 +1567,16 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Reads the lookahead data from the specified file instead of computing it.")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
+    file_grp.add_argument(args.read_intra_cluster_router_lookahead, "--read_intra_cluster_router_lookahead")
+        .help("Reads the intra-cluster lookahead data from the specified file.")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
     file_grp.add_argument(args.write_router_lookahead, "--write_router_lookahead")
         .help("Writes the lookahead data to the specified file.")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    file_grp.add_argument(args.write_intra_cluster_router_lookahead, "--write_intra_cluster_router_lookahead")
+        .help("Writes the intra-cluster lookahead data to the specified file.")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     file_grp.add_argument(args.read_placement_delay_lookup, "--read_placement_delay_lookup")
@@ -1792,6 +1797,19 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("on")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
+    pack_grp.add_argument(args.pack_num_moves, "--pack_num_moves")
+        .help(
+            "The number of moves that can be tried in packing stage")
+        .default_value("100000")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    pack_grp.add_argument(args.pack_move_type, "--pack_move_type")
+        .help(
+            "The move type used in packing."
+            "The available values are: randomSwap, semiDirectedSwap, semiDirectedSameTypeSwap")
+        .default_value("semiDirectedSwap")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
     auto& place_grp = parser.add_argument_group("placement options");
 
     place_grp.add_argument(args.Seed, "--seed")
@@ -1897,7 +1915,7 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
             " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
-        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
+        .choices({"bounding_box", "criticality_timing", "slack_timing"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument<e_place_algorithm, ParsePlaceAlgorithm>(args.PlaceQuenchAlgorithm, "--place_quench_algorithm")
@@ -1909,7 +1927,7 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
             " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
-        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
+        .choices({"bounding_box", "criticality_timing", "slack_timing"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument(args.PlaceChanWidth, "--place_chan_width")
@@ -2020,7 +2038,8 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
     place_grp.add_argument(args.place_reward_fun, "--place_reward_fun")
         .help(
             "The reward function used by placement RL agent."
-            "The available values are: basic, nonPenalizing_basic, runtime_aware, WLbiased_runtime_aware")
+            "The available values are: basic, nonPenalizing_basic, runtime_aware, WLbiased_runtime_aware"
+            "The latter two are only available for timing-driven placement.")
         .default_value("WLbiased_runtime_aware")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
@@ -2087,12 +2106,6 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Trade-off control between delay and wirelength during placement."
             " 0.0 focuses completely on wirelength, 1.0 completely on timing")
         .default_value("0.5")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-            place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
-        .help(
-            "Trade-off control between routability and timing during placement."
-            " 0.0 focuses completely on routability, 1.0 completely on timing")
-        .default_value("1.0")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_timing_grp.add_argument(args.RecomputeCritIter, "--recompute_crit_iter")
@@ -2330,6 +2343,15 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
 
     route_grp.add_argument(args.flat_routing, "--flat_routing")
         .help("Enable VPR's flat routing (routing the nets from the source primitive to the destination primitive)")
+        .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    route_grp.add_argument(args.has_choking_spot, "--has_choking_spot")
+        .help(
+            ""
+            "Some FPGA architectures, due to the lack of full connectivity inside the cluster, may have"
+            " a choking spot inside the cluster. Thus, if routing doesn't converge, enabling this option may"
+            " help it.")
         .default_value("false")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
@@ -2680,6 +2702,42 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "* bfs_routing: Uses the breadth first search algorithm. The objective is to find a route that uses a minimum number of links.\n"
             "This can be used with any NoC topology\n")
         .default_value("bfs_routing")
+        .choices({"xy_routing", "bfs_routing"})
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<double>(args.noc_placement_weighting, "--noc_placement_weighting")
+        .help(
+            "Controls the importance of the NoC placement parameters relative to timing and wirelength of the design."
+            "This value can be >=0, where 0 would mean the placement is based solely on timing and wirelength, a value of 1 would mean noc placement is considered equal to timing and wirelength and a value greater than 1 would mean the placement is increasingly dominated by NoC parameters.")
+        .default_value("0.6")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<double>(args.noc_latency_constraints_weighting, "--noc_latency_constraints_weighting")
+        .help(
+            "Controls the importance of meeting all the NoC traffic flow latency constraints."
+            "This value can be >=0, where 0 would mean the latency constraints have no relevance to placement, a value of 1 would mean the latency constraints are weighted equally to the sum of other placement cost components and a value greater than 1 would mean the placement is increasingly dominated by meeting the latency constraints of the traffic flows.")
+        .default_value("1")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<double>(args.noc_latency_weighting, "--noc_latency_weighting")
+        .help(
+            "Controls the importance of reducing the latencies of the NoC traffic flows."
+            "This value can be >=0, where 0 would mean the latencies have no relevance to placement, a value of 1 would mean the latencies  are weighted equally to the sum of other placement cost components and a value greater than 1 would mean the placement is increasingly dominated by reducing the latencies of the traffic flows.")
+        .default_value("0.05")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<double>(args.noc_swap_percentage, "--noc_swap_percentage")
+        .help(
+            "Sets the minimum fraction of swaps attempted by the placer that are NoC blocks."
+            "This value is an integer ranging from 0-100. 0 means NoC blocks will be moved at the same rate as other blocks. 100 means all swaps attempted by the placer are NoC router blocks.")
+        .default_value("40")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<std::string>(args.noc_placement_file_name, "--noc_placement_file_name")
+        .help(
+            "Name of the output file that contains the NoC placement information."
+            "The default name is 'vpr_noc_placement_output.txt'")
+        .default_value("vpr_noc_placement_output.txt")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     return parser;
@@ -2779,6 +2837,19 @@ void set_conditional_defaults(t_options& args) {
             args.PlaceAlgorithm.set(CRITICALITY_TIMING_PLACE, Provenance::INFERRED);
         } else {
             args.PlaceAlgorithm.set(BOUNDING_BOX_PLACE, Provenance::INFERRED);
+        }
+    }
+
+    // Check for correct options combinations
+    // If you are running WLdriven placement, the RL reward function should be
+    // either basic or nonPenalizing basic
+    if (args.RL_agent_placement && (args.PlaceAlgorithm == BOUNDING_BOX_PLACE || !args.timing_analysis)) {
+        if (args.place_reward_fun.value() != "basic" && args.place_reward_fun.value() != "nonPenalizing_basic") {
+            VTR_LOG_WARN(
+                "To use RLPlace for WLdriven placements, the reward function should be basic or nonPenalizing_basic.\n"
+                "you can specify the reward function using --place_reward_fun.\n"
+                "Setting the placement reward function to \"basic\"\n");
+            args.place_reward_fun.set("basic", Provenance::INFERRED);
         }
     }
 
