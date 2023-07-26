@@ -8,6 +8,7 @@
 #include "globals.h"
 #include "draw_global.h"
 #include "place_constraints.h"
+#include <cassert>
 
 /* File-scope routines */
 static vtr::Matrix<t_grid_blocks> init_grid_blocks();

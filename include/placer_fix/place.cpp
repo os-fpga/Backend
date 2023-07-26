@@ -66,6 +66,7 @@
 #include "cluster_placement.h"
 
 #include "noc_place_utils.h"
+#include <cassert>
 
 /*  define the RL agent's reward function factor constant. This factor controls the weight of bb cost *
  *  compared to the timing cost in the agent's reward function. The reward is calculated as           *
