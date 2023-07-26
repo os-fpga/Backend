@@ -8,7 +8,6 @@
 #include "globals.h"
 #include "draw_global.h"
 #include "place_constraints.h"
-#include <cassert>
 
 /* File-scope routines */
 static vtr::Matrix<t_grid_blocks> init_grid_blocks();
@@ -45,16 +44,12 @@ static vtr::Matrix<t_grid_blocks> init_grid_blocks() {
     /* Structure should have the same dimensions as the grid. */
     auto grid_blocks = vtr::Matrix<t_grid_blocks>({device_ctx.grid.width(), device_ctx.grid.height()});
 
-// SERGE_BUILD_FIX
-assert(0);
-/*
     for (size_t x = 0; x < device_ctx.grid.width(); ++x) {
         for (size_t y = 0; y < device_ctx.grid.height(); ++y) {
-            auto type = device_ctx.grid[x][y].type;
+            auto type = device_ctx.grid.get_physical_type(x, y);
             grid_blocks[x][y].blocks.resize(type->capacity, EMPTY_BLOCK_ID);
         }
     }
-*/
     return grid_blocks;
 }
 
@@ -363,9 +358,6 @@ void load_grid_blocks_from_block_locs() {
 }
 
 void zero_initialize_grid_blocks() {
-// SERGE_BUILD_FIX
-assert(0);
-#if 0
     auto& device_ctx = g_vpr_ctx.device();
     auto& place_ctx = g_vpr_ctx.mutable_placement();
 
@@ -374,7 +366,7 @@ assert(0);
     for (size_t i = 0; i < device_ctx.grid.width(); i++) {
         for (size_t j = 0; j < device_ctx.grid.height(); j++) {
             place_ctx.grid_blocks[i][j].usage = 0;
-            auto tile = device_ctx.grid[i][j].type;
+            auto tile = device_ctx.grid.get_physical_type(i, j);
 
             for (auto sub_tile : tile->sub_tiles) {
                 auto capacity = sub_tile.capacity;
@@ -387,7 +379,6 @@ assert(0);
             }
         }
     }
-#endif //0
 }
 
 /**
@@ -400,9 +391,6 @@ assert(0);
  *
  */
 void alloc_and_load_legal_placement_locations(std::vector<std::vector<std::vector<t_pl_loc>>>& legal_pos) {
-// SERGE_BUILD_FIX
-assert(0);
-#if 0
     auto& device_ctx = g_vpr_ctx.device();
     auto& place_ctx = g_vpr_ctx.placement();
 
@@ -417,7 +405,7 @@ assert(0);
     //load the legal placement positions
     for (size_t i = 0; i < device_ctx.grid.width(); i++) {
         for (size_t j = 0; j < device_ctx.grid.height(); j++) {
-            auto tile = device_ctx.grid[i][j].type;
+            auto tile = device_ctx.grid.get_physical_type(i, j);
 
             for (auto sub_tile : tile->sub_tiles) {
                 auto capacity = sub_tile.capacity;
@@ -428,7 +416,7 @@ assert(0);
                     }
                     // If this is the anchor position of a block, add it to the legal_pos.
                     // Otherwise don't, so large blocks aren't added multiple times.
-                    if (device_ctx.grid[i][j].width_offset == 0 && device_ctx.grid[i][j].height_offset == 0) {
+                    if (device_ctx.grid.get_width_offset(i, j) == 0 && device_ctx.grid.get_height_offset(i, j) == 0) {
                         int itype = tile->index;
                         int isub_tile = sub_tile.index;
                         t_pl_loc temp_loc;
@@ -443,13 +431,9 @@ assert(0);
     }
     //avoid any memory waste
     legal_pos.shrink_to_fit();
-#endif //0
 }
 
 void set_block_location(ClusterBlockId blk_id, const t_pl_loc& location) {
-// SERGE_BUILD_FIX
-assert(0);
-#if 0
     auto& place_ctx = g_vpr_ctx.mutable_placement();
     auto& device_ctx = g_vpr_ctx.device();
     auto& cluster_ctx = g_vpr_ctx.clustering();
@@ -468,7 +452,7 @@ assert(0);
     place_ctx.block_locs[blk_id].loc.sub_tile = location.sub_tile;
 
     //Check if block is at an illegal location
-    auto physical_tile = device_ctx.grid[location.x][location.y].type;
+    auto physical_tile = device_ctx.grid.get_physical_type(location.x, location.y);
     auto logical_block = cluster_ctx.clb_nlist.block_type(blk_id);
 
     if (location.sub_tile >= physical_tile->capacity || location.sub_tile < 0) {
@@ -484,7 +468,6 @@ assert(0);
     place_ctx.grid_blocks[location.x][location.y].usage++;
 
     place_sync_external_block_connections(blk_id);
-#endif //0
 }
 
 bool macro_can_be_placed(t_pl_macro pl_macro, t_pl_loc head_pos, bool check_all_legality) {
@@ -499,9 +482,6 @@ bool macro_can_be_placed(t_pl_macro pl_macro, t_pl_loc head_pos, bool check_all_
     // Every macro can be placed until proven otherwise
     bool mac_can_be_placed = true;
 
-// SERGE_BUILD_FIX
-assert(0);
-#if 0
     // Check whether all the members can be placed
     for (size_t imember = 0; imember < pl_macro.members.size(); imember++) {
         t_pl_loc member_pos = head_pos + pl_macro.members[imember].offset;
@@ -544,7 +524,7 @@ assert(0);
         // Then check whether the location could still accommodate more blocks
         // Also check whether the member position is valid, and the member_z is allowed at that location on the grid
         if (member_pos.x < int(device_ctx.grid.width()) && member_pos.y < int(device_ctx.grid.height())
-            && is_tile_compatible(device_ctx.grid[member_pos.x][member_pos.y].type, block_type)
+            && is_tile_compatible(device_ctx.grid.get_physical_type(member_pos.x, member_pos.y), block_type)
             && place_ctx.grid_blocks[member_pos.x][member_pos.y].blocks[member_pos.sub_tile] == EMPTY_BLOCK_ID) {
             // Can still accommodate blocks here, check the next position
             continue;
@@ -554,7 +534,6 @@ assert(0);
             break;
         }
     }
-#endif //0
 
     return (mac_can_be_placed);
 }
