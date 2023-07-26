@@ -44,12 +44,16 @@ static vtr::Matrix<t_grid_blocks> init_grid_blocks() {
     /* Structure should have the same dimensions as the grid. */
     auto grid_blocks = vtr::Matrix<t_grid_blocks>({device_ctx.grid.width(), device_ctx.grid.height()});
 
+// SERGE_BUILD_FIX
+assert(0);
+/*
     for (size_t x = 0; x < device_ctx.grid.width(); ++x) {
         for (size_t y = 0; y < device_ctx.grid.height(); ++y) {
             auto type = device_ctx.grid[x][y].type;
             grid_blocks[x][y].blocks.resize(type->capacity, EMPTY_BLOCK_ID);
         }
     }
+*/
     return grid_blocks;
 }
 
@@ -358,6 +362,9 @@ void load_grid_blocks_from_block_locs() {
 }
 
 void zero_initialize_grid_blocks() {
+// SERGE_BUILD_FIX
+assert(0);
+#if 0
     auto& device_ctx = g_vpr_ctx.device();
     auto& place_ctx = g_vpr_ctx.mutable_placement();
 
@@ -379,6 +386,7 @@ void zero_initialize_grid_blocks() {
             }
         }
     }
+#endif //0
 }
 
 /**
@@ -391,6 +399,9 @@ void zero_initialize_grid_blocks() {
  *
  */
 void alloc_and_load_legal_placement_locations(std::vector<std::vector<std::vector<t_pl_loc>>>& legal_pos) {
+// SERGE_BUILD_FIX
+assert(0);
+#if 0
     auto& device_ctx = g_vpr_ctx.device();
     auto& place_ctx = g_vpr_ctx.placement();
 
@@ -431,9 +442,13 @@ void alloc_and_load_legal_placement_locations(std::vector<std::vector<std::vecto
     }
     //avoid any memory waste
     legal_pos.shrink_to_fit();
+#endif //0
 }
 
 void set_block_location(ClusterBlockId blk_id, const t_pl_loc& location) {
+// SERGE_BUILD_FIX
+assert(0);
+#if 0
     auto& place_ctx = g_vpr_ctx.mutable_placement();
     auto& device_ctx = g_vpr_ctx.device();
     auto& cluster_ctx = g_vpr_ctx.clustering();
@@ -468,6 +483,7 @@ void set_block_location(ClusterBlockId blk_id, const t_pl_loc& location) {
     place_ctx.grid_blocks[location.x][location.y].usage++;
 
     place_sync_external_block_connections(blk_id);
+#endif //0
 }
 
 bool macro_can_be_placed(t_pl_macro pl_macro, t_pl_loc head_pos, bool check_all_legality) {
@@ -482,6 +498,9 @@ bool macro_can_be_placed(t_pl_macro pl_macro, t_pl_loc head_pos, bool check_all_
     // Every macro can be placed until proven otherwise
     bool mac_can_be_placed = true;
 
+// SERGE_BUILD_FIX
+assert(0);
+#if 0
     // Check whether all the members can be placed
     for (size_t imember = 0; imember < pl_macro.members.size(); imember++) {
         t_pl_loc member_pos = head_pos + pl_macro.members[imember].offset;
@@ -534,6 +553,7 @@ bool macro_can_be_placed(t_pl_macro pl_macro, t_pl_loc head_pos, bool check_all_
             break;
         }
     }
+#endif //0
 
     return (mac_can_be_placed);
 }

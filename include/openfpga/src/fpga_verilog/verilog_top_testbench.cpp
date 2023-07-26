@@ -1147,6 +1147,8 @@ static void print_verilog_top_testbench_benchmark_instance(
   const PinConstraints& pin_constraints, const BusGroup& bus_group,
   const std::vector<std::string>& clock_port_names,
   const bool& explicit_port_mapping) {
+// SERGE_BUILD_FIX
+#if 0
   /* Validate the file stream */
   valid_file_stream(fp);
 
@@ -1167,6 +1169,7 @@ static void print_verilog_top_testbench_benchmark_instance(
 
   /* Add an empty line as splitter */
   fp << std::endl;
+#endif //0
 }
 
 /********************************************************************
@@ -2448,11 +2451,13 @@ int print_verilog_full_testbench(
   const FabricGlobalPortInfo& global_ports, const AtomContext& atom_ctx,
   const PlacementContext& place_ctx, const PinConstraints& pin_constraints,
   const BusGroup& bus_group, const std::string& bitstream_file,
-  const IoLocationMap& io_location_map,
+  const IoLocationMap& io_location_map, const IoNameMap& io_name_map,
   const VprNetlistAnnotation& netlist_annotation,
   const std::string& circuit_name, const std::string& verilog_fname,
   const SimulationSetting& simulation_parameters,
   const VerilogTestbenchOption& options) {
+// SERGE_BUILD_FIX
+#if 0
   bool fast_configuration = options.fast_configuration();
   bool explicit_port_mapping = options.explicit_port_mapping();
 
@@ -2671,6 +2676,7 @@ int print_verilog_full_testbench(
   fp.close();
 
   return status;
+#endif //0
 }
 
 } /* end namespace openfpga */

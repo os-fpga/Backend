@@ -7,6 +7,7 @@
 #include "placer_globals.h"
 
 #include <limits>
+#include <cassert>
 
 struct MoveOutcomeStats {
     float delta_cost_norm = std::numeric_limits<float>::quiet_NaN();
@@ -33,6 +34,10 @@ struct MoveTypeStat {
     std::vector<int> num_moves;
     std::vector<int> accepted_moves;
     std::vector<int> aborted_moves;
+
+  // SERGE_BUILD_FIX: upstream fields were renamed. aborted_moves -> rejected_moves, etc.
+  std::vector<int> blk_type_moves;
+  std::vector<int> rejected_moves;
 };
 
 /**
@@ -57,7 +62,19 @@ class MoveGenerator {
      *  @param placer_opts: all the placer options
      *  @param criticalities: the placer criticalities, useful for timing directed moves
      */
-    virtual e_create_move propose_move(t_pl_blocks_to_be_moved& blocks_affected, e_move_type& /*move_type*/, float rlim, const t_placer_opts& placer_opts, const PlacerCriticalities* criticalities) = 0;
+    // SERGE_BUILD_FIX virtual e_create_move propose_move(t_pl_blocks_to_be_moved& blocks_affected, e_move_type& /*move_type*/, float rlim, const t_placer_opts& placer_opts, const PlacerCriticalities* criticalities) = 0;
+    // SERGE_BUILD_FIX: temorarily made propose_move() non-pure-virtual, otherwise StaticMoveGenerator did not compile.
+    virtual e_create_move propose_move(t_pl_blocks_to_be_moved& blocks_affected, e_move_type& /*move_type*/, float rlim, const t_placer_opts& placer_opts, const PlacerCriticalities* criticalities)
+    {
+      assert(0);
+      return e_create_move::ABORT;
+    }
+    // SERGE_BUILD_FIX: extra fake overload for propose_move() - remove after absorbing the upstream
+    virtual e_create_move propose_move(t_pl_blocks_to_be_moved&, e_move_type&, t_logical_block_type&, float&, const t_placer_opts&, const PlacerCriticalities*)
+    {
+      assert(0);
+      return e_create_move::ABORT;
+    }
 
     /**
      * @brief Recieves feedback about the outcome of the previously proposed move
