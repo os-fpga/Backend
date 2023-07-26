@@ -985,6 +985,18 @@ enum e_agent_algorithm {
     SOFTMAX
 };
 
+/**
+ * @brief Used to determines the dimensionality of the RL agent exploration space
+ *
+ * Agent exploration space can be either based on only move types or
+ * can be based on (block_type, move_type) pair.
+ *
+ */
+enum e_agent_space {
+    MOVE_TYPE,
+    MOVE_BLOCK_TYPE
+};
+
 ///@brief Used to calculate the inner placer loop's block swapping limit move_lim.
 enum e_place_effort_scaling {
     CIRCUIT,       ///<Effort scales based on circuit size only
@@ -1116,6 +1128,7 @@ struct t_placer_opts {
     float place_agent_epsilon;
     float place_agent_gamma;
     float place_dm_rlim;
+    e_agent_space place_agent_space;
     //int place_timing_cost_func;
     std::string place_reward_fun;
     float place_crit_limit;

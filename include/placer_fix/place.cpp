@@ -66,6 +66,7 @@
 #include "cluster_placement.h"
 
 #include "noc_place_utils.h"
+#include <cassert>
 
 /*  define the RL agent's reward function factor constant. This factor controls the weight of bb cost *
  *  compared to the timing cost in the agent's reward function. The reward is calculated as           *
@@ -776,7 +777,8 @@ void try_place(const Netlist<>& net_list,
 
     // if the noc option was turned on then setup the noc placement stats datastructure
     if (noc_opts.noc) {
-        initialize_noc_placement_stats(placer_opts);
+        // SERGE_BUILD_FIX
+        // initialize_noc_placement_stats(placer_opts);
     }
 
     /* Get the first range limiter */
@@ -1064,8 +1066,9 @@ void try_place(const Netlist<>& net_list,
     print_placement_move_types_stats(move_type_stat);
 
     if (noc_opts.noc) {
-        print_noc_placement_stats();
-        write_noc_placement_file(noc_opts.noc_placement_file_name);
+        // SERGE_BUILD_FIX
+        // print_noc_placement_stats();
+        // write_noc_placement_file(noc_opts.noc_placement_file_name);
     }
 
     free_placement_structs(placer_opts, noc_opts);
@@ -1238,6 +1241,9 @@ static void recompute_costs_from_scratch(const t_placer_opts& placer_opts,
                                          const PlaceDelayModel* delay_model,
                                          const PlacerCriticalities* criticalities,
                                          t_placer_costs* costs) {
+// SERGE_BUILD_FIX
+assert(0);
+#if 0
     double new_bb_cost = recompute_bb_cost();
     double new_cong_cost = 0.0;
     if(placer_opts.place_algorithm == CONGESTION_AWARE_PLACE){
@@ -1301,6 +1307,7 @@ static void recompute_costs_from_scratch(const t_placer_opts& placer_opts,
         }
         costs->noc_latency_cost = new_noc_latency_cost;
     }
+#endif //0
 }
 
 /*only count non-global connections */
@@ -1623,10 +1630,13 @@ static e_move_result try_swap(const t_annealing_state* state,
         double noc_latency_delta_c = 0;             // change in the NoC latency cost
         /* Update the NoC datastructure and costs*/
         if (noc_opts.noc) {
+            // SERGE_BUILD_FIX
+            #if 0
             number_of_affected_noc_traffic_flows = find_affected_noc_routers_and_update_noc_costs(blocks_affected, noc_aggregate_bandwidth_delta_c, noc_latency_delta_c, noc_opts);
 
             // Include the NoC delata costs in the total cost change for this swap
             delta_c = delta_c + noc_placement_weighting * (noc_latency_delta_c * costs->noc_latency_cost_norm + noc_aggregate_bandwidth_delta_c * costs->noc_aggregate_bandwidth_cost_norm);
+            #endif //0
         }
 
         /* 1 -> move accepted, 0 -> rejected. */
@@ -1678,6 +1688,9 @@ static e_move_result try_swap(const t_annealing_state* state,
             commit_move_blocks(blocks_affected);
 
             if (noc_opts.noc) {
+              // SERGE_BUILD_FIX
+              assert(0);
+              #if 0
                 commit_noc_costs(number_of_affected_noc_traffic_flows);
 
                 costs->noc_aggregate_bandwidth_cost += noc_aggregate_bandwidth_delta_c;
@@ -1687,6 +1700,7 @@ static e_move_result try_swap(const t_annealing_state* state,
                 if (number_of_affected_noc_traffic_flows != 0) {
                     update_noc_placement_stats((int)move_type);
                 }
+              #endif //0
             }
 
             ++move_type_stat.accepted_moves[(int)move_type];
@@ -3170,6 +3184,9 @@ static int check_placement_consistency() {
 static int check_block_placement_consistency() {
     int error = 0;
 
+// SERGE_BUILD_FIX
+assert(0);
+#if 0
     auto& cluster_ctx = g_vpr_ctx.clustering();
     auto& place_ctx = g_vpr_ctx.placement();
     auto& device_ctx = g_vpr_ctx.device();
@@ -3232,7 +3249,7 @@ static int check_block_placement_consistency() {
                           size_t(blk_id), bdone[blk_id]);
             error++;
         }
-
+#endif //0
     return error;
 }
 
@@ -3366,6 +3383,9 @@ static void print_place_status(const t_annealing_state& state,
 }
 
 static void print_resources_utilization() {
+// SERGE_BUILD_FIX
+assert(0);
+#if 0
     auto& place_ctx = g_vpr_ctx.placement();
     auto& cluster_ctx = g_vpr_ctx.clustering();
     auto& device_ctx = g_vpr_ctx.device();
@@ -3404,6 +3424,7 @@ static void print_resources_utilization() {
         }
     }
     VTR_LOG("\n");
+#endif //0
 }
 
 static void print_placement_swaps_stats(const t_annealing_state& state) {

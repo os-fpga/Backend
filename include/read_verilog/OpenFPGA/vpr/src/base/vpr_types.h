@@ -912,7 +912,8 @@ struct t_annealing_sched {
 enum e_place_algorithm {
     BOUNDING_BOX_PLACE,
     CRITICALITY_TIMING_PLACE,
-    SLACK_TIMING_PLACE
+    SLACK_TIMING_PLACE,
+    CONGESTION_AWARE_PLACE
 };
 
 /**
@@ -956,7 +957,7 @@ class t_place_algorithm {
 
     ///@brief Check if the algorithm belongs to the timing driven category.
     inline bool is_timing_driven() const {
-        return algo == CRITICALITY_TIMING_PLACE || algo == SLACK_TIMING_PLACE;
+        return algo == CRITICALITY_TIMING_PLACE || algo == SLACK_TIMING_PLACE || algo== CONGESTION_AWARE_PLACE;
     }
 
     ///@brief Accessor: returns the underlying e_place_algorithm enum value.
@@ -982,6 +983,18 @@ enum e_pad_loc_type {
 enum e_agent_algorithm {
     E_GREEDY,
     SOFTMAX
+};
+
+/**
+ * @brief Used to determines the dimensionality of the RL agent exploration space
+ *
+ * Agent exploration space can be either based on only move types or
+ * can be based on (block_type, move_type) pair.
+ *
+ */
+enum e_agent_space {
+    MOVE_TYPE,
+    MOVE_BLOCK_TYPE
 };
 
 ///@brief Used to calculate the inner placer loop's block swapping limit move_lim.
@@ -1071,6 +1084,7 @@ struct t_placer_opts {
     t_place_algorithm place_algorithm;
     t_place_algorithm place_quench_algorithm;
     float timing_tradeoff;
+    float congestion_tradeoff;
     float place_cost_exp;
     int place_chan_width;
     enum e_pad_loc_type pad_loc_type;
@@ -1114,6 +1128,7 @@ struct t_placer_opts {
     float place_agent_epsilon;
     float place_agent_gamma;
     float place_dm_rlim;
+    e_agent_space place_agent_space;
     //int place_timing_cost_func;
     std::string place_reward_fun;
     float place_crit_limit;
