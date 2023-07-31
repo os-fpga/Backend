@@ -357,8 +357,8 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
         
         hmetisFile.close();
 
-        int numberOfClusters = ceil(numberOfMolecules / packer_opts.number_of_molecules_in_partition);
-        if (numberOfClusters == 1) numberOfClusters = 2;
+        int numberOfClusters = ceil(numberOfMolecules *1.0 / packer_opts.number_of_molecules_in_partition);
+        if (numberOfClusters <= 1) numberOfClusters = 2;
         //numberOfClusters = 3;
 
 
