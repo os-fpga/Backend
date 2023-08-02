@@ -156,25 +156,31 @@ LutInst::LutInst(
 
 LutInst::~LutInst() { }
 
-void LutInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
+void LutInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
   // lut only contains "in" and "out"
   assert(port_conns_.count("in"));
   assert(port_conns_.count("out"));
   assert(port_conns_.size() == 2);
 
   // count bus width to set bus type properly
-  int in_bus_width = port_conns_["in"].size();
-  int out_bus_width = port_conns_["out"].size();
+  uint in_bus_width = port_conns_["in"].size();
+  uint out_bus_width = port_conns_["out"].size();
 
   // create cell info
   lib_cell cell;
   cell.setName(type_);
   cell.setType(LUT);
 
+  uint16_t tr = ltrace();
+  if (tr >= 4) {
+    lprintf("    LutInst::printLib()  %s  in_bus_width= %u  out_bus_width= %u\n",
+            type_.c_str(), in_bus_width, out_bus_width);
+  }
+
   lib_pin pin_in;
   pin_in.setName("in");
   pin_in.setDirection(INPUT);
-  pin_in.bus_width(in_bus_width);
+  pin_in.setWidth(in_bus_width);
   cell.add_input(pin_in);
   lib_pin pin_out;
   pin_out.setName("out");
@@ -186,13 +192,13 @@ void LutInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
   arc.setRelatedPin(pin_in);
 
   pin_out.add_timing_arc(arc);
-  pin_out.bus_width(out_bus_width);
+  pin_out.setWidth(out_bus_width);
   cell.add_output(pin_out);
 
   lib_writer.write_lcell(os, cell);
 }
 
-void LutInst::print_sdf(ostream& os, int depth) {
+void LutInst::printSDF(ostream& os, int depth) {
   os << indent(depth) << "(CELL\n";
   os << indent(depth + 1) << "(CELLTYPE \"" << type() << "\")\n";
   os << indent(depth + 1) << "(INSTANCE " << escape_sdf_identifier(instance_name()) << ")\n";
@@ -225,7 +231,7 @@ void LutInst::print_sdf(ostream& os, int depth) {
   os << indent(depth) << "\n";
 }
 
-void LutInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
+void LutInst::printVerilog(ostream& os, size_t& unconn_count, int depth) {
   os << indent(depth) << type_ << "\n";
   os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
@@ -241,7 +247,7 @@ void LutInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
   os << indent(depth) << ");\n\n";
 }
 
-void LatchInst::print_sdf(ostream& os, int depth) {
+void LatchInst::printSDF(ostream& os, int depth) {
   assert(type_ == Type::RISING_EDGE);
 
   os << indent(depth) << "(CELL\n";
@@ -286,7 +292,7 @@ void LatchInst::print_sdf(ostream& os, int depth) {
   os << indent(depth) << "\n";
 }
 
-void LatchInst::print_verilog(ostream& os, size_t& /*unconn_count*/, int depth) {
+void LatchInst::printVerilog(ostream& os, size_t& /*unconn_count*/, int depth) {
   // Currently assume a standard DFF
   assert(type_ == Type::RISING_EDGE);
 
@@ -318,7 +324,7 @@ void LatchInst::print_verilog(ostream& os, size_t& /*unconn_count*/, int depth) 
   os << "\n";
 }
 
-void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
+void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
   // create cell info
   lib_cell cell;
   cell.setName(type_name_);
@@ -332,9 +338,9 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
   if (ports_tcq_.size() || ports_tsu_.size() || ports_thld_.size()) {
     cell.setType(SEQUENTIAL);
 
-    // for debug
-    int i = 0;
-    if (::getenv("stars_trace")) cout << i << endl;  // TMP to suppress unused var warning
+    //// for debug
+    //int i = 0;
+    //if (::getenv("stars_trace")) cout << i << endl;  // TMP to suppress unused var warning
 
     // clock arch
     for (auto tcq_kv : ports_tcq_) {
@@ -342,7 +348,7 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
-        related_pin.bus_width(1);
+        related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
         written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
@@ -363,7 +369,7 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
           pin_out.setType(DATA);
           pin_out.setName(out_pin_name);
           pin_out.setDirection(OUTPUT);
-          pin_out.bus_width(1);
+          pin_out.setWidth(1);
           written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
         } else {
           pin_out = written_out_pins[out_pin_name];
@@ -380,13 +386,13 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
     }
 
     // setup arch
-    i = 0;
+    //i = 0;
     for (auto tsu_kv : ports_tsu_) {
       string pin_name = tsu_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
-        related_pin.bus_width(1);
+        related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
         written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
@@ -404,7 +410,7 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
         lib_pin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
           pin_in.setName(in_pin_name);
-          pin_in.bus_width(1);
+          pin_in.setWidth(1);
           pin_in.setDirection(INPUT);
           pin_in.setType(DATA);
           written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
@@ -421,13 +427,13 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
     }
 
     // hold arch
-    i = 0;
+    //i = 0;
     for (auto thld_kv : ports_thld_) {
       string pin_name = thld_kv.second.second;
       lib_pin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
-        related_pin.bus_width(1);
+        related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
         written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
@@ -445,7 +451,7 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
         lib_pin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
           pin_in.setName(in_pin_name);
-          pin_in.bus_width(1);
+          pin_in.setWidth(1);
           pin_in.setDirection(INPUT);
           pin_in.setType(DATA);
           written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
@@ -480,7 +486,7 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
       if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
         lib_pin pin_in;
         pin_in.setName(in_pin_name);
-        pin_in.bus_width(1);
+        pin_in.setWidth(1);
         pin_in.setDirection(INPUT);
         pin_in.setType(DATA);
         // cell.add_pin(pin_in, INPUT);
@@ -500,7 +506,7 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
       if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
         lib_pin pin_out;
         pin_out.setName(out_pin_name);
-        pin_out.bus_width(1);
+        pin_out.setWidth(1);
         pin_out.setDirection(OUTPUT);
         pin_out.setType(DATA);
         pin_out.add_timing_arc(tarc);
@@ -524,7 +530,7 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
   lib_writer.write_lcell(os, cell);
 }
 
-void BlackBoxInst::print_sdf(ostream& os, int depth) {
+void BlackBoxInst::printSDF(ostream& os, int depth) {
   if (!timing_arcs_.empty() || !ports_tcq_.empty() || !ports_tsu_.empty() || !ports_thld_.empty()) {
     os << indent(depth) << "(CELL\n";
     os << indent(depth + 1) << "(CELLTYPE \"" << type_name_ << "\")\n";
@@ -655,7 +661,7 @@ void BlackBoxInst::print_sdf(ostream& os, int depth) {
   }
 }
 
-void BlackBoxInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
+void BlackBoxInst::printVerilog(ostream& os, size_t& unconn_count, int depth) {
   // Instance type
   os << indent(depth) << type_name_ << "\n";
 

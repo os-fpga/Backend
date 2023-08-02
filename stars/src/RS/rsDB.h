@@ -84,9 +84,9 @@ class Instance {
 public:
   virtual ~Instance() = default;
 
-  virtual void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) = 0;
-  virtual void print_sdf(ostream& os, int depth = 0) = 0;
-  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) = 0;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) = 0;
+  virtual void printSDF(ostream& os, int depth = 0) = 0;
+  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) = 0;
   virtual string get_type_name() = 0;
 };
 
@@ -112,11 +112,11 @@ public:
 public:  // Instance interface method implementations
   virtual string get_type_name() override { return "LUT_K"; }
 
-  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override;
+  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) override;
 
-  virtual void print_sdf(ostream& os, int depth) override;
+  virtual void printSDF(ostream& os, int depth) override;
 
-  virtual void print_verilog(ostream& os, size_t& unconn_count, int depth) override;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth) override;
 
 private:
   string type_;
@@ -189,16 +189,16 @@ public:
 
   virtual string get_type_name() override { return "DFF"; }
 
-  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override {
+  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) override {
     /*
     os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
        << escape_sdf_identifier(instance_name_) << ")\n";
        */
   }
 
-  virtual void print_sdf(ostream& os, int depth = 0) override;
+  virtual void printSDF(ostream& os, int depth = 0) override;
 
-  virtual void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) override;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) override;
 
 private:
   string instance_name_;
@@ -237,11 +237,11 @@ public:
         ports_tcq_(ports_tcq),
         opts_(opts) {}
 
-  virtual void print_lib(rsbe::LibWriter& lib_writer, ostream& os) override;
+  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) override;
 
-  virtual void print_sdf(ostream& os, int depth = 0) override;
+  virtual void printSDF(ostream& os, int depth = 0) override;
 
-  virtual void print_verilog(ostream& os, size_t& unconn_count, int depth = 0) override;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) override;
 
   size_t find_port_size(const string& port_name) const;
 
@@ -273,7 +273,7 @@ public:
              string rval)  ///< The right value (assigned from)
       : lval_(lval), rval_(rval) {}
 
-  void print_verilog(ostream& os, string indent) {
+  void printVerilog(ostream& os, string indent) {
     os << indent << "assign " << escape_verilog_identifier(lval_) << " = " << escape_verilog_identifier(rval_)
        << ";\n";
   }

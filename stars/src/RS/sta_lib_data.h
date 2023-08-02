@@ -46,7 +46,7 @@ class TimingArc;
 class lib_pin {
 private:
   string name_;
-  int bus_width_ = 0;
+  uint bus_width_ = 0;
   Port_direction_type dir_ = INPUT;
   Pin_type pin_type_ = DATA;
   vector<TimingArc> timing_arcs_;
@@ -57,8 +57,8 @@ public:
   const string& name() const noexcept { return name_; }
   void setName(const string& name) noexcept { name_ = name; }
 
-  int bus_width() const noexcept { return bus_width_; }
-  void bus_width(int value) noexcept { bus_width_ = value; }
+  uint bus_width() const noexcept { return bus_width_; }
+  void setWidth(uint value) noexcept { bus_width_ = value; }
 
   Port_direction_type direction() const noexcept { return dir_; }
   void setDirection(Port_direction_type value) noexcept { dir_ = value; }
