@@ -162,7 +162,7 @@ void LibWriter::write_bus_type(std::ostream& os, int from, int to, bool down_to)
   os << INDENT1 << "}" << TRAILER;
 }
 
-void LibWriter::write_lcell(std::ostream& os, const lib_cell& lc) const {
+void LibWriter::write_lcell(std::ostream& os, const LCell& lc) const {
   lout() << "STARS: Writing lcell <" << lc.name() << ">..." << endl;
 
   // 1. cell name
@@ -213,7 +213,7 @@ void LibWriter::write_lcell(std::ostream& os, const lib_cell& lc) const {
   os << INDENT1 << "}\n";
 }
 
-void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
+void LibWriter::write_lcell_pins(std::ostream& os, const LCell& lc) const {
   uint16_t tr = ltrace();
   const string& lc_name = lc.name();
   if (tr >= 7) {

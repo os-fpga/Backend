@@ -76,6 +76,7 @@ public:
   const vector<TimingArc>& get_timing_arcs() const noexcept { return timing_arcs_; }
 };
 
+
 class TimingArc {
 private:
   Timing_sense_t sense_  = POSITIVE;
@@ -96,7 +97,8 @@ public:
   void setRelatedPin(LibPin value) noexcept { related_pin_ = value; }
 };
 
-class lib_cell {
+
+class LCell {
 private:
   string name_;
   LCell_t type_ = INTERCONNECT;
@@ -104,13 +106,16 @@ private:
   vector<LibPin> output_pins_;
 
 public:
-  lib_cell() = default;
+  LCell() = default;
 
   const string& name() const noexcept { return name_; }
   void setName(const string& name) noexcept { name_ = name; }
 
   LCell_t type() const noexcept { return type_; }
   void setType(LCell_t t) noexcept { type_ = t; }
+
+  size_t numInputs() const noexcept { return input_pins_.size(); }
+  size_t numOutputs() const noexcept { return output_pins_.size(); }
 
   const vector<LibPin>& get_inputs() const noexcept { return input_pins_; }
   const vector<LibPin>& get_outputs() const noexcept { return output_pins_; }

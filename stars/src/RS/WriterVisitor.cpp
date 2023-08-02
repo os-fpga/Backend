@@ -16,7 +16,6 @@
 #include "rsGlobal.h"
 #include "rsVPR.h"
 #include "sta_file_writer.h"
-#include "sta_lib_data.h"
 #include "sta_lib_writer.h"
 #include "WriterVisitor.h"
 
@@ -226,7 +225,7 @@ void WriterVisitor::printLib(int depth) {
 
   // Interconnect
   // create cell info
-  lib_cell cell;
+  LCell cell;
   cell.setName("fpga_interconnect");
   cell.setType(INTERCONNECT);
 

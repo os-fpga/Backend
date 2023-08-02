@@ -167,7 +167,7 @@ void LutInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
   uint out_bus_width = port_conns_["out"].size();
 
   // create cell info
-  lib_cell cell;
+  LCell cell;
   cell.setName(type_);
   cell.setType(LUT);
 
@@ -324,9 +324,10 @@ void LatchInst::printVerilog(ostream& os, size_t& /*unconn_count*/, int depth) {
   os << "\n";
 }
 
+// virtual
 void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
   // create cell info
-  lib_cell cell;
+  LCell cell;
   cell.setName(type_name_);
 
   // to make memory management simple, we are using static memory for each
