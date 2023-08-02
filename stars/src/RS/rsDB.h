@@ -19,8 +19,8 @@
 
 #include "rsGlobal.h"
 #include "rsVPR.h"
+#include "LCell.h"
 #include "sta_file_writer.h"
-#include "sta_lib_data.h"
 #include "sta_lib_writer.h"
 
 #include <map>
