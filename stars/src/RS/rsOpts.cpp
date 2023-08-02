@@ -496,9 +496,9 @@ bool rsOpts::set_STA_TC5() noexcept {
 
 #ifdef RSBE_UNIT_TEST_ON
   static const char* raw_TC5 = R"(
-  /home/serge/raps/TC27jul/Raptor/build/share/raptor/etc/devices/gemini_10x8/gemini_vpr.xml
-  /home/serge/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/synthesis/param_up_counter_post_synth.v
-  --sdc_file /home/serge/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_openfpga.sdc
+  $HOME/raps/TC27jul/Raptor/build/share/raptor/etc/devices/gemini_10x8/gemini_vpr.xml
+  $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/synthesis/param_up_counter_post_synth.v
+  --sdc_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_openfpga.sdc
   --route_chan_width 192
   --suppress_warnings check_rr_node_warnings.log,check_rr_node
   --clock_modeling ideal
@@ -515,9 +515,9 @@ bool rsOpts::set_STA_TC5() noexcept {
   --timing_report_detail detailed
   --timing_report_npaths 100
   --top param_up_counter
-  --net_file /home/serge/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_post_synth.net
-  --place_file /home/serge/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/placement/param_up_counter_post_synth.place
-  --route_file /home/serge/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/routing/param_up_counter_post_synth.route
+  --net_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_post_synth.net
+  --place_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/placement/param_up_counter_post_synth.place
+  --route_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/routing/param_up_counter_post_synth.route
   )";
   ok = set_VPR_TC_args(raw_TC5);
 #endif  // RSBE_UNIT_TEST_ON

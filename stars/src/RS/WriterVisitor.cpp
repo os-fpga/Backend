@@ -230,13 +230,13 @@ void WriterVisitor::printLib(int depth) {
   cell.setName("fpga_interconnect");
   cell.setType(INTERCONNECT);
 
-  lib_pin pin_in;
+  LibPin pin_in;
   pin_in.setName("datain");
   pin_in.setWidth(1);
   pin_in.setDirection(INPUT);
   pin_in.setType(DATA);
   cell.add_input(pin_in);
-  lib_pin pin_out;
+  LibPin pin_out;
   pin_out.setName("dataout");
   pin_out.setWidth(1);
   pin_out.setDirection(OUTPUT);
