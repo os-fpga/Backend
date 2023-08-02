@@ -1916,8 +1916,9 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .help(
             "Controls which placement algorithm is used. Valid options:\n"
             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
-            " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
-            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
+            "  criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality  delay).\n"
+            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n"
+            " * congestion_aware: Focuses on improving routability.\n")
         .default_value("criticality_timing")
         .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -1928,8 +1929,9 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "If specified, it overrides the option --place_algorithm during placement quench.\n"
             "Valid options:\n"
             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
-            " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
-            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
+            "  criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality  delay).\n"
+            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n"
+            " * congestion_aware: Focuses on improving routability.\n")
         .default_value("criticality_timing")
         .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -2110,12 +2112,14 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Trade-off control between delay and wirelength during placement."
             " 0.0 focuses completely on wirelength, 1.0 completely on timing")
         .default_value("0.5")
-        .show_in(argparse::ShowIn::HELP_ONLY); 
-                   place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
         .help(
-            "Trade-off control between routability and timing during placement."
-            " 0.0 focuses completely on routability, 1.0 completely on timing")
-        .default_value("500.0")
+            "Trade-off control the bouding value for the contestion matrix.\n"
+            " a value near routing channel width can be a good value.\n"
+            " a high value let the VPR to ignore the congestion aware placement and continue its own course of action.\n")
+        .default_value("1.0")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_timing_grp.add_argument(args.RecomputeCritIter, "--recompute_crit_iter")
