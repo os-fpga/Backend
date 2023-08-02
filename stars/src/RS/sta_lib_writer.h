@@ -37,7 +37,7 @@ public:
 
   void write_lcell_pins(std::ostream& os, const lib_cell& lc) const;
 
-  void write_timing_arc(std::ostream& os, const lib_pin& basePin, const TimingArc& arc) const;
+  void write_timing_arc(std::ostream& os, const LibPin& basePin, const TimingArc& arc) const;
 
   void write_footer(std::ostream& os) const;
 };

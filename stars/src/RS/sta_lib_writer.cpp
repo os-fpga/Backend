@@ -19,8 +19,8 @@ using std::endl;
 using std::string;
 using namespace pinc;
 
-static const char* str_Pin_type(Pin_type t) noexcept {
-  // enum Pin_type             {  DATA,   CLOCK,   RESET,   SET,   ENABLE,   INVALID_PIN_TYPE  };
+static const char* str_Pin_type(Pin_t t) noexcept {
+  // enum Pin_t                {  DATA,   CLOCK,   RESET,   SET,   ENABLE,   INVALID_PIN_TYPE  };
   static const char* enumS[] = { "DATA", "CLOCK", "RESET", "SET", "ENABLE", "INVALID_PIN_TYPE" };
   constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
   static_assert( n == INVALID_PIN_TYPE + 1 );
@@ -29,8 +29,8 @@ static const char* str_Pin_type(Pin_type t) noexcept {
   return enumS[i];
 }
 
-static const char* str_Arc_type(Timing_arc_type t) noexcept {
-  // enum Timing_arc_type      {  TRANSITION,   SETUP,   HOLD  };
+static const char* str_Arc_type(Timing_arc_t t) noexcept {
+  // enum Timing_arc_t         {  TRANSITION,   SETUP,   HOLD  };
   static const char* enumS[] = { "TRANSITION", "SETUP", "HOLD" };
   constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
   static_assert( n == HOLD + 1 );
@@ -174,8 +174,8 @@ void LibWriter::write_lcell(std::ostream& os, const lib_cell& lc) const {
       q_name = out_pin.name();
       break;
     }
-    const vector<lib_pin>& inputs = lc.get_inputs();
-    for (const lib_pin& in_pin : inputs) {
+    const vector<LibPin>& inputs = lc.get_inputs();
+    for (const LibPin& in_pin : inputs) {
       switch (in_pin.type()) {
         case CLOCK:
           clk_name = in_pin.name();
@@ -221,8 +221,8 @@ void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
   }
 
   // 1. output
-  const vector<lib_pin>& outputs = lc.get_outputs();
-  for (const lib_pin& out_pin : outputs) {
+  const vector<LibPin>& outputs = lc.get_outputs();
+  for (const LibPin& out_pin : outputs) {
     if (lc.type() == SEQUENTIAL) {
       os << INDENT2 << "pin(" << out_pin.name() << ") {\n";
       os << INDENT3 << "direction: output;\n";
@@ -246,8 +246,8 @@ void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
   }
 
   // 2. input
-  const vector<lib_pin>& inputs = lc.get_inputs();
-  for (const lib_pin& in_pin : inputs) {
+  const vector<LibPin>& inputs = lc.get_inputs();
+  for (const LibPin& in_pin : inputs) {
     if (lc.type() == SEQUENTIAL) {
       os << INDENT2 << "pin(" << in_pin.name() << ") {\n";
       if (in_pin.type() == CLOCK) {
@@ -280,17 +280,17 @@ void LibWriter::write_lcell_pins(std::ostream& os, const lib_cell& lc) const {
 }
 
 void LibWriter::write_timing_arc(std::ostream& os,
-                                 const lib_pin& basePin,
+                                 const LibPin& basePin,
                                  const TimingArc& arc) const
 {
   const string& basePin_nm = basePin.name();
-  Pin_type base_pt = basePin.type();
+  Pin_t base_pt = basePin.type();
 
-  lib_pin relatedPin = arc.related_pin();
+  LibPin relatedPin = arc.related_pin();
   const string& relatedPin_nm = relatedPin.name();
-  Pin_type related_pt = relatedPin.type();
+  Pin_t related_pt = relatedPin.type();
 
-  Timing_arc_type arc_type = arc.type();
+  Timing_arc_t arc_type = arc.type();
   bool positive = (arc.sense() == POSITIVE);
   bool is_check_arc = (arc_type == SETUP or arc_type == HOLD);
 

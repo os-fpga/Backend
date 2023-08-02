@@ -177,12 +177,12 @@ void LutInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
             type_.c_str(), in_bus_width, out_bus_width);
   }
 
-  lib_pin pin_in;
+  LibPin pin_in;
   pin_in.setName("in");
   pin_in.setDirection(INPUT);
   pin_in.setWidth(in_bus_width);
   cell.add_input(pin_in);
-  lib_pin pin_out;
+  LibPin pin_out;
   pin_out.setName("out");
   pin_out.setDirection(OUTPUT);
 
@@ -331,27 +331,23 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
 
   // to make memory management simple, we are using static memory for each
   // objects here
-  std::map<string, lib_pin> written_in_pins;
-  std::map<string, lib_pin> written_out_pins;
+  std::map<string, LibPin> written_in_pins;
+  std::map<string, LibPin> written_out_pins;
 
   // create pin and annotate with timing info
   if (ports_tcq_.size() || ports_tsu_.size() || ports_thld_.size()) {
     cell.setType(SEQUENTIAL);
 
-    //// for debug
-    //int i = 0;
-    //if (::getenv("stars_trace")) cout << i << endl;  // TMP to suppress unused var warning
-
-    // clock arch
+    // clock arc
     for (auto tcq_kv : ports_tcq_) {
       string pin_name = tcq_kv.second.second;
-      lib_pin related_pin;
+      LibPin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
         related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
-        written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
+        written_in_pins.insert(std::pair<string, LibPin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
       }
@@ -364,13 +360,13 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
           out_pin_name += string("[") + std::to_string(port_idex) + string("]");
         }
 
-        lib_pin pin_out;
+        LibPin pin_out;
         if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
           pin_out.setType(DATA);
           pin_out.setName(out_pin_name);
           pin_out.setDirection(OUTPUT);
           pin_out.setWidth(1);
-          written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
+          written_out_pins.insert(std::pair<string, LibPin>(out_pin_name, pin_out));
         } else {
           pin_out = written_out_pins[out_pin_name];
         }
@@ -389,13 +385,13 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
     //i = 0;
     for (auto tsu_kv : ports_tsu_) {
       string pin_name = tsu_kv.second.second;
-      lib_pin related_pin;
+      LibPin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
         related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
-        written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
+        written_in_pins.insert(std::pair<string, LibPin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
       }
@@ -407,13 +403,13 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
         if (port_size > 1) {
           in_pin_name += string("[") + std::to_string(port_idex) + string("]");
         }
-        lib_pin pin_in;
+        LibPin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
           pin_in.setName(in_pin_name);
           pin_in.setWidth(1);
           pin_in.setDirection(INPUT);
           pin_in.setType(DATA);
-          written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
+          written_in_pins.insert(std::pair<string, LibPin>(in_pin_name, pin_in));
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
@@ -430,13 +426,13 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
     //i = 0;
     for (auto thld_kv : ports_thld_) {
       string pin_name = thld_kv.second.second;
-      lib_pin related_pin;
+      LibPin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
         related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
-        written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
+        written_in_pins.insert(std::pair<string, LibPin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
       }
@@ -448,13 +444,13 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
         if (port_size > 1) {
           in_pin_name += string("[") + std::to_string(port_idex) + string("]");
         }
-        lib_pin pin_in;
+        LibPin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
           pin_in.setName(in_pin_name);
           pin_in.setWidth(1);
           pin_in.setDirection(INPUT);
           pin_in.setType(DATA);
-          written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
+          written_in_pins.insert(std::pair<string, LibPin>(in_pin_name, pin_in));
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
@@ -484,13 +480,13 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
         in_pin_name += string("[") + std::to_string(arc.source_ipin()) + string("]");
       }
       if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
-        lib_pin pin_in;
+        LibPin pin_in;
         pin_in.setName(in_pin_name);
         pin_in.setWidth(1);
         pin_in.setDirection(INPUT);
         pin_in.setType(DATA);
         // cell.add_pin(pin_in, INPUT);
-        written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
+        written_in_pins.insert(std::pair<string, LibPin>(in_pin_name, pin_in));
       }
 
       // todo: add timing arch
@@ -504,14 +500,14 @@ void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) {
       tarc.setType(TRANSITION);
       tarc.setRelatedPin(written_in_pins[in_pin_name]);
       if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
-        lib_pin pin_out;
+        LibPin pin_out;
         pin_out.setName(out_pin_name);
         pin_out.setWidth(1);
         pin_out.setDirection(OUTPUT);
         pin_out.setType(DATA);
         pin_out.add_timing_arc(tarc);
         // cell.add_pin(pin_out, OUTPUT);
-        written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
+        written_out_pins.insert(std::pair<string, LibPin>(out_pin_name, pin_out));
       } else {
         written_out_pins[out_pin_name].add_timing_arc(tarc);
       }
