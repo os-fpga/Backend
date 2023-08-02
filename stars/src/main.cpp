@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0058";
+static const char* _rsbe_VERSION_STR = "rsbe0073";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -162,11 +162,14 @@ int main(int argc, char** argv) {
   bool ok = false;
 
 #ifdef RSBE_UNIT_TEST_ON
-  bool rsbe_builtin_STA_TC = getenv("rsbe_builtin_STA_TC");
-  bool rsbe_builtin_VPR_TC = getenv("rsbe_builtin_VPR_TC");
-  if (rsbe_builtin_STA_TC) {
-    lputs("\n(rsbe_builtin_STA_TC)\n");
-    ok = opts.set_STA_TC4();
+  const char* str_STA_TC = getenv("rsbe_builtin_STA_TC");
+  int num_STA_TC = 0;
+  if (str_STA_TC)
+    num_STA_TC = ::atoi(str_STA_TC);
+  constexpr bool rsbe_builtin_VPR_TC = false; //getenv("rsbe_builtin_VPR_TC");
+  if (num_STA_TC > 0) {
+    lprintf("\n### num_STA_TC= %i\n", num_STA_TC);
+    ok = opts.set_STA_testCase(num_STA_TC);
     if (ok) {
       ok = do_stars(opts, false);
       if (ok) {
