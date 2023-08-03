@@ -226,7 +226,7 @@ void LibWriter::write_lcell_pins(std::ostream& os, const LCell& lc) const {
     if (lc.type() == SEQUENTIAL) {
       os << INDENT2 << "pin(" << out_pin.name() << ") {\n";
       os << INDENT3 << "direction: output;\n";
-      const vector<TimingArc>& A = out_pin.get_timing_arcs();
+      const vector<PinArc>& A = out_pin.get_timing_arcs();
       for (auto const& tarc : A) {
         write_timing_arc(os, out_pin, tarc);
       }
@@ -281,7 +281,7 @@ void LibWriter::write_lcell_pins(std::ostream& os, const LCell& lc) const {
 
 void LibWriter::write_timing_arc(std::ostream& os,
                                  const LibPin& basePin,
-                                 const TimingArc& arc) const
+                                 const PinArc& arc) const
 {
   const string& basePin_nm = basePin.name();
   Pin_t base_pt = basePin.type();

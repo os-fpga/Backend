@@ -97,26 +97,26 @@ protected:
                         int port_idx,            ///< The instance port index
                         int pin_idx);            ///< The instance pin index
 
-  ///@brief Returns an Instance object representing the LUT
-  Instance* make_lut_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing the LUT
+  Cell* make_lut_instance(const t_pb* atom);
 
-  ///@brief Returns an Instance object representing the Latch
-  Instance* make_latch_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing the Latch
+  Cell* make_latch_instance(const t_pb* atom);
 
   /**
-   * @brief Returns an Instance object representing the RAM
+   * @brief Returns an Cell object representing the RAM
    * @note  the primtive interface to dual and single port rams is nearly
    * identical, so we using a single function to handle both
    */
-  Instance* make_ram_instance(const t_pb* atom);
+  Cell* make_ram_instance(const t_pb* atom);
 
-  ///@brief Returns an Instance object representing a Multiplier
-  Instance* make_multiply_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing a Multiplier
+  Cell* make_multiply_instance(const t_pb* atom);
 
-  ///@brief Returns an Instance object representing an Adder
-  Instance* make_adder_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing an Adder
+  Cell* make_adder_instance(const t_pb* atom);
 
-  Instance* make_blackbox_instance(const t_pb* atom);
+  Cell* make_blackbox_instance(const t_pb* atom);
 
   ///@brief Returns the top level pb_route associated with the given pb
   const t_pb_routes& find_top_pb_route(const t_pb* curr) {
@@ -214,7 +214,7 @@ protected:
   std::vector<string> outputs_;          ///< Name of circuit outputs
   std::vector<Assignment> assignments_;  ///< Set of assignments (i.e. net-to-net connections)
 
-  std::vector<Instance*> cell_instances_;  ///< Set of cell instances
+  std::vector<Cell*> cell_instances_;    ///< Set of cell instances
 
 private:
   // Drivers of logical nets.
