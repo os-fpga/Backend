@@ -47,7 +47,7 @@ enum Timing_arc_t { TRANSITION = 0, SETUP, HOLD };
 enum LCell_t { INTERCONNECT = 0, LUT, BRAM, DSP, SEQUENTIAL, BLACKBOX, INVALID_CELL };
 
 
-class TimingArc;
+class PinArc;
 
 class LibPin {
 private:
@@ -55,7 +55,7 @@ private:
   uint bus_width_ = 0;
   Port_direction_t dir_ = INPUT;
   Pin_t pin_type_ = DATA;
-  vector<TimingArc> timing_arcs_;
+  vector<PinArc> timing_arcs_;
 
 public:
   LibPin() noexcept = default;
@@ -72,12 +72,12 @@ public:
   Pin_t type() const noexcept { return pin_type_; }
   void setType(Pin_t value) noexcept { pin_type_ = value; }
 
-  void add_timing_arc(const TimingArc& arch) noexcept { timing_arcs_.push_back(arch); }
-  const vector<TimingArc>& get_timing_arcs() const noexcept { return timing_arcs_; }
+  void add_timing_arc(const PinArc& arch) noexcept { timing_arcs_.push_back(arch); }
+  const vector<PinArc>& get_timing_arcs() const noexcept { return timing_arcs_; }
 };
 
 
-class TimingArc {
+class PinArc {
 private:
   Timing_sense_t sense_  = POSITIVE;
   Timing_arc_t type_     = TRANSITION;
@@ -85,7 +85,7 @@ private:
   LibPin related_pin_;
 
 public:
-  TimingArc() = default;
+  PinArc() = default;
 
   Timing_sense_t sense() const noexcept { return sense_; }
   void setSense(Timing_sense_t value) noexcept { sense_ = value; }

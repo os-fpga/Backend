@@ -28,13 +28,13 @@
 
 namespace rsbe {
 
-using std::cout;
 using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
 using std::vector;
 using namespace pinc;
+using CStr = const char*;
 
 // A combinational timing arc
 struct Arc
@@ -71,64 +71,64 @@ struct Arc
 };
 
 /**
- * @brief Instance is an interface used to represent an element instantiated in
- * a netlist
+ * @brief Cell is an interface used to represent an element instantiated in a netlist
  *
- * Instances know how to describe themselves in BLIF, Verilog and SDF
+ * Cells know how to describe themselves in BLIF, Verilog and SDF
  *
  * This should be subclassed to implement support for new primitive types
  * (although see BlackBoxInst for a general implementation for a black box
  * primitive)
  */
-class Instance {
+class Cell {
 public:
-  virtual ~Instance() = default;
+  virtual ~Cell() = default;
 
-  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) = 0;
-  virtual void printSDF(ostream& os, int depth = 0) = 0;
-  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) = 0;
-  virtual string get_type_name() = 0;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) const = 0;
+  virtual void printSDF(ostream& os, int depth = 0) const = 0;
+  virtual void printLib(LibWriter& lib_writer, ostream& os) const = 0;
+  virtual CStr get_type_name() const = 0;
 };
 
 ///@brief An instance representing a Look-Up Table
-class LutInst : public Instance {
+class LutInst : public Cell {
 public:
   LutInst(
-      size_t lut_size,                                   ///< The LUT size
-      LogicVec lut_mask,                                 ///< The LUT mask representing the logic function
-      const string& inst_name,                           ///< The name of this instance
+      size_t lut_size,                              ///< The LUT size
+      LogicVec lut_mask,                            ///< The LUT mask representing the logic function
+      const string& inst_name,                      ///< The name of this instance
       std::map<string, vector<string>> port_conns,  ///< The port connections of this instance. Key: port
-                                                         ///< name, Value: connected nets
+                                                    ///< name, Value: connected nets
       vector<Arc> timing_arc_values,                ///< The timing arcs of this instance
-      struct t_analysis_opts opts);
+      const t_analysis_opts& opts);
 
   virtual ~LutInst();
 
-  // Accessors
-  const vector<Arc>& timing_arcs() { return timing_arcs_; }
-  string instance_name() { return inst_name_; }
-  string type() { return type_; }
+  const vector<Arc>& timing_arcs() const { return timing_arcs_; }
+  const string& instance_name() const { return inst_name_; }
+  const string& lut_type() const { return lut_type_; }
 
-public:  // Instance interface method implementations
-  virtual string get_type_name() override { return "LUT_K"; }
+public:  // Cell interface method implementations
+  virtual CStr get_type_name() const override { return "LUT_K"; }
 
-  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) override;
+  virtual void printLib(LibWriter& lib_writer, ostream& os) const override;
 
-  virtual void printSDF(ostream& os, int depth) override;
+  virtual void printSDF(ostream& os, int depth) const override;
 
-  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth) override;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth) const override;
 
 private:
-  string type_;
+  string lut_type_;
   size_t lut_size_ = 0;
   LogicVec lut_mask_;
   string inst_name_;
-  std::map<string, vector<string>> port_conns_;
+
+  mutable std::map<string, vector<string>> port_conns_; // TODO: no need for std::map here
+
   vector<Arc> timing_arcs_;
-  struct t_analysis_opts opts_;
+  t_analysis_opts opts_;
 };
 
-class LatchInst : public Instance {
+class LatchInst : public Cell {
 public:  // Public types
   ///@brief Types of latches (defined by BLIF)
   enum class Type {
@@ -173,7 +173,7 @@ public:  // Public types
 
 public:
   LatchInst(string inst_name,                                        ///< Name of this instance
-            std::map<string, string> port_conns,                     ///< Instance's port-to-net connections
+            std::map<string, string> port_conns,                     ///< Cell's port-to-net connections
             Type type,                                               ///< Type of this latch
             vtr::LogicValue init_value,                              ///< Initial value of the latch
             double tcq = std::numeric_limits<double>::quiet_NaN(),   ///< Clock-to-Q delay
@@ -187,18 +187,18 @@ public:
         tsu_(tsu),
         thld_(thld) {}
 
-  virtual string get_type_name() override { return "DFF"; }
+  virtual CStr get_type_name() const override { return "DFF"; }
 
-  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) override {
+  virtual void printLib(LibWriter& lib_writer, ostream& os) const override {
     /*
     os << indent(depth + 1) << "LIBERTY FOR: (INSTANCE "
        << escape_sdf_identifier(instance_name_) << ")\n";
        */
   }
 
-  virtual void printSDF(ostream& os, int depth = 0) override;
+  virtual void printSDF(ostream& os, int depth = 0) const override;
 
-  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) override;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) const override;
 
 private:
   string instance_name_;
@@ -210,12 +210,12 @@ private:
   double thld_ = -1;  ///< Hold time
 };
 
-class BlackBoxInst : public Instance {
+class BlackBoxInst : public Cell {
 public:
-  BlackBoxInst(string type_name,                 ///< Instance type
-               string inst_name,                 ///< Instance name
+  BlackBoxInst(string type_name,                 ///< Cell type
+               string inst_name,                 ///< Cell name
                std::map<string, string> params,  ///< Verilog parameters: Dictonary of <param_name,value>
-               std::map<string, string> attrs,   ///< Instance attributes: Dictonary of <attr_name,value>
+               std::map<string, string> attrs,   ///< Cell attributes: Dictonary of <attr_name,value>
                std::map<string, vector<string>>
                    input_port_conns,  ///< Port connections: Dictionary of <port,nets>
                std::map<string, vector<string>>
@@ -224,7 +224,7 @@ public:
                std::map<string, sequential_port_delay_pair> ports_tsu,   ///< Port setup checks
                std::map<string, sequential_port_delay_pair> ports_thld,  ///< Port hold checks
                std::map<string, sequential_port_delay_pair> ports_tcq,   ///< Port clock-to-q delays
-               struct t_analysis_opts opts)
+               const t_analysis_opts& opts)
       : type_name_(type_name),
         inst_name_(inst_name),
         params_(params),
@@ -237,19 +237,20 @@ public:
         ports_tcq_(ports_tcq),
         opts_(opts) {}
 
-  virtual void printLib(rsbe::LibWriter& lib_writer, ostream& os) override;
+  virtual void printLib(LibWriter& lib_writer, ostream& os) const override;
 
-  virtual void printSDF(ostream& os, int depth = 0) override;
+  virtual void printSDF(ostream& os, int depth = 0) const override;
 
-  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) override;
+  virtual void printVerilog(ostream& os, size_t& unconn_count, int depth = 0) const override;
 
-  size_t find_port_size(const string& port_name) const;
+  uint find_port_size(const string& port_name) const noexcept;
 
-  virtual string get_type_name() override { return type_name_; }
+  virtual CStr get_type_name() const override { return type_name_.c_str(); }
 
 private:
   string type_name_;
   string inst_name_;
+
   std::map<string, string> params_;
   std::map<string, string> attrs_;
   std::map<string, vector<string>> input_port_conns_;
@@ -258,8 +259,9 @@ private:
   std::map<string, sequential_port_delay_pair> ports_tsu_;
   std::map<string, sequential_port_delay_pair> ports_thld_;
   std::map<string, sequential_port_delay_pair> ports_tcq_;
-  struct t_analysis_opts opts_;
-};  // namespace rsbe
+
+  t_analysis_opts opts_;
+};  // BlackBoxInst
 
 /**
  * @brief Assignment represents the logical connection between two nets
@@ -273,7 +275,7 @@ public:
              string rval)  ///< The right value (assigned from)
       : lval_(lval), rval_(rval) {}
 
-  void printVerilog(ostream& os, string indent) {
+  void printVerilog(ostream& os, string indent) const {
     os << indent << "assign " << escape_verilog_identifier(lval_) << " = " << escape_verilog_identifier(rval_)
        << ";\n";
   }

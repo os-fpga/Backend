@@ -241,7 +241,7 @@ void WriterVisitor::printLib(int depth) {
   pin_out.setDirection(OUTPUT);
   pin_out.setType(DATA);
 
-  TimingArc arc;
+  PinArc arc;
   arc.setSense(POSITIVE);
   arc.setType(TRANSITION);
   arc.setRelatedPin(pin_in);
@@ -433,8 +433,8 @@ string WriterVisitor::make_inst_wire(
   return wire_name;
 }
 
-///@brief Returns an Instance object representing the LUT
-Instance* WriterVisitor::make_lut_instance(const t_pb* atom) {
+///@brief Returns an Cell object representing the LUT
+Cell* WriterVisitor::make_lut_instance(const t_pb* atom) {
   assert(atom);
   const t_pb& atm = *atom;
   // Determine what size LUT
@@ -524,8 +524,8 @@ Instance* WriterVisitor::make_lut_instance(const t_pb* atom) {
   return inst;
 }
 
-///@brief Returns an Instance object representing the Latch
-Instance* WriterVisitor::make_latch_instance(const t_pb* atom) {
+///@brief Returns an Cell object representing the Latch
+Cell* WriterVisitor::make_latch_instance(const t_pb* atom) {
   string inst_name = join_identifier("latch", atom->name);
 
   const auto& top_pb_route = find_top_pb_route(atom);
@@ -585,11 +585,11 @@ Instance* WriterVisitor::make_latch_instance(const t_pb* atom) {
 }
 
 /**
- * @brief Returns an Instance object representing the RAM
+ * @brief Returns an Cell object representing the RAM
  * @note  the primtive interface to dual and single port rams is nearly
  * identical, so we using a single function to handle both
  */
-Instance* WriterVisitor::make_ram_instance(const t_pb* atom) {
+Cell* WriterVisitor::make_ram_instance(const t_pb* atom) {
   const auto& top_pb_route = find_top_pb_route(atom);
   const t_pb_graph_node* pb_graph_node = atom->pb_graph_node;
   const t_pb_type* pb_type = pb_graph_node->pb_type;
@@ -739,8 +739,8 @@ Instance* WriterVisitor::make_ram_instance(const t_pb* atom) {
                           timing_arcs, ports_tsu, ports_thld, ports_tcq, opts_);
 }
 
-///@brief Returns an Instance object representing a Multiplier
-Instance* WriterVisitor::make_multiply_instance(const t_pb* atom) {
+///@brief Returns an Cell object representing a Multiplier
+Cell* WriterVisitor::make_multiply_instance(const t_pb* atom) {
   auto& timing_ctx = g_vpr_ctx.timing();
 
   const auto& top_pb_route = find_top_pb_route(atom);
@@ -837,8 +837,8 @@ Instance* WriterVisitor::make_multiply_instance(const t_pb* atom) {
                           opts_);
 }
 
-///@brief Returns an Instance object representing an Adder
-Instance* WriterVisitor::make_adder_instance(const t_pb* atom) {
+///@brief Returns an Cell object representing an Adder
+Cell* WriterVisitor::make_adder_instance(const t_pb* atom) {
   auto& timing_ctx = g_vpr_ctx.timing();
 
   const auto& top_pb_route = find_top_pb_route(atom);
@@ -939,7 +939,7 @@ Instance* WriterVisitor::make_adder_instance(const t_pb* atom) {
                           opts_);
 }
 
-Instance* WriterVisitor::make_blackbox_instance(const t_pb* atom) {
+Cell* WriterVisitor::make_blackbox_instance(const t_pb* atom) {
   const auto& top_pb_route = find_top_pb_route(atom);
   const t_pb_graph_node* pb_graph_node = atom->pb_graph_node;
   const t_pb_type* pb_type = pb_graph_node->pb_type;
