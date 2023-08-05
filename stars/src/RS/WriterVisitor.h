@@ -98,7 +98,7 @@ protected:
                         int pin_idx);            ///< The instance pin index
 
   ///@brief Returns an Cell object representing the LUT
-  Cell* make_lut_instance(const t_pb* atom);
+  Cell* make_lut_cell(const t_pb* atom) noexcept;
 
   ///@brief Returns an Cell object representing the Latch
   Cell* make_latch_instance(const t_pb* atom);
@@ -214,7 +214,7 @@ protected:
   std::vector<string> outputs_;          ///< Name of circuit outputs
   std::vector<Assignment> assignments_;  ///< Set of assignments (i.e. net-to-net connections)
 
-  std::vector<Cell*> cell_instances_;    ///< Set of cell instances
+  std::vector<Cell*> all_cells_;         ///< Set of cell instances
 
 private:
   // Drivers of logical nets.
