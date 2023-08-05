@@ -90,25 +90,24 @@ public:
 };
 
 ///@brief An instance representing a Look-Up Table
-class LutInst : public Cell {
+class LutCell : public Cell {
 public:
-  LutInst(
-      size_t lut_size,                              ///< The LUT size
-      LogicVec lut_mask,                            ///< The LUT mask representing the logic function
-      const string& inst_name,                      ///< The name of this instance
-      std::map<string, vector<string>> port_conns,  ///< The port connections of this instance. Key: port
-                                                    ///< name, Value: connected nets
-      vector<Arc> timing_arc_values,                ///< The timing arcs of this instance
-      const t_analysis_opts& opts);
+  LutCell(uint lut_size,
+          LogicVec lut_mask,                            ///< The LUT mask representing the logic function
+          const string& inst_name,                      ///< The name of this instance
+          std::map<string, vector<string>> port_conns,  ///< The port connections of this instance. Key: port
+                                                        ///< name, Value: connected nets
+          vector<Arc> timing_arc_values,                ///< The timing arcs of this instance
+          const t_analysis_opts& opts);
 
-  virtual ~LutInst();
+  virtual ~LutCell();
 
   const vector<Arc>& timing_arcs() const { return timing_arcs_; }
   const string& instance_name() const { return inst_name_; }
   const string& lut_type() const { return lut_type_; }
 
 public:  // Cell interface method implementations
-  virtual CStr get_type_name() const override { return "LUT_K"; }
+  virtual CStr get_type_name() const override { return lut_type_.c_str(); }
 
   virtual void printLib(LibWriter& lib_writer, ostream& os) const override;
 
@@ -118,7 +117,7 @@ public:  // Cell interface method implementations
 
 private:
   string lut_type_;
-  size_t lut_size_ = 0;
+  uint lut_size_ = 0;
   LogicVec lut_mask_;
   string inst_name_;
 

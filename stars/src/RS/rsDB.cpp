@@ -4,7 +4,6 @@
 
 namespace rsbe {
 
-using std::cout;
 using std::endl;
 using std::string;
 using std::stringstream;
@@ -136,8 +135,7 @@ static void print_verilog_port(ostream& os,
   }
 }
 
-LutInst::LutInst(
-      size_t lut_size,                              ///< The LUT size
+LutCell::LutCell(uint lut_size,
       LogicVec lut_mask,                            ///< The LUT mask representing the logic function
       const string& inst_name,                      ///< The name of this instance
       std::map<string, vector<string>> port_conns,  ///< The port connections of this instance. Key: port
@@ -152,11 +150,15 @@ LutInst::LutInst(
     port_conns_(port_conns),
     timing_arcs_(timing_arc_values),
     opts_(opts)
-{ }
+{
+  assert(lut_size > 0);
+  assert(lut_size < 10);
+  lut_type_ += std::to_string(lut_size);
+}
 
-LutInst::~LutInst() { }
+LutCell::~LutCell() { }
 
-void LutInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
+void LutCell::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
   // lut only contains "in" and "out"
   assert(port_conns_.count("in"));
   assert(port_conns_.count("out"));
@@ -173,7 +175,7 @@ void LutInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
 
   uint16_t tr = ltrace();
   if (tr >= 4) {
-    lprintf("    LutInst::printLib()  %s  in_bus_width= %u  out_bus_width= %u\n",
+    lprintf("    LutCell::printLib()  %s  in_bus_width= %u  out_bus_width= %u\n",
             lut_type_.c_str(), in_bus_width, out_bus_width);
   }
 
@@ -198,14 +200,14 @@ void LutInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
   lib_writer.write_lcell(os, cell);
 }
 
-void LutInst::printSDF(ostream& os, int depth) const {
+void LutCell::printSDF(ostream& os, int depth) const {
   os << indent(depth) << "(CELL\n";
   os << indent(depth + 1) << "(CELLTYPE \"" << lut_type_ << "\")\n";
   os << indent(depth + 1) << "(INSTANCE " << escape_sdf_identifier(instance_name()) << ")\n";
 
   uint16_t tr = ltrace();
-  if (tr >= 2) {
-    lprintf("LutInst::printSDF( depth= %i )  lut_type_= %s\n", depth, lut_type_.c_str());
+  if (tr >= 6) {
+    lprintf("LutCell::printSDF( depth= %i )  lut_type_= %s\n", depth, lut_type_.c_str());
   }
 
   if (!timing_arcs().empty()) {
@@ -236,7 +238,7 @@ void LutInst::printSDF(ostream& os, int depth) const {
   os << indent(depth) << "\n";
 }
 
-void LutInst::printVerilog(ostream& os, size_t& unconn_count, int depth) const {
+void LutCell::printVerilog(ostream& os, size_t& unconn_count, int depth) const {
   os << indent(depth) << lut_type_ << "\n";
   os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
