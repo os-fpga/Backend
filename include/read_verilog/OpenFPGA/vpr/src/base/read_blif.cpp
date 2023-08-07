@@ -782,9 +782,21 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
 {
     AtomNetlist netlist;
     std::string blif_file_ = blif_file;
+    std::string arch_file = vpr_setup.FileNameOpts.ArchFile;
+    std::stringstream ss(arch_file);
+    std::vector<std::string> tokens;
+    std::string token;
+
+    while (std::getline(ss, token, '/')) {
+        if (!token.empty()) {
+            tokens.push_back(token);
+        }
+    }
+    tokens.pop_back();
+    std::string directoryName =  tokens.back();
 
     gb_constructs gb;
-    // TEMPORARILY disabled: EDA-1828  prune_verilog(blif_file, gb);
+    prune_verilog(blif_file, gb, directoryName);
     if (gb.contains_io_prem) {
         mod_str = gb.mod_str;
         blif_file_.insert(blif_file_.find_last_of("."), "_"); // Insert underscore before the file extension
