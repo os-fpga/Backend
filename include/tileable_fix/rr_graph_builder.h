@@ -137,7 +137,7 @@ class RRGraphBuilder {
      *   - a valid node ptc number
      *   - a valid side (applicable to OPIN and IPIN nodes only
      */
-    void add_node_to_all_locs(RRNodeId node);
+    void add_node_to_all_locs(RRNodeId node, t_graph_type graph_type);
 
     /** @brief Clear all the underlying data storage */
     void clear();

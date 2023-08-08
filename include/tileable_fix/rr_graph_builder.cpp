@@ -37,23 +37,39 @@ vtr::vector<RRNodeId, std::vector<short>>& RRGraphBuilder::node_ptc_storage() {
     return node_ptc_nums_;
 }
 
-void RRGraphBuilder::add_node_to_all_locs(RRNodeId node) {
+void RRGraphBuilder::add_node_to_all_locs(RRNodeId node, t_graph_type graph_type) {
     t_rr_type node_type = node_storage_.node_type(node);
     short node_ptc_num = node_storage_.node_ptc_num(node);
+
+    
+    int twist = 0; // if INC_DIR --> twist must be +2. Otherwise -2
+    if(graph_type == t_graph_type::GRAPH_UNIDIR_TILEABLE && (node_type == CHANX || node_type == CHANY)){
+        Direction node_dir = node_storage_.node_direction(node);
+        if (node_dir == Direction::INC)
+            twist = 2;
+        else if (node_dir == Direction::DEC)
+            twist = -2;
+    }
+
+    int i = 0;
     for (int ix = node_storage_.node_xlow(node); ix <= node_storage_.node_xhigh(node); ix++) {
         for (int iy = node_storage_.node_ylow(node); iy <= node_storage_.node_yhigh(node); iy++) {
             switch (node_type) {
                 case SOURCE:
                 case SINK:
-                case CHANY:
                     node_lookup_.add_node(node, ix, iy, node_type, node_ptc_num, SIDES[0]);
+                    break;
+                case CHANY:
+                    node_lookup_.add_node(node, ix, iy, node_type, node_ptc_num + (i*twist), SIDES[0]);
+                    i++;
                     break;
                 case CHANX:
                     /* Currently need to swap x and y for CHANX because of chan, seg convention 
                      * TODO: Once the builders is reworked for use consistent (x, y) convention,
                      * the following swapping can be removed
                      */
-                    node_lookup_.add_node(node, iy, ix, node_type, node_ptc_num, SIDES[0]);
+                    node_lookup_.add_node(node, iy, ix, node_type, node_ptc_num + (i*twist), SIDES[0]);
+                    i++;
                     break;
                 case OPIN:
                 case IPIN:
