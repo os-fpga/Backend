@@ -10,6 +10,8 @@ endif()
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
 set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
+# Enable Analytic Placer in VTR CMake
+set(VTR_CMAKE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/VTR_CMAKE_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
 set(MEM_FIX_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/mem_fix)
 
@@ -123,10 +125,19 @@ endif()
 #           DESTINATION
 #           ${VPR_DEST_DIR}/src/base/)
 
+# Update VTR CMake to enable analytical placer
+FILE(COPY ${VTR_CMAKE_SRC_DIR}/CMakeLists.txt
+     DESTINATION
+     ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/
+)
+
 FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
           ${PLACER_SRC_DIR}/place.cpp
           ${PLACER_SRC_DIR}/place_util.cpp
           ${PLACER_SRC_DIR}/place_util.h
+          # Analytical Placer
+          ${PLACER_SRC_DIR}/analytic_placer.h
+          ${PLACER_SRC_DIR}/analytic_placer.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/place/)
 
