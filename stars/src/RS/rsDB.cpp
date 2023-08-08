@@ -4,7 +4,6 @@
 
 namespace rsbe {
 
-using std::cout;
 using std::endl;
 using std::string;
 using std::stringstream;
@@ -26,10 +25,10 @@ static string create_unconn_net(size_t& unconn_count) noexcept {
 static void print_verilog_port(ostream& os,
                         size_t& unconn_count,
                         const string& port_name,
-                        const std::vector<string>& nets,
+                        const vector<string>& nets,
                         PortType type,
                         int depth,
-                        struct t_analysis_opts& opts) {
+                        const t_analysis_opts& opts) {
   auto unconn_inp_name = [&]() {
     switch (opts.post_synth_netlist_unconn_input_handling) {
       case e_post_synth_netlist_unconn_handling::GND:
@@ -136,66 +135,80 @@ static void print_verilog_port(ostream& os,
   }
 }
 
-LutInst::LutInst(
-      size_t lut_size,                                   ///< The LUT size
-      LogicVec lut_mask,                                 ///< The LUT mask representing the logic function
-      const string& inst_name,                           ///< The name of this instance
-      std::map<string, std::vector<string>> port_conns,  ///< The port connections of this instance. Key: port
-                                                         ///< name, Value: connected nets
-      std::vector<Arc> timing_arc_values,                ///< The timing arcs of this instance
-      struct t_analysis_opts opts)
+LutCell::LutCell(uint lut_size,
+      LogicVec lut_mask,                            ///< The LUT mask representing the logic function
+      const string& inst_name,                      ///< The name of this instance
+      std::map<string, vector<string>> port_conns,  ///< The port connections of this instance. Key: port
+                                                    ///< name, Value: connected nets
+      vector<Arc> timing_arc_values,                ///< The timing arcs of this instance
+      const t_analysis_opts& opts)
 
-  : type_("LUT_K"),
+  : lut_type_("LUT_K"),
     lut_size_(lut_size),
     lut_mask_(lut_mask),
     inst_name_(inst_name),
     port_conns_(port_conns),
     timing_arcs_(timing_arc_values),
     opts_(opts)
-{ }
+{
+  assert(lut_size > 0);
+  assert(lut_size < 10);
+  lut_type_ += std::to_string(lut_size);
+}
 
-LutInst::~LutInst() { }
+LutCell::~LutCell() { }
 
-void LutInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
+void LutCell::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
   // lut only contains "in" and "out"
   assert(port_conns_.count("in"));
   assert(port_conns_.count("out"));
   assert(port_conns_.size() == 2);
 
   // count bus width to set bus type properly
-  int in_bus_width = port_conns_["in"].size();
-  int out_bus_width = port_conns_["out"].size();
+  uint in_bus_width = port_conns_["in"].size();
+  uint out_bus_width = port_conns_["out"].size();
 
   // create cell info
-  lib_cell cell;
-  cell.setName(type_);
+  LCell cell;
+  cell.setName(lut_type_);
   cell.setType(LUT);
 
-  lib_pin pin_in;
+  uint16_t tr = ltrace();
+  if (tr >= 4) {
+    lprintf("    LutCell::printLib()  %s  in_bus_width= %u  out_bus_width= %u\n",
+            lut_type_.c_str(), in_bus_width, out_bus_width);
+  }
+
+  LibPin pin_in;
   pin_in.setName("in");
   pin_in.setDirection(INPUT);
-  pin_in.bus_width(in_bus_width);
+  pin_in.setWidth(in_bus_width);
   cell.add_input(pin_in);
-  lib_pin pin_out;
+  LibPin pin_out;
   pin_out.setName("out");
   pin_out.setDirection(OUTPUT);
 
-  TimingArc arc;
+  PinArc arc;
   arc.setSense(POSITIVE);
   arc.setType(TRANSITION);
   arc.setRelatedPin(pin_in);
 
   pin_out.add_timing_arc(arc);
-  pin_out.bus_width(out_bus_width);
+  pin_out.setWidth(out_bus_width);
   cell.add_output(pin_out);
 
   lib_writer.write_lcell(os, cell);
 }
 
-void LutInst::print_sdf(ostream& os, int depth) {
+void LutCell::printSDF(ostream& os, int depth) const {
   os << indent(depth) << "(CELL\n";
-  os << indent(depth + 1) << "(CELLTYPE \"" << type() << "\")\n";
+  os << indent(depth + 1) << "(CELLTYPE \"" << lut_type_ << "\")\n";
   os << indent(depth + 1) << "(INSTANCE " << escape_sdf_identifier(instance_name()) << ")\n";
+
+  uint16_t tr = ltrace();
+  if (tr >= 6) {
+    lprintf("LutCell::printSDF( depth= %i )  lut_type_= %s\n", depth, lut_type_.c_str());
+  }
 
   if (!timing_arcs().empty()) {
     os << indent(depth + 1) << "(DELAY\n";
@@ -225,8 +238,8 @@ void LutInst::print_sdf(ostream& os, int depth) {
   os << indent(depth) << "\n";
 }
 
-void LutInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
-  os << indent(depth) << type_ << "\n";
+void LutCell::printVerilog(ostream& os, size_t& unconn_count, int depth) const {
+  os << indent(depth) << lut_type_ << "\n";
   os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
   assert(port_conns_.count("in"));
@@ -241,7 +254,7 @@ void LutInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
   os << indent(depth) << ");\n\n";
 }
 
-void LatchInst::print_sdf(ostream& os, int depth) {
+void LatchInst::printSDF(ostream& os, int depth) const {
   assert(type_ == Type::RISING_EDGE);
 
   os << indent(depth) << "(CELL\n";
@@ -286,7 +299,7 @@ void LatchInst::print_sdf(ostream& os, int depth) {
   os << indent(depth) << "\n";
 }
 
-void LatchInst::print_verilog(ostream& os, size_t& /*unconn_count*/, int depth) {
+void LatchInst::printVerilog(ostream& os, size_t& /*unconn_count*/, int depth) const {
   // Currently assume a standard DFF
   assert(type_ == Type::RISING_EDGE);
 
@@ -318,58 +331,55 @@ void LatchInst::print_verilog(ostream& os, size_t& /*unconn_count*/, int depth) 
   os << "\n";
 }
 
-void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
+// virtual
+void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
   // create cell info
-  lib_cell cell;
+  LCell cell;
   cell.setName(type_name_);
 
   // to make memory management simple, we are using static memory for each
   // objects here
-  std::map<string, lib_pin> written_in_pins;
-  std::map<string, lib_pin> written_out_pins;
+  std::map<string, LibPin> written_in_pins;
+  std::map<string, LibPin> written_out_pins;
 
   // create pin and annotate with timing info
   if (ports_tcq_.size() || ports_tsu_.size() || ports_thld_.size()) {
     cell.setType(SEQUENTIAL);
 
-    // for debug
-    int i = 0;
-    if (::getenv("stars_trace")) cout << i << endl;  // TMP to suppress unused var warning
-
-    // clock arch
+    // clock arc
     for (auto tcq_kv : ports_tcq_) {
       string pin_name = tcq_kv.second.second;
-      lib_pin related_pin;
+      LibPin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
-        related_pin.bus_width(1);
+        related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
-        written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
+        written_in_pins.insert(std::pair<string, LibPin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
       }
 
       pin_name = tcq_kv.first;
-      int port_size = find_port_size(pin_name);
-      for (int port_idex = 0; port_idex < port_size; port_idex++) {
+      uint port_size = find_port_size(pin_name);
+      for (uint port_idex = 0; port_idex < port_size; port_idex++) {
         string out_pin_name = pin_name;
         if (port_size > 1) {
           out_pin_name += string("[") + std::to_string(port_idex) + string("]");
         }
 
-        lib_pin pin_out;
+        LibPin pin_out;
         if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
           pin_out.setType(DATA);
           pin_out.setName(out_pin_name);
           pin_out.setDirection(OUTPUT);
-          pin_out.bus_width(1);
-          written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
+          pin_out.setWidth(1);
+          written_out_pins.insert(std::pair<string, LibPin>(out_pin_name, pin_out));
         } else {
           pin_out = written_out_pins[out_pin_name];
         }
 
-        TimingArc arc;
+        PinArc arc;
         arc.setSense(POSITIVE);
         arc.setType(TRANSITION);
         arc.setRelatedPin(related_pin);
@@ -380,38 +390,38 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
     }
 
     // setup arch
-    i = 0;
+    //i = 0;
     for (auto tsu_kv : ports_tsu_) {
       string pin_name = tsu_kv.second.second;
-      lib_pin related_pin;
+      LibPin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
-        related_pin.bus_width(1);
+        related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
-        written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
+        written_in_pins.insert(std::pair<string, LibPin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
       }
 
       pin_name = tsu_kv.first;
-      int port_size = find_port_size(pin_name);
-      for (int port_idex = 0; port_idex < port_size; port_idex++) {
+      uint port_size = find_port_size(pin_name);
+      for (uint port_idex = 0; port_idex < port_size; port_idex++) {
         string in_pin_name = pin_name;
         if (port_size > 1) {
           in_pin_name += string("[") + std::to_string(port_idex) + string("]");
         }
-        lib_pin pin_in;
+        LibPin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
           pin_in.setName(in_pin_name);
-          pin_in.bus_width(1);
+          pin_in.setWidth(1);
           pin_in.setDirection(INPUT);
           pin_in.setType(DATA);
-          written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
+          written_in_pins.insert(std::pair<string, LibPin>(in_pin_name, pin_in));
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
-        TimingArc arc;
+        PinArc arc;
         arc.setSense(POSITIVE);
         arc.setType(SETUP);
         arc.setRelatedPin(related_pin);
@@ -421,38 +431,38 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
     }
 
     // hold arch
-    i = 0;
+    //i = 0;
     for (auto thld_kv : ports_thld_) {
       string pin_name = thld_kv.second.second;
-      lib_pin related_pin;
+      LibPin related_pin;
       if (written_in_pins.find(pin_name) == written_in_pins.end()) {
         related_pin.setName(pin_name);
-        related_pin.bus_width(1);
+        related_pin.setWidth(1);
         related_pin.setDirection(INPUT);
         related_pin.setType(CLOCK);
-        written_in_pins.insert(std::pair<string, lib_pin>(pin_name, related_pin));
+        written_in_pins.insert(std::pair<string, LibPin>(pin_name, related_pin));
       } else {
         related_pin = written_in_pins[pin_name];
       }
 
       pin_name = thld_kv.first;
-      int port_size = find_port_size(pin_name);
-      for (int port_idex = 0; port_idex < port_size; port_idex++) {
+      uint port_size = find_port_size(pin_name);
+      for (uint port_idex = 0; port_idex < port_size; port_idex++) {
         string in_pin_name = pin_name;
         if (port_size > 1) {
-          in_pin_name += string("[") + std::to_string(port_idex) + string("]");
+          in_pin_name += str::concat( "[", std::to_string(port_idex), "]" );
         }
-        lib_pin pin_in;
+        LibPin pin_in;
         if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
           pin_in.setName(in_pin_name);
-          pin_in.bus_width(1);
+          pin_in.setWidth(1);
           pin_in.setDirection(INPUT);
           pin_in.setType(DATA);
-          written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
+          written_in_pins.insert(std::pair<string, LibPin>(in_pin_name, pin_in));
         } else {
           pin_in = written_in_pins[in_pin_name];
         }
-        TimingArc arc;
+        PinArc arc;
         arc.setSense(POSITIVE);
         arc.setType(HOLD);
         arc.setRelatedPin(related_pin);
@@ -475,37 +485,37 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
     for (auto& arc : timing_arcs_) {
       string in_pin_name = arc.source_name();
       if (find_port_size(in_pin_name) > 1) {
-        in_pin_name += string("[") + std::to_string(arc.source_ipin()) + string("]");
+        in_pin_name += str::concat( "[" , std::to_string(arc.source_ipin()) , "]" );
       }
       if (written_in_pins.find(in_pin_name) == written_in_pins.end()) {
-        lib_pin pin_in;
+        LibPin pin_in;
         pin_in.setName(in_pin_name);
-        pin_in.bus_width(1);
+        pin_in.setWidth(1);
         pin_in.setDirection(INPUT);
         pin_in.setType(DATA);
         // cell.add_pin(pin_in, INPUT);
-        written_in_pins.insert(std::pair<string, lib_pin>(in_pin_name, pin_in));
+        written_in_pins.insert(std::pair<string, LibPin>(in_pin_name, pin_in));
       }
 
       // todo: add timing arch
       string out_pin_name = arc.sink_name();
       if (find_port_size(out_pin_name) > 1) {
-        out_pin_name += string("[") + std::to_string(arc.sink_ipin()) + string("]");
+        out_pin_name += str::concat( "[" , std::to_string(arc.sink_ipin()) , "]" );
       }
 
-      TimingArc tarc;
+      PinArc tarc;
       tarc.setSense(POSITIVE);
       tarc.setType(TRANSITION);
       tarc.setRelatedPin(written_in_pins[in_pin_name]);
       if (written_out_pins.find(out_pin_name) == written_out_pins.end()) {
-        lib_pin pin_out;
+        LibPin pin_out;
         pin_out.setName(out_pin_name);
-        pin_out.bus_width(1);
+        pin_out.setWidth(1);
         pin_out.setDirection(OUTPUT);
         pin_out.setType(DATA);
         pin_out.add_timing_arc(tarc);
         // cell.add_pin(pin_out, OUTPUT);
-        written_out_pins.insert(std::pair<string, lib_pin>(out_pin_name, pin_out));
+        written_out_pins.insert(std::pair<string, LibPin>(out_pin_name, pin_out));
       } else {
         written_out_pins[out_pin_name].add_timing_arc(tarc);
       }
@@ -524,7 +534,8 @@ void BlackBoxInst::print_lib(rsbe::LibWriter& lib_writer, ostream& os) {
   lib_writer.write_lcell(os, cell);
 }
 
-void BlackBoxInst::print_sdf(ostream& os, int depth) {
+void BlackBoxInst::printSDF(ostream& os, int depth) const {
+
   if (!timing_arcs_.empty() || !ports_tcq_.empty() || !ports_tsu_.empty() || !ports_thld_.empty()) {
     os << indent(depth) << "(CELL\n";
     os << indent(depth + 1) << "(CELLTYPE \"" << type_name_ << "\")\n";
@@ -549,14 +560,14 @@ void BlackBoxInst::print_sdf(ostream& os, int depth) {
 
         // we need to blast it since all bus port has been blasted in print
         // verilog else, OpenSTA issues warning on that
-        int src_port_size = find_port_size(arc.source_name());
-        for (int src_port_idex = 0; src_port_idex < src_port_size; src_port_idex++) {
+        uint src_port_size = find_port_size(arc.source_name());
+        for (uint src_port_idex = 0; src_port_idex < src_port_size; src_port_idex++) {
           string source_name = arc.source_name();
           if (src_port_size > 1) {
             source_name += string("[") + std::to_string(src_port_idex) + string("]");
           }
-          int snk_port_size = find_port_size(arc.sink_name());
-          for (int snk_port_idex = 0; snk_port_idex < snk_port_size; snk_port_idex++) {
+          uint snk_port_size = find_port_size(arc.sink_name());
+          for (uint snk_port_idex = 0; snk_port_idex < snk_port_size; snk_port_idex++) {
             string sink_name = arc.sink_name();
             if (snk_port_size > 1) {
               sink_name += string("[") + std::to_string(snk_port_idex) + string("]");
@@ -581,14 +592,14 @@ void BlackBoxInst::print_sdf(ostream& os, int depth) {
         stringstream delay_triple;
         delay_triple << "(" << clock_to_q_ps << ":" << clock_to_q_ps << ":" << clock_to_q_ps << ")";
 
-        int src_port_size = find_port_size(kv.second.second);
-        for (int src_port_idex = 0; src_port_idex < src_port_size; src_port_idex++) {
+        uint src_port_size = find_port_size(kv.second.second);
+        for (uint src_port_idex = 0; src_port_idex < src_port_size; src_port_idex++) {
           string source_name = kv.second.second;
           if (src_port_size > 1) {
             source_name += string("[") + std::to_string(src_port_idex) + string("]");
           }
-          int snk_port_size = find_port_size(kv.first);
-          for (int snk_port_idex = 0; snk_port_idex < snk_port_size; snk_port_idex++) {
+          uint snk_port_size = find_port_size(kv.first);
+          for (uint snk_port_idex = 0; snk_port_idex < snk_port_size; snk_port_idex++) {
             string sink_name = kv.first;
             if (snk_port_size > 1) {
               sink_name += string("[") + std::to_string(snk_port_idex) + string("]");
@@ -608,14 +619,14 @@ void BlackBoxInst::print_sdf(ostream& os, int depth) {
           double setup_ps = get_delay_ps(kv.second.first);
           stringstream delay_triple;
           delay_triple << "(" << setup_ps << ":" << setup_ps << ":" << setup_ps << ")";
-          int data_port_size = find_port_size(kv.first);
-          for (int data_port_idex = 0; data_port_idex < data_port_size; data_port_idex++) {
+          uint data_port_size = find_port_size(kv.first);
+          for (uint data_port_idex = 0; data_port_idex < data_port_size; data_port_idex++) {
             string data_name = kv.first;
             if (data_port_size > 1) {
               data_name += string("[") + std::to_string(data_port_idex) + string("]");
             }
-            int clk_port_size = find_port_size(kv.second.second);
-            for (int clk_port_idex = 0; clk_port_idex < clk_port_size; clk_port_idex++) {
+            uint clk_port_size = find_port_size(kv.second.second);
+            for (uint clk_port_idex = 0; clk_port_idex < clk_port_size; clk_port_idex++) {
               string clk_name = kv.second.second;
               if (clk_port_size > 1) {
                 clk_name += string("[") + std::to_string(clk_port_idex) + string("]");
@@ -631,14 +642,14 @@ void BlackBoxInst::print_sdf(ostream& os, int depth) {
           stringstream delay_triple;
           delay_triple << "(" << hold_ps << ":" << hold_ps << ":" << hold_ps << ")";
 
-          int data_port_size = find_port_size(kv.first);
-          for (int data_port_idex = 0; data_port_idex < data_port_size; data_port_idex++) {
+          uint data_port_size = find_port_size(kv.first);
+          for (uint data_port_idex = 0; data_port_idex < data_port_size; data_port_idex++) {
             string data_name = kv.first;
             if (data_port_size > 1) {
               data_name += string("[") + std::to_string(data_port_idex) + string("]");
             }
-            int clk_port_size = find_port_size(kv.second.second);
-            for (int clk_port_idex = 0; clk_port_idex < clk_port_size; clk_port_idex++) {
+            uint clk_port_size = find_port_size(kv.second.second);
+            for (uint clk_port_idex = 0; clk_port_idex < clk_port_size; clk_port_idex++) {
               string clk_name = kv.second.second;
               if (clk_port_size > 1) {
                 clk_name += string("[") + std::to_string(clk_port_idex) + string("]");
@@ -655,11 +666,11 @@ void BlackBoxInst::print_sdf(ostream& os, int depth) {
   }
 }
 
-void BlackBoxInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
-  // Instance type
+void BlackBoxInst::printVerilog(ostream& os, size_t& unconn_count, int depth) const {
+  // Cell type
   os << indent(depth) << type_name_ << "\n";
 
-  // Instance name
+  // Cell name
   os << indent(depth) << escape_verilog_identifier(inst_name_) << " (\n";
 
   // Input Port connections
@@ -687,7 +698,7 @@ void BlackBoxInst::print_verilog(ostream& os, size_t& unconn_count, int depth) {
   os << "\n";
 }
 
-size_t BlackBoxInst::find_port_size(const string& port_name) const {
+uint BlackBoxInst::find_port_size(const string& port_name) const noexcept {
   auto fitr = input_port_conns_.find(port_name);
   if (fitr != input_port_conns_.end()) {
     return fitr->second.size();
@@ -702,10 +713,10 @@ size_t BlackBoxInst::find_port_size(const string& port_name) const {
                   port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
   assert(0);
 
-  VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER, "Could not find port %s on %s of type %s\n",
-                  port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
+  //// VPR_FATAL_ERROR(VPR_ERROR_IMPL_NETLIST_WRITER, "Could not find port %s on %s of type %s\n",
+  ////                port_name.c_str(), inst_name_.c_str(), type_name_.c_str());
 
-  return -1;  // Suppress warning
+  return 0;
 }
 
 }

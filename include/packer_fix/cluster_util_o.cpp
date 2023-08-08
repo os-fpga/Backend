@@ -1679,9 +1679,7 @@ t_pack_molecule* save_cluster_routing_and_pick_new_seed(const t_packer_opts& pac
     router_data->saved_lb_nets = nullptr;
 
     //Pick a new seed
-    if(!packer_opts.use_partitioning_in_pack){
-        next_seed = get_highest_gain_seed_molecule(&seedindex, seed_atoms);
-    }
+    next_seed = get_highest_gain_seed_molecule(&seedindex, seed_atoms);
 
     if (packer_opts.timing_driven) {
         if (num_blocks_hill_added > 0) {

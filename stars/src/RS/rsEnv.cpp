@@ -160,6 +160,36 @@ void rsEnv::dump(const char* prefix) const noexcept {
   cout << endl;
 }
 
+void rsEnv::print(std::ostream& os, const char* prefix) const noexcept {
+  if (prefix) os << prefix;
+
+  os << "#      longVer_  " << longVer_ << endl;
+  os << "#  compTimeStr_  " << compTimeStr_ << endl;
+  os << "#  pid_: " << pid_ << "  ppid_:" << ppid_ << endl;
+
+  os << "#  argCount()  = " << argCount() << '\n';
+  os << "#      arg0_   = " << arg0_ << endl;
+  os << "#  abs_arg0_   = " << abs_arg0_ << endl;
+
+  os << "#     self-path: " << selfPath_ << endl;
+  os << "#   parent-path: " << parentPath_ << endl;
+  os << "#  initial RSS = " << megaRss0() << " MB\n" << endl;
+
+  size_t sz = orig_argV_.size();
+  os << "#\t    [arguments]  orig_argV_.size()= " << sz << endl;
+  for (size_t i = 1; i < sz; i++) {
+    os << "#\t    " << i << ": " << orig_argV_[i] << '\n';
+  }
+  os << "#\t    [arguments]  orig_argV_.size()= " << sz << '\n' << endl;
+
+  os << "# COMMAND LINE:\n" << endl;
+  os << ' ' << abs_arg0_;
+  for (size_t i = 1; i < sz; i++)
+    os << ' ' << orig_argV_[i];
+
+  os << '\n' << endl;
+}
+
 void rsEnv::printPids(const char* prefix) const noexcept {
   if (!prefix) prefix = " ";
   printf("%s pid_: %i  ppid_: %i\n", prefix, pid_, ppid_);

@@ -2,14 +2,19 @@ cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
 
+#variable_watch(VPR_DEST_DIR)
+
 if (NOT RAPTOR)
   set(ADD_READ_VERILOG_TO_VPR 1)
 endif()
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
 set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
+# Enable Analytic Placer in VTR CMake
+set(VTR_CMAKE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/VTR_CMAKE_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
 set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
+set(MEM_FIX_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/mem_fix)
 
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
 set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
@@ -18,6 +23,8 @@ set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
 set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga)
 set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil)
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
+set(MEM_FIX_DEST_DIR1 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libvtrutil/src)
+set(MEM_FIX_DEST_DIR2 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base)
 
 # Version number
 file (STRINGS "VERSION.md" VERSION_NUMBER)
@@ -27,7 +34,7 @@ list(GET VERSION_LIST 1 CMAKE_PROJECT_VERSION_MINOR)
 list(GET VERSION_LIST 2 CMAKE_PROJECT_VERSION_PATCH)
 set(CMAKE_PROJECT_VERSION ${VERSION_NUMBER})
 
-# 
+#
 # Sub-projects
 #
 set(OPENFPGA_WITH_YOSYS OFF CACHE BOOL "Disable building Yosys in OpenFPGA" FORCE)
@@ -69,6 +76,13 @@ FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
 #[===[
   End for for bitstream generation
 ]===]
+
+FILE(COPY ${MEM_FIX_SRC_DIR}/libvtrutil/vtr_ragged_matrix.h
+          DESTINATION
+          ${MEM_FIX_DEST_DIR1})
+FILE(COPY ${MEM_FIX_SRC_DIR}/librrgraph/rr_graph_view.h
+          DESTINATION
+          ${MEM_FIX_DEST_DIR2})
 
 FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/cluster_util.cpp
@@ -112,11 +126,20 @@ endif()
 #           ${PLACER_SRC_DIR}/vpr_types.h
 #           DESTINATION
 #           ${VPR_DEST_DIR}/src/base/)
-          
+
+# Update VTR CMake to enable analytical placer
+FILE(COPY ${VTR_CMAKE_SRC_DIR}/CMakeLists.txt
+     DESTINATION
+     ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/
+)
+
 FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
           ${PLACER_SRC_DIR}/place.cpp
           ${PLACER_SRC_DIR}/place_util.cpp
           ${PLACER_SRC_DIR}/place_util.h
+          # Analytical Placer
+          ${PLACER_SRC_DIR}/analytic_placer.h
+          ${PLACER_SRC_DIR}/analytic_placer.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/place/)
 

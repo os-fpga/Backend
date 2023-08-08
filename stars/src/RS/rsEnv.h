@@ -39,6 +39,7 @@ struct rsEnv {
 
   void reset() noexcept;
   void dump(const char* prefix) const noexcept;
+  void print(std::ostream& os, const char* prefix) const noexcept;
   void printPids(const char* prefix) const noexcept;
 
   double megaRss0() const noexcept { return kilo2mega(rss0_); }

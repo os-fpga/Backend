@@ -18,7 +18,7 @@
 #include "rsGlobal.h"
 #include "rsVPR.h"
 #include "sta_file_writer.h"
-#include "sta_lib_data.h"
+#include "LCell.h"
 #include "sta_lib_writer.h"
 #include "rsDB.h"
 #include "WriterVisitor.h"

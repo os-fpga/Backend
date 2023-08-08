@@ -102,9 +102,6 @@ struct t_options {
     argparse::ArgValue<bool> use_attraction_groups;
     argparse::ArgValue<int> pack_num_moves;
     argparse::ArgValue<std::string> pack_move_type;
-    argparse::ArgValue<bool> use_partitioning_in_pack;
-    argparse::ArgValue<std::string> hmetis_path;
-    argparse::ArgValue<int> number_of_molecules_in_partition;
     /* Placement options */
     argparse::ArgValue<int> Seed;
     argparse::ArgValue<bool> ShowPlaceTiming;
@@ -128,8 +125,6 @@ struct t_options {
     argparse::ArgValue<e_place_effort_scaling> place_effort_scaling;
     argparse::ArgValue<e_place_delta_delay_algorithm> place_delta_delay_matrix_calculation_method;
     argparse::ArgValue<bool> enable_analytic_placer;
-    //Cascade_placer
-    argparse::ArgValue<bool> enable_cascade_placer;
     argparse::ArgValue<std::vector<float>> place_static_move_prob;
     argparse::ArgValue<std::vector<float>> place_static_notiming_move_prob;
     argparse::ArgValue<int> place_high_fanout_net;

@@ -5,7 +5,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#include "sta_lib_data.h"
+#include "LCell.h"
 
 namespace rsbe {
 
@@ -33,11 +33,11 @@ public:
 
   void write_bus_type(std::ostream& os, int from, int to, bool down_to);
 
-  void write_lcell(std::ostream& os, const lib_cell& lc) const;
+  void write_lcell(std::ostream& os, const LCell& lc) const;
 
-  void write_lcell_pins(std::ostream& os, const lib_cell& lc) const;
+  void write_lcell_pins(std::ostream& os, const LCell& lc) const;
 
-  void write_timing_arc(std::ostream& os, const lib_pin& basePin, const TimingArc& arc) const;
+  void write_timing_arc(std::ostream& os, const LibPin& basePin, const PinArc& arc) const;
 
   void write_footer(std::ostream& os) const;
 };

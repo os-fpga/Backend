@@ -20,7 +20,6 @@
 #include "rsGlobal.h"
 #include "rsVPR.h"
 #include "sta_file_writer.h"
-#include "sta_lib_data.h"
 #include "sta_lib_writer.h"
 #include "rsDB.h"
 
@@ -65,22 +64,16 @@ private:  // NetlistVisitor interface functions
 protected:
   virtual void print_primary_io(int depth);
 
-  virtual void print_assignments(int depth) {
-    verilog_os_ << "\n";
-    verilog_os_ << indent(depth + 1) << "//IO assignments\n";
-    for (auto& assign : assignments_) {
-      assign.print_verilog(verilog_os_, indent(depth + 1));
-    }
-  }
+  virtual void print_assignments(int depth);
 
   ///@brief Writes out the verilog netlist
-  void print_verilog(int depth = 0);
+  void printVerilog(int depth = 0);
 
 private:  // Internal Helper functions
-  void print_lib(int depth = 0);
+  void printLib(int depth = 0);
 
   ///@brief Writes out the SDF
-  void print_sdf(int depth = 0);
+  void printSDF(int depth = 0);
 
   /**
    * @brief Returns the name of a circuit-level Input/Output
@@ -104,26 +97,26 @@ protected:
                         int port_idx,            ///< The instance port index
                         int pin_idx);            ///< The instance pin index
 
-  ///@brief Returns an Instance object representing the LUT
-  std::shared_ptr<Instance> make_lut_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing the LUT
+  Cell* make_lut_cell(const t_pb* atom) noexcept;
 
-  ///@brief Returns an Instance object representing the Latch
-  std::shared_ptr<Instance> make_latch_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing the Latch
+  Cell* make_latch_instance(const t_pb* atom);
 
   /**
-   * @brief Returns an Instance object representing the RAM
+   * @brief Returns an Cell object representing the RAM
    * @note  the primtive interface to dual and single port rams is nearly
    * identical, so we using a single function to handle both
    */
-  std::shared_ptr<Instance> make_ram_instance(const t_pb* atom);
+  Cell* make_ram_instance(const t_pb* atom);
 
-  ///@brief Returns an Instance object representing a Multiplier
-  std::shared_ptr<Instance> make_multiply_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing a Multiplier
+  Cell* make_multiply_instance(const t_pb* atom);
 
-  ///@brief Returns an Instance object representing an Adder
-  std::shared_ptr<Instance> make_adder_instance(const t_pb* atom);
+  ///@brief Returns an Cell object representing an Adder
+  Cell* make_adder_instance(const t_pb* atom);
 
-  std::shared_ptr<Instance> make_blackbox_instance(const t_pb* atom);
+  Cell* make_blackbox_instance(const t_pb* atom);
 
   ///@brief Returns the top level pb_route associated with the given pb
   const t_pb_routes& find_top_pb_route(const t_pb* curr) {
@@ -220,7 +213,8 @@ protected:
   std::vector<string> inputs_;           ///< Name of circuit inputs
   std::vector<string> outputs_;          ///< Name of circuit outputs
   std::vector<Assignment> assignments_;  ///< Set of assignments (i.e. net-to-net connections)
-  std::vector<std::shared_ptr<Instance>> cell_instances_;  ///< Set of cell instances
+
+  std::vector<Cell*> all_cells_;         ///< Set of cell instances
 
 private:
   // Drivers of logical nets.
@@ -243,8 +237,8 @@ private:
   // Look-up from pins to tnodes
   std::map<std::pair<ClusterBlockId, int>, tatum::NodeId> pin_id_to_tnode_lookup_;
 
-  std::shared_ptr<const AnalysisDelayCalculator> delay_calc_;
-  struct t_analysis_opts opts_;
+  const AnalysisDelayCalculator*  delay_calc_ = nullptr;
+  t_analysis_opts  opts_;
 };
 
 }

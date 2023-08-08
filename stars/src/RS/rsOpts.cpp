@@ -429,9 +429,9 @@ bool rsOpts::set_STA_TC3() noexcept {
 
 #ifdef RSBE_UNIT_TEST_ON
   static const char* raw_TC3 = R"(
-    $HOME/raps/10jul/Raptor/build/share/raptor/etc/devices/1GE100-ES1/gemini_vpr.xml
-    $HOME/raps/10jul/Raptor/EDA-1704/stars_TC3/synth_1_1/synthesis/flop2flop_post_synth.v
-    --sdc_file $HOME/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_openfpga.sdc
+    $HOME/raps/TC_10jul/Raptor/build/share/raptor/etc/devices/1GE100-ES1/gemini_vpr.xml
+    $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/synth_1_1/synthesis/flop2flop_post_synth.v
+    --sdc_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_openfpga.sdc
     --route_chan_width 160 --suppress_warnings check_rr_node_warnings.log,check_rr_node
     --clock_modeling ideal --absorb_buffer_luts off --skip_sync_clustering_and_routing_results off
     --constant_net_method route --post_place_timing_report flop2flop_post_place_timing.rpt
@@ -441,9 +441,9 @@ bool rsOpts::set_STA_TC3() noexcept {
     --post_synth_netlist_unconn_inputs gnd
     --inner_loop_recompute_divider 1 --max_router_iterations 1500
     --timing_report_detail detailed --timing_report_npaths 100
-    --net_file $HOME/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_post_synth.net
-    --place_file $HOME/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/placement/flop2flop_post_synth.place
-    --route_file $HOME/raps/10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/routing/flop2flop_post_synth.route
+    --net_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_post_synth.net
+    --place_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/placement/flop2flop_post_synth.place
+    --route_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/routing/flop2flop_post_synth.route
     --place
   )";
   ok = set_VPR_TC_args(raw_TC3);
@@ -487,6 +487,93 @@ bool rsOpts::set_STA_TC4() noexcept {
 
   flush_out(true);
   return ok;
+}
+
+bool rsOpts::set_STA_TC5() noexcept {
+  lputs(" O-set_STA_TC5: param_up_counter EDA-1828");
+  assert(argc_ > 0 && argv_);
+  bool ok = false;
+
+#ifdef RSBE_UNIT_TEST_ON
+  static const char* raw_TC5 = R"(
+  $HOME/raps/TC27jul/Raptor/build/share/raptor/etc/devices/gemini_10x8/gemini_vpr.xml
+  $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/synthesis/param_up_counter_post_synth.v
+  --sdc_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_openfpga.sdc
+  --route_chan_width 192
+  --suppress_warnings check_rr_node_warnings.log,check_rr_node
+  --clock_modeling ideal
+  --absorb_buffer_luts off
+  --skip_sync_clustering_and_routing_results on
+  --constant_net_method route
+  --post_place_timing_report param_up_counter_post_place_timing.rpt
+  --device castor10x8_heterogeneous --allow_unrelated_clustering on
+  --allow_dangling_combinational_nodes on
+  --gen_post_synthesis_netlist on
+  --post_synth_netlist_unconn_inputs gnd
+  --inner_loop_recompute_divider 1
+  --max_router_iterations 1500
+  --timing_report_detail detailed
+  --timing_report_npaths 100
+  --top param_up_counter
+  --net_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_post_synth.net
+  --place_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/placement/param_up_counter_post_synth.place
+  --route_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/routing/param_up_counter_post_synth.route
+  )";
+  ok = set_VPR_TC_args(raw_TC5);
+#endif  // RSBE_UNIT_TEST_ON
+
+  flush_out(true);
+  return ok;
+}
+
+bool rsOpts::set_STA_TC6() noexcept {
+  lputs(" O-set_STA_TC6: vex");
+  assert(argc_ > 0 && argv_);
+  bool ok = false;
+
+#ifdef RSBE_UNIT_TEST_ON
+  static const char* raw_TC6 = R"(
+  $HOME/raps/TC6_vex_2aug/Raptor/build/share/raptor/etc/devices/gemini/gemini_vpr.xml
+  $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/synthesis/vex_soc_no_carry_post_synth.v
+  --sdc_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_openfpga.sdc
+  --route_chan_width 192 --suppress_warnings check_rr_node_warnings.log,check_rr_node
+  --clock_modeling ideal --absorb_buffer_luts off --skip_sync_clustering_and_routing_results on
+  --constant_net_method route --post_place_timing_report vex_soc_no_carry_post_place_timing.rpt
+  --device castor82x68_heterogeneous
+  --allow_unrelated_clustering on
+  --allow_dangling_combinational_nodes on
+  --gen_post_synthesis_netlist on
+  --post_synth_netlist_unconn_inputs gnd
+  --inner_loop_recompute_divider 1
+  --max_router_iterations 1500
+  --timing_report_detail detailed
+  --timing_report_npaths 100
+  --top vex_soc
+  --net_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_post_synth.net
+  --place_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/placement/vex_soc_no_carry_post_synth.place
+  --route_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/routing/vex_soc_no_carry_post_synth.route
+  )";
+  ok = set_VPR_TC_args(raw_TC6);
+#endif  // RSBE_UNIT_TEST_ON
+
+  flush_out(true);
+  return ok;
+}
+
+bool rsOpts::set_STA_testCase(int TC_id) noexcept {
+  if (TC_id <= 1)
+    return false;
+  if (TC_id == 2)
+    return set_STA_TC2();
+  if (TC_id == 3)
+    return set_STA_TC3();
+  if (TC_id == 4)
+    return set_STA_TC4();
+  if (TC_id == 5)
+    return set_STA_TC5();
+  if (TC_id == 6)
+    return set_STA_TC6();
+  return false;
 }
 
 bool rsOpts::set_VPR_TC_args(CStr raw_tc) noexcept {

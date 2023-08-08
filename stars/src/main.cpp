@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0058";
+static const char* _rsbe_VERSION_STR = "rsbe0093";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -41,6 +41,16 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
     return false;
   }
 
+  if (ltrace() >= 8 || getenv("rsbe_trace_env")) {
+    string cmd_fn = str::concat("00_do_stars.", std::to_string(s_env.pid_), ".stars.sh");
+    std::ofstream cmd_os(cmd_fn);
+    if (cmd_os.is_open()) {
+      s_env.print(cmd_os, "# stars\n#----env----\n");
+      cmd_os << "#-----------" << endl;
+      lout() << "WRITTEN COMMAND FILE: " << cmd_fn << endl;
+    }
+  }
+
   // call vpr to build design context
   ls << "\nSTARS: Preparing design data ... " << endl;
 
@@ -48,7 +58,7 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
   char** vprArgv = (char**)calloc(argc + 4, sizeof(char*));
   int vprArgc = argc;
   bool found_analysis = false;
-  std::string analysis = "--analysis";
+  string analysis = "--analysis";
   for (int i = 0; i < argc; i++) {
     const char* a = argv[i];
     if (analysis == a) found_analysis = true;
@@ -140,7 +150,7 @@ int main(int argc, char** argv) {
 
   if (opts.trace_ >= 4 || ltrace() >= 8 || getenv("rsbe_trace_env")) {
     s_env.dump("\n----env----\n");
-    cout << "-----------" << endl;
+    lout() << "-----------" << endl;
   }
 
   if (opts.ver_or_help()) {
@@ -162,11 +172,14 @@ int main(int argc, char** argv) {
   bool ok = false;
 
 #ifdef RSBE_UNIT_TEST_ON
-  bool rsbe_builtin_STA_TC = getenv("rsbe_builtin_STA_TC");
-  bool rsbe_builtin_VPR_TC = getenv("rsbe_builtin_VPR_TC");
-  if (rsbe_builtin_STA_TC) {
-    lputs("\n(rsbe_builtin_STA_TC)\n");
-    ok = opts.set_STA_TC4();
+  const char* str_STA_TC = getenv("rsbe_builtin_STA_TC");
+  int num_STA_TC = 0;
+  if (str_STA_TC)
+    num_STA_TC = ::atoi(str_STA_TC);
+  constexpr bool rsbe_builtin_VPR_TC = false; //getenv("rsbe_builtin_VPR_TC");
+  if (num_STA_TC > 0) {
+    lprintf("\n### num_STA_TC= %i\n", num_STA_TC);
+    ok = opts.set_STA_testCase(num_STA_TC);
     if (ok) {
       ok = do_stars(opts, false);
       if (ok) {

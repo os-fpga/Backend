@@ -858,9 +858,6 @@ struct t_packer_opts {
     bool use_attraction_groups;
     int pack_num_moves;
     std::string pack_move_type;
-    bool use_partitioning_in_pack;
-    std::string hmetis_path;
-    int number_of_molecules_in_partition;
 };
 
 /**
@@ -1157,8 +1154,6 @@ struct t_placer_opts {
      * of the annealing placer for local improvement
      */
     bool enable_analytic_placer;
-    // Cascade Placer
-    bool enable_cascade_placer;
 };
 
 /* All the parameters controlling the router's operation are in this        *

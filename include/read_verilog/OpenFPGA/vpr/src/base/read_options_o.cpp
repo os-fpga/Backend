@@ -1814,21 +1814,6 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("semiDirectedSwap")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
-    pack_grp.add_argument<bool, ParseOnOff>(args.use_partitioning_in_pack, "--use_partitioning_in_pack")
-        .help("Whether to use hmetis partitioning in pack.")
-        .default_value("off")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-
-    gen_grp.add_argument<std::string>(args.hmetis_path, "--hmetis_path")
-        .help("The path to the hmetis executable.")
-        .default_value("~/bin/hmetis")
-        .show_in(argparse::ShowIn::HELP_ONLY);;
-
-    pack_grp.add_argument<int>(args.number_of_molecules_in_partition, "--number_of_molecules_in_partition")
-        .help("Average number of molecules in each cluster. It should be used when --use_partitioning_in_pack is on.")
-        .default_value("64")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-
     auto& place_grp = parser.add_argument_group("placement options");
 
     place_grp.add_argument(args.Seed, "--seed")
@@ -1931,9 +1916,8 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .help(
             "Controls which placement algorithm is used. Valid options:\n"
             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
-            "  criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality  delay).\n"
-            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n"
-            " * congestion_aware: Focuses on improving routability.\n")
+            " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
+            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
         .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -1944,9 +1928,8 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "If specified, it overrides the option --place_algorithm during placement quench.\n"
             "Valid options:\n"
             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
-            "  criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality  delay).\n"
-            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n"
-            " * congestion_aware: Focuses on improving routability.\n")
+            " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
+            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
         .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -1983,14 +1966,6 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .help(
             "Enables the analytic placer. "
             "Once analytic placement is done, the result is passed through the quench phase of the annealing placer for local improvement")
-        .default_value("false")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-    
-    // Cascade Placer
-    place_grp.add_argument(args.enable_cascade_placer, "--enable_cascade_placer")
-        .help(
-            "Enables the cascade placer. "
-            "Once analytic placement is done, the result is passed through the annealing (SA) placer")
         .default_value("false")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
@@ -2135,14 +2110,12 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Trade-off control between delay and wirelength during placement."
             " 0.0 focuses completely on wirelength, 1.0 completely on timing")
         .default_value("0.5")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-
-    place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
+        .show_in(argparse::ShowIn::HELP_ONLY); 
+                   place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
         .help(
-            "Trade-off control the bouding value for the contestion matrix.\n"
-            " a value near routing channel width can be a good value.\n"
-            " a high value let the VPR to ignore the congestion aware placement and continue its own course of action.\n")
-        .default_value("1.0")
+            "Trade-off control between routability and timing during placement."
+            " 0.0 focuses completely on routability, 1.0 completely on timing")
+        .default_value("500.0")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_timing_grp.add_argument(args.RecomputeCritIter, "--recompute_crit_iter")
