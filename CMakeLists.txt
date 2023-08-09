@@ -13,6 +13,7 @@ set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
 # Enable Analytic Placer in VTR CMake
 set(VTR_CMAKE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/VTR_CMAKE_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
+set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
 set(MEM_FIX_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/mem_fix)
 
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
@@ -21,6 +22,7 @@ set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr
 set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
 set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga)
 set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil)
+set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
 set(MEM_FIX_DEST_DIR1 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libvtrutil/src)
 set(MEM_FIX_DEST_DIR2 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base)
 
@@ -162,6 +164,15 @@ file(COPY ${PUGI_SRC}/CMakeLists.txt
   DESTINATION
   ${PUGI_DEST}/
  )
+
+FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
+          ${TILEABLE_SRC_DIR}/rr_graph_builder.h
+          DESTINATION
+          ${LIB_RRG_DEST_DIR}/src/base)
+
+FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
+          DESTINATION
+          ${LIB_RRG_DEST_DIR}/src/io)
 
 add_subdirectory(OpenFPGA)
 
