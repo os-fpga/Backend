@@ -50,32 +50,9 @@ else()
   set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations? NO!")
 endif()
 
-#[===[
-  Start for for bitstream generation
-  This should not be different from OpenFPGA
-  While waiting to get approval to commit into OpenFPGA,
-    Raptor will have its own copy temporarily
-  Contact: Chung Shien Chai
-]===]
-FILE(COPY ${OPENFPGA_SRC_DIR}/src/base/openfpga_bitstream_command_template.h
-          ${OPENFPGA_SRC_DIR}/src/base/openfpga_bitstream_template.h
-          DESTINATION
-          ${OPENFPGA_DEST_DIR}/openfpga/src/base/)
-FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/build_fabric_bitstream_memory_bank.cpp
-          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/fabric_bitstream.cpp
-          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/fabric_bitstream.h
-          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/write_text_fabric_bitstream.cpp
-          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/write_text_fabric_bitstream.h
-          ${OPENFPGA_SRC_DIR}/src/fpga_bitstream/write_xml_fabric_bitstream.cpp
-          DESTINATION
-          ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_bitstream/)
 FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
-          ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench_memory_bank.cpp
           DESTINATION
           ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_verilog/)
-#[===[
-  End for for bitstream generation
-]===]
 
 FILE(COPY ${MEM_FIX_SRC_DIR}/libvtrutil/vtr_ragged_matrix.h
           DESTINATION
