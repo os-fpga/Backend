@@ -41,6 +41,8 @@
 #include <algorithm>
 #include <fstream>
 
+#include <thread>
+
 #include "vtr_assert.h"
 #include "vtr_log.h"
 #include "vtr_math.h"
@@ -364,7 +366,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
 
 
         char* commandToExecuteFotTest = new char[1000];
-        sprintf(commandToExecuteFotTest, "test -x %s", packer_opts.hmetis_path.c_str());
+        sprintf(commandToExecuteFotTest, "test -x %s", packer_opts.partitioner_path.c_str());
         int code = system (commandToExecuteFotTest);
         //VTR_LOG("test COMMAND: %s\n", commandToExecuteFotTest);
         VTR_ASSERT_MSG(code == 0, "hmetis file does not exists or is not executable.");
@@ -372,15 +374,21 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
         delete commandToExecuteFotTest;
 
         char* commandToExecute = new char[1000];
-        sprintf(commandToExecute, "%s hmetis.txt %d 3 10 4 1 3 0 0 ", packer_opts.hmetis_path.c_str(), numberOfClusters);
-        VTR_LOG("HMETIS COMMAND: %s\n", commandToExecute);
+        unsigned num_cpus = std::thread::hardware_concurrency();
+        int num_threads = (int)(num_cpus / 2) > 1? (int)(num_cpus / 2) : 1;
+        // sprintf(commandToExecute, "%s hmetis.txt %d 3 10 4 1 3 0 0 ", packer_opts.hmetis_path.c_str(), numberOfClusters);
+        sprintf(commandToExecute, 
+                "%s -h hmetis.txt --preset-type=quality -t %d -k %d -e 3 -o soed --enable-progress-bar=true --show-detailed-timings=true --verbose=true --write-partition-file=true", 
+                packer_opts.partitioner_path.c_str(), num_threads, numberOfClusters);
+        VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
 
         code = system(commandToExecute);
 
         delete commandToExecute;
 
         char* newFilename = new char[100];
-        sprintf(newFilename, "hmetis.txt.part.%d", numberOfClusters);
+        // sprintf(newFilename, "hmetis.txt.part.%d", numberOfClusters);
+        sprintf(newFilename, "hmetis.txt.part%d.epsilon3..seed0.KaHyPar", numberOfClusters);
 
         int* atomBlockIdToCluster = new int[numberOfAtoms];
 
