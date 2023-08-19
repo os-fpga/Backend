@@ -321,7 +321,7 @@ endif()
 #Configure the build to use the selected engine
 if (VPR_USE_EXECUTION_ENGINE STREQUAL "tbb")
     target_compile_definitions(libvpr PRIVATE VPR_USE_TBB)
-    target_link_libraries(libvpr tbb)
+    target_link_libraries(libvpr ${TBB_LIBRARIES})
     target_link_libraries(libvpr ${TBB_tbbmalloc_proxy_LIBRARY}) #Use the scalable memory allocator
     message(STATUS "VPR: will support parallel execution using '${VPR_USE_EXECUTION_ENGINE}'")
 elseif(VPR_USE_EXECUTION_ENGINE STREQUAL "serial")
