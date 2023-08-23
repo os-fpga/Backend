@@ -167,7 +167,7 @@ else()
         GIT_REPOSITORY https://github.com/kahypar/mt-kahypar.git
         GIT_TAG master 
         GIT_SHALLOW TRUE
-        CMAKE_ARGS -DCMAKE_BUILD_TYPE=RELEASE -DKAHYPAR_DOWNLOAD_TBB=ON
+        CMAKE_ARGS -DCMAKE_BUILD_TYPE=RELEASE -DKAHYPAR_DOWNLOAD_TBB=ON -DKAHYPAR_DOWNLOAD_BOOST=On
         BUILD_COMMAND ${CMAKE_COMMAND} --build . --target MtKaHyPar -j ${nproc}
         INSTALL_COMMAND ""  # No install step is required
         
