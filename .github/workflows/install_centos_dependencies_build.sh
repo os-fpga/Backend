@@ -48,5 +48,6 @@ yum install -y ninja-build
 yum install -y wget
 yum install -y gtk3-devel
 yum install -y openssl-devel
+yum install -y hwloc-devel
 
 ln -s $PWD/cmake-3.16.9-Linux-x86_64/bin/ctest /usr/bin/ctest
