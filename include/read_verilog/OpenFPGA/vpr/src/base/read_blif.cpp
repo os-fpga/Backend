@@ -806,7 +806,6 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
         blif_file_.insert(blif_file_.find_last_of("."), "_");
         std::string directory = std::filesystem::current_path().string();
         blif_file_ = directory + "/" +blif_file_;
-        std::cout << "BLIF PATH is   :    " << blif_file_ << std::endl;
         std::ofstream new_file(blif_file_.c_str());
         new_file << mod_str;
         new_file.close();
