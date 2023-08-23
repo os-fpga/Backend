@@ -587,6 +587,8 @@ void SetupPackerOpts(const t_options& Options,
     PackerOpts->pack_num_moves = Options.pack_num_moves;
     PackerOpts->pack_move_type = Options.pack_move_type;
     PackerOpts->use_partitioning_in_pack = Options.use_partitioning_in_pack;
+    // PackerOpts->hmetis_path = Options.hmetis_path;
+    PackerOpts->partitioner_path = Options.partitioner_path;
     PackerOpts->number_of_molecules_in_partition = Options.number_of_molecules_in_partition;
 }
 
