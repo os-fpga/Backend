@@ -21,6 +21,7 @@
 #include <fstream>
 #include <unordered_set>
 #include <cctype> //std::isdigit
+#include <filesystem>
 
 #include "blifparse.hpp"
 #include "atom_netlist.h"
@@ -781,6 +782,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                                   const char* top_mod)
 {
     AtomNetlist netlist;
+    simple_netlist n_l;
     std::string blif_file_ = blif_file;
     std::string arch_file = vpr_setup.FileNameOpts.ArchFile;
     std::stringstream ss(arch_file);
@@ -799,10 +801,28 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     prune_verilog(blif_file, gb, directoryName);
     if (gb.contains_io_prem) {
         mod_str = gb.mod_str;
-        blif_file_.insert(blif_file_.find_last_of("."), "_"); // Insert underscore before the file extension
+        std::filesystem::path pathObj(blif_file_);
+        blif_file_ = pathObj.filename().string();
+        blif_file_.insert(blif_file_.find_last_of("."), "_");
+        std::string directory = std::filesystem::current_path().string();
+        blif_file_ = directory + "/" +blif_file_;
+        std::cout << "BLIF PATH is   :    " << blif_file_ << std::endl;
         std::ofstream new_file(blif_file_.c_str());
         new_file << mod_str;
         new_file.close();
+
+        std::string interface_data_dump_file(blif_file_);
+        if (interface_data_dump_file.size() > 2 &&
+            'v' == interface_data_dump_file.back() &&
+            '.' == interface_data_dump_file[interface_data_dump_file.size() - 2]) {
+          interface_data_dump_file.pop_back();
+          interface_data_dump_file.pop_back();
+        }
+        interface_data_dump_file += "interface.json";
+        std::ofstream interface_structure_file;
+        interface_structure_file.open(interface_data_dump_file);
+        interface_structure_file << gb.interface_data_dump;
+        interface_structure_file.close();
 
         intf_mod_str = gb.intf_mod_str;
         top_mod_str = gb.top_mod_str;
@@ -818,7 +838,6 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     }
 
     FILE *infile = tmpfile();
-    simple_netlist n_l;
     parse_verilog(blif_file_.c_str(), n_l, key_file, top_mod);
     {
         std::stringstream ss;
