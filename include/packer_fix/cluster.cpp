@@ -76,8 +76,6 @@
 #include "re_cluster_util.h"
 #include "constraints_report.h"
 
-#include "config.h"
-
 /*
  * When attraction groups are created, the purpose is to pack more densely by adding more molecules
  * from the cluster's attraction group to the cluster. In a normal flow, (when attraction groups are
@@ -363,6 +361,17 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
 
         int numberOfClusters = ceil(numberOfMolecules *1.0 / packer_opts.number_of_molecules_in_partition);
         if (numberOfClusters <= 1) numberOfClusters = 2;
+        //numberOfClusters = 3;
+
+
+
+        char* commandToExecuteFotTest = new char[1000];
+        sprintf(commandToExecuteFotTest, "test -x %s", packer_opts.partitioner_path.c_str());
+        int code = system (commandToExecuteFotTest);
+        //VTR_LOG("test COMMAND: %s\n", commandToExecuteFotTest);
+        VTR_ASSERT_MSG(code == 0, "hmetis file does not exists or is not executable.");
+
+        delete commandToExecuteFotTest;
 
         char* commandToExecute = new char[1000];
         unsigned num_cpus = std::thread::hardware_concurrency();
@@ -370,11 +379,10 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
         // sprintf(commandToExecute, "%s hmetis.txt %d 3 10 4 1 3 0 0 ", packer_opts.hmetis_path.c_str(), numberOfClusters);
         sprintf(commandToExecute, 
                 "%s -h hmetis.txt --preset-type=quality -t %d -k %d -e 3 -o soed --enable-progress-bar=true --show-detailed-timings=true --verbose=true --write-partition-file=true", 
-                MtKaHyPar_BINARY_FILE_PATH, num_threads, numberOfClusters);
+                packer_opts.partitioner_path.c_str(), num_threads, numberOfClusters);
         VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
 
-        int code = system(commandToExecute);
-        VTR_ASSERT_MSG(code == 0, "Running MtKaHyPar failed with code 0");
+        code = system(commandToExecute);
 
         delete commandToExecute;
 
@@ -383,6 +391,8 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
         sprintf(newFilename, "hmetis.txt.part%d.epsilon3..seed0.KaHyPar", numberOfClusters);
 
         int* atomBlockIdToCluster = new int[numberOfAtoms];
+
+
 
         std::ifstream hmetisOutFile;
         hmetisOutFile.open(newFilename);
@@ -402,6 +412,9 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
 
         }
         hmetisOutFile.close();
+
+
+
 
         std::vector<int>* clusterMoleculeOrder = new std::vector<int>[numberOfClusters];
 
@@ -448,6 +461,8 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                     istart = nullptr;
                 }
             }
+
+
 
             while (istart != nullptr) {
 
