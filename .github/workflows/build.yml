@@ -11,7 +11,7 @@ on:
 
 jobs:
   linux-gcc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     # Branch on different OS and settings
     strategy:
       fail-fast: false
@@ -59,7 +59,7 @@ jobs:
           make release PRODUCTION_BUILD=1
 
   centos7-gcc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: centos:7
     defaults:
