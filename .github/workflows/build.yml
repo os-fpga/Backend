@@ -59,7 +59,7 @@ jobs:
 
       - name: Build
         run: |
-          make compile PRODUCTION_BUILD=1
+          make release PRODUCTION_BUILD=1
 
   centos7-gcc:
     runs-on: ubuntu-latest
