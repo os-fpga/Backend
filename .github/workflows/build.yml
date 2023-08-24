@@ -32,6 +32,7 @@ jobs:
 
       - name: Increase swapfile
         run: |
+          sudo swapon --show
           sudo swapoff -a
           sudo fallocate -l 15G /swapfile
           sudo chmod 600 /swapfile
@@ -93,12 +94,12 @@ jobs:
 
       - name: Increase swapfile
         run: |
-          sudo swapoff -a
-          sudo fallocate -l 15G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          sudo swapon --show            
+          swapoff -a
+          fallocate -l 5G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          swapon --show            
           
       - name: Install ssh-agent
         run: |
