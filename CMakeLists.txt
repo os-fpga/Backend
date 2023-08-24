@@ -151,8 +151,9 @@ FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
           DESTINATION
           ${LIB_RRG_DEST_DIR}/src/io)
 
-add_subdirectory(Raptor_Tools/graph_partition)
-
+#add_subdirectory(Raptor_Tools/graph_partition)
+set(MtKaHyPar_BINARY_FILE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/MtKaHyPar" CACHE INTERNAL "")
+configure_file(config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/pack/config.h")
 add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
