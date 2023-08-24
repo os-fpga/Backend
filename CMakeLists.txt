@@ -151,32 +151,7 @@ FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
           DESTINATION
           ${LIB_RRG_DEST_DIR}/src/io)
 
-
-if(RAPTOR)
-else()
-  set(EXTR_PREFIX_DIR ${CMAKE_BINARY_DIR}/MtKaHyPar)
-  set(MTKAHYPAR_BUILD_DIR ${EXTR_PREFIX_DIR}/src/MtKaHyPar-build)
-  # Check if the build directory exists
-  if(NOT EXISTS ${MTKAHYPAR_BUILD_DIR})
-    # Add mt-kahypar as an external project
-    include(ExternalProject)
-    ExternalProject_Add(
-        MtKaHyPar
-        EXCLUDE_FROM_MAIN all
-        PREFIX ${EXTR_PREFIX_DIR}
-        GIT_REPOSITORY https://github.com/kahypar/mt-kahypar.git
-        GIT_TAG master 
-        GIT_SHALLOW TRUE
-        CMAKE_ARGS -DCMAKE_BUILD_TYPE=RELEASE -DKAHYPAR_DOWNLOAD_TBB=ON -DKAHYPAR_DOWNLOAD_BOOST=On
-        BUILD_COMMAND ${CMAKE_COMMAND} --build . --target MtKaHyPar -j ${nproc}
-        INSTALL_COMMAND ""  # No install step is required
-        
-    )
-  endif()
-  # Set MtKaHyPar_BINARY_FILE_PATH
-  set(MtKaHyPar_BINARY_FILE_PATH "${MTKAHYPAR_BUILD_DIR}/mt-kahypar/application" CACHE INTERNAL "")
-  configure_file(config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/pack/config.h")
-endif()
+add_subdirectory(Raptor_Tools/graph_partition)
 
 add_subdirectory(OpenFPGA)
 
