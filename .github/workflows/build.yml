@@ -3,15 +3,15 @@ name: Build Compatibility
 # Only run for pull requests as we care contribution to the master
 on:
   push:
-    branches:
-      - main
+#    branches:
+#      - main
   pull_request:
     branches:
       - main
 
 jobs:
   linux-gcc:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     # Branch on different OS and settings
     strategy:
       fail-fast: false
@@ -30,16 +30,6 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Increase swapfile
-        run: |
-          sudo swapon --show
-          sudo swapoff -a
-          sudo fallocate -l 6G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          sudo swapon --show          
-
       - name: Runner workspace path
         run: |
           echo "Cleaning up previous run"
@@ -55,6 +45,9 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v3.2.0
+        with:
+          fetch-depth: 0
+          submodules: true
 
       - name: Checkout submodule
         run: |
@@ -69,7 +62,7 @@ jobs:
           make release PRODUCTION_BUILD=1
 
   centos7-gcc:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     container:
       image: centos:7
     defaults:
@@ -92,16 +85,6 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Increase swapfile
-        run: |
-          yum install sudo -y
-          sudo swapoff -a
-          sudo fallocate -l 5G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          sudo swapon --show            
-          
       - name: Install ssh-agent
         run: |
           yum install -y openssh-server openssh-clients
