@@ -25,7 +25,7 @@ help:
 .PHONY: all checkout compile
 
 release: run-cmake-release
-	cmake --build build
+	cmake --build build -j $(CPU_CORES)
 
 release_no_tcmalloc: run-cmake-release_no_tcmalloc
 	cmake --build build -j $(CPU_CORES)

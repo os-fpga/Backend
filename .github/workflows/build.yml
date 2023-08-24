@@ -141,4 +141,4 @@ jobs:
  
       - name: Build
         run: |
-          make compile PRODUCTION_BUILD=1
+          make release PRODUCTION_BUILD=1
