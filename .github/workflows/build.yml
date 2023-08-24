@@ -30,6 +30,15 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
+      - name: Increase swapfile
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 15G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo swapon --show          
+
       - name: Runner workspace path
         run: |
           echo "Cleaning up previous run"
@@ -82,6 +91,15 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
+      - name: Increase swapfile
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 15G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo swapon --show            
+          
       - name: Install ssh-agent
         run: |
           yum install -y openssh-server openssh-clients

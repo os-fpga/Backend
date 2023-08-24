@@ -151,9 +151,9 @@ FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
           DESTINATION
           ${LIB_RRG_DEST_DIR}/src/io)
 
-#if(NOT RAPTOR)
-#add_subdirectory(Raptor_Tools/graph_partition)
-#endif()
+if(NOT RAPTOR)
+add_subdirectory(Raptor_Tools/graph_partition)
+endif()
 
 add_subdirectory(OpenFPGA)
 
