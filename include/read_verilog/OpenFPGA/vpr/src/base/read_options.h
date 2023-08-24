@@ -103,6 +103,8 @@ struct t_options {
     argparse::ArgValue<int> pack_num_moves;
     argparse::ArgValue<std::string> pack_move_type;
     argparse::ArgValue<bool> use_partitioning_in_pack;
+    // argparse::ArgValue<std::string> hmetis_path;
+    argparse::ArgValue<std::string> partitioner_path;
     argparse::ArgValue<int> number_of_molecules_in_partition;
     /* Placement options */
     argparse::ArgValue<int> Seed;
