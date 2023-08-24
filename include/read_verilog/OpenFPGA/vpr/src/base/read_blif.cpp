@@ -800,6 +800,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     gb_constructs gb;
     prune_verilog(blif_file, gb, directoryName);
     if (gb.contains_io_prem) {
+        n_l.create_ps_json = false;
         mod_str = gb.mod_str;
         std::filesystem::path pathObj(blif_file_);
         blif_file_ = pathObj.filename().string();
