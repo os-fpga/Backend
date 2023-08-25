@@ -1,7 +1,22 @@
 cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
+if (NOT RAPTOR)
+  set(BACKEND_RS on)
+endif()
 
+# Detect build type, fallback to release and throw a warning if use didn't
+# specify any
+
+if(NOT CMAKE_BUILD_TYPE)
+  message(WARNING "Build type not set, falling back to Release mode.
+ To specify build type use:
+ -DCMAKE_BUILD_TYPE=<mode> where <mode> is Debug or Release.")
+  set(CMAKE_BUILD_TYPE
+      "Release"
+      CACHE STRING "Choose the type of build, options are: Debug Release."
+            FORCE)
+endif(NOT CMAKE_BUILD_TYPE)
 #variable_watch(VPR_DEST_DIR)
 
 if (NOT RAPTOR)
