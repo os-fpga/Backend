@@ -20,7 +20,6 @@ set(ANALYSIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/analysis_fix)
 set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
 set(UTIL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/util_fix)
 set(TATUM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tatum_fix)
-
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
 set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
@@ -75,10 +74,6 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
-
-FILE(COPY ${PACKER_SRC_DIR}/vpr_utils.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/util/)
 
 if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
@@ -183,7 +178,6 @@ FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/base/
 )
-
 if(NOT RAPTOR)
 add_subdirectory(Raptor_Tools/graph_partition)
 endif()
