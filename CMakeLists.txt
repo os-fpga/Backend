@@ -15,6 +15,11 @@ set(VTR_CMAKE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/VTR_CMAKE_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
 set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
 set(MEM_FIX_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/mem_fix)
+# Logical Levels
+set(ANALYSIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/analysis_fix)
+set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
+set(UTIL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/util_fix)
+set(TATUM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tatum_fix)
 
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
 set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
@@ -150,6 +155,34 @@ FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
 FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
           DESTINATION
           ${LIB_RRG_DEST_DIR}/src/io)
+
+# Logical Levels
+FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
+          ${TATUM_SRC_DIR}/TimingReporter.cpp
+          DESTINATION
+          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/tatum/
+)
+
+# Logical Levels
+FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
+          ${UTIL_SRC_DIR}/vpr_utils.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/util/
+)
+
+# Logical Levels
+FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.h
+          ${ANALYSIS_SRC_DIR}/timing_reports.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/analysis
+)
+
+# Logical Levels
+FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
+          ${BASE_SRC_DIR}/vpr_context.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/base/
+)
 
 if(NOT RAPTOR)
 add_subdirectory(Raptor_Tools/graph_partition)
