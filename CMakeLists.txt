@@ -2,6 +2,22 @@ cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
 
+if (NOT RAPTOR)
+  set(BACKEND_RS on)
+endif()
+
+# Detect build type, fallback to release and throw a warning if use didn't
+# specify any
+if(NOT CMAKE_BUILD_TYPE)
+  message(WARNING "Build type not set, falling back to Release mode.
+ To specify build type use:
+ -DCMAKE_BUILD_TYPE=<mode> where <mode> is Debug or Release.")
+  set(CMAKE_BUILD_TYPE
+      "Release"
+      CACHE STRING "Choose the type of build, options are: Debug Release."
+            FORCE)
+endif(NOT CMAKE_BUILD_TYPE)
+
 #variable_watch(VPR_DEST_DIR)
 
 if (NOT RAPTOR)
@@ -20,6 +36,7 @@ set(ANALYSIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/analysis_fix)
 set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
 set(UTIL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/util_fix)
 set(TATUM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tatum_fix)
+
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
 set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
@@ -155,7 +172,7 @@ FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
 FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
           ${TATUM_SRC_DIR}/TimingReporter.cpp
           DESTINATION
-          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/tatum/
+          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
 )
 
 # Logical Levels
@@ -178,10 +195,10 @@ FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/base/
 )
-if(NOT RAPTOR)
-add_subdirectory(Raptor_Tools/graph_partition)
-endif()
 
+if(NOT RAPTOR)
+  add_subdirectory("Raptor_Tools/graph_partition")
+endif()
 add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
