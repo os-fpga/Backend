@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
+
 if (NOT RAPTOR)
   set(BACKEND_RS on)
 endif()
 
 # Detect build type, fallback to release and throw a warning if use didn't
 # specify any
-
 if(NOT CMAKE_BUILD_TYPE)
   message(WARNING "Build type not set, falling back to Release mode.
  To specify build type use:
@@ -17,6 +17,7 @@ if(NOT CMAKE_BUILD_TYPE)
       CACHE STRING "Choose the type of build, options are: Debug Release."
             FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
+
 #variable_watch(VPR_DEST_DIR)
 
 if (NOT RAPTOR)
@@ -30,6 +31,11 @@ set(VTR_CMAKE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/VTR_CMAKE_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
 set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
 set(MEM_FIX_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/mem_fix)
+# Logical Levels
+set(ANALYSIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/analysis_fix)
+set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
+set(UTIL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/util_fix)
+set(TATUM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tatum_fix)
 
 set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
 set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
@@ -85,10 +91,6 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
-
-FILE(COPY ${PACKER_SRC_DIR}/vpr_utils.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/util/)
 
 if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
@@ -166,10 +168,37 @@ FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
           DESTINATION
           ${LIB_RRG_DEST_DIR}/src/io)
 
-if(NOT RAPTOR)
-add_subdirectory(Raptor_Tools/graph_partition)
-endif()
+# Logical Levels
+FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
+          ${TATUM_SRC_DIR}/TimingReporter.cpp
+          DESTINATION
+          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
+)
 
+# Logical Levels
+FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
+          ${UTIL_SRC_DIR}/vpr_utils.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/util/
+)
+
+# Logical Levels
+FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.h
+          ${ANALYSIS_SRC_DIR}/timing_reports.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/analysis
+)
+
+# Logical Levels
+FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
+          ${BASE_SRC_DIR}/vpr_context.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/base/
+)
+
+if(NOT RAPTOR)
+  add_subdirectory("Raptor_Tools/graph_partition")
+endif()
 add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
