@@ -704,7 +704,6 @@ void RapidCsvReader::print_csv() const {
 XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
                                         uint& pt_row ) const noexcept {
   pt_row = 0;
-  assert(!bcd_AXI_.empty());
   XYZ result;
 
   for (const BCD* p : bcd_AXI_) {
