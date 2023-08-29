@@ -37,12 +37,10 @@ set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
 set(UTIL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/util_fix)
 set(TATUM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tatum_fix)
 
-set(PUGI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/in_pugi_xml)
-set(ARCH_FPGA_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/xml_enc/OpenFPGA/arch_fpga_src)
+set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
 set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
-set(ARCH_FPGA_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libarchfpga)
-set(PUGI_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil)
+set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libdecrypt/)
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
 set(MEM_FIX_DEST_DIR1 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libvtrutil/src)
 set(MEM_FIX_DEST_DIR2 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base)
@@ -137,26 +135,9 @@ FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
           DESTINATION
           ${VPR_DEST_DIR}/src/place/)
 
-file(COPY ${PUGI_SRC}/pugixml_loc.cpp
-  ${PUGI_SRC}/pugixml_loc.hpp
-  ${PUGI_SRC}/pugixml_util.cpp
-  ${PUGI_SRC}/aes.h
-  ${PUGI_SRC}/function.h
-  ${PUGI_SRC}/obfuscate.h
-  ${PUGI_SRC}/openssl_rsa.cpp
-  ${PUGI_SRC}/openssl_rsa.h
+file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
-  ${PUGI_DEST}/src
- )
-
-file(COPY ${ARCH_FPGA_SRC}/read_xml_arch_file.cpp
-  DESTINATION
-  ${ARCH_FPGA_DEST}/src 
- )
-
-file(COPY ${PUGI_SRC}/CMakeLists.txt
-  DESTINATION
-  ${PUGI_DEST}/
+  ${XML_DEC_KEY_DEST}/
  )
 
 FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
