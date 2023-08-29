@@ -1,0 +1,8 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+
+#define MtKaHyPar_BINARY_FILE_PATH "@MtKaHyPar_BINARY_FILE_PATH@"
+
+
+#endif // CONFIG_H
