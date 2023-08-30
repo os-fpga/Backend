@@ -7,15 +7,15 @@
 #include "vtr_math.h"
 #include "SetupGrid.h"
 
-#include "vtr_assert.h"
-#include "vtr_log.h"
-#include "vtr_digest.h"
-#include "vtr_memory.h"
+// #include "vtr_assert.h"
+// #include "vtr_log.h"
+// #include "vtr_digest.h"
+// #include "vtr_memory.h"
 
-#include "vpr_types.h"
-#include "vpr_error.h"
+// #include "vpr_types.h"
+// #include "vpr_error.h"
 
-#include "pugixml.hpp"
+// #include "pugixml.hpp"
 
 #include "globals.h"
 #include "atom_netlist.h"
@@ -70,7 +70,6 @@ static void check_cluster_atom_blocks(t_pb* pb, std::unordered_set<AtomBlockId>&
         VTR_ASSERT(has_child);
     }
 }
-
 
 /*Print the contents of each cluster to an echo file*/
 static void echo_clusters(char* filename) {
@@ -336,10 +335,7 @@ bool check_cluster_legality(const int& verbosity,
         if (is_cluster_legal) {
             VTR_LOGV(verbosity > 2, "\tPassed route at end.\n");
         } else {
-            //echo_clusters("clusters.lst");
-            VTR_LOGV(verbosity > 2, "Failed route at end, repack cluster '%s' trying detailed routing at each stage.\n",
-                     router_data->lb_type->name);
-            //getchar();
+            VTR_LOGV(verbosity > 0, "Failed route at end, repack cluster trying detailed routing at each stage.\n");
         }
     } else {
         is_cluster_legal = true;
@@ -363,8 +359,8 @@ void print_pack_status(int num_clb,
                        int device_width,
                        int device_height,
                        AttractionInfo& attraction_groups) {
-    //Print a packing update each time another 5% of molecules have been packed.
-    const float print_frequency = 0.05;
+    //Print a packing update each time another 4% of molecules have been packed.
+    const float print_frequency = 0.04;
 
     double percentage = (num_molecules_processed / (double)tot_num_molecules) * 100;
 
@@ -390,7 +386,6 @@ void print_pack_status(int num_clb,
         if (attraction_groups.num_attraction_groups() > 0) {
             rebuild_attraction_groups(attraction_groups);
         }
-        print_stats();
     }
 }
 
@@ -1059,7 +1054,6 @@ enum e_block_pack_status try_pack_molecule(t_cluster_placement_stats* cluster_pl
                     block_pack_status = BLK_FAILED_FEASIBLE;
                 }
             }
-
             if (block_pack_status == BLK_PASSED) {
                 /*
                  * during the clustering step of `do_clustering`, `detailed_routing_stage` is incremented at each iteration until it a cluster
@@ -1091,9 +1085,7 @@ enum e_block_pack_status try_pack_molecule(t_cluster_placement_stats* cluster_pl
                  * expand_all_modes is used to enable the expansion of all the nodes using all the possible modes.
                  */
                 t_mode_selection_status mode_status;
-
                 bool is_routed = false;
-
                 bool do_detailed_routing_stage = detailed_routing_stage == (int)E_DETAILED_ROUTE_FOR_EACH_ATOM;
                 if (do_detailed_routing_stage) {
                     do {
@@ -1104,11 +1096,9 @@ enum e_block_pack_status try_pack_molecule(t_cluster_placement_stats* cluster_pl
 
                 if (do_detailed_routing_stage && is_routed == false) {
                     /* Cannot pack */
-                    //VTR_LOG("failed\n");
                     VTR_LOGV(verbosity > 4, "\t\t\tFAILED Detailed Routing Legality\n");
                     block_pack_status = BLK_FAILED_ROUTE;
                 } else {
-                    //VTR_LOG("succeed\n");
                     /* Pack successful, commit
                      * TODO: SW Engineering note - may want to update cluster stats here too instead of doing it outside
                      */
@@ -2120,9 +2110,9 @@ void start_new_cluster(t_cluster_placement_stats* cluster_placement_stats,
                              int rhs_num_instances = 0;
                              // Count number of instances for each type
                              for (auto type : lhs->equivalent_tiles)
-                                 lhs_num_instances += device_ctx.grid.num_instances(type);
+                                 lhs_num_instances += device_ctx.grid.num_instances(type, -1);
                              for (auto type : rhs->equivalent_tiles)
-                                 rhs_num_instances += device_ctx.grid.num_instances(type);
+                                 rhs_num_instances += device_ctx.grid.num_instances(type, -1);
 
                              float lhs_util = vtr::safe_ratio<float>(num_used_type_instances[lhs], lhs_num_instances);
                              float rhs_util = vtr::safe_ratio<float>(num_used_type_instances[rhs], rhs_num_instances);
@@ -2221,7 +2211,7 @@ void start_new_cluster(t_cluster_placement_stats* cluster_placement_stats,
     // Check used type instances against the possible equivalent physical locations
     unsigned int num_instances = 0;
     for (auto equivalent_tile : block_type->equivalent_tiles) {
-        num_instances += device_ctx.grid.num_instances(equivalent_tile);
+        num_instances += device_ctx.grid.num_instances(equivalent_tile, -1);
     }
 
     if (num_used_type_instances[block_type] > num_instances) {

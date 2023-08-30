@@ -13,6 +13,7 @@
 #include "PreClusterTimingGraphResolver.h"
 #include "tatum/echo_writer.hpp"
 #include "tatum/TimingReporter.hpp"
+#include "concrete_timing_info.h"
 
 /**
  * @file
