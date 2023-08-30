@@ -22,11 +22,9 @@ class RapidCsvReader {
 public:
 
   // BCD is a "reduced row record" RRR (subset of important columns)
-  class BCD {
+  struct BCD {
 
     string customerInternal_; // 72-BU  Customer Internal Name
-  
-  public:
 
     enum ModeDir {
         No_dir       = 0,    // row has no Ys in RX/TX cols
@@ -51,10 +49,12 @@ public:
            customer_, // 2-C Customer Name
            ball_ID_;  // 3-D
 
+    string col_M_;        // 12-M  EFPGA_PIN
     string fullchipName_; // 13-N  Fullchip_NAME
 
     int row_ = 0;
-    ModeDir dir_ = No_dir;
+    ModeDir rxtx_dir_ = No_dir; // dir_
+    ModeDir colM_dir_ = No_dir;
 
     string  IO_tile_pin_; // column I
     XYZ     xyz_;         // columns J,K,L
@@ -94,6 +94,11 @@ public:
         customer_ = customerInternal_;
     }
 
+    bool isInput() const noexcept { return rxtx_dir_ == Input_dir; }
+    bool isOutput() const noexcept { return rxtx_dir_ == Output_dir; }
+    bool isBidi() const noexcept { return rxtx_dir_ == HasBoth_dir or rxtx_dir_ == AllEnabled_dir; }
+    bool isNotBidi() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
+    bool allModesEnabled() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
   };
 
   RapidCsvReader();
@@ -107,13 +112,13 @@ public:
 
   void print_csv() const;
 
+  uint countBidiRows() const noexcept;
+
   uint print_bcd_stats(std::ostream& os) const noexcept;
   uint print_bcd(std::ostream& os) const noexcept;
   uint print_axi_bcd(std::ostream& os) const noexcept;
 
   bool sanity_check() const;
-
-  static bool prepare_mode_header(string& hdr) noexcept;
 
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
@@ -130,16 +135,16 @@ public:
 
   const string& bumpPinName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].bump_;
+    return bcd_[row]->bump_;
   }
 
   const string& customerPinName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].customer_;
+    return bcd_[row]->customer_;
   }
   const string& customerInternalName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row].customerInternal();
+    return bcd_[row]->customerInternal();
   }
 
   bool hasMode(const string& key) const noexcept { return modes_map_.count(key); }
@@ -168,6 +173,12 @@ public:
 
 private:
 
+  bool setDirections(const fio::CSV_Reader& crd);
+
+  static bool prepare_mode_header(string& hdr) noexcept;
+
+private:
+
   fio::CSV_Reader* crd_ = nullptr;
 
   std::map<string, vector<string>> modes_map_;
@@ -175,7 +186,7 @@ private:
   vector<string> col_headers_; // all column headers
   vector<string> mode_names_;  // column headers that contain "Mode_/MODE_"
 
-  vector<BCD> bcd_; // all BCD records, indexed by csv row
+  vector<BCD*> bcd_; // all BCD records, indexed by csv row
 
   vector<BCD*> bcd_AXI_; // BCD records with .isCustomerInternalOnly() predicate (AXI pins)
 

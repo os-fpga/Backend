@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <filesystem>
 
 namespace fio {
 
@@ -18,6 +19,53 @@ using namespace std;
 int get_PID() noexcept { return ::getpid(); }
 
 static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
+
+Info::Info(const char* nm) noexcept {
+  if (!nm)
+    return;
+  name_ = nm;
+  if (name_.empty())
+    return;
+  init();
+}
+
+Info::Info(const string& nm) noexcept {
+  name_ = nm;
+  if (name_.empty())
+    return;
+  init();
+}
+
+void Info::init() noexcept {
+  namespace fs = std::filesystem;
+  absName_.clear();
+  size_ = 0;
+  exists_ = false;
+  accessible_ = false;
+  absolute_ = false;
+  if (name_.empty())
+    return;
+
+  exists_ = regular_file_exists(name_);
+  if (not exists_)
+    return;
+
+  accessible_ = file_accessible(name_);
+  if (not accessible_)
+    return;
+
+  try {
+    fs::path p{name_};
+    size_ = fs::file_size(p);
+    p = p.lexically_normal();
+    absolute_ = p.is_absolute();
+    p = fs::absolute(p);
+    absName_ = p.string();
+  }
+  catch (...) {
+    // noexcept
+  }
+}
 
 void Fio::setTrace(int t) noexcept {
   if (t <= 0) {
