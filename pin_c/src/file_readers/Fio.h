@@ -39,6 +39,23 @@ int get_PID() noexcept; // wrapper for getpid() to reduce usage of unistd.h
 using std::string;
 using std::vector;
 
+struct Info
+{
+  string name_, absName_;
+
+  size_t size_ = 0;
+  bool exists_ = false;
+  bool accessible_ = false;
+  bool absolute_ = false;
+
+public:
+  Info() noexcept = default;
+
+  Info(const char* nm) noexcept;
+  Info(const string& nm) noexcept;
+  void init() noexcept;
+};
+
 class Fio {
 public:
   string fnm_;

@@ -83,7 +83,7 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
   static std::set<string> skip_cols = {
     "Remark", "Voltage2", "Discription", "Power Pad", "Voltage", "Mbist Mode",
     "Scan Mode", "Debug Mode", "ALT Function", "MODE_ETH", "MODE_USB",
-    "MODE_GPIO", "MODE_UART0", "MODE_UART1", "MODE_I2C", "MODE_SPI0",
+    "MODE_UART0", "MODE_UART1", "MODE_I2C", "MODE_SPI0",
     "MODE_PWM", "MODE_DDR", "Ref clock", "IS_FPGA_GPIO", "Main Function",
     "Identifier", "Direction", "Type", "BANK", "MODE_MIPI"
   };

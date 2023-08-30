@@ -178,13 +178,20 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
   if (tr >= 2) {
     ls << "\npinc::write_dot_place() __ Creating .place file  get_param(--output) : "
        << out_fn << endl;
+    if (tr >= 4) {
+      lprintf("  ___ pcf_pin_cmds_ (%zu):\n", pcf_pin_cmds_.size());
+      for (const auto& cmd : pcf_pin_cmds_) {
+        logVec(cmd, " ");
+      }
+      lprintf("  ___\n");
+    }
   }
 
   ofstream out_file;
   out_file.open(out_fn);
   if (out_file.fail()) {
     if (tr >= 1) {
-        ls << "\n[Error] pinc::write_dot_place() FAILED to write " << out_fn << endl;
+      ls << "\n[Error] pinc::write_dot_place() FAILED to write " << out_fn << endl;
     }
     return false;
   }
@@ -536,7 +543,7 @@ StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& rdr, const s
 
   uint num_rows = rdr.numRows();
   for (uint i = rdr.start_GBOX_GPIO_row_; i < num_rows; i++) {
-    const auto& bcd = rdr.bcd_[i];
+    const auto& bcd = *rdr.bcd_[i];
     const string& bump_pin_name = bcd.bump_;
 
     if (used_bump_pins_.count(bump_pin_name)) {
@@ -619,7 +626,7 @@ StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& rdr, const s
 
   uint num_rows = rdr.numRows();
   for (uint i = rdr.start_GBOX_GPIO_row_; i < num_rows; i++) {
-    const auto& bcd = rdr.bcd_[i];
+    const auto& bcd = *rdr.bcd_[i];
     const string& bump_pin_name = bcd.bump_;
 
     if (used_bump_pins_.count(bump_pin_name)) {
@@ -704,8 +711,8 @@ bool PinPlacer::create_temp_pcf(const RapidCsvReader& csv_rd)
   s_axi_outQ = csv_rd.get_AXI_outputs();
 
   if (tr >= 4) {
-    lprintf("  s_axi_inpQ.size()= %u  s_axi_outQ.size()= %u\n",
-            (uint)s_axi_inpQ.size(), (uint)s_axi_outQ.size());
+    lprintf("  s_axi_inpQ.size()= %zu  s_axi_outQ.size()= %zu\n",
+               s_axi_inpQ.size(), s_axi_outQ.size());
   }
 
   vector<int> input_idx, output_idx;

@@ -44,12 +44,14 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  " << b.ball_ID_
      << "  ITP: " << b.IO_tile_pin_
      << "  XYZ: " << b.xyz_
+     << "  colM:" << b.col_M_
      << "  fc:" << b.fullchipName_
      << "  ci:" << b.customerInternal()
      << "  axi:" << int(b.is_axi_)
      << "  isGPIO:" << int(b.is_GPIO_)
      << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
-     << "  dir:" << RapidCsvReader::str_Mode_dir(b.dir_)
+     << "  rxtx_dir:" << RapidCsvReader::str_Mode_dir(b.rxtx_dir_)
+     << "  colM_dir:" << RapidCsvReader::str_Mode_dir(b.colM_dir_)
      << "  row:" << b.row_
      << ')';
   return os;
@@ -89,7 +91,7 @@ static bool get_column(const fio::CSV_Reader& crd,
 
 static inline bool starts_with_mode(const char* z) noexcept {
   assert(z);
-  return z[0] == 'm' && z[1] == 'o' && z[2] == 'd' && z[3] == 'e' && z[4] == '_';
+  return z[0] == 'm' and z[1] == 'o' and z[2] == 'd' and z[3] == 'e' and z[4] == '_';
 }
 
 static inline bool ends_with_tx_rx(const char* z, size_t len) noexcept {
@@ -106,6 +108,16 @@ static inline bool ends_with_rx(const char* z, size_t len) noexcept {
     return false;
   return
     z[len-1] == 'x' and z[len-2] == 'r' and z[len-3] == '_';
+}
+
+static inline bool starts_with_A2F(const char* z) noexcept {
+  assert(z);
+  return z[0] == 'A' and z[1] == '2' and z[2] == 'F' and z[3] == '_';
+}
+
+static inline bool starts_with_F2A(const char* z) noexcept {
+  assert(z);
+  return z[0] == 'F' and z[1] == '2' and z[2] == 'A' and z[3] == '_';
 }
 
 struct RX_TX_val
@@ -183,6 +195,58 @@ bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept {
   return false;
 }
 
+// classify row directions BCD:: rxtx_dir_, colM_dir_
+bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
+  uint num_rows = numRows();
+  if (num_rows < 2)
+    return false;
+  vector<RX_TX_val> RX_TX_values;
+  RX_TX_values.reserve(crd.numCols());
+  for (uint r = 0; r < num_rows; r++) {
+    bcd_[r]->rxtx_dir_ = BCD::No_dir;
+    bool ok = get_row_modes(crd, r, RX_TX_values);
+    if (!ok) {
+      lprintf("\n [Error] pin_c csv row %u\n\n", r);
+      return false;
+    }
+    size_t n = RX_TX_values.size();
+    assert(n > 1);
+    uint num_Y_rx = 0, num_Y_tx = 0;
+    for (size_t j = 0; j < n; j++) {
+      const RX_TX_val& rtv = RX_TX_values[j];
+      if (not rtv.enabled())
+        continue;
+      if (rtv.is_rx())
+        num_Y_rx++;
+      else
+        num_Y_tx++;
+    }
+    if (!num_Y_rx && !num_Y_tx) {
+      bcd_[r]->rxtx_dir_ = BCD::No_dir;
+      continue;
+    }
+    if (!num_Y_rx) {
+      // device does not receive - outputs only
+      bcd_[r]->rxtx_dir_ = BCD::Output_dir;
+      continue;
+    }
+    if (!num_Y_tx) {
+      // device does not transmit - inputs only
+      bcd_[r]->rxtx_dir_ = BCD::Input_dir;
+      continue;
+    }
+    assert(num_Y_rx && num_Y_tx);
+    assert(num_Y_rx + num_Y_tx <= n);
+    // there are both tranmitters and receivers on this row:
+    bcd_[r]->rxtx_dir_ = BCD::HasBoth_dir;
+    if (num_Y_rx + num_Y_tx == n) {
+      // there are no blanks on this row - all modes enabled:
+      bcd_[r]->rxtx_dir_ = BCD::AllEnabled_dir;
+    }
+  }
+  return true;
+}
+
 bool RapidCsvReader::read_csv(const string& fn, bool check) {
   uint16_t tr = ltrace();
   auto& ls = lout();
@@ -229,7 +293,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   assert(!group_col.empty());
 
   size_t num_rows = group_col.size();
-  assert(num_rows > 300);
+  assert(num_rows > 30);
   start_GBOX_GPIO_row_ = 0;
   for (uint i = 0; i < num_rows; i++) {
     if (group_col[i] == "GBOX GPIO") {
@@ -290,9 +354,10 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     return false;
   }
 
-  bcd_.resize(num_rows);
+  bcd_.resize(num_rows, nullptr);
   for (uint i = 0; i < num_rows; i++) {
-    BCD& bcd = bcd_[i];
+    bcd_[i] = new BCD;
+    BCD& bcd = *bcd_[i];
     bcd.row_ = i;
     bcd.groupA_ = group_col[i];
     bcd.is_GBOX_GPIO_ = (bcd.groupA_ == "GBOX GPIO");
@@ -302,12 +367,20 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   vector<string> S_tmp;
   bool ok = false;
 
+  S_tmp = crd.getColumn("EFPGA_PIN");
+  assert(S_tmp.size() > 1);
+  assert(S_tmp.size() <= num_rows);
+  S_tmp.resize(num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    bcd_[i]->col_M_ = std::move(S_tmp[i]);
+  }
+
   S_tmp = crd.getColumn("Fullchip_NAME");
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
-    bcd_[i].fullchipName_ = std::move(S_tmp[i]);
+    bcd_[i]->fullchipName_ = std::move(S_tmp[i]);
   }
 
   ok = get_column(crd, "Customer Name", S_tmp);
@@ -316,7 +389,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
-    bcd_[i].customer_ = std::move(S_tmp[i]);
+    bcd_[i]->customer_ = std::move(S_tmp[i]);
   }
 
   ok = get_column(crd, "Customer Internal Name", S_tmp);
@@ -324,7 +397,6 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     lputs("\n pin_c WARNING: could not read Customer Internal Name column\n");
     return false;
   }
-  //lputs9();
 
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
@@ -334,7 +406,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   for (uint i = 0; i < num_rows; i++) {
     const string& nm = S_tmp[i];
     if (nm.length()) {
-      bcd_[i].setCustomerInternal(nm);
+      bcd_[i]->setCustomerInternal(nm);
       custIntNameRows.push_back(i);
     }
   }
@@ -343,24 +415,24 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     uint last_ri = custIntNameRows.back();
     uint firs_ri_uniq = firs_ri;
     for (uint i = firs_ri; i <= last_ri; i++) {
-      if (bcd_[i].isCustomerInternalUnique()) {
+      if (bcd_[i]->isCustomerInternalUnique()) {
         firs_ri_uniq = i;
         break;
       }
     }
     uint firs_ri_only = firs_ri_uniq;
     for (uint i = firs_ri_uniq; i <= last_ri; i++) {
-      if (bcd_[i].isCustomerInternalOnly()) {
+      if (bcd_[i]->isCustomerInternalOnly()) {
         firs_ri_only = i;
         break;
       }
     }
-    if (firs_ri_only < last_ri && bcd_[firs_ri_only].isCustomerInternalOnly()) {
+    if (firs_ri_only < last_ri && bcd_[firs_ri_only]->isCustomerInternalOnly()) {
       start_CustomerInternal_row_ = firs_ri_only;
       bcd_AXI_.clear();
       bcd_AXI_.reserve(last_ri - firs_ri_only + 1);
       for (uint i = firs_ri_only; i <= last_ri; i++) {
-        BCD& bcd = bcd_[i];
+        BCD& bcd = *bcd_[i];
         if (bcd.isCustomerInternalOnly()) {
           bcd.is_axi_ = true;
           bcd_AXI_.push_back(&bcd);
@@ -368,21 +440,21 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       }
     }
     if (tr >= 3) {
-      const auto& firs_bcd = bcd_[firs_ri];
-      const auto& last_bcd = bcd_[last_ri];
+      const auto& firs_bcd = *bcd_[firs_ri];
+      const auto& last_bcd = *bcd_[last_ri];
       ls << " ==        first row with Customer Internal Name : " << (firs_ri+2) << "  " << firs_bcd << endl;
       ls << " == first row with unique Customer Internal Name : " << (firs_ri_uniq+2)
-         << "  " << bcd_[firs_ri_uniq] << endl;
+         << "  " << *bcd_[firs_ri_uniq] << endl;
       ls << " ==   first row with only Customer Internal Name : " << (firs_ri_only+2)
-         << "  " << bcd_[firs_ri_only] << endl;
+         << "  " << *bcd_[firs_ri_only] << endl;
       ls << " ==         last row with Customer Internal Name : " << (last_ri+2) << "  " << last_bcd << endl;
     }
   }
 
   bcd_GBGPIO_.reserve(bcd_.size());
-  for (BCD& bcd : bcd_) {
-    if (bcd.is_GBOX_GPIO_)
-      bcd_GBGPIO_.push_back(&bcd);
+  for (BCD* bcd : bcd_) {
+    if (bcd->is_GBOX_GPIO_)
+      bcd_GBGPIO_.push_back(bcd);
   }
 
   if (tr >= 2) {
@@ -400,7 +472,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
-  for (uint i = 0; i < num_rows; i++) bcd_[i].ball_ID_ = S_tmp[i];
+  for (uint i = 0; i < num_rows; i++) bcd_[i]->ball_ID_ = S_tmp[i];
 
   ok = get_column(crd, "Bump/Pin Name", S_tmp);
   if (!ok) return false;
@@ -431,7 +503,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   for (uint i = 0; i < num_rows; i++) {
-    BCD& bcd = bcd_[i];
+    BCD& bcd = *bcd_[i];
     bcd.bump_ = bump_pin_name[i];
     if (bcd.bump_.empty()) {
       if (bcd.customerInternal().empty() && tr >= 2) {
@@ -447,7 +519,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   vector<string> io_tile_pins = crd.getColumn("IO_tile_pin");
   io_tile_pins.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) {
-    bcd_[i].IO_tile_pin_ = io_tile_pins[i];
+    bcd_[i]->IO_tile_pin_ = io_tile_pins[i];
   }
 
   //if (tr >= 6)
@@ -461,7 +533,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     int x = tmp[i];
     assert(x >= -1);
     assert(x < 2000);
-    bcd_[i].xyz_.x_ = x;
+    bcd_[i]->xyz_.x_ = x;
   }
 
   tmp = crd.getColumnInt("IO_tile_pin_y");
@@ -470,7 +542,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     int y = tmp[i];
     assert(y >= -1);
     assert(y < 2000);
-    bcd_[i].xyz_.y_ = y;
+    bcd_[i]->xyz_.y_ = y;
   }
 
   tmp = crd.getColumnInt("IO_tile_pin_z");
@@ -479,67 +551,40 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     int z = tmp[i];
     assert(z >= -1);
     assert(z < 100);
-    bcd_[i].xyz_.z_ = z;
+    bcd_[i]->xyz_.z_ = z;
   }
 
-  // classify row directions BCD::dir_
-  vector<RX_TX_val> RX_TX_values;
-  RX_TX_values.reserve(crd.numCols());
-  for (uint r = 0; r < num_rows; r++) {
-    bcd_[r].dir_ = BCD::No_dir;
-    ok = get_row_modes(crd, r, RX_TX_values);
-    if (!ok) {
-      lprintf("\n [Error] pin_c csv row %u\n\n", r);
-      return false;
-    }
-    size_t n = RX_TX_values.size();
-    assert(n > 1);
-    uint num_Y_rx = 0, num_Y_tx = 0;
-    for (size_t j = 0; j < n; j++) {
-      const RX_TX_val& rtv = RX_TX_values[j];
-      if (not rtv.enabled())
-        continue;
-      if (rtv.is_rx())
-        num_Y_rx++;
-      else
-        num_Y_tx++;
-    }
-    if (!num_Y_rx && !num_Y_tx) {
-      bcd_[r].dir_ = BCD::No_dir;
-      continue;
-    }
-    if (!num_Y_rx) {
-      // device does not receive - outputs only
-      bcd_[r].dir_ = BCD::Output_dir;
-      continue;
-    }
-    if (!num_Y_tx) {
-      // device does not transmit - inputs only
-      bcd_[r].dir_ = BCD::Input_dir;
-      continue;
-    }
-    assert(num_Y_rx && num_Y_tx);
-    assert(num_Y_rx + num_Y_tx <= n);
-    // there are both tranmitters and receivers on this row:
-    bcd_[r].dir_ = BCD::HasBoth_dir;
-    if (num_Y_rx + num_Y_tx == n) {
-        // there are no blanks on this row - all modes enabled:
-        bcd_[r].dir_ = BCD::AllEnabled_dir;
-    }
-
-    //if (tr >= 6) {
-    //  lprintf("row:%u RX_TX_values.size()= %zu  num_Y_rx= %u  num_Y_tx= %u\n",
-    //          r, n, num_Y_rx, num_Y_tx);
-    //  if (tr >= 8) {
-    //    logVec(RX_TX_values, "  RX_TX_values ");
-    //  }
-    //  //lputs8();
-    //}
+  bool dirs_ok = setDirections(crd);
+  if (not dirs_ok) {
+    ls << '\n' << "[Error] directions are not OK" << endl;
+    std::cerr  << "[Error] directions are not OK" << endl;
+    return false;
   }
 
   if (tr >= 6) {
+    ls << "___ original BCD order ___" << endl;
     print_bcd(ls);
   }
+  uint num_bidi = countBidiRows();
+  if (tr >= 4)
+    lprintf("num_bidi= %u\n", num_bidi);
+  bool no_reorder = true; //::getenv("pinc_dont_reorder_bcd");
+  if (! no_reorder) {
+    if (num_bidi) {
+      if (tr >= 4) {
+        lputs("re-ordering bcd...");
+        lprintf("..moving bidi rows (%u) to the back of bcd_\n", num_bidi);
+      }
+      std::stable_partition( bcd_.begin(), bcd_.end(), [](BCD* p){ return p->isInput(); } );
+      std::stable_partition( bcd_.begin(), bcd_.end(), [](BCD* p){ return p->isNotBidi(); } );
+      if (tr >= 6) {
+        ls << "___ new BCD order ___" << endl;
+        print_bcd(ls);
+      }
+      lputs9();
+    }
+  }
+
   if (tr >= 5) {
     print_bcd_stats(ls);
     lputs();
@@ -621,6 +666,17 @@ bool RapidCsvReader::write_csv(const string& fn, uint minRow, uint maxRow) const
   return ok;
 }
 
+uint RapidCsvReader::countBidiRows() const noexcept {
+  uint nr = numRows();
+  uint cnt = 0;
+  for (uint i = 0; i < nr; i++) {
+    const BCD& bcd = *bcd_[i];
+    if (bcd.isBidi())
+      cnt++;
+  }
+  return cnt;
+}
+
 uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
   uint nr = numRows();
   if (!nr) return 0;
@@ -630,8 +686,8 @@ uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
   uint axi_cnt = 0, gbox_gpio_cnt = 0, gpio_cnt = 0;
 
   for (uint i = 0; i < nr; i++) {
-    const BCD& bcd = bcd_[i];
-    dir_counters[bcd.dir_]++;
+    const BCD& bcd = *bcd_[i];
+    dir_counters[bcd.rxtx_dir_]++;
     axi_cnt += int(bcd.is_axi_);
     gbox_gpio_cnt += int(bcd.is_GBOX_GPIO_);
     gpio_cnt += int(bcd.is_GPIO_);
@@ -654,7 +710,7 @@ uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept {
   uint nr = numRows();
   os << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::" << endl;
   for (uint i = 0; i < nr; i++) {
-    const BCD& bcd = bcd_[i];
+    const BCD& bcd = *bcd_[i];
     os << "   " << bcd << endl;
   }
   os << "--- BCD dump ^^^ (nr=" << nr << ")\n" << endl;
@@ -685,7 +741,7 @@ void RapidCsvReader::print_csv() const {
   uint num_rows = numRows();
   assert(bcd_.size() == num_rows);
   for (uint i = 0; i < num_rows; i++) {
-    const BCD& b = bcd_[i];
+    const BCD& b = *bcd_[i];
     const XYZ& p = b.xyz_;
     lprintf("%-5u ", i+2);
     lprintf(" %12s ", b.bump_.c_str());
@@ -705,6 +761,11 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
                                         uint& pt_row ) const noexcept {
   pt_row = 0;
   XYZ result;
+  if (bcd_AXI_.empty()) {
+    if (ltrace() >= 7)
+      lputs("pin_c NOTE: bcd_AXI_.empty()");
+    return result;
+  }
 
   for (const BCD* p : bcd_AXI_) {
     assert(p);
@@ -742,12 +803,15 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
 
   // 3.
   for (uint i = 0; i < num_rows; i++) {
-    const BCD& bcd = bcd_[i];
-    if (!bcd.match(customerPin_or_ID)) continue;
-    if (mode_vector[i] != "Y") continue;
+    const BCD& bcd = *bcd_[i];
+    uint realRow = bcd.row_;
+    if (!bcd.match(customerPin_or_ID))
+      continue;
+    if (mode_vector[realRow] != "Y")
+      continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
       result = bcd.xyz_;
-      pt_row = i;
+      pt_row = realRow;
       assert(result.valid());
       break;
     }
@@ -776,7 +840,7 @@ RapidCsvReader::bumpName2CustomerName(const string& bump_nm) const noexcept {
 
   // tmp linear search
   for (uint i = 0; i < num_rows; i++) {
-    const BCD& bcd = bcd_[i];
+    const BCD& bcd = *bcd_[i];
     if (bcd.bump_ == bump_nm) return bcd.customer_;
   }
 
@@ -786,8 +850,9 @@ RapidCsvReader::bumpName2CustomerName(const string& bump_nm) const noexcept {
 bool RapidCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
   assert(!bcd_.empty());
 
-  for (const BCD& x : bcd_) {
-    if (x.match(pin_name_or_ID)) return true;
+  for (const BCD* x : bcd_) {
+    if (x->match(pin_name_or_ID))
+      return true;
   }
   return false;
 }
