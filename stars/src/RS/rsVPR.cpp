@@ -122,7 +122,7 @@ int do_vpr(const rsOpts& opts) {
                                     ? (const Netlist<>&)g_vpr_ctx.atom().nlist
                                     : (const Netlist<>&)g_vpr_ctx.clustering().clb_nlist;
     if (Options.show_version) {
-      vpr_free_all(net_list, Arch, vpr_setup);
+      //vpr_free_all(net_list, Arch, vpr_setup); // TODO
       return SUCCESS_EXIT_CODE;
     }
 
