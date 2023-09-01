@@ -129,7 +129,7 @@ int do_vpr(const rsOpts& opts) {
     bool flow_succeeded = vpr_flow(vpr_setup, Arch);
     if (!flow_succeeded) {
       VTR_LOG("VPR failed to implement circuit\n");
-      vpr_free_all(net_list, Arch, vpr_setup);
+      //vpr_free_all(net_list, Arch, vpr_setup); // TODO
       return UNIMPLEMENTABLE_EXIT_CODE;
     }
 
@@ -137,7 +137,7 @@ int do_vpr(const rsOpts& opts) {
     print_timing_stats("Flow", timing_ctx.stats);
 
     /* free data structures */
-    vpr_free_all(net_list, Arch, vpr_setup);
+    //vpr_free_all(net_list, Arch, vpr_setup); // TODO
 
     VTR_LOG("VPR succeeded\n");
 
@@ -145,7 +145,7 @@ int do_vpr(const rsOpts& opts) {
     VTR_LOG_ERROR("%s\n", format_tatum_error(tatum_error).c_str());
     auto net_list = vpr_setup.RouterOpts.flat_routing ? (const Netlist<>&)g_vpr_ctx.atom().nlist
                                                       : (const Netlist<>&)g_vpr_ctx.clustering().clb_nlist;
-    vpr_free_all(net_list, Arch, vpr_setup);
+    //vpr_free_all(net_list, Arch, vpr_setup); // TODO
 
     return ERROR_EXIT_CODE;
 
@@ -154,10 +154,10 @@ int do_vpr(const rsOpts& opts) {
     auto net_list = vpr_setup.RouterOpts.flat_routing ? (const Netlist<>&)g_vpr_ctx.atom().nlist
                                                       : (const Netlist<>&)g_vpr_ctx.clustering().clb_nlist;
     if (vpr_error.type() == VPR_ERROR_INTERRUPTED) {
-      vpr_free_all(net_list, Arch, vpr_setup);
+      //vpr_free_all(net_list, Arch, vpr_setup); // TODO
       return INTERRUPTED_EXIT_CODE;
     } else {
-      vpr_free_all(net_list, Arch, vpr_setup);
+      //vpr_free_all(net_list, Arch, vpr_setup); // TODO
       return ERROR_EXIT_CODE;
     }
 
@@ -165,7 +165,7 @@ int do_vpr(const rsOpts& opts) {
     VTR_LOG_ERROR("%s:%d %s\n", vtr_error.filename_c_str(), vtr_error.line(), vtr_error.what());
     auto net_list = vpr_setup.RouterOpts.flat_routing ? (const Netlist<>&)g_vpr_ctx.atom().nlist
                                                       : (const Netlist<>&)g_vpr_ctx.clustering().clb_nlist;
-    vpr_free_all(net_list, Arch, vpr_setup);
+    //vpr_free_all(net_list, Arch, vpr_setup); // TODO
 
     return ERROR_EXIT_CODE;
   }
