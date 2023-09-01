@@ -27,6 +27,7 @@
 #include "timing_place.h"
 #include "tatum/echo_writer.hpp"
 #include "tatum/TimingReporter.hpp"
+#include "concrete_timing_info.h"
 
 
 static void analytical_update_td_delta_costs(const PlaceDelayModel* delay_model,
@@ -361,12 +362,18 @@ void AnalyticPlacer::ap_place(const Netlist<>& net_list,
 
     placer_criticalities = std::make_unique<PlacerCriticalities>(
         cluster_ctx.clb_nlist, netlist_pin_lookup);
+    
+    pin_timing_invalidator = make_net_pin_timing_invalidator(e_timing_update_type::FULL, net_list,
+                                                             netlist_pin_lookup, atom_ctx.nlist, 
+                                                             atom_ctx.lookup,*timing_info->timing_graph(),
+                                                             is_flat);
 
-    pin_timing_invalidator = std::make_unique<NetPinTimingInvalidator>(
-        net_list, netlist_pin_lookup,
-        atom_ctx.nlist, atom_ctx.lookup,
-        *timing_info->timing_graph(),
-        is_flat);
+    // pin_timing_invalidator = std::make_unique<NoopNetPinTimingInvalidator>(
+    //     net_list, netlist_pin_lookup,
+    //     atom_ctx.nlist, atom_ctx.lookup,
+    //     *timing_info->timing_graph(),
+    //     is_flat);
+
     //First time compute timing and costs, compute from scratch
     PlaceCritParams crit_params;
     float first_crit_exponent = placer_opts.td_place_exp_first;

@@ -123,22 +123,14 @@ class RRGraphView {
 
     /** @brief Get the capacitance of a routing resource node. This function is inlined for runtime optimization. */
     inline float node_C(RRNodeId node) const {
-        int16_t idx = node_rc_index(node);
-        if (idx < 0) {
-            return 0; // SERGE_MEM_FIX
-        }
-        VTR_ASSERT(idx < (short)rr_rc_data_.size());
-        return rr_rc_data_[idx].C;
+        VTR_ASSERT(node_rc_index(node) < (short)rr_rc_data_.size());
+        return rr_rc_data_[node_rc_index(node)].C;
     }
 
     /** @brief Get the resistance of a routing resource node. This function is inlined for runtime optimization. */
     inline float node_R(RRNodeId node) const {
-        int16_t idx = node_rc_index(node);
-        if (idx < 0) {
-            return 0; // SERGE_MEM_FIX
-        }
-        VTR_ASSERT(idx < (short)rr_rc_data_.size());
-        return rr_rc_data_[idx].R;
+        VTR_ASSERT(node_rc_index(node) < (short)rr_rc_data_.size());
+        return rr_rc_data_[node_rc_index(node)].R;
     }
 
     /** @brief Get the rc_index of a routing resource node. This function is inlined for runtime optimization. */
@@ -169,6 +161,11 @@ class RRGraphView {
     /** @brief Get the maximum y-coordinate of a routing resource node. This function is inlined for runtime optimization. */
     inline short node_yhigh(RRNodeId node) const {
         return node_storage_.node_yhigh(node);
+    }
+
+    /** @brief Get the layer num of a routing resource node. This function is inlined for runtime optimization. */
+    inline short node_layer(RRNodeId node) const {
+        return node_storage_.node_layer(node);
     }
 
     /** @brief Get the first out coming edge of resource node. This function is inlined for runtime optimization. */
