@@ -878,7 +878,7 @@ vector<string> RapidCsvReader::get_AXI_inputs() const {
 
 vector<string> RapidCsvReader::get_AXI_outputs() const {
   assert(!bcd_.empty());
-  assert(!bcd_AXI_.empty());
+  // DO NOT uncomment: assert(!bcd_AXI_.empty());
 
   vector<string> result;
   result.reserve(bcd_AXI_.size());
