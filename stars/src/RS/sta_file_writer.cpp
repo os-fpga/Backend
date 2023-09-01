@@ -84,7 +84,7 @@ bool FileWriter::do_files(int argc, const char** argv) {
   auto& cluster_ctx = g_vpr_ctx.clustering();
   auto net_delay = make_net_pins_matrix<float>((const Netlist<>&)cluster_ctx.clb_nlist);
 
-  load_net_delay_from_routing((const Netlist<>&)g_vpr_ctx.clustering().clb_nlist, net_delay, true);
+  load_net_delay_from_routing((const Netlist<>&)g_vpr_ctx.clustering().clb_nlist, net_delay);
 
   AnalysisDelayCalculator* an_del_calc = new AnalysisDelayCalculator(atom_ctx.nlist, atom_ctx.lookup, net_delay, true);
 
