@@ -27,10 +27,10 @@ void RapidCsvReader::reset() noexcept {
 }
 
 const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
-  // enum ModeDir              {  No_dir,   Input_dir,   Output_dir,
-  // HasBoth_dir,   AllEnabled_dir  };
-  static const char* enumS[] = {"No_dir", "Input_dir", "Output_dir",
-                                "HasBoth_dir", "AllEnabled_dir"};
+  // enum ModeDir
+  // {  No_dir,   Input_dir,   Output_dir, HasBoth_dir,   AllEnabled_dir  };
+  static const char* enumS[] =
+    {"No_dir", "Input_dir", "Output_dir", "HasBoth_dir", "AllEnabled_dir"};
   constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
   static_assert(n == BCD::AllEnabled_dir + 1);
   uint i = uint(t);
@@ -39,7 +39,7 @@ const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
 }
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
-  os << "(bcd "
+  os << "(bcd-" << b.row_ << ' '
      << "  grp:" << b.groupA_ << "  " << b.bump_ << "  " << b.customer_ << "  "
      << b.ball_ID_ << "  ITP: " << b.IO_tile_pin_ << "  XYZ: " << b.xyz_
      << "  colM:" << b.col_M_ << "  fc:" << b.fullchipName_
@@ -47,6 +47,7 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  isGPIO:" << int(b.is_GPIO_) << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
      << "  rxtx_dir:" << RapidCsvReader::str_Mode_dir(b.rxtx_dir_)
      << "  colM_dir:" << RapidCsvReader::str_Mode_dir(b.colM_dir_)
+     << "  is_input:" << int(b.isInput())
      << "  row:" << b.row_ << ')';
   return os;
 }
@@ -185,10 +186,14 @@ bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept {
 
 // classify row directions BCD:: rxtx_dir_, colM_dir_
 bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
+  uint16_t tr = ltrace();
   uint num_rows = numRows();
   if (num_rows < 2) return false;
+
   vector<RX_TX_val> RX_TX_values;
   RX_TX_values.reserve(crd.numCols());
+
+  // 1. set BCD::rxtx_dir_
   for (uint r = 0; r < num_rows; r++) {
     bcd_[r]->rxtx_dir_ = BCD::No_dir;
     bool ok = get_row_modes(crd, r, RX_TX_values);
@@ -230,6 +235,25 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
       bcd_[r]->rxtx_dir_ = BCD::AllEnabled_dir;
     }
   }
+
+  // 2. set BCD::colM_dir_
+  for (uint r = 0; r < num_rows; r++) {
+    assert(bcd_[r]);
+    BCD& bcd = *bcd_[r];
+    bcd.colM_dir_ = BCD::No_dir;
+    const string& col_M = bcd.col_M_;
+    if (col_M.empty())
+      continue;
+    // lputs9();
+    const char* cm = col_M.c_str();
+    if (tr >= 8)
+      lprintf("  row#%u  col_M_  %s\n", r, cm);
+    if (starts_with_A2F(cm))
+      bcd.colM_dir_ = BCD::Input_dir;
+    else if (starts_with_F2A(cm))
+      bcd.colM_dir_ = BCD::Output_dir;
+  }
+
   return true;
 }
 
@@ -567,9 +591,9 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
         lprintf("..moving bidi rows (%u) to the back of bcd_\n", num_bidi);
       }
       std::stable_partition(bcd_.begin(), bcd_.end(),
-                            [](BCD* p) { return p->isInput(); });
+                            [](BCD* p) { return p->isInputRxTx(); });
       std::stable_partition(bcd_.begin(), bcd_.end(),
-                            [](BCD* p) { return p->isNotBidi(); });
+                            [](BCD* p) { return p->isNotBidiRxTx(); });
       if (tr >= 6) {
         ls << "___ new BCD order ___" << endl;
         print_bcd(ls);
@@ -661,7 +685,7 @@ uint RapidCsvReader::countBidiRows() const noexcept {
   uint cnt = 0;
   for (uint i = 0; i < nr; i++) {
     const BCD& bcd = *bcd_[i];
-    if (bcd.isBidi()) cnt++;
+    if (bcd.isBidiRxTx()) cnt++;
   }
   return cnt;
 }
