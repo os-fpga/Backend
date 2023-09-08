@@ -49,7 +49,8 @@ class PinPlacer {
   vector<string> user_design_outputs_;
 
   vector<vector<string>> pcf_pin_cmds_;
-  std::set<string> used_bump_pins_;
+
+  std::set<string> used_bump_pins_; // for uniqueness, will be replaced by BCD::xy_used_ flag
 
   // vector<StringPair>  picked_inputs_, picked_outputs_;  // for debug stats
 
@@ -58,6 +59,8 @@ class PinPlacer {
   uint min_pt_row_ = UINT_MAX, max_pt_row_ = 0;  // for debug stats
 
   bool pin_assign_def_order_ = true;
+
+  bool uniq_by_xy_ = false; // new mode of device pin uniqueness check
 
 public:
   enum class PortDir : uint8_t {
@@ -94,18 +97,14 @@ public:
     }
   };
 
-  PinPlacer(const cmd_line& cl)
-   : cl_(cl) {
-    pin_assign_def_order_ = true;
-    min_pt_row_ = UINT_MAX; max_pt_row_ = 0;
-  }
+  PinPlacer(const cmd_line& cl);
   ~PinPlacer();
 
   // const cmd_line& get_cmd() const noexcept { return cl_; }
 
   bool reader_and_writer();
 
-  void print_stats(const RapidCsvReader& csv_rd) const;
+  void print_stats(const RapidCsvReader& csv) const;
 
   size_t num_placed_pins() const noexcept {
     return placed_inputs_.size() + placed_outputs_.size();
@@ -114,21 +113,21 @@ public:
   bool read_csv_file(RapidCsvReader&);
   bool read_design_ports();
 
-  bool read_pcf(const RapidCsvReader& rdr);
+  bool read_pcf(const RapidCsvReader&);
 
   bool write_dot_place(const RapidCsvReader&);
 
-  bool create_temp_pcf(const RapidCsvReader& rdr);
+  bool create_temp_pcf(RapidCsvReader&);
 
   static void shuffle_candidates(vector<int>& v);
 
   // get_available_ methods return pin_and_mode pair, empty strings on error
   //
-  StringPair get_available_device_pin(const RapidCsvReader& rdr,
+  StringPair get_available_device_pin(const RapidCsvReader& csv,
                                       bool is_inp, const string& udesName);
   //
-  StringPair get_available_bump_ipin(const RapidCsvReader& rdr, const string& udesName);
-  StringPair get_available_bump_opin(const RapidCsvReader& rdr, const string& udesName);
+  StringPair get_available_bump_ipin(const RapidCsvReader& csv, const string& udesName);
+  StringPair get_available_bump_opin(const RapidCsvReader& csv, const string& udesName);
   StringPair get_available_axi_ipin(vector<string>& Q);
   StringPair get_available_axi_opin(vector<string>& Q);
   //

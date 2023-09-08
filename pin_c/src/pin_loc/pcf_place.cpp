@@ -39,7 +39,7 @@ PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noexcept
   return nullptr;
 }
 
-void PinPlacer::print_stats(const RapidCsvReader& csv_rd) const
+void PinPlacer::print_stats(const RapidCsvReader& csv) const
 {
   uint16_t tr = ltrace();
   if (!tr) return;
@@ -82,23 +82,23 @@ void PinPlacer::print_stats(const RapidCsvReader& csv_rd) const
   }
 
   ls << "  min_pt_row= " << min_pt_row_+2 << "  max_pt_row= " << max_pt_row_+2 << '\n';
-  ls << "  row0_GBOX_GPIO()= " << csv_rd.row0_GBOX_GPIO()
-     << "  row0_CustomerInternal()= " << csv_rd.row0_CustomerInternal() << endl;
+  ls << "  row0_GBOX_GPIO()= " << csv.row0_GBOX_GPIO()
+     << "  row0_CustomerInternal()= " << csv.row0_CustomerInternal() << endl;
 
   ls << endl;
-  csv_rd.print_bcd_stats(ls);
+  csv.print_bcd_stats(ls);
 
   ls << "======== end stats." << endl;
   if (tr >= 7) {
-    uint nr = csv_rd.numRows();
+    uint nr = csv.numRows();
     if (max_pt_row_ > 0 && nr > 10 && max_pt_row_ < nr - 1) {
-      uint minRow = std::min(csv_rd.row0_GBOX_GPIO(), csv_rd.row0_CustomerInternal());
+      uint minRow = std::min(csv.row0_GBOX_GPIO(), csv.row0_CustomerInternal());
       minRow = std::min(minRow, min_pt_row_);
       if (minRow > 0)
         minRow--;
-      csv_rd.write_csv("LAST_PINC_PT_reduced.csv", minRow, max_pt_row_ + 1);
+      csv.write_csv("LAST_PINC_PT_reduced.csv", minRow, max_pt_row_ + 1);
     } else if (nr > 2) {
-      csv_rd.write_csv("LAST_PINC_PT_full.csv", 0, UINT_MAX);
+      csv.write_csv("LAST_PINC_PT_full.csv", 0, UINT_MAX);
     }
   }
 }
@@ -168,7 +168,7 @@ static bool vec_contains(const vector<string>& V, const string& s) noexcept {
   return false;
 }
 
-bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
+bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 {
   placed_inputs_.clear();
   placed_outputs_.clear();
@@ -206,11 +206,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
     ls << std::flush;
   }
 
-  // parse each constraint line in constrain file, generate place location
-  // accordingly
-  //
-  std::set<string> constrained_user_pins,
-      constrained_device_pins;  // for sanity check
+  //// std::set<string> constrained_user_pins, //// uniqueness check replaced by BCD::xy_used_
+  ////    constrained_device_pins;  // for sanity check
 
   string gbox_pin_name, search_name;
 
@@ -259,7 +256,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       return false;
     }
-    if (!csv_rd.has_io_pin(device_pin_name)) {
+    if (!csv.has_io_pin(device_pin_name)) {
       CERROR << err_lookup("CONSTRAINED_PIN_NOT_FOUND") << ": <"
              << device_pin_name << ">" << endl;
       out_file << "\n=== Error happened, .place file is incomplete\n"
@@ -269,13 +266,14 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
       return false;
     }
 
-    if (!constrained_user_pins.count(user_design_pin_name)) {
-      constrained_user_pins.insert(user_design_pin_name);
-    } else {
-      CERROR << err_lookup("RE_CONSTRAINED_PORT") << ": <"
-             << user_design_pin_name << ">" << endl;
-      return false;
-    }
+    //// uniqueness check replaced by BCD::xy_used_
+    // if (!constrained_user_pins.count(user_design_pin_name)) {
+    //   constrained_user_pins.insert(user_design_pin_name);
+    // } else {
+    //   CERROR << err_lookup("RE_CONSTRAINED_PORT") << ": <"
+    //          << user_design_pin_name << ">" << endl;
+    //   return false;
+    // }
 
     // use (device_pin_name + " " + gbox_pin_name) as search name to check
     // overlap pin in constraint
@@ -283,13 +281,14 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
     search_name.push_back(' ');
     search_name += gbox_pin_name;
 
-    if (!constrained_device_pins.count(search_name)) {
-      constrained_device_pins.insert(search_name);
-    } else {
-      CERROR << err_lookup("OVERLAP_PIN_IN_CONSTRAINT") << ": <"
-             << device_pin_name << ">" << endl;
-      return false;
-    }
+    //// uniqueness check replaced by BCD::xy_used_
+    // if (!constrained_device_pins.count(search_name)) {
+    //   constrained_device_pins.insert(search_name);
+    // } else {
+    //   CERROR << err_lookup("OVERLAP_PIN_IN_CONSTRAINT") << ": <"
+    //          << device_pin_name << ">" << endl;
+    //   return false;
+    // }
 
     // look for coordinates and write constrain
     if (is_out_pin) {
@@ -304,17 +303,17 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
     RapidCsvReader::prepare_mode_header(mode);
 
     uint pt_row = 0;
-    XYZ xyz = csv_rd.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+    XYZ xyz = csv.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
     if (!xyz.valid()) {
-        CERROR << " PRE-ASSERT: no valid coordinates" << endl;
-        lputs("\n [Error] (ERROR) PRE-ASSERT");
-        lprintf("   mode %s  device_pin_name %s   gbox_pin_name %s\n",
-                mode.c_str(), device_pin_name.c_str(), gbox_pin_name.c_str());
-        lputs();
+      CERROR << " PRE-ASSERT: no valid coordinates" << endl;
+      lputs("\n [Error] (ERROR) PRE-ASSERT");
+      lprintf("   mode %s  device_pin_name %s   gbox_pin_name %s\n",
+              mode.c_str(), device_pin_name.c_str(), gbox_pin_name.c_str());
+      lputs();
     }
     assert(xyz.valid());
     if (!xyz.valid()) {
-        return false;
+      return false;
     }
 
     if (pt_row < min_pt_row_)
@@ -324,8 +323,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
 
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
     if (tr >= 4) {
-        out_file << "    #  device: " << device_pin_name;
-        out_file << "  pt_row: " << pt_row+2;
+      out_file << "    #  device: " << device_pin_name;
+      out_file << "  pt_row: " << pt_row+2;
     }
     out_file << endl;
     out_file.flush();
@@ -352,52 +351,6 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv_rd)
   }
 
   return true;
-
-#if 0
-  // assign other un-constrained user pins (if any) to legal io tile pin in fpga
-  if (constrained_user_pins.size() <
-      (user_design_inputs_.size() + user_design_outputs_.size())) {
-    vector<int> left_available_device_pin_idx;
-    collect_left_available_device_pins(
-        constrained_device_pins, left_available_device_pin_idx, csv_rd);
-    if (pin_assign_def_order_ == ASSIGN_IN_RANDOM) {
-      shuffle_candidates(left_available_device_pin_idx);
-    }
-    int assign_pin_idx = 0;
-    for (auto user_input_pin_name : user_design_inputs_) {
-      if (constrained_user_pins.find(user_input_pin_name) ==
-          constrained_user_pins.end()) { // input pins not specified in pcf
-        out_file << user_input_pin_name << "\t"
-                 << std::to_string(csv_rd.get_pin_x_by_pin_idx(
-                        left_available_device_pin_idx[assign_pin_idx]))
-                 << "\t"
-                 << std::to_string(csv_rd.get_pin_y_by_pin_idx(
-                        left_available_device_pin_idx[assign_pin_idx]))
-                 << "\t"
-                 << std::to_string(csv_rd.get_pin_z_by_pin_idx(
-                        left_available_device_pin_idx[assign_pin_idx]))
-                 << endl;
-        assign_pin_idx++;
-      }
-    }
-    for (auto user_output_pin_name : user_design_outputs_) {
-      if (constrained_user_pins.find(user_output_pin_name) ==
-          constrained_user_pins.end()) { // output pins not specified in pcf
-        out_file << "out:" << user_output_pin_name << "\t"
-                 << std::to_string(csv_rd.get_pin_x_by_pin_idx(
-                        left_available_device_pin_idx[assign_pin_idx]))
-                 << "\t"
-                 << std::to_string(csv_rd.get_pin_y_by_pin_idx(
-                        left_available_device_pin_idx[assign_pin_idx]))
-                 << "\t"
-                 << std::to_string(csv_rd.get_pin_z_by_pin_idx(
-                        left_available_device_pin_idx[assign_pin_idx]))
-                 << endl;
-        assign_pin_idx++;
-      }
-    }
-  }
-#endif  // 0
 }
 
 static bool try_open_csv_file(const string& csv_name) {
@@ -419,7 +372,7 @@ static bool try_open_csv_file(const string& csv_name) {
   return true;
 }
 
-bool PinPlacer::read_csv_file(RapidCsvReader& csv_rd) {
+bool PinPlacer::read_csv_file(RapidCsvReader& csv) {
   uint16_t tr = ltrace();
   if (tr >= 2) lputs("\nread_csv_file() __ Reading csv");
 
@@ -443,7 +396,7 @@ bool PinPlacer::read_csv_file(RapidCsvReader& csv_rd) {
     check = true;
     if (tr >= 2) lputs("NOTE: check_csv == True");
   }
-  if (!csv_rd.read_csv(csv_name, check)) {
+  if (!csv.read_csv(csv_name, check)) {
     CERROR << err_lookup("PIN_MAP_CSV_PARSE_ERROR") << endl;
     return false;
   }
@@ -451,7 +404,7 @@ bool PinPlacer::read_csv_file(RapidCsvReader& csv_rd) {
   return true;
 }
 
-StringPair PinPlacer::get_available_device_pin(const RapidCsvReader& rdr,
+StringPair PinPlacer::get_available_device_pin(const RapidCsvReader& csv,
                                                bool is_inp, const string& udesName)
 {
   StringPair result;
@@ -465,7 +418,7 @@ StringPair PinPlacer::get_available_device_pin(const RapidCsvReader& rdr,
         lprintf("  no_more_inp_bumps_ => got axi_ipin: %s\n", result.first.c_str());
       return result;
     }
-    result = get_available_bump_ipin(rdr, udesName);
+    result = get_available_bump_ipin(csv, udesName);
     if (result.first.empty()) {
       no_more_inp_bumps_ = true;
       result = get_available_axi_ipin(s_axi_inpQ);
@@ -477,7 +430,7 @@ StringPair PinPlacer::get_available_device_pin(const RapidCsvReader& rdr,
         lprintf("  no_more_out_bumps_ => got axi_opin: %s\n", result.first.c_str());
       return result;
     }
-    result = get_available_bump_opin(rdr, udesName);
+    result = get_available_bump_opin(csv, udesName);
     if (result.first.empty()) {
       no_more_out_bumps_ = true;
       result = get_available_axi_opin(s_axi_outQ);
@@ -527,11 +480,12 @@ StringPair PinPlacer::get_available_axi_opin(vector<string>& Q) {
   return result;
 }
 
-StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& rdr, const string& udesName)
+StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& csv, const string& udesName)
 {
   static uint icnt = 0;
   icnt++;
   uint16_t tr = ltrace();
+  auto& ls = lout();
   if (tr >= 4) {
     lprintf("get_available_bump_ipin()# %u  for udes-pin %s\n", icnt, udesName.c_str());
   }
@@ -541,27 +495,37 @@ StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& rdr, const s
   bool found = false;
   StringPair result; // pin_and_mode
 
-  uint num_rows = rdr.numRows();
-  for (uint i = rdr.start_GBOX_GPIO_row_; i < num_rows; i++) {
-    const auto& bcd = *rdr.bcd_[i];
+  uint num_rows = csv.numRows();
+  for (uint i = csv.start_GBOX_GPIO_row_; i < num_rows; i++) {
+    const auto& bcd = *csv.bcd_[i];
     const string& bump_pin_name = bcd.bump_;
 
-    if (used_bump_pins_.count(bump_pin_name)) {
-      if (tr >= 9)
-        lprintf("  bump_ipin_name %s is used, skipping..\n", bump_pin_name.c_str());
-      continue;
+    //uint dbg_row = 0;
+    //XYZ dbg_xyz = csv.get_pin_xyz_by_name("", bump_pin_name, bump_pin_name, dbg_row);
+    //if (tr >= 7)
+    //  ls << "dbg_xyz " << dbg_xyz << endl;
+
+    if (uniq_by_xy_) {
+      // NOT READY
+    }
+    else {
+      if (used_bump_pins_.count(bump_pin_name)) {
+        if (tr >= 9)
+          lprintf("  bump_ipin_name %s is used, skipping..\n", bump_pin_name.c_str());
+        continue;
+      }
     }
 
-    for (const string& mode_name : rdr.mode_names_) {
-      const vector<string>* mode_data = rdr.getModeData(mode_name);
+    for (const string& mode_name : csv.mode_names_) {
+      const vector<string>* mode_data = csv.getModeData(mode_name);
       assert(mode_data);
       assert(mode_data->size() == num_rows);
 
       if (not is_input_mode(mode_name))
         continue;
 
-      for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
-        if (mode_data->at(k) == "Y" and bump_pin_name == rdr.bumpPinName(k)) {
+      for (uint k = csv.start_GBOX_GPIO_row_; k < num_rows; k++) {
+        if (mode_data->at(k) == "Y" and bump_pin_name == csv.bumpPinName(k)) {
           result.first = bump_pin_name;
           result.second = mode_name;
           used_bump_pins_.insert(bump_pin_name);
@@ -610,7 +574,7 @@ ret:
   return result;
 }
 
-StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& rdr, const string& udesName)
+StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& csv, const string& udesName)
 {
   static uint ocnt = 0;
   ocnt++;
@@ -624,27 +588,32 @@ StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& rdr, const s
   bool found = false;
   StringPair result; // pin_and_mode
 
-  uint num_rows = rdr.numRows();
-  for (uint i = rdr.start_GBOX_GPIO_row_; i < num_rows; i++) {
-    const auto& bcd = *rdr.bcd_[i];
+  uint num_rows = csv.numRows();
+  for (uint i = csv.start_GBOX_GPIO_row_; i < num_rows; i++) {
+    const auto& bcd = *csv.bcd_[i];
     const string& bump_pin_name = bcd.bump_;
 
-    if (used_bump_pins_.count(bump_pin_name)) {
-      if (tr >= 9)
-        lprintf("  bump_opin_name %s is used, skipping..\n", bump_pin_name.c_str());
-      continue;
+    if (uniq_by_xy_) {
+      // NOT READY
+    }
+    else {
+      if (used_bump_pins_.count(bump_pin_name)) {
+        if (tr >= 9)
+          lprintf("  bump_opin_name %s is used, skipping..\n", bump_pin_name.c_str());
+        continue;
+      }
     }
 
-    for (const string& mode_name : rdr.mode_names_) {
-      const vector<string>* mode_data = rdr.getModeData(mode_name);
+    for (const string& mode_name : csv.mode_names_) {
+      const vector<string>* mode_data = csv.getModeData(mode_name);
       assert(mode_data);
       assert(mode_data->size() == num_rows);
 
       if (not is_output_mode(mode_name))
         continue;
 
-      for (uint k = rdr.start_GBOX_GPIO_row_; k < num_rows; k++) {
-        if (mode_data->at(k) == "Y" and bump_pin_name == rdr.bumpPinName(k)) {
+      for (uint k = csv.start_GBOX_GPIO_row_; k < num_rows; k++) {
+        if (mode_data->at(k) == "Y" and bump_pin_name == csv.bumpPinName(k)) {
           result.first = bump_pin_name;
           result.second = mode_name;
           used_bump_pins_.insert(bump_pin_name);
@@ -690,7 +659,7 @@ ret:
 }
 
 // create a temporary pcf file and internally pass it to params
-bool PinPlacer::create_temp_pcf(const RapidCsvReader& csv_rd)
+bool PinPlacer::create_temp_pcf(RapidCsvReader& csv)
 {
   clear_err_code();
   string key = "--pcf";
@@ -707,8 +676,8 @@ bool PinPlacer::create_temp_pcf(const RapidCsvReader& csv_rd)
   no_more_inp_bumps_ = false;
   no_more_out_bumps_ = false;
   //
-  s_axi_inpQ = csv_rd.get_AXI_inputs();
-  s_axi_outQ = csv_rd.get_AXI_outputs();
+  s_axi_inpQ = csv.get_AXI_inputs();
+  s_axi_outQ = csv.get_AXI_outputs();
 
   if (tr >= 4) {
     lprintf("  s_axi_inpQ.size()= %zu  s_axi_outQ.size()= %zu\n",
@@ -776,14 +745,14 @@ bool PinPlacer::create_temp_pcf(const RapidCsvReader& csv_rd)
     const string& inpName = user_design_inputs_[i];
     if (tr >= 4) {
       lprintf("assigning user_design_input #%u %s\n", i, inpName.c_str());
-      if (csv_rd.hasCustomerInternalName(inpName)) {
+      if (csv.hasCustomerInternalName(inpName)) {
         lprintf("\t (CustIntName) hasCustomerInternalName( %s )\n", inpName.c_str());
       }
     }
     assert(!inpName.empty());
-    dpin_and_mode = get_available_device_pin(csv_rd, true /*INPUT*/, inpName);
+    dpin_and_mode = get_available_device_pin(csv, true /*INPUT*/, inpName);
     if (dpin_and_mode.first.length()) {
-      pinName = csv_rd.bumpName2CustomerName(dpin_and_mode.first);
+      pinName = csv.bumpName2CustomerName(dpin_and_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_inputs_[input_idx[i]];
@@ -819,14 +788,14 @@ bool PinPlacer::create_temp_pcf(const RapidCsvReader& csv_rd)
     const string& outName = user_design_outputs_[i];
     if (tr >= 4) {
       lprintf("assigning user_design_output #%u %s\n", i, outName.c_str());
-      if (csv_rd.hasCustomerInternalName(outName)) {
+      if (csv.hasCustomerInternalName(outName)) {
         lprintf("\t (CustIntName) hasCustomerInternalName( %s )\n", outName.c_str());
       }
     }
     assert(!outName.empty());
-    dpin_and_mode = get_available_device_pin(csv_rd, false /*OUTPUT*/, outName);
+    dpin_and_mode = get_available_device_pin(csv, false /*OUTPUT*/, outName);
     if (dpin_and_mode.first.length()) {
-      pinName = csv_rd.bumpName2CustomerName(dpin_and_mode.first);
+      pinName = csv.bumpName2CustomerName(dpin_and_mode.first);
       assert(!pinName.empty());
 
       set_io_str = user_design_outputs_[output_idx[i]];
