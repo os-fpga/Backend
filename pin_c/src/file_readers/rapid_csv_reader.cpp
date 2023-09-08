@@ -105,12 +105,12 @@ static inline bool ends_with_rx(const char* z, size_t len) noexcept {
 
 static inline bool starts_with_A2F(const char* z) noexcept {
   assert(z);
-  return z[0] == 'A' and z[1] == '2' and z[2] == 'F' and z[3] == '_';
+  return z[0] == 'A' and z[1] == '2' and z[2] == 'F';
 }
 
 static inline bool starts_with_F2A(const char* z) noexcept {
   assert(z);
-  return z[0] == 'F' and z[1] == '2' and z[2] == 'A' and z[3] == '_';
+  return z[0] == 'F' and z[1] == '2' and z[2] == 'A';
 }
 
 struct RX_TX_val {
@@ -522,14 +522,14 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     BCD& bcd = *bcd_[i];
     bcd.bump_ = bump_pin_name[i];
     if (bcd.bump_.empty()) {
-      if (bcd.customerInternal().empty() && tr >= 2) {
+      if (bcd.customerInternal().empty() && tr >= 3) {
         ls << " (WW) both bcd.bump_ and bcd.customerInternal_ are empty"
            << " on row# " << i << endl;
         // assert(0);
       }
     }
     bcd.normalize();
-    assert(!bcd.bump_.empty());
+    // assert(!bcd.bump_.empty()); // no-assert, could be clock: colM = F2CLK
   }
 
   vector<string> io_tile_pins = crd.getColumn("IO_tile_pin");
@@ -697,6 +697,7 @@ uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
   constexpr uint N_dirs = BCD::AllEnabled_dir + 1;
   uint dir_counters[N_dirs] = {};
   uint axi_cnt = 0, gbox_gpio_cnt = 0, gpio_cnt = 0;
+  uint inp_colm_cnt = 0, out_colm_cnt = 0;
 
   for (uint i = 0; i < nr; i++) {
     const BCD& bcd = *bcd_[i];
@@ -704,6 +705,8 @@ uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
     axi_cnt += int(bcd.is_axi_);
     gbox_gpio_cnt += int(bcd.is_GBOX_GPIO_);
     gpio_cnt += int(bcd.is_GPIO_);
+    inp_colm_cnt += int(bcd.isInputColm());
+    out_colm_cnt += int(bcd.isOutputColm());
   }
 
   os << "bcd_stats( numRows= " << nr << " )\n";
@@ -714,7 +717,9 @@ uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
 
   os << "        #AXI = " << axi_cnt << '\n';
   os << "       #GPIO = " << gpio_cnt << '\n';
-  os << "  #GBOX_GPIO = " << gbox_gpio_cnt << endl;
+  os << "  #GBOX_GPIO = " << gbox_gpio_cnt << '\n';
+  os << "   #inp_colm = " << inp_colm_cnt << '\n';
+  os << "   #out_colm = " << out_colm_cnt << endl;
 
   return nr;
 }
