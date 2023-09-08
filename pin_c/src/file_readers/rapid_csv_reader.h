@@ -54,7 +54,7 @@ public:
 
     int row_ = 0;
     ModeDir rxtx_dir_ = No_dir; // dir_
-    ModeDir colM_dir_ = No_dir;
+    ModeDir colM_dir_ = No_dir; // based on column-M EFPGA_PIN
 
     string  IO_tile_pin_; // column I
     XYZ     xyz_;         // columns J,K,L
@@ -94,11 +94,22 @@ public:
         customer_ = customerInternal_;
     }
 
-    bool isInput() const noexcept { return rxtx_dir_ == Input_dir; }
-    bool isOutput() const noexcept { return rxtx_dir_ == Output_dir; }
-    bool isBidi() const noexcept { return rxtx_dir_ == HasBoth_dir or rxtx_dir_ == AllEnabled_dir; }
-    bool isNotBidi() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
-    bool allModesEnabled() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
+    bool isInputRxTx() const noexcept { return rxtx_dir_ == Input_dir; }
+    bool isOutputRxTx() const noexcept { return rxtx_dir_ == Output_dir; }
+    bool isBidiRxTx() const noexcept { return rxtx_dir_ == HasBoth_dir or rxtx_dir_ == AllEnabled_dir; }
+    bool isNotBidiRxTx() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
+    bool allModesEnabledRxTx() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
+
+    bool isInputColm() const noexcept { return colM_dir_ == Input_dir; }
+    bool isOutputColm() const noexcept { return colM_dir_ == Output_dir; }
+
+    bool isInput() const noexcept {
+      if (isInputColm())
+        return true;
+      if (isOutputColm())
+        return false;
+      return isInputRxTx();
+    }
   };
 
   RapidCsvReader();
