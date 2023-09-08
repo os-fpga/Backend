@@ -63,7 +63,11 @@ public:
     bool is_GBOX_GPIO_ = false;
     bool is_GPIO_ = false; // based on column A
 
+    bool xy_used_ = false; // pin_c already assigned this XY
+
     BCD() noexcept = default;
+
+    void set_xy_used() noexcept { xy_used_ = true; }
 
     bool match(const string& customerPin_or_ID) const noexcept {
       if (customer_ == customerPin_or_ID)

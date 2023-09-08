@@ -104,6 +104,15 @@ static string USAGE_MSG_2 =
     "[random | in_define_order]] --output OUTPUT";  // for rs internall,
                                                     // gemini; no user pcf is provided
 
+PinPlacer::PinPlacer(const cmd_line& cl)
+ : cl_(cl) {
+  pin_assign_def_order_ = true;
+
+  uniq_by_xy_ = false; // getenv()
+
+  min_pt_row_ = UINT_MAX;
+  max_pt_row_ = 0;
+}
 
 PinPlacer::~PinPlacer() {
   if (num_warnings_) {
