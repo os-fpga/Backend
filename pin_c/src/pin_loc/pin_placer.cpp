@@ -4,7 +4,7 @@
 //    approval is obtained from rapidsilicon open source review commitee      //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "pin_loc/pin_location.h"
+#include "pin_loc/pin_placer.h"
 
 #include "file_readers/blif_reader.h"
 #include "file_readers/pcf_reader.h"
