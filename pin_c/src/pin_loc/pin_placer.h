@@ -5,15 +5,14 @@
 //    approval is obtained from rapidsilicon open source review commitee      //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __rs_PIN_LOCATION_H
-#define __rs_PIN_LOCATION_H
+#ifndef __rs_PinPlacer_fa337e863b11ab_H_
+#define __rs_PinPlacer_fa337e863b11ab_H_
 
 #include <set>
 
 #include "util/cmd_line.h"
-#include "util/geo/xyz.h"
-#include "util/pinc_log.h"
 #include "pin_loc/pinc_main.h"
+#include "pin_loc/pin.h"
 
 namespace pinc {
 
@@ -24,20 +23,6 @@ using std::vector;
 using StringPair = std::pair<std::string, std::string>;
 
 class PinPlacer {
-
-  struct Pin {
-    string user_design_name_;
-    string device_pin_name_;
-    XYZ xyz_;
-    uint pt_row_ = 0; // row in pin table
-
-    Pin() noexcept = default;
-
-    Pin(const string& u, const string& d, const XYZ& xyz, uint r) noexcept
-      : user_design_name_(u), device_pin_name_(d),
-        xyz_(xyz), pt_row_(r)
-    {}
-  };
 
   cmd_line cl_;
 
@@ -152,7 +137,7 @@ private:
   static const Pin* find_udes_pin(const vector<Pin>& P, const string& nm) noexcept;
 };
 
-}  // namespace pinc
+}
 
 #endif
 

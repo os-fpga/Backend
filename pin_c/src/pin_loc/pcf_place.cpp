@@ -1,4 +1,4 @@
-#include "pin_loc/pin_location.h"
+#include "pin_loc/pin_placer.h"
 #include "file_readers/pcf_reader.h"
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/Fio.h"
@@ -29,18 +29,15 @@ static constexpr const char* GPIO_MODE_FIX = "_GPIO";
 static vector<string> s_axi_inpQ, s_axi_outQ;
 
 
-const PinPlacer::Pin*
-PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noexcept
-{
+const Pin* PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noexcept {
   for (const Pin& p : P) {
-    if (p.user_design_name_ == nm)
+    if (p.udes_pin_name_ == nm)
       return &p;
   }
   return nullptr;
 }
 
-void PinPlacer::print_stats(const RapidCsvReader& csv) const
-{
+void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   uint16_t tr = ltrace();
   if (!tr) return;
   auto& ls = lout();
@@ -480,14 +477,14 @@ StringPair PinPlacer::get_available_axi_opin(vector<string>& Q) {
   return result;
 }
 
-StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& csv, const string& udesName)
-{
+StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& csv, const string& udesName) {
   static uint icnt = 0;
   icnt++;
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 4) {
-    lprintf("get_available_bump_ipin()# %u  for udes-pin %s\n", icnt, udesName.c_str());
+    lprintf("get_available_bump_ipin()# %u  for udes-pin %s", icnt, udesName.c_str());
+    ls << endl;
   }
 
   //constexpr bool is_input_port = true;
@@ -574,8 +571,7 @@ ret:
   return result;
 }
 
-StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& csv, const string& udesName)
-{
+StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& csv, const string& udesName) {
   static uint ocnt = 0;
   ocnt++;
   uint16_t tr = ltrace();
