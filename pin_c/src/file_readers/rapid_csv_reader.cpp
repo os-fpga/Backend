@@ -48,6 +48,8 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  rxtx_dir:" << RapidCsvReader::str_Mode_dir(b.rxtx_dir_)
      << "  colM_dir:" << RapidCsvReader::str_Mode_dir(b.colM_dir_)
      << "  is_input:" << int(b.isInput())
+     << "  #rx_modes:" << b.numRxModes()
+     << "  #tx_modes:" << b.numTxModes()
      << "  row:" << b.row_ << ')';
   return os;
 }
@@ -184,6 +186,45 @@ bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept {
   return false;
 }
 
+bool RapidCsvReader::initRows(const fio::CSV_Reader& crd) {
+  start_GBOX_GPIO_row_ = 0;
+  vector<string> group_col = crd.getColumn("Group");
+  assert(!group_col.empty());
+  if (group_col.empty())
+    return false;
+
+  size_t num_rows = group_col.size();
+  assert(num_rows >= 10);
+  if (num_rows < 10)
+    return false;
+
+  for (uint i = 0; i < num_rows; i++) {
+    if (group_col[i] == "GBOX GPIO") {
+      start_GBOX_GPIO_row_ = i;
+      break;
+    }
+  }
+
+  bcd_.resize(num_rows, nullptr);
+  for (uint i = 0; i < num_rows; i++) {
+    bcd_[i] = new BCD(i);
+    BCD& bcd = *bcd_[i];
+    bcd.groupA_ = group_col[i];
+    bcd.is_GBOX_GPIO_ = (bcd.groupA_ == "GBOX GPIO");
+    bcd.is_GPIO_ = (bcd.groupA_ == "GPIO");
+  }
+
+  assert(num_rows == numRows());
+  assert(col_headers_.size() == numCols());
+
+  if (ltrace() >= 2) {
+    lprintf("initRows:  num_rows= %u  num_cols= %u  start_GBOX_GPIO_row_= %u\n\n",
+        numRows(), numCols(), start_GBOX_GPIO_row_);
+  }
+
+  return true;
+}
+
 // classify row directions BCD:: rxtx_dir_, colM_dir_
 bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
   uint16_t tr = ltrace();
@@ -301,24 +342,12 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
   }
 
-  vector<string> group_col = crd.getColumn("Group");
-  assert(!group_col.empty());
-
-  size_t num_rows = group_col.size();
-  assert(num_rows > 30);
-  start_GBOX_GPIO_row_ = 0;
-  for (uint i = 0; i < num_rows; i++) {
-    if (group_col[i] == "GBOX GPIO") {
-      start_GBOX_GPIO_row_ = i;
-      break;
-    }
+  if (!initRows(crd)) {
+    ls << "\nERROR initRows() failed\n" << endl;
+    return false;
   }
-
-  if (tr >= 2) {
-    ls << "  num_rows= " << num_rows << "  num_cols= " << col_headers_.size()
-       << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_ << '\n'
-       << endl;
-  }
+  uint num_rows = numRows();
+  assert(num_rows >= 10);
 
   bool has_Fullchip_name = false;
   vector<string> mode_data;
@@ -326,8 +355,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   mode_names_.reserve(col_headers_.size());
   for (uint i = 0; i < col_headers_.size(); i++) {
     string col_label = label_column(i);
-    const string& orig_hdr_i =
-        col_headers_[i];  // before case conversion by prepare_mode_header()
+    const string& orig_hdr_i = col_headers_[i];  // before case conversion by prepare_mode_header()
     hdr_i = orig_hdr_i;
 
     if (!has_Fullchip_name && hdr_i == "Fullchip_NAME")
@@ -336,8 +364,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     if (!prepare_mode_header(hdr_i)) continue;
 
     if (tr >= 4)
-      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i
-         << endl;
+      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
 
     mode_data = crd.getColumn(orig_hdr_i);
     if (mode_data.empty()) {
@@ -366,16 +393,6 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   if (!has_Fullchip_name) {
     lputs("\nRapidCsvReader::read_csv(): column Fullchip_NAME not found\n");
     return false;
-  }
-
-  bcd_.resize(num_rows, nullptr);
-  for (uint i = 0; i < num_rows; i++) {
-    bcd_[i] = new BCD;
-    BCD& bcd = *bcd_[i];
-    bcd.row_ = i;
-    bcd.groupA_ = group_col[i];
-    bcd.is_GBOX_GPIO_ = (bcd.groupA_ == "GBOX GPIO");
-    bcd.is_GPIO_ = (bcd.groupA_ == "GPIO");
   }
 
   vector<string> S_tmp;

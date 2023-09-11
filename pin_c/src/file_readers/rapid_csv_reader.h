@@ -2,7 +2,7 @@
 
 #include <map>
 #include <set>
-#include <unordered_map>
+#include <bitset>
 
 #include "util/geo/xyz.h"
 #include "util/pinc_log.h"
@@ -20,6 +20,8 @@ class PinPlacer;
 
 class RapidCsvReader {
 public:
+
+  static constexpr uint MAX_PT_COLS = 128;
 
   // BCD is a "reduced row record" RRR (subset of important columns)
   struct BCD {
@@ -52,12 +54,15 @@ public:
     string col_M_;        // 12-M  EFPGA_PIN
     string fullchipName_; // 13-N  Fullchip_NAME
 
-    int row_ = 0;
+    uint row_ = 0;
     ModeDir rxtx_dir_ = No_dir; // dir_
     ModeDir colM_dir_ = No_dir; // based on column-M EFPGA_PIN
 
     string  IO_tile_pin_; // column I
     XYZ     xyz_;         // columns J,K,L
+
+    std::bitset<MAX_PT_COLS> rx_modes_; // indexed by PT-columns, 1 is 'Y'
+    std::bitset<MAX_PT_COLS> tx_modes_; //
 
     bool is_axi_ = false;
     bool is_GBOX_GPIO_ = false;
@@ -65,7 +70,8 @@ public:
 
     bool xy_used_ = false; // pin_c already assigned this XY
 
-    BCD() noexcept = default;
+    BCD(uint r = 0) noexcept
+      : row_(r) {}
 
     void set_xy_used() noexcept { xy_used_ = true; }
 
@@ -103,6 +109,9 @@ public:
     bool isBidiRxTx() const noexcept { return rxtx_dir_ == HasBoth_dir or rxtx_dir_ == AllEnabled_dir; }
     bool isNotBidiRxTx() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
     bool allModesEnabledRxTx() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
+
+    uint numRxModes() const noexcept { return rx_modes_.count(); }
+    uint numTxModes() const noexcept { return tx_modes_.count(); }
 
     bool isInputColm() const noexcept { return colM_dir_ == Input_dir; }
     bool isOutputColm() const noexcept { return colM_dir_ == Output_dir; }
@@ -143,6 +152,7 @@ public:
   XYZ get_axi_xyz_by_name(const string& axi_name, uint& pt_row) const noexcept;
 
   uint numRows() const noexcept { return bcd_.size(); }
+  uint numCols() const noexcept { return col_headers_.size(); }
 
   bool has_io_pin(const string& pin_name_or_ID) const noexcept;
 
@@ -188,6 +198,7 @@ public:
 
 private:
 
+  bool initRows(const fio::CSV_Reader& crd);
   bool setDirections(const fio::CSV_Reader& crd);
 
   static bool prepare_mode_header(string& hdr) noexcept;
@@ -196,10 +207,12 @@ private:
 
   fio::CSV_Reader* crd_ = nullptr;
 
-  std::map<string, vector<string>> modes_map_;
+  std::map<string, vector<string>> modes_map_; // mode name --> column of strings
 
   vector<string> col_headers_; // all column headers
+
   vector<string> mode_names_;  // column headers that contain "Mode_/MODE_"
+                               // mode-ID is index in mode_names_
 
   vector<BCD*> bcd_; // all BCD records, indexed by csv row
 
