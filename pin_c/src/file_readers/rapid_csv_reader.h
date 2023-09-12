@@ -26,6 +26,7 @@ public:
   // BCD is a "reduced row record" RRR (subset of important columns)
   struct BCD {
 
+    const RapidCsvReader& reader_;
     string customerInternal_; // 72-BU  Customer Internal Name
 
     enum ModeDir {
@@ -61,8 +62,7 @@ public:
     string  IO_tile_pin_; // column I
     XYZ     xyz_;         // columns J,K,L
 
-    std::bitset<MAX_PT_COLS> rx_modes_; // indexed by PT-columns, 1 is 'Y'
-    std::bitset<MAX_PT_COLS> tx_modes_; //
+    std::bitset<MAX_PT_COLS> modes_; // indexed by PT-columns, 1 is 'Y'
 
     bool is_axi_ = false;
     bool is_GBOX_GPIO_ = false;
@@ -70,8 +70,8 @@ public:
 
     bool xy_used_ = false; // pin_c already assigned this XY
 
-    BCD(uint r = 0) noexcept
-      : row_(r) {}
+    BCD(const RapidCsvReader& rdr, uint ro = 0) noexcept
+      : reader_(rdr), row_(ro) { modes_.reset(); }
 
     void set_xy_used() noexcept { xy_used_ = true; }
 
@@ -110,8 +110,9 @@ public:
     bool isNotBidiRxTx() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
     bool allModesEnabledRxTx() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
 
-    uint numRxModes() const noexcept { return rx_modes_.count(); }
-    uint numTxModes() const noexcept { return tx_modes_.count(); }
+    uint numModes() const noexcept { return modes_.count(); }
+    uint numRxModes() const noexcept;
+    uint numTxModes() const noexcept;
 
     bool isInputColm() const noexcept { return colM_dir_ == Input_dir; }
     bool isOutputColm() const noexcept { return colM_dir_ == Output_dir; }
@@ -151,8 +152,14 @@ public:
 
   XYZ get_axi_xyz_by_name(const string& axi_name, uint& pt_row) const noexcept;
 
-  uint numRows() const noexcept { return bcd_.size(); }
-  uint numCols() const noexcept { return col_headers_.size(); }
+  uint numRows() const noexcept {
+    assert(col_headers_.size() == col_headers_lc_.size());
+    return bcd_.size();
+  }
+  uint numCols() const noexcept {
+    assert(col_headers_.size() == col_headers_lc_.size());
+    return col_headers_.size();
+  }
 
   bool has_io_pin(const string& pin_name_or_ID) const noexcept;
 
@@ -209,20 +216,22 @@ private:
 
   std::map<string, vector<string>> modes_map_; // mode name --> column of strings
 
-  vector<string> col_headers_; // all column headers
+  vector<string> col_headers_;    // Original column headers
+  vector<string> col_headers_lc_; // Lower-Case column headers
 
   vector<string> mode_names_;  // column headers that contain "Mode_/MODE_"
-                               // mode-ID is index in mode_names_
 
-  vector<BCD*> bcd_; // all BCD records, indexed by csv row
+  vector<BCD*> bcd_;         // all BCD records, indexed by csv row
 
-  vector<BCD*> bcd_AXI_; // BCD records with .isCustomerInternalOnly() predicate (AXI pins)
+  vector<BCD*> bcd_AXI_;     // BCD records with .isCustomerInternalOnly() predicate (AXI pins)
 
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
-  uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start row in PT
+  uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start-row in PT
 
   uint start_CustomerInternal_row_ = 0;
+
+  uint start_MODE_col_ = 0;   // first column titled "Mode_/MODE_"
 
   friend class PinPlacer;
 };

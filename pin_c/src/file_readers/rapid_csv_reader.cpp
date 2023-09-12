@@ -15,15 +15,82 @@ RapidCsvReader::~RapidCsvReader() { delete crd_; }
 void RapidCsvReader::reset() noexcept {
   start_GBOX_GPIO_row_ = 0;
   start_CustomerInternal_row_ = 0;
+  start_MODE_col_ = 0;
   bcd_AXI_.clear();
   bcd_GBGPIO_.clear();
   bcd_.clear();
   modes_map_.clear();
   col_headers_.clear();
+  col_headers_lc_.clear();
   mode_names_.clear();
 
   delete crd_;
   crd_ = nullptr;
+}
+
+static inline bool starts_with_mode(const char* z) noexcept {
+  assert(z);
+  return z[0] == 'm' and z[1] == 'o' and z[2] == 'd' and z[3] == 'e' and
+         z[4] == '_';
+}
+
+static inline bool ends_with_tx_rx(const char* z, size_t len) noexcept {
+  assert(z);
+  if (len < 4) return false;
+  return z[len - 1] == 'x' and (z[len - 2] == 't' or z[len - 2] == 'r') and
+         z[len - 3] == '_';
+}
+
+static inline bool ends_with_rx(const char* z, size_t len) noexcept {
+  assert(z);
+  if (len < 4) return false;
+  return z[len - 1] == 'x' and z[len - 2] == 'r' and z[len - 3] == '_';
+}
+
+static inline bool ends_with_tx(const char* z, size_t len) noexcept {
+  assert(z);
+  if (len < 4) return false;
+  return z[len - 1] == 'x' and z[len - 2] == 't' and z[len - 3] == '_';
+}
+
+static inline bool starts_with_A2F(const char* z) noexcept {
+  assert(z);
+  return z[0] == 'A' and z[1] == '2' and z[2] == 'F';
+}
+
+static inline bool starts_with_F2A(const char* z) noexcept {
+  assert(z);
+  return z[0] == 'F' and z[1] == '2' and z[2] == 'A';
+}
+
+uint RapidCsvReader::BCD::numRxModes() const noexcept {
+  if (numModes() == 0)
+    return 0;
+  uint nc = reader_.numCols();
+  assert(nc > 2);
+  assert(reader_.start_MODE_col_ > 1);
+  uint cnt = 0;
+  for (uint col = reader_.start_MODE_col_; col < nc; col++) {
+    const string& hdr = reader_.col_headers_lc_[col];
+    if (modes_[col] and ends_with_rx(hdr.c_str(), hdr.length()))
+      cnt++;
+  }
+  return cnt;
+}
+
+uint RapidCsvReader::BCD::numTxModes() const noexcept {
+  if (numModes() == 0)
+    return 0;
+  uint nc = reader_.numCols();
+  assert(nc > 2);
+  assert(reader_.start_MODE_col_ > 1);
+  uint cnt = 0;
+  for (uint col = reader_.start_MODE_col_; col < nc; col++) {
+    const string& hdr = reader_.col_headers_lc_[col];
+    if (modes_[col] and ends_with_tx(hdr.c_str(), hdr.length()))
+      cnt++;
+  }
+  return cnt;
 }
 
 const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
@@ -48,6 +115,8 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  rxtx_dir:" << RapidCsvReader::str_Mode_dir(b.rxtx_dir_)
      << "  colM_dir:" << RapidCsvReader::str_Mode_dir(b.colM_dir_)
      << "  is_input:" << int(b.isInput())
+     << "  #modes:" << b.numModes()
+     //<< "  #modes:" << b.modes_
      << "  #rx_modes:" << b.numRxModes()
      << "  #tx_modes:" << b.numTxModes()
      << "  row:" << b.row_ << ')';
@@ -84,35 +153,6 @@ static bool get_column(const fio::CSV_Reader& crd, const string& colName,
     return false;
   }
   return true;
-}
-
-static inline bool starts_with_mode(const char* z) noexcept {
-  assert(z);
-  return z[0] == 'm' and z[1] == 'o' and z[2] == 'd' and z[3] == 'e' and
-         z[4] == '_';
-}
-
-static inline bool ends_with_tx_rx(const char* z, size_t len) noexcept {
-  assert(z);
-  if (len < 4) return false;
-  return z[len - 1] == 'x' and (z[len - 2] == 't' or z[len - 2] == 'r') and
-         z[len - 3] == '_';
-}
-
-static inline bool ends_with_rx(const char* z, size_t len) noexcept {
-  assert(z);
-  if (len < 4) return false;
-  return z[len - 1] == 'x' and z[len - 2] == 'r' and z[len - 3] == '_';
-}
-
-static inline bool starts_with_A2F(const char* z) noexcept {
-  assert(z);
-  return z[0] == 'A' and z[1] == '2' and z[2] == 'F';
-}
-
-static inline bool starts_with_F2A(const char* z) noexcept {
-  assert(z);
-  return z[0] == 'F' and z[1] == '2' and z[2] == 'A';
 }
 
 struct RX_TX_val {
@@ -207,7 +247,7 @@ bool RapidCsvReader::initRows(const fio::CSV_Reader& crd) {
 
   bcd_.resize(num_rows, nullptr);
   for (uint i = 0; i < num_rows; i++) {
-    bcd_[i] = new BCD(i);
+    bcd_[i] = new BCD(*this, i);
     BCD& bcd = *bcd_[i];
     bcd.groupA_ = group_col[i];
     bcd.is_GBOX_GPIO_ = (bcd.groupA_ == "GBOX GPIO");
@@ -327,6 +367,9 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   if (tr >= 4) crd.dprint1();
 
   col_headers_ = crd.header_;
+  col_headers_lc_ = col_headers_;
+  for (auto& h : col_headers_lc_)
+    h = str::sToLower(h);
 
   if (tr >= 3) {
     assert(col_headers_.size() > 2);
@@ -353,18 +396,24 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   vector<string> mode_data;
   string hdr_i;
   mode_names_.reserve(col_headers_.size());
-  for (uint i = 0; i < col_headers_.size(); i++) {
-    string col_label = label_column(i);
-    const string& orig_hdr_i = col_headers_[i];  // before case conversion by prepare_mode_header()
+  start_MODE_col_ = 0;
+  for (uint col = 0; col < col_headers_.size(); col++) {
+    string col_label = label_column(col);
+    const string& orig_hdr_i = col_headers_[col]; // before case conversion
     hdr_i = orig_hdr_i;
 
     if (!has_Fullchip_name && hdr_i == "Fullchip_NAME")
       has_Fullchip_name = true;
 
-    if (!prepare_mode_header(hdr_i)) continue;
+    if (!prepare_mode_header(hdr_i))
+      continue;
+
+    if (!start_MODE_col_)
+      start_MODE_col_ = col;
 
     if (tr >= 4)
-      ls << "  (Mode_) " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
+      lprintf("  (ModeID) %u --- %s  hdr_i= %s\n",
+              col, col_label.c_str(), hdr_i.c_str());
 
     mode_data = crd.getColumn(orig_hdr_i);
     if (mode_data.empty()) {
@@ -379,6 +428,13 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
     modes_map_.emplace(hdr_i, mode_data);
     mode_names_.emplace_back(hdr_i);
+
+    // set 1 in bitsets for 'Y'
+    for (uint row = 0; row < num_rows; row++) {
+      if (mode_data[row] == "Y") {
+        bcd_[row]->modes_[col] = true;
+      }
+    }
   }
 
   if (tr >= 2) {
@@ -494,6 +550,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     ls << "  num_rows= " << num_rows << "  num_cols= " << col_headers_.size()
        << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_
        << "  start_CustomerInternal_row_= " << start_CustomerInternal_row_
+       << "  start_MODE_col_= " << start_MODE_col_
        << '\n'
        << "  bcd_GBGPIO_.size()= " << bcd_GBGPIO_.size()
        << "  bcd_AXI_.size()= " << bcd_AXI_.size() << '\n'
