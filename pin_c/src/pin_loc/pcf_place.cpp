@@ -58,6 +58,9 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
       if (pp) {
         ls << "  placed at " << pp->xyz_
            << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
+        const auto& bcd = csv.getBCD(pp->pt_row_);
+        ls << "  isInput:" << int(bcd.isInput());
+        ls << "  colM_dir: " << bcd.str_colM_dir();
       }
       ls << endl;
     }
@@ -66,9 +69,13 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
       const string& nm = outputs[i];
       ls << "    out  " << nm;
       const Pin* pp = find_udes_pin(placed_outputs_, nm);
-      if (pp)
+      if (pp) {
         ls << "  placed at " << pp->xyz_
            << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
+        const auto& bcd = csv.getBCD(pp->pt_row_);
+        ls << "  isInput:" << int(bcd.isInput());
+        ls << "  colM_dir: " << bcd.str_colM_dir();
+      }
       ls << endl;
     }
     lputs();
@@ -206,7 +213,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
   //// std::set<string> constrained_user_pins, //// uniqueness check replaced by BCD::xy_used_
   ////    constrained_device_pins;  // for sanity check
 
-  string gbox_pin_name, search_name;
+  string gbox_pin_name;
+  //// string search_name; // OLD uniqueness check
 
   min_pt_row_ = UINT_MAX; max_pt_row_ = 0;
 
@@ -218,7 +226,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     if (pcf_cmd[0] != "set_io" && pcf_cmd[0] != "set_clk") continue;
 
     gbox_pin_name.clear();
-    search_name.clear();
+    //// search_name.clear();
 
     const string& user_design_pin_name = pcf_cmd[1];
     const string& device_pin_name = pcf_cmd[2];  // bump or ball
@@ -274,9 +282,9 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 
     // use (device_pin_name + " " + gbox_pin_name) as search name to check
     // overlap pin in constraint
-    search_name = device_pin_name;
-    search_name.push_back(' ');
-    search_name += gbox_pin_name;
+    //// search_name = device_pin_name; //// uniqueness check replaced by BCD::xy_used_
+    //// search_name.push_back(' ');
+    //// search_name += gbox_pin_name;
 
     //// uniqueness check replaced by BCD::xy_used_
     // if (!constrained_device_pins.count(search_name)) {
@@ -312,6 +320,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     if (!xyz.valid()) {
       return false;
     }
+    const RapidCsvReader::BCD& bcd = csv.getBCD(pt_row);
 
     if (pt_row < min_pt_row_)
       min_pt_row_ = pt_row;
@@ -320,16 +329,22 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
     if (tr >= 4) {
+      // debug annotation
       out_file << "    #  device: " << device_pin_name;
       out_file << "  pt_row: " << pt_row+2;
+      out_file << "  isInput:" << int(bcd.isInput());
+      out_file << "  colM_dir: " << bcd.str_colM_dir();
     }
     out_file << endl;
     out_file.flush();
 
     if (tr >= 4) {
       ls << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
+      // debug annotation
       ls << "    #  device: " << device_pin_name;
       ls << "  pt_row: " << pt_row+2;
+      ls << "  isInput:" << int(bcd.isInput());
+      ls << "  colM_dir: " << bcd.str_colM_dir();
       flush_out(true);
     }
 
@@ -494,7 +509,7 @@ StringPair PinPlacer::get_available_bump_ipin(const RapidCsvReader& csv, const s
 
   uint num_rows = csv.numRows();
   for (uint i = csv.start_GBOX_GPIO_row_; i < num_rows; i++) {
-    const auto& bcd = *csv.bcd_[i];
+    const RapidCsvReader::BCD& bcd = csv.getBCD(i);
     const string& bump_pin_name = bcd.bump_;
 
     //uint dbg_row = 0;
@@ -586,7 +601,7 @@ StringPair PinPlacer::get_available_bump_opin(const RapidCsvReader& csv, const s
 
   uint num_rows = csv.numRows();
   for (uint i = csv.start_GBOX_GPIO_row_; i < num_rows; i++) {
-    const auto& bcd = *csv.bcd_[i];
+    const RapidCsvReader::BCD& bcd = csv.getBCD(i);
     const string& bump_pin_name = bcd.bump_;
 
     if (uniq_by_xy_) {
@@ -825,22 +840,6 @@ void PinPlacer::shuffle_candidates(vector<int>& v) {
   std::shuffle(v.begin(), v.end(), g);
   return;
 }
-
-/*
-void PinPlacer::collect_left_available_device_pins(
-    set<string> &constrained_device_pins,
-    vector<int> &left_available_device_pin_idx, RapidCsvReader &rs_csv_reader) {
-  for (uint i = 0; i < rs_csv_reader.bump_pin_name.size(); i++) {
-    if (rs_csv_reader.usable[i] == "Y" &&
-        (constrained_device_pins.find(rs_csv_reader.bump_pin_name[i]) ==
-         constrained_device_pins.end())) { // left-over availalbe pins to be
-                                           // assigned to user design
-      left_available_device_pin_idx.push_back(i);
-    }
-  }
-  return;
-}
-*/
 
 bool PinPlacer::is_input_mode(const string& mode_name) const {
   if (mode_name.empty()) return false;

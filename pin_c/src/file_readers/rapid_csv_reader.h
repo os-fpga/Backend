@@ -117,13 +117,8 @@ public:
     bool isInputColm() const noexcept { return colM_dir_ == Input_dir; }
     bool isOutputColm() const noexcept { return colM_dir_ == Output_dir; }
 
-    bool isInput() const noexcept {
-      if (isInputColm())
-        return true;
-      if (isOutputColm())
-        return false;
-      return isInputRxTx();
-    }
+    inline bool isInput() const noexcept;
+    inline const char* str_colM_dir() const noexcept;
   };
 
   RapidCsvReader();
@@ -177,6 +172,12 @@ public:
   const string& customerInternalName(uint row) const noexcept {
     assert(row < bcd_.size());
     return bcd_[row]->customerInternal();
+  }
+
+  const BCD& getBCD(uint row) const noexcept {
+    assert(row < numRows());
+    assert(bcd_[row]->row_ == row);
+    return *bcd_[row];
   }
 
   bool hasMode(const string& key) const noexcept { return modes_map_.count(key); }
@@ -237,5 +238,17 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b);
+
+inline bool RapidCsvReader::BCD::isInput() const noexcept {
+  if (isInputColm())
+    return true;
+  if (isOutputColm())
+    return false;
+  return isInputRxTx();
+}
+
+inline const char* RapidCsvReader::BCD::str_colM_dir() const noexcept {
+  return RapidCsvReader::str_Mode_dir(colM_dir_);
+}
 
 }  // namespace pinc
