@@ -64,7 +64,7 @@ static inline bool starts_with_F2A(const char* z) noexcept {
 }
 
 uint RapidCsvReader::BCD::numRxModes() const noexcept {
-  if (numModes() == 0)
+  if (modes_.none())
     return 0;
   uint nc = reader_.numCols();
   assert(nc > 2);
@@ -79,7 +79,7 @@ uint RapidCsvReader::BCD::numRxModes() const noexcept {
 }
 
 uint RapidCsvReader::BCD::numTxModes() const noexcept {
-  if (numModes() == 0)
+  if (modes_.none())
     return 0;
   uint nc = reader_.numCols();
   assert(nc > 2);
@@ -113,7 +113,7 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  ci:" << b.customerInternal() << "  axi:" << int(b.is_axi_)
      << "  isGPIO:" << int(b.is_GPIO_) << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
      << "  rxtx_dir:" << RapidCsvReader::str_Mode_dir(b.rxtx_dir_)
-     << "  colM_dir:" << RapidCsvReader::str_Mode_dir(b.colM_dir_)
+     << "  colM_dir:" << b.str_colM_dir()
      << "  is_input:" << int(b.isInput())
      << "  #modes:" << b.numModes()
      //<< "  #modes:" << b.modes_
