@@ -1,12 +1,14 @@
 #include "file_readers/rapid_csv_reader.h"
+#include "file_readers/Fio.h"
+#include "pin_loc/pin.h"
 
 #include <iomanip>
-
-#include "file_readers/Fio.h"
 
 namespace pinc {
 
 using namespace std;
+
+static constexpr uint MAX_COLMS = RapidCsvReader::MAX_PT_COLS;
 
 RapidCsvReader::RapidCsvReader() {}
 
@@ -63,34 +65,62 @@ static inline bool starts_with_F2A(const char* z) noexcept {
   return z[0] == 'F' and z[1] == '2' and z[2] == 'A';
 }
 
-uint RapidCsvReader::BCD::numRxModes() const noexcept {
+std::bitset<MAX_COLMS> RapidCsvReader::BCD::getRxModes() const noexcept {
+  std::bitset<MAX_COLMS> result{0U};
   if (modes_.none())
-    return 0;
+    return result;
   uint nc = reader_.numCols();
   assert(nc > 2);
   assert(reader_.start_MODE_col_ > 1);
-  uint cnt = 0;
   for (uint col = reader_.start_MODE_col_; col < nc; col++) {
     const string& hdr = reader_.col_headers_lc_[col];
     if (modes_[col] and ends_with_rx(hdr.c_str(), hdr.length()))
-      cnt++;
+      result.set(col, true);
   }
-  return cnt;
+  return result;
 }
 
-uint RapidCsvReader::BCD::numTxModes() const noexcept {
+std::bitset<MAX_COLMS> RapidCsvReader::BCD::getTxModes() const noexcept {
+  std::bitset<MAX_COLMS> result{0U};
   if (modes_.none())
-    return 0;
+    return result;
   uint nc = reader_.numCols();
   assert(nc > 2);
   assert(reader_.start_MODE_col_ > 1);
-  uint cnt = 0;
   for (uint col = reader_.start_MODE_col_; col < nc; col++) {
     const string& hdr = reader_.col_headers_lc_[col];
     if (modes_[col] and ends_with_tx(hdr.c_str(), hdr.length()))
-      cnt++;
+      result.set(col, true);
   }
-  return cnt;
+  return result;
+}
+
+Pin* RapidCsvReader::BCD::annotatePin(const string& udes_pn,
+                                      const string& device_pn,
+                                      bool is_usr_inp) noexcept {
+  if (ann_pin_)
+    ann_pin_->reset();
+  else
+    ann_pin_ = new Pin;
+
+  ann_pin_->udes_pin_name_ = udes_pn;
+  ann_pin_->device_pin_name_ = device_pn;
+
+  ann_pin_->xyz_ = xyz_;
+
+  ann_pin_->pt_row_ = row_;
+
+  ann_pin_->all_modes_ = modes_;
+
+  ann_pin_->rx_modes_ = getRxModes();
+  ann_pin_->tx_modes_ = getTxModes();
+
+  ann_pin_->is_usr_input_ = is_usr_inp;
+  ann_pin_->is_dev_input_ = isInput();
+  ann_pin_->is_a2f_ = isInputColm();
+  ann_pin_->is_f2a_ = isOutputColm();
+
+  return ann_pin_;
 }
 
 const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {

@@ -17,6 +17,7 @@ using std::string;
 using std::vector;
 
 class PinPlacer;
+struct Pin;
 
 class RapidCsvReader {
 public:
@@ -27,6 +28,8 @@ public:
   struct BCD {
 
     const RapidCsvReader& reader_;
+    Pin* ann_pin_ = nullptr; // annotated Pin
+
     string customerInternal_; // 72-BU  Customer Internal Name
 
     enum ModeDir {
@@ -110,15 +113,21 @@ public:
     bool isNotBidiRxTx() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
     bool allModesEnabledRxTx() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
 
+    std::bitset<MAX_PT_COLS> getRxModes() const noexcept;
+    std::bitset<MAX_PT_COLS> getTxModes() const noexcept;
+
     uint numModes() const noexcept { return modes_.count(); }
-    uint numRxModes() const noexcept;
-    uint numTxModes() const noexcept;
+    uint numRxModes() const noexcept { return getRxModes().count(); }
+    uint numTxModes() const noexcept { return getTxModes().count(); }
 
     bool isInputColm() const noexcept { return colM_dir_ == Input_dir; }
     bool isOutputColm() const noexcept { return colM_dir_ == Output_dir; }
 
     inline bool isInput() const noexcept;
     inline const char* str_colM_dir() const noexcept;
+
+    Pin* annotatePin(const string& udes_pn, const string& device_pn,
+                     bool is_usr_inp) noexcept;
   };
 
   RapidCsvReader();
@@ -175,6 +184,11 @@ public:
   }
 
   const BCD& getBCD(uint row) const noexcept {
+    assert(row < numRows());
+    assert(bcd_[row]->row_ == row);
+    return *bcd_[row];
+  }
+  BCD& getBCD(uint row) noexcept {
     assert(row < numRows());
     assert(bcd_[row]->row_ == row);
     return *bcd_[row];
