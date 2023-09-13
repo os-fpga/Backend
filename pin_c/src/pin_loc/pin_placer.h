@@ -35,9 +35,8 @@ class PinPlacer {
 
   vector<vector<string>> pcf_pin_cmds_;
 
-  std::set<string> used_bump_pins_; // for uniqueness, will be replaced by BCD::xy_used_ flag
-
-  // vector<StringPair>  picked_inputs_, picked_outputs_;  // for debug stats
+  std::set<string> used_bump_pins_; // old uniqueness
+  std::set<XY>     used_XYs_;       // new uniqueness
 
   vector<Pin>  placed_inputs_, placed_outputs_;  // for debug stats
 
@@ -45,7 +44,8 @@ class PinPlacer {
 
   bool pin_assign_def_order_ = true;
 
-  bool uniq_by_xy_ = false; // new mode of device pin uniqueness check
+  bool uniq_by_xy_ = true; // new mode of device pin uniqueness check
+                           // for old mode: getenv("pinc_old_uniqueness_by_bump_name")
 
 public:
   enum class PortDir : uint8_t {
