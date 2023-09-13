@@ -71,12 +71,12 @@ public:
     bool is_GBOX_GPIO_ = false;
     bool is_GPIO_ = false; // based on column A
 
-    bool xy_used_ = false; // pin_c already assigned this XY
+    bool used_ = false; // pin_c already assigned this XY
 
     BCD(const RapidCsvReader& rdr, uint ro = 0) noexcept
       : reader_(rdr), row_(ro) { modes_.reset(); }
 
-    void set_xy_used() noexcept { xy_used_ = true; }
+    void set_used() noexcept { used_ = true; }
 
     bool match(const string& customerPin_or_ID) const noexcept {
       if (customer_ == customerPin_or_ID)
