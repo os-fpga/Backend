@@ -71,10 +71,12 @@ public:
     bool is_GBOX_GPIO_ = false;
     bool is_GPIO_ = false; // based on column A
 
-    bool used_ = false; // pin_c already assigned this XY
+    bool used_ = false; // pin_c already assigned this XYZ
 
     BCD(const RapidCsvReader& rdr, uint ro = 0) noexcept
       : reader_(rdr), row_(ro) { modes_.reset(); }
+
+    const XY& xy() const noexcept { return xyz_; }
 
     void set_used() noexcept { used_ = true; }
 
@@ -115,10 +117,12 @@ public:
 
     std::bitset<MAX_PT_COLS> getRxModes() const noexcept;
     std::bitset<MAX_PT_COLS> getTxModes() const noexcept;
+    std::bitset<MAX_PT_COLS> getGpioModes() const noexcept;
 
     uint numModes() const noexcept { return modes_.count(); }
     uint numRxModes() const noexcept { return getRxModes().count(); }
     uint numTxModes() const noexcept { return getTxModes().count(); }
+    uint numGpioModes() const noexcept { return getGpioModes().count(); }
 
     bool isA2F() const noexcept { return colM_dir_ == Input_dir; }
     bool isF2A() const noexcept { return colM_dir_ == Output_dir; }
@@ -128,20 +132,35 @@ public:
 
     Pin* annotatePin(const string& udes_pn, const string& device_pn,
                      bool is_usr_inp) noexcept;
+
+    void dump() const;
   }; // BCD
 
   struct Tile {
+
+    // (loc_, colB_) - determines Tile uniqueness
     XY loc_;
-    uint beg_row_ = 0;    // row at which this XY is 1st encountered
+    string colB_; // column B: Bump/Pin Name
+
+    uint beg_row_ = 0;    // row at which this Tile is 1st encountered
     uint id_ = UINT_MAX;  // index in tiles_
     uint num_used_ = 0;
     vector<BCD*> a2f_sites_;
     vector<BCD*> f2a_sites_;
 
-    Tile(XY loc, uint beg_r) noexcept
-      : loc_(loc), beg_row_(beg_r)
+    Tile(XY loc, const string& colb, uint beg_r) noexcept
+      : loc_(loc), colB_(colb), beg_row_(beg_r)
     {}
 
+    bool operator==(const Tile& t) const noexcept { return loc_ == t.loc_ && colB_ == t.colB_; }
+    bool operator!=(const Tile& t) const noexcept { return not operator==(t); }
+    bool eq(const XY& loc, const string& colb) const noexcept { return loc_ == loc && colB_ == colb; }
+    bool eq(const BCD& bcd) const noexcept { return eq(bcd.xyz_, bcd.bump_); }
+
+    BCD* bestInputSite() noexcept;
+    BCD* bestOutputSite() noexcept;
+
+    void dump() const;
   }; // Tile
 
   RapidCsvReader();
@@ -228,41 +247,26 @@ public:
   uint row0_GBOX_GPIO() const noexcept { return start_GBOX_GPIO_row_; }
   uint row0_CustomerInternal() const noexcept { return start_CustomerInternal_row_; }
 
-  BCD* deqInputBCD() noexcept {
-    if (bcd_inp_Q_.empty())
-      return nullptr;
-    BCD* b = bcd_inp_Q_.back();
-    assert(b);
-    bcd_inp_Q_.pop_back();
-    return b;
+  Tile* getUnusedTile(bool input_dir) noexcept;
+
+  bool isRxCol(uint col) const noexcept {
+    assert(col < numCols());
+    return rx_cols_[col];
   }
-  BCD* deqOutputBCD() noexcept {
-    if (bcd_out_Q_.empty())
-      return nullptr;
-    BCD* b = bcd_out_Q_.back();
-    assert(b);
-    bcd_out_Q_.pop_back();
-    return b;
+  bool isTxCol(uint col) const noexcept {
+    assert(col < numCols());
+    return tx_cols_[col];
   }
-  BCD* getInputBCD() noexcept {
-    if (bcd_inp_Q_.empty())
-      return nullptr;
-    BCD* b = bcd_inp_Q_.back();
-    assert(b);
-    return b;
-  }
-  BCD* getOutputBCD() noexcept {
-    if (bcd_out_Q_.empty())
-      return nullptr;
-    BCD* b = bcd_out_Q_.back();
-    assert(b);
-    return b;
+  bool isGpioCol(uint col) const noexcept {
+    assert(col < numCols());
+    return gpio_cols_[col];
   }
 
   static const char* str_Mode_dir(BCD::ModeDir t) noexcept;
 
 private:
 
+  bool initCols(const fio::CSV_Reader& crd);
   bool initRows(const fio::CSV_Reader& crd);
   bool setDirections(const fio::CSV_Reader& crd);
   bool createTiles();
@@ -277,8 +281,10 @@ private:
 
   vector<string> col_headers_;    // Original column headers
   vector<string> col_headers_lc_; // Lower-Case column headers
-
-  vector<string> mode_names_;  // column headers that contain "Mode_/MODE_"
+  vector<string> mode_names_;     // column headers that contain "Mode_/MODE_"
+  std::bitset<MAX_PT_COLS> rx_cols_;    // which columns are "Mode_..._RX"
+  std::bitset<MAX_PT_COLS> tx_cols_;    // which columns are "Mode_..._TX"
+  std::bitset<MAX_PT_COLS> gpio_cols_;  // which columns are "Mode_..._GPIO"
 
   vector<BCD*> bcd_;         // all BCD records, indexed by csv row
 
@@ -286,8 +292,10 @@ private:
 
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
-  vector<BCD*>  bcd_inp_Q_;   // Q of available input BCDs
-  vector<BCD*>  bcd_out_Q_;   // Q of available output BCDs
+  vector<BCD*> bcd_XY_;      // BCDs with valid non-negative XYs
+
+  //vector<BCD*>  bcd_inp_Q_;   // Q of available input BCDs
+  //vector<BCD*>  bcd_out_Q_;   // Q of available output BCDs
 
   // XY-tiles (i.e. XY-groups)
   int max_x_ = 0, max_y_ = 0;

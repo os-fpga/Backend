@@ -12,6 +12,7 @@ struct XY {
   XY(int a, int b) noexcept : x_(a), y_(b) {}
 
   bool valid() const noexcept { return x_ != INT_MIN; }
+  bool nonNeg() const noexcept { return x_ >= 0; }
   void invalidate() noexcept { x_ = INT_MIN; }
 
   void setPoint(int a, int b) noexcept {
