@@ -515,8 +515,14 @@ StringPair PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
   StringPair result; // pin_and_mode
 
   uint num_rows = csv.numRows();
-  for (uint i = csv.start_GBOX_GPIO_row_; i < num_rows; i++) {
-    RapidCsvReader::BCD& bcd = csv.getBCD(i);
+  for (uint iter = csv.start_GBOX_GPIO_row_; iter < num_rows; iter++) {
+    //// RapidCsvReader::BCD* bcd_p = csv.deqInputBCD();
+    //// if (!bcd_p) {
+    ////   lputs1("\n WARNING: !bcd_p\n");
+    ////   continue;
+    //// }
+    //// RapidCsvReader::BCD& bcd = *bcd_p;
+    RapidCsvReader::BCD& bcd = csv.getBCD(iter);
     const XY& xy = bcd.xyz_;
     const string& bump_pin_name = bcd.bump_;
 
@@ -555,7 +561,7 @@ StringPair PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
           used_XYs_.insert(xy);
           if (tr >= 5) {
             lprintf("\t\t  get_available_bump_ipin() used_bump_pins_.insert( %s )  row_i= %u  row_k= %u\n",
-                bump_pin_name.c_str(), i, k);
+                bump_pin_name.c_str(), bcd.row_, k);
           }
           found = true;
           goto ret;
