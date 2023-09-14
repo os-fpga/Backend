@@ -1,7 +1,6 @@
 #pragma once
 
-#include <map>
-#include <set>
+#include <unordered_set>
 #include <bitset>
 
 #include "util/geo/xyz.h"
@@ -225,8 +224,10 @@ public:
     return *bcd_[row];
   }
 
-  bool hasMode(const string& key) const noexcept { return modes_map_.count(key); }
+  uint getModeCol(const string& mode) const noexcept;
+  bool hasMode(const string& key) const noexcept { return getModeCol(key); }
 
+/*
   const vector<string>* getModeData(const string& mode_name) const noexcept {
     assert(!mode_name.empty());
     if (mode_name.empty())
@@ -236,8 +237,9 @@ public:
       return nullptr;
     return &(fitr->second);
   }
+*/
 
-  uint printModeKeys() const;
+  uint printModeNames() const;
 
   string bumpName2CustomerName(const string& bump_name) const noexcept;
 
@@ -247,7 +249,7 @@ public:
   uint row0_GBOX_GPIO() const noexcept { return start_GBOX_GPIO_row_; }
   uint row0_CustomerInternal() const noexcept { return start_CustomerInternal_row_; }
 
-  Tile* getUnusedTile(bool input_dir) noexcept;
+  Tile* getUnusedTile(bool input_dir, const std::unordered_set<uint>& except) noexcept;
 
   bool isRxCol(uint col) const noexcept {
     assert(col < numCols());
@@ -277,7 +279,7 @@ private:
 
   fio::CSV_Reader* crd_ = nullptr;
 
-  std::map<string, vector<string>> modes_map_; // mode name --> column of strings
+  //// std::map<string, vector<string>> modes_map_; // mode name --> column of strings //// OBSOLETE
 
   vector<string> col_headers_;    // Original column headers
   vector<string> col_headers_lc_; // Lower-Case column headers
@@ -294,12 +296,8 @@ private:
 
   vector<BCD*> bcd_XY_;      // BCDs with valid non-negative XYs
 
-  //vector<BCD*>  bcd_inp_Q_;   // Q of available input BCDs
-  //vector<BCD*>  bcd_out_Q_;   // Q of available output BCDs
-
-  // XY-tiles (i.e. XY-groups)
   int max_x_ = 0, max_y_ = 0;
-  vector<Tile> tiles_;        // XY translates to tile_index
+  vector<Tile> tiles_;
 
   uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start-row in PT
 
