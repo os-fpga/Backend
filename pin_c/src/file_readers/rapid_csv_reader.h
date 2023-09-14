@@ -120,15 +120,29 @@ public:
     uint numRxModes() const noexcept { return getRxModes().count(); }
     uint numTxModes() const noexcept { return getTxModes().count(); }
 
-    bool isInputColm() const noexcept { return colM_dir_ == Input_dir; }
-    bool isOutputColm() const noexcept { return colM_dir_ == Output_dir; }
+    bool isA2F() const noexcept { return colM_dir_ == Input_dir; }
+    bool isF2A() const noexcept { return colM_dir_ == Output_dir; }
 
     inline bool isInput() const noexcept;
     inline const char* str_colM_dir() const noexcept;
 
     Pin* annotatePin(const string& udes_pn, const string& device_pn,
                      bool is_usr_inp) noexcept;
-  };
+  }; // BCD
+
+  struct Tile {
+    XY loc_;
+    uint beg_row_ = 0;    // row at which this XY is 1st encountered
+    uint id_ = UINT_MAX;  // index in tiles_
+    uint num_used_ = 0;
+    vector<BCD*> a2f_sites_;
+    vector<BCD*> f2a_sites_;
+
+    Tile(XY loc, uint beg_r) noexcept
+      : loc_(loc), beg_row_(beg_r)
+    {}
+
+  }; // Tile
 
   RapidCsvReader();
   ~RapidCsvReader();
@@ -146,8 +160,6 @@ public:
   uint print_bcd_stats(std::ostream& os) const noexcept;
   uint print_bcd(std::ostream& os) const noexcept;
   uint print_axi_bcd(std::ostream& os) const noexcept;
-
-  bool sanity_check() const;
 
   // data query
   XYZ get_pin_xyz_by_name(const string& mode,
@@ -216,12 +228,44 @@ public:
   uint row0_GBOX_GPIO() const noexcept { return start_GBOX_GPIO_row_; }
   uint row0_CustomerInternal() const noexcept { return start_CustomerInternal_row_; }
 
+  BCD* deqInputBCD() noexcept {
+    if (bcd_inp_Q_.empty())
+      return nullptr;
+    BCD* b = bcd_inp_Q_.back();
+    assert(b);
+    bcd_inp_Q_.pop_back();
+    return b;
+  }
+  BCD* deqOutputBCD() noexcept {
+    if (bcd_out_Q_.empty())
+      return nullptr;
+    BCD* b = bcd_out_Q_.back();
+    assert(b);
+    bcd_out_Q_.pop_back();
+    return b;
+  }
+  BCD* getInputBCD() noexcept {
+    if (bcd_inp_Q_.empty())
+      return nullptr;
+    BCD* b = bcd_inp_Q_.back();
+    assert(b);
+    return b;
+  }
+  BCD* getOutputBCD() noexcept {
+    if (bcd_out_Q_.empty())
+      return nullptr;
+    BCD* b = bcd_out_Q_.back();
+    assert(b);
+    return b;
+  }
+
   static const char* str_Mode_dir(BCD::ModeDir t) noexcept;
 
 private:
 
   bool initRows(const fio::CSV_Reader& crd);
   bool setDirections(const fio::CSV_Reader& crd);
+  bool createTiles();
 
   static bool prepare_mode_header(string& hdr) noexcept;
 
@@ -242,6 +286,13 @@ private:
 
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
+  vector<BCD*>  bcd_inp_Q_;   // Q of available input BCDs
+  vector<BCD*>  bcd_out_Q_;   // Q of available output BCDs
+
+  // XY-tiles (i.e. XY-groups)
+  int max_x_ = 0, max_y_ = 0;
+  vector<Tile> tiles_;        // XY translates to tile_index
+
   uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start-row in PT
 
   uint start_CustomerInternal_row_ = 0;
@@ -252,11 +303,12 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b);
+std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t);
 
 inline bool RapidCsvReader::BCD::isInput() const noexcept {
-  if (isInputColm())
+  if (isA2F())
     return true;
-  if (isOutputColm())
+  if (isF2A())
     return false;
   return isInputRxTx();
 }
