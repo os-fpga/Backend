@@ -7,6 +7,8 @@
 namespace pinc {
 
 using namespace std;
+using Tile_p = RapidCsvReader::Tile*;
+using BCD_p = RapidCsvReader::BCD*;
 
 static constexpr uint MAX_COLMS = RapidCsvReader::MAX_PT_COLS;
 
@@ -25,9 +27,11 @@ void RapidCsvReader::reset() noexcept {
   col_headers_.clear();
   col_headers_lc_.clear();
   mode_names_.clear();
+  rx_cols_.reset();
+  tx_cols_.reset();
+  gpio_cols_.reset();
 
-  bcd_inp_Q_.clear();
-  bcd_out_Q_.clear();
+  bcd_XY_.clear();
 
   delete crd_;
   crd_ = nullptr;
@@ -56,6 +60,15 @@ static inline bool ends_with_tx(const char* z, size_t len) noexcept {
   assert(z);
   if (len < 4) return false;
   return z[len - 1] == 'x' and z[len - 2] == 't' and z[len - 3] == '_';
+}
+
+static inline bool ends_with_gpio(const char* z, size_t len) noexcept {
+  assert(z);
+  if (len < 5) return false;
+  return z[len - 1] == 'o' and z[len - 2] == 'i' and z[len - 3] == 'p' and
+         z[len - 4] == 'g' and z[len - 5] == '_';
+  // _gpio
+  // oipg_
 }
 
 static inline bool starts_with_A2F(const char* z) noexcept {
@@ -93,6 +106,20 @@ std::bitset<MAX_COLMS> RapidCsvReader::BCD::getTxModes() const noexcept {
   for (uint col = reader_.start_MODE_col_; col < nc; col++) {
     const string& hdr = reader_.col_headers_lc_[col];
     if (modes_[col] and ends_with_tx(hdr.c_str(), hdr.length()))
+      result.set(col, true);
+  }
+  return result;
+}
+
+std::bitset<MAX_COLMS> RapidCsvReader::BCD::getGpioModes() const noexcept {
+  std::bitset<MAX_COLMS> result{0U};
+  if (modes_.none())
+    return result;
+  uint nc = reader_.numCols();
+  assert(nc > 2);
+  assert(reader_.start_MODE_col_ > 1);
+  for (uint col = reader_.start_MODE_col_; col < nc; col++) {
+    if (modes_[col] and reader_.isGpioCol(col))
       result.set(col, true);
   }
   return result;
@@ -155,10 +182,12 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  row:" << b.row_ << ')';
   return os;
 }
+void RapidCsvReader::BCD::dump() const { lout() << *this << endl; }
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t) {
   os << "(tile-" << t.id_ << ' '
      << "  loc: " << t.loc_
+     << "  colB: " << t.colB_
      << "  beg_row:" << t.beg_row_
      << "  #used=" << t.num_used_
      << "  #a2f=" << t.a2f_sites_.size()
@@ -166,6 +195,7 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t) {
      << ')';
   return os;
 }
+void RapidCsvReader::Tile::dump() const { lout() << *this << endl; }
 
 // returns spreadsheet column label ("A", "B", "BC", etc) for column index 'i'
 static inline string label_column(int i) noexcept {
@@ -268,6 +298,61 @@ bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept {
     return true;
   }
   return false;
+}
+
+bool RapidCsvReader::initCols(const fio::CSV_Reader& crd) {
+  uint16_t tr = ltrace();
+  auto& ls = lout();
+
+  rx_cols_.reset();
+  tx_cols_.reset();
+  gpio_cols_.reset();
+
+  col_headers_ = crd.header_;
+  assert(col_headers_.size() > 2);
+  if (col_headers_.size() <= 2)
+    return false;
+
+  col_headers_lc_ = col_headers_;
+  for (auto& h : col_headers_lc_)
+    h = str::sToLower(h);
+
+  uint nc = numCols();
+
+  if (tr >= 4) {
+    ls << "  col_headers_.size()= " << nc << "  ["
+       << col_headers_.front() << " ... " << col_headers_.back() << ']' << endl;
+    if (tr >= 5) {
+      for (uint i = 0; i < nc; i++) {
+        string col_label = label_column(i);
+        const string& hdr_i = col_headers_[i];
+        ls << "--- " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
+      }
+      ls << endl;
+    }
+  }
+
+  for (uint col = 1; col < nc; col++) {
+    const string& hdr = col_headers_lc_[col];
+    if (not starts_with_mode(hdr.c_str()))
+      continue;
+    size_t len = hdr.length();
+    const char* h = hdr.c_str();
+    if (ends_with_rx(h, len))
+      rx_cols_.set(col, true);
+    else if (ends_with_tx(h, len))
+      tx_cols_.set(col, true);
+    else if (ends_with_gpio(h, len))
+      gpio_cols_.set(col, true);
+  }
+
+  if (tr >= 3) {
+    ls << "  #RX_cols= " << rx_cols_.count()
+       << "  #TX_cols= " << tx_cols_.count()
+       << "  #GPIO_cols= " << gpio_cols_.count() << '\n' << endl;
+  }
+
+  return true;
 }
 
 bool RapidCsvReader::initRows(const fio::CSV_Reader& crd) {
@@ -385,30 +470,10 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
     }
   }
 
-  // 3. populate Qs in reverse order
-  bcd_inp_Q_.clear();
-  bcd_out_Q_.clear();
-  bcd_inp_Q_.reserve(inp_cnt + 1);
-  bcd_out_Q_.reserve(out_cnt + 1);
-  for (int r = int(num_rows) - 1; r >= 0; r--) {
-    assert(bcd_[r]);
-    BCD* bcd = bcd_[r];
-    if (bcd->colM_dir_ == BCD::Input_dir)
-      bcd_inp_Q_.push_back(bcd);
-    else if (bcd->colM_dir_ == BCD::Output_dir)
-      bcd_out_Q_.push_back(bcd);
-  }
-
-  if (tr >= 5) {
-    lprintf("setDirections:  bcd_inp_Q_.size()= %zu  bcd_out_Q_.size()= %zu\n",
-            bcd_inp_Q_.size(), bcd_out_Q_.size());
-  }
-
   return true;
 }
 
-bool RapidCsvReader::createTiles()
-{
+bool RapidCsvReader::createTiles() {
   uint16_t tr = ltrace();
   auto& ls = lout();
 
@@ -420,21 +485,41 @@ bool RapidCsvReader::createTiles()
   assert(num_rows >= 3);
   if (num_rows < 3) return false;
 
-  tiles_.reserve(num_rows);
-
-  // 1. determine first_valid_row, max_x_, max_y_
-  int first_valid_row = -1;
+  // 0. filter BCDs with valid non-negative XYZs AND with at least one mode
+  //    (create bcd_XY_)
+  bcd_XY_.clear();
+  bcd_XY_.reserve(num_rows);
   for (uint r = 0; r < num_rows; r++) {
-    assert(bcd_[r]);
-    const XY& loc = bcd_[r]->xyz_;
-    auto colM_dir = bcd_[r]->colM_dir_;
+    BCD* bcd = bcd_[r];
+    assert(bcd);
+    const XYZ& loc = bcd->xyz_;
+    if (loc.nonNeg() && loc.z_ >= 0 && bcd->numModes()) {
+      assert(loc.x_ >= 0);
+      assert(loc.y_ >= 0);
+      bcd_XY_.push_back(bcd);
+    }
+  }
+
+  uint bcd_XY_sz = bcd_XY_.size();
+  if (tr >= 5)
+    lprintf("createTiles:  num_rows= %u  bcd_XY_sz= %u\n", num_rows, bcd_XY_sz);
+  if (bcd_XY_sz < 3) return false;
+
+  tiles_.reserve(bcd_XY_sz);
+
+  // 1. determine first_valid_k, max_x_, max_y_
+  int first_valid_k = -1;
+  for (uint k = 0; k < bcd_XY_sz; k++) {
+    assert(bcd_XY_[k]);
+    const XY& loc = bcd_XY_[k]->xyz_;
+    auto colM_dir = bcd_XY_[k]->colM_dir_;
     if (colM_dir != BCD::Input_dir && colM_dir != BCD::Output_dir)
       continue;
     assert(loc.valid());
     if (!loc.valid())
       continue;
-    if (first_valid_row < 0)
-      first_valid_row = r;
+    if (first_valid_k < 0)
+      first_valid_k = k;
     if (loc.x_ > max_x_)
       max_x_ = loc.x_;
     if (loc.y_ > max_y_)
@@ -442,23 +527,28 @@ bool RapidCsvReader::createTiles()
   }
 
   if (tr >= 5) {
-    lprintf("createTiles:  first_valid_row= %i  max_x_= %i  max_y_= %i\n",
-            first_valid_row, max_x_, max_y_);
+    lprintf("createTiles:  first_valid_k= %i  max_x_= %i  max_y_= %i\n",
+            first_valid_k, max_x_, max_y_);
   }
 
-  if (first_valid_row < 0)
+  if (first_valid_k < 0)
     return false;
 
-  // 2. add tiles_ avoiding xy-duplicates if possible
-  tiles_.emplace_back(bcd_[first_valid_row]->xyz_, first_valid_row);
-  for (uint r = first_valid_row + 1; r < num_rows; r++) {
-    const XY& loc = bcd_[r]->xyz_;
-    if (tiles_.back().loc_ == loc)
+  // 2. add tiles_ avoiding duplicates if possible
+  tiles_.emplace_back(bcd_XY_[first_valid_k]->xyz_,
+                      bcd_XY_[first_valid_k]->bump_, first_valid_k);
+  for (uint k = first_valid_k + 1; k < bcd_XY_sz; k++) {
+    const BCD& bcd = *bcd_XY_[k];
+    const XY& loc = bcd.xyz_;
+    if (tiles_.back().eq(loc, bcd.bump_))
       continue;
-    tiles_.emplace_back(loc, r);
+    tiles_.emplace_back(loc, bcd.bump_, k);
   }
 
   uint sz = tiles_.size();
+  if (tr >= 6) {
+    ls << "  sz= " << sz << endl;
+  }
   if (sz < 2)
     return false;
 
@@ -472,7 +562,7 @@ bool RapidCsvReader::createTiles()
       Tile& tj = tiles_[j];
       if (!tj.loc_.valid())
         continue;
-      if (ti.loc_ == tj.loc_) {
+      if (ti == tj) {
         tj.loc_.invalidate();
         num_invalidated++;
       }
@@ -501,16 +591,27 @@ bool RapidCsvReader::createTiles()
     Tile& ti = tiles_[i];
     assert(ti.loc_.valid());
     ti.id_ = i;
-    assert(ti.beg_row_ < num_rows);
-    for (uint r = ti.beg_row_; r < num_rows; r++) {
-      BCD* bcd = bcd_[r];
-      if (ti.loc_ != bcd->xyz_)
+    assert(ti.beg_row_ < bcd_XY_sz);
+    for (uint k = ti.beg_row_; k < bcd_XY_sz; k++) {
+      BCD* bcd = bcd_XY_[k];
+      if (not ti.eq(*bcd))
         continue;
       if (bcd->isA2F())
         ti.a2f_sites_.push_back(bcd);
       else if (bcd->isF2A())
         ti.f2a_sites_.push_back(bcd);
     }
+  }
+
+  // 5. rewrite Tile::beg_row_ as real row instead of k
+  for (uint i = 0; i < sz; i++) {
+    Tile& ti = tiles_[i];
+    assert(ti.loc_.valid());
+    assert(ti.loc_.x_ >= 0);
+    assert(ti.loc_.y_ >= 0);
+    assert(ti.beg_row_ < bcd_XY_sz);
+    ti.beg_row_ = bcd_XY_[ti.beg_row_]->row_;
+    assert(ti.beg_row_ < num_rows);
   }
 
   if (tr >= 6) {
@@ -521,6 +622,88 @@ bool RapidCsvReader::createTiles()
   }
 
   return true;
+}
+
+Tile_p RapidCsvReader::getUnusedTile(bool input_dir) noexcept {
+  if (tiles_.empty())
+    return nullptr;
+
+  Tile* result = nullptr;
+  uint sz = tiles_.size();
+  for (uint i = 0; i < sz; i++) {
+    Tile& ti = tiles_[i];
+    assert(ti.loc_.valid());
+    assert(ti.loc_.x_ >= 0);
+    assert(ti.loc_.y_ >= 0);
+    if (ti.num_used_)
+      continue;
+    if (input_dir) {
+      if (ti.a2f_sites_.size()) {
+        result = &ti;
+        break;
+      }
+    }
+    else {
+      if (ti.f2a_sites_.size()) {
+        result = &ti;
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
+BCD_p RapidCsvReader::Tile::bestInputSite() noexcept {
+  if (a2f_sites_.empty())
+    return nullptr;
+
+  // 1. try skipping "bidi" sites
+  for (BCD* bcd : a2f_sites_) {
+    assert(bcd->isA2F());
+    if (bcd->numRxModes() > 0 && bcd->numTxModes() == 0)
+      return bcd;
+  }
+
+  // 2. not skipping "bidi" sites
+  for (BCD* bcd : a2f_sites_) {
+    if (bcd->numRxModes() > 0)
+      return bcd;
+  }
+
+  // 3. try MODE_GPIO
+  for (BCD* bcd : a2f_sites_) {
+    if (bcd->numGpioModes() > 0)
+      return bcd;
+  }
+
+  return nullptr;
+}
+
+BCD_p RapidCsvReader::Tile::bestOutputSite() noexcept {
+  if (f2a_sites_.empty())
+    return nullptr;
+
+  // 1. try skipping "bidi" sites
+  for (BCD* bcd : f2a_sites_) {
+    assert(bcd->isF2A());
+    if (bcd->numTxModes() > 0 && bcd->numRxModes() == 0)
+      return bcd;
+  }
+
+  // 2. not skipping "bidi" sites
+  for (BCD* bcd : f2a_sites_) {
+    if (bcd->numTxModes() > 0)
+      return bcd;
+  }
+
+  // 3. try MODE_GPIO
+  for (BCD* bcd : f2a_sites_) {
+    if (bcd->numGpioModes() > 0)
+      return bcd;
+  }
+
+  return nullptr;
 }
 
 bool RapidCsvReader::read_csv(const string& fn, bool check) {
@@ -550,23 +733,9 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
   if (tr >= 4) crd.dprint1();
 
-  col_headers_ = crd.header_;
-  col_headers_lc_ = col_headers_;
-  for (auto& h : col_headers_lc_)
-    h = str::sToLower(h);
-
-  if (tr >= 3) {
-    assert(col_headers_.size() > 2);
-    ls << "  col_headers_.size()= " << col_headers_.size() << "  ["
-       << col_headers_.front() << " ... " << col_headers_.back() << ']' << endl;
-    if (tr >= 4) {
-      for (uint i = 0; i < col_headers_.size(); i++) {
-        string col_label = label_column(i);
-        const string& hdr_i = col_headers_[i];
-        ls << "--- " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
-      }
-      ls << endl;
-    }
+  if (!initCols(crd)) {
+    ls << "\nERROR initCols() failed\n" << endl;
+    return false;
   }
 
   if (!initRows(crd)) {
