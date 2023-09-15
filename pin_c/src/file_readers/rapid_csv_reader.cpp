@@ -23,6 +23,7 @@ void RapidCsvReader::reset() noexcept {
   bcd_AXI_.clear();
   bcd_GBGPIO_.clear();
   bcd_.clear();
+  modes_map_.clear();
   col_headers_.clear();
   col_headers_lc_.clear();
   mode_names_.clear();
@@ -623,8 +624,7 @@ bool RapidCsvReader::createTiles() {
   return true;
 }
 
-Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
-                           const std::unordered_set<uint>& except) noexcept {
+Tile_p RapidCsvReader::getUnusedTile(bool input_dir) noexcept {
   if (tiles_.empty())
     return nullptr;
 
@@ -632,7 +632,6 @@ Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
   uint sz = tiles_.size();
   for (uint i = 0; i < sz; i++) {
     Tile& ti = tiles_[i];
-    assert(ti.id_ == i);
     assert(ti.loc_.valid());
     assert(ti.loc_.x_ >= 0);
     assert(ti.loc_.y_ >= 0);
@@ -780,13 +779,13 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       if (tr >= 4) ls << "!!! mode_data.size() < num_rows" << endl;
       mode_data.resize(num_rows);
     }
-    //// modes_map_.emplace(hdr_i, mode_data);
+    modes_map_.emplace(hdr_i, mode_data);
     mode_names_.emplace_back(hdr_i);
 
     // set 1 in bitsets for 'Y'
     for (uint row = 0; row < num_rows; row++) {
       if (mode_data[row] == "Y") {
-        bcd_[row]->modes_.set(col, true);
+        bcd_[row]->modes_[col] = true;
       }
     }
   }
@@ -1187,21 +1186,6 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
   return result;
 }
 
-uint RapidCsvReader::getModeCol(const string& mode) const noexcept {
-  if (mode.length() <= 1)
-    return 0;
-  string mode_lc = str::sToLower(mode);
-  uint modeCol = 0, nc = numCols();
-  assert(nc > 2);
-  for (uint c = start_MODE_col_; c < nc; c++) {
-    if (mode_lc == col_headers_lc_[c]) {
-      modeCol = c;
-      break;
-    }
-  }
-  return modeCol;
-}
-
 XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
                                         const string& customerPin_or_ID,
                                         const string& gbox_pin_name,
@@ -1212,27 +1196,23 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
   XYZ result = get_axi_xyz_by_name(customerPin_or_ID, pt_row);
   if (result.valid()) return result;
 
-  assert(mode.length() > 1);
-  if (mode.length() <= 1)
-    return result;
-
   // 2.
-  uint modeCol = getModeCol(mode);
-  if (!modeCol)
-    return result; // 'mode' not found
+  auto fitr = modes_map_.find(mode);
+  if (fitr == modes_map_.end()) return result;
+
+  const vector<string>& mode_vector = fitr->second;
 
   uint num_rows = numRows();
   assert(num_rows > 1);
+  assert(mode_vector.size() == num_rows);
+  assert(bcd_.size() == num_rows);
 
   // 3.
   for (uint i = 0; i < num_rows; i++) {
     const BCD& bcd = *bcd_[i];
     uint realRow = bcd.row_;
-    assert(realRow == i);
-    if (!bcd.match(customerPin_or_ID))
-      continue;
-    if (not bcd.modes_[modeCol])
-      continue;
+    if (!bcd.match(customerPin_or_ID)) continue;
+    if (mode_vector[realRow] != "Y") continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
       result = bcd.xyz_;
       pt_row = realRow;
@@ -1244,13 +1224,12 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
   return result;
 }
 
-uint RapidCsvReader::printModeNames() const {
-  uint n = mode_names_.size();
-  lprintf("mode_names_.size()= %u\n", n);
-  if (mode_names_.empty()) return 0;
+uint RapidCsvReader::printModeKeys() const {
+  uint n = modes_map_.size();
+  lprintf("modes_map_.size()= %u\n", n);
+  if (modes_map_.empty()) return 0;
 
-  for (const string& nm : mode_names_)
-    lprintf("\t  %s\n", nm.c_str());
+  for (const auto& I : modes_map_) lprintf("\t  %s\n", I.first.c_str());
 
   return n;
 }
