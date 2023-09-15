@@ -159,6 +159,9 @@ public:
     BCD* bestInputSite() noexcept;
     BCD* bestOutputSite() noexcept;
 
+    void incr_used() noexcept { num_used_++; }
+    bool not_used() const noexcept { return num_used_ == 0; }
+
     void dump() const;
   }; // Tile
 
@@ -227,18 +230,6 @@ public:
   uint getModeCol(const string& mode) const noexcept;
   bool hasMode(const string& key) const noexcept { return getModeCol(key); }
 
-/*
-  const vector<string>* getModeData(const string& mode_name) const noexcept {
-    assert(!mode_name.empty());
-    if (mode_name.empty())
-      return nullptr;
-    auto fitr = modes_map_.find(mode_name);
-    if (fitr == modes_map_.end())
-      return nullptr;
-    return &(fitr->second);
-  }
-*/
-
   uint printModeNames() const;
 
   string bumpName2CustomerName(const string& bump_name) const noexcept;
@@ -279,8 +270,6 @@ private:
 
   fio::CSV_Reader* crd_ = nullptr;
 
-  //// std::map<string, vector<string>> modes_map_; // mode name --> column of strings //// OBSOLETE
-
   vector<string> col_headers_;    // Original column headers
   vector<string> col_headers_lc_; // Lower-Case column headers
   vector<string> mode_names_;     // column headers that contain "Mode_/MODE_"
@@ -294,7 +283,7 @@ private:
 
   vector<BCD*> bcd_GBGPIO_;  // BCD records with .is_GBOX_GPIO_ predicate
 
-  vector<BCD*> bcd_XY_;      // BCDs with valid non-negative XYs
+  vector<BCD*> bcd_good_;    // BCDs with valid non-negative XYs and with at least one mode
 
   int max_x_ = 0, max_y_ = 0;
   vector<Tile> tiles_;

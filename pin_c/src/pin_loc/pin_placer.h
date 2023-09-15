@@ -106,19 +106,17 @@ public:
 
   static void shuffle_candidates(vector<int>& v);
 
-  // get_available_ methods return pin_and_mode pair, empty strings on error
+  DevPin get_available_device_pin(RapidCsvReader& csv,
+                                  bool is_inp, const string& udesName,
+                                  Pin*& ann_pin);
   //
-  StringPair get_available_device_pin(RapidCsvReader& csv,
-                                      bool is_inp, const string& udesName,
-                                      Pin*& ann_pin);
+  DevPin get_available_bump_ipin(RapidCsvReader& csv,
+                                 const string& udesName, Pin*& ann_pin);
+  DevPin get_available_bump_opin(RapidCsvReader& csv,
+                                 const string& udesName, Pin*& ann_pin);
   //
-  StringPair get_available_bump_ipin(RapidCsvReader& csv,
-                                     const string& udesName, Pin*& ann_pin);
-  StringPair get_available_bump_opin(RapidCsvReader& csv,
-                                     const string& udesName, Pin*& ann_pin);
-  //
-  StringPair get_available_axi_ipin(vector<string>& Q);
-  StringPair get_available_axi_opin(vector<string>& Q);
+  DevPin get_available_axi_ipin(vector<string>& Q);
+  DevPin get_available_axi_opin(vector<string>& Q);
   //
   bool no_more_inp_bumps_ = false; // state for get_available_device_pin()
   bool no_more_out_bumps_ = false; //
