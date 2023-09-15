@@ -123,6 +123,10 @@ public:
   bool no_more_inp_bumps_ = false; // state for get_available_device_pin()
   bool no_more_out_bumps_ = false; //
   uint num_warnings_ = 0;
+  //
+
+  //// bool is_input_mode(const string& mode_name) const; //// OBSOLETE
+  //// bool is_output_mode(const string& mode_name) const;
 
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);
