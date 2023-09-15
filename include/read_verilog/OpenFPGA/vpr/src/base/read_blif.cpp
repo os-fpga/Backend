@@ -774,6 +774,7 @@ AtomNetlist read_blif(e_circuit_format circuit_format,
 
     return netlist;
 }
+
 AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                                   const char *blif_file,
                                   const t_model *user_models,
@@ -781,6 +782,9 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                                   t_vpr_setup& vpr_setup,
                                   const char* top_mod)
 {
+    // disabling below due to verific purge
+    throw std::runtime_error("It is disable. Please contact support@rapidsilicon.com");
+/*
     AtomNetlist netlist;
     simple_netlist n_l;
     std::string blif_file_ = blif_file;
@@ -861,8 +865,8 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
     }
 
     return netlist;
+*/
 }
-
 AtomNetlist read_blif_from_edif(e_circuit_format circuit_format,
                                   const char *blif_file,
                                   const t_model *user_models,
