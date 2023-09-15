@@ -98,10 +98,43 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
       csv.write_csv("LAST_PINC_PT_full.csv", 0, UINT_MAX);
     }
   }
+
+  // verify
+#ifndef NDEBUG
+  if (tr >= 4 && placed_inputs_.size()) {
+    // 1. placed_inputs_ XYZ don't intersect
+    const Pin* A = placed_inputs_.data();
+    uint A_sz = placed_inputs_.size();
+    for (uint i = 0; i < A_sz; i++) {
+      const Pin& pin_i = A[i];
+      for (uint j = i + 1; j < A_sz; j++) {
+        const Pin& pin_j = A[j];
+        if (pin_i.xyz_ == pin_j.xyz_) {
+          ls << '\n' << "placed_inputs_ VERIFICATION FAILED:  pin_i.xyz_ == pin_j.xyz_ : "
+             << pin_i.xyz_ << '\n' << endl;
+        }
+        assert(pin_i.xyz_ != pin_j.xyz_);
+      }
+    }
+    // 2. placed_outputs_ XYZ don't intersect
+    A = placed_outputs_.data();
+    A_sz = placed_outputs_.size();
+    for (uint i = 0; i < A_sz; i++) {
+      const Pin& pin_i = A[i];
+      for (uint j = i + 1; j < A_sz; j++) {
+        const Pin& pin_j = A[j];
+        if (pin_i.xyz_ == pin_j.xyz_) {
+          ls << '\n' << "placed_outputs_ VERIFICATION FAILED:  pin_i.xyz_ == pin_j.xyz_ : "
+             << pin_i.xyz_ << '\n' << endl;
+        }
+        assert(pin_i.xyz_ != pin_j.xyz_);
+      }
+    }
+  }
+#endif // NDEBUG
 }
 
-bool PinPlacer::read_pcf(const RapidCsvReader& csvReader)
-{
+bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) lputs("\nPinPlacer::read_pcf()");
@@ -139,14 +172,14 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csvReader)
     if (mode.empty()) continue;
     key = mode;
     RapidCsvReader::prepare_mode_header(key);
-    if (csvReader.hasMode(key)) continue;
+    if (csv.hasMode(key)) continue;
     ls << endl;
     CERROR << " (ERROR) invalid mode name: " << mode << endl;
     if (tr >= 2) {
       ls << " (ERROR) invalid mode name: " << mode << "  [ " << key << " ]" << endl;
       if (tr >= 3) {
         ls << " valid mode names are:" << endl;
-        csvReader.printModeNames();
+        csv.printModeNames();
         ls << " (ERROR) invalid mode name: " << mode << "  [ " << key << " ]" << endl;
       }
     }
@@ -205,6 +238,9 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 
   string gbox_pin_name;
 
+  string row_str;
+  int row_num = -1;
+
   min_pt_row_ = UINT_MAX; max_pt_row_ = 0;
 
   for (uint cmd_i = 0; cmd_i < pcf_pin_cmds_.size(); cmd_i++) {
@@ -216,12 +252,12 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 
     gbox_pin_name.clear();
 
-    const string& user_design_pin_name = pcf_cmd[1];
+    const string& udes_pin_name = pcf_cmd[1];
     const string& device_pin_name = pcf_cmd[2];  // bump or ball
 
     if (tr >= 4) {
       ls << "cmd_i:" << cmd_i
-         << "   user_design_pin_name=  " << user_design_pin_name
+         << "   udes_pin_name=  " << udes_pin_name
          << "  -->  device_pin_name=  " << device_pin_name << endl;
       logVec(pcf_cmd, "    cur pcf_cmd: ");
     }
@@ -233,19 +269,31 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
       }
     }
 
-    bool is_in_pin = vec_contains(user_design_inputs_, user_design_pin_name);
+    row_str.clear();
+    row_num = -1;
+    for (size_t i = 1; i < pcf_cmd.size() - 1; i++) {
+      if (pcf_cmd[i] == "-pt_row") {
+        row_str = pcf_cmd[i + 1];
+        break;
+      }
+    }
+    if (!row_str.empty()) {
+      row_num = ::atoi(row_str.c_str());
+    }
+
+    bool is_in_pin = vec_contains(user_design_inputs_, udes_pin_name);
 
     bool is_out_pin =
         is_in_pin ? false
-                  : vec_contains(user_design_outputs_, user_design_pin_name);
+                  : vec_contains(user_design_outputs_, udes_pin_name);
 
     if (!is_in_pin && !is_out_pin) {
       // sanity check
       CERROR << err_lookup("CONSTRAINED_PORT_NOT_FOUND") << ": <"
-             << user_design_pin_name << ">" << endl;
+             << udes_pin_name << ">" << endl;
       out_file << "\n=== Error happened, .place file is incomplete\n"
                << "=== ERROR:" << err_lookup("CONSTRAINED_PORT_NOT_FOUND")
-               << ": <" << user_design_pin_name
+               << ": <" << udes_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       return false;
     }
@@ -254,34 +302,10 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
              << device_pin_name << ">" << endl;
       out_file << "\n=== Error happened, .place file is incomplete\n"
                << "=== ERROR:" << err_lookup("CONSTRAINED_PORT_NOT_FOUND")
-               << ": <" << user_design_pin_name
+               << ": <" << udes_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       return false;
     }
-
-    //// uniqueness check replaced by BCD::used_
-    // if (!constrained_user_pins.count(user_design_pin_name)) {
-    //   constrained_user_pins.insert(user_design_pin_name);
-    // } else {
-    //   CERROR << err_lookup("RE_CONSTRAINED_PORT") << ": <"
-    //          << user_design_pin_name << ">" << endl;
-    //   return false;
-    // }
-
-    // use (device_pin_name + " " + gbox_pin_name) as search name to check
-    // overlap pin in constraint
-    //// search_name = device_pin_name; //// uniqueness check replaced by BCD::used_
-    //// search_name.push_back(' ');
-    //// search_name += gbox_pin_name;
-
-    //// uniqueness check replaced by BCD::used_
-    // if (!constrained_device_pins.count(search_name)) {
-    //   constrained_device_pins.insert(search_name);
-    // } else {
-    //   CERROR << err_lookup("OVERLAP_PIN_IN_CONSTRAINT") << ": <"
-    //          << device_pin_name << ">" << endl;
-    //   return false;
-    // }
 
     // look for coordinates and write constrain
     if (is_out_pin) {
@@ -289,14 +313,28 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
       if (tr >= 4) ls << "out:";
     }
 
-    out_file << user_design_pin_name << '\t';
+    out_file << udes_pin_name << '\t';
     out_file.flush();
 
     string mode = pcf_cmd[4];
     RapidCsvReader::prepare_mode_header(mode);
 
     uint pt_row = 0;
-    XYZ xyz = csv.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+    XYZ xyz;
+
+    if (row_num > 1) {
+      // pt_row was explicitely passed in .pcf
+      uint row_idx = row_num - 2;
+      if (row_idx < csv.numRows()) {
+        const RapidCsvReader::BCD& bb = csv.getBCD(row_idx);
+        xyz = bb.xyz_;
+        pt_row = row_idx;
+      }
+    }
+    else {
+      xyz = csv.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+    }
+
     if (!xyz.valid()) {
       CERROR << " PRE-ASSERT: no valid coordinates" << endl;
       lputs("\n [Error] (ERROR) PRE-ASSERT");
@@ -338,9 +376,9 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 
     // save for statistics:
     if (is_in_pin)
-      placed_inputs_.emplace_back(user_design_pin_name, device_pin_name, xyz, pt_row);
+      placed_inputs_.emplace_back(udes_pin_name, device_pin_name, xyz, pt_row);
     else
-      placed_outputs_.emplace_back(user_design_pin_name, device_pin_name, xyz, pt_row);
+      placed_outputs_.emplace_back(udes_pin_name, device_pin_name, xyz, pt_row);
   }
 
   if (tr >= 2) {
@@ -405,12 +443,12 @@ bool PinPlacer::read_csv_file(RapidCsvReader& csv) {
 }
 
 // 'ann_pin' - annotated pin taken from bcd
-StringPair PinPlacer::get_available_device_pin(RapidCsvReader& csv,
-                                               bool is_inp,
-                                               const string& udesName,
-                                               Pin*& ann_pin)
+DevPin PinPlacer::get_available_device_pin(RapidCsvReader& csv,
+                                           bool is_inp,
+                                           const string& udesName,
+                                           Pin*& ann_pin)
 {
-  StringPair result;
+  DevPin result;
   ann_pin = nullptr;
 
   uint16_t tr = ltrace();
@@ -419,11 +457,11 @@ StringPair PinPlacer::get_available_device_pin(RapidCsvReader& csv,
     if (no_more_inp_bumps_) {
       result = get_available_axi_ipin(s_axi_inpQ);
       if (tr >= 4)
-        lprintf("  no_more_inp_bumps_ => got axi_ipin: %s\n", result.first.c_str());
+        lprintf("  no_more_inp_bumps_ => got axi_ipin: %s\n", result.first().c_str());
       return result;
     }
     result = get_available_bump_ipin(csv, udesName, ann_pin);
-    if (result.first.empty()) {
+    if (result.first().empty()) {
       no_more_inp_bumps_ = true;
       result = get_available_axi_ipin(s_axi_inpQ);
     }
@@ -431,11 +469,11 @@ StringPair PinPlacer::get_available_device_pin(RapidCsvReader& csv,
     if (no_more_out_bumps_) {
       result = get_available_axi_opin(s_axi_outQ);
       if (tr >= 4)
-        lprintf("  no_more_out_bumps_ => got axi_opin: %s\n", result.first.c_str());
+        lprintf("  no_more_out_bumps_ => got axi_opin: %s\n", result.first().c_str());
       return result;
     }
     result = get_available_bump_opin(csv, udesName, ann_pin);
-    if (result.first.empty()) {
+    if (result.first().empty()) {
       no_more_out_bumps_ = true;
       result = get_available_axi_opin(s_axi_outQ);
     }
@@ -444,49 +482,49 @@ StringPair PinPlacer::get_available_device_pin(RapidCsvReader& csv,
   return result;
 }
 
-StringPair PinPlacer::get_available_axi_ipin(vector<string>& Q) {
+DevPin PinPlacer::get_available_axi_ipin(vector<string>& Q) {
   static uint cnt = 0;
   cnt++;
   if (ltrace() >= 4) {
     lprintf("get_available_axi_ipin()# %u Q.size()= %u\n", cnt, uint(Q.size()));
   }
 
-  StringPair result; // pin_and_mode
+  DevPin result; // pin_and_mode
 
   if (Q.empty()) return result;
 
-  result.first = Q.back();
+  result.set_first(Q.back());
   Q.pop_back();
 
   // need to pick a mode, othewise PcfReader::read_pcf() will not tokenize pcf line properly
-  result.second = "MODE_GPIO";
+  result.mode_ = "MODE_GPIO";
 
   return result;
 }
 
-StringPair PinPlacer::get_available_axi_opin(vector<string>& Q) {
+DevPin PinPlacer::get_available_axi_opin(vector<string>& Q) {
   static uint cnt = 0;
   cnt++;
   if (ltrace() >= 4) {
     lprintf("get_available_axi_opin()# %u Q.size()= %u\n", cnt, uint(Q.size()));
   }
 
-  StringPair result; // pin_and_mode
+  DevPin result; // pin_and_mode
 
   if (Q.empty()) return result;
 
-  result.first = Q.back();
+  result.set_first(Q.back());
   Q.pop_back();
 
   // need to pick a mode, othewise PcfReader::read_pcf() will not tokenize pcf line properly
-  result.second = "MODE_GPIO";
+  result.mode_ = "MODE_GPIO";
 
   return result;
 }
 
-StringPair PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
-                                              const string& udesName,
-                                              Pin*& ann_pin) {
+DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
+                                          const string& udesName,
+                                          Pin*& ann_pin) {
   static uint icnt = 0;
   icnt++;
   ann_pin = nullptr;
@@ -498,72 +536,82 @@ StringPair PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
   }
 
   bool found = false;
-  StringPair result; // pin_and_mode
+  DevPin result; // pin_and_mode
   RapidCsvReader::BCD* site = nullptr;
   std::bitset<Pin::MAX_PT_COLS> modes;
   uint num_cols = csv.numCols();
   std::unordered_set<uint> except;
 
-  RapidCsvReader::Tile* tile = csv.getUnusedTile(true, except);
-  if (!tile) {
-    if (tr >= 3) lputs("  no i-tile");
-    goto ret;
-  }
-  if (tr >= 4) {
-    ls << "  got i-tile " << tile->loc_ << endl;
-    if (tr >= 6) tile->dump();
-  }
-  site = tile->bestInputSite();
-  if (!site) {
-    if (tr >= 3) lputs("  no i-site");
-    goto ret;
-  }
-  if (tr >= 13) site->dump();
+  uint iteration = 1;
+  for (; iteration <= 100; iteration++) {
+    if (tr >= 4)
+      lprintf("  start iteration %u\n", iteration);
+    RapidCsvReader::Tile* tile = csv.getUnusedTile(true, except);
+    if (!tile) {
+      if (tr >= 3) lputs("  no i-tile");
+      goto ret;
+    }
+    if (tr >= 4) {
+      ls << "  got i-tile " << tile->loc_ << "  #" << tile->id_ << endl;
+      if (tr >= 6) tile->dump();
+    }
+    assert(tile->not_used());
+    site = tile->bestInputSite();
+    if (!site) {
+      if (tr >= 3) lputs("  no i-site");
+      except.insert(tile->id_);
+      continue;
+    }
+    if (tr >= 13) site->dump();
 
-  modes = site->getRxModes();
-  // ==1== non-GPIO RX
-  for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
-    if (modes[col] && !csv.isTxCol(col)) {
-      result.first = site->bump_;
-      result.second = csv.col_headers_[col];
-      site->set_used();
-      tile->num_used_++;
-      ann_pin = site->annotatePin(udesName, site->bump_, true);
-      used_bump_pins_.insert(site->bump_);
-      used_XYs_.insert(site->xy());
-      if (tr >= 6) {
-        lprintf("\t\t ==1==RX get_available_bump_ipin() used_bump_pins_.insert( %s )  row_= %u\n",
-            site->bump_.c_str(), site->row_);
+    modes = site->getRxModes();
+    // ==1== non-GPIO RX
+    for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
+      if (modes[col] && !csv.isTxCol(col)) {
+        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        site->set_used();
+        tile->incr_used();
+        ann_pin = site->annotatePin(udesName, site->bump_, true);
+        used_bump_pins_.insert(site->bump_);
+        used_XYs_.insert(site->xy());
+        if (tr >= 6) {
+          lprintf("\t\t ==1==RX GABI used_bump_pins_.insert( %s )  row_= %u\n",
+              site->bump_.c_str(), site->row_);
+        }
+        found = true;
+        goto ret;
       }
-      found = true;
-      goto ret;
     }
-  }
-  // ==2== GPIO
-  modes = site->getGpioModes();
-  for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
-    if (modes[col]) {
-      result.first = site->bump_;
-      result.second = csv.col_headers_[col];
-      site->set_used();
-      tile->num_used_++;
-      ann_pin = site->annotatePin(udesName, site->bump_, true);
-      used_bump_pins_.insert(site->bump_);
-      used_XYs_.insert(site->xy());
-      if (tr >= 6) {
-        lprintf("\t\t ==2==GPIO_rx get_available_bump_ipin() used_bump_pins_.insert( %s )  row_= %u\n",
-            site->bump_.c_str(), site->row_);
+    // ==2== GPIO
+    modes = site->getGpioModes();
+    for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
+      if (modes[col]) {
+        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        site->set_used();
+        tile->incr_used();
+        ann_pin = site->annotatePin(udesName, site->bump_, true);
+        used_bump_pins_.insert(site->bump_);
+        used_XYs_.insert(site->xy());
+        if (tr >= 6) {
+          lprintf("\t\t ==2==GPIO_rx GABI used_bump_pins_.insert( %s )  row_= %u\n",
+              site->bump_.c_str(), site->row_);
+        }
+        found = true;
+        goto ret;
       }
-      found = true;
-      goto ret;
     }
-  }
+    // not found => try another tile
+    if (tr >= 4)
+      lprintf("  not found => disabling tile #%u\n", tile->id_);
+    except.insert(tile->id_);
+  } // iteration
 
 ret:
   if (tr >= 2) {
+    lprintf("  did #iterations: %u\n", iteration);
     if (found && tr >= 4) {
-      const string& bump_pn = result.first;
-      const string& mode_nm = result.second;
+      const string& bump_pn = result.first();
+      const string& mode_nm = result.mode_;
       lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
               mode_nm.c_str());
     } else if (tr >= 7) {
@@ -583,19 +631,18 @@ ret:
   }
 
   if (found) {
-    assert(!result.first.empty());
-    assert(!result.second.empty());
+    assert(!result.first().empty());
+    assert(!result.mode_.empty());
   } else {
-    result.first.clear();
-    result.second.clear();
+    result.reset();
   }
 
   return result;
 }
 
-StringPair PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
-                                              const string& udesName,
-                                              Pin*& ann_pin) {
+DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
+                                          const string& udesName,
+                                          Pin*& ann_pin) {
   static uint ocnt = 0;
   ocnt++;
   ann_pin = nullptr;
@@ -607,72 +654,81 @@ StringPair PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
   }
 
   bool found = false;
-  StringPair result; // pin_and_mode
+  DevPin result; // pin_and_mode
   RapidCsvReader::BCD* site = nullptr;
   std::bitset<Pin::MAX_PT_COLS> modes;
   uint num_cols = csv.numCols();
   std::unordered_set<uint> except;
 
-  RapidCsvReader::Tile* tile = csv.getUnusedTile(false, except);
-  if (!tile) {
-    if (tr >= 3) lputs("  no o-tile");
-    goto ret;
-  }
-  if (tr >= 4) {
-    ls << "  got o-tile " << tile->loc_ << endl;
-    if (tr >= 6) tile->dump();
-  }
-  site = tile->bestOutputSite();
-  if (!site) {
-    if (tr >= 3) lputs("  no o-site");
-    goto ret;
-  }
-  if (tr >= 13) site->dump();
+  uint iteration = 1;
+  for (; iteration <= 100; iteration++) {
+    if (tr >= 4)
+      lprintf("  start iteration %u\n", iteration);
+    RapidCsvReader::Tile* tile = csv.getUnusedTile(false, except);
+    if (!tile) {
+      if (tr >= 3) lputs("  no o-tile");
+      goto ret;
+    }
+    if (tr >= 4) {
+      ls << "  got o-tile " << tile->loc_ << "  #" << tile->id_ << endl;
+      if (tr >= 6) tile->dump();
+    }
+    assert(tile->not_used());
+    site = tile->bestOutputSite();
+    if (!site) {
+      if (tr >= 3) lputs("  no o-site");
+      except.insert(tile->id_);
+      continue;
+    }
+    if (tr >= 13) site->dump();
 
-  modes = site->getTxModes();
-  // ==1== non-GPIO TX
-  for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
-    if (modes[col] && !csv.isRxCol(col)) {
-      result.first = site->bump_;
-      result.second = csv.col_headers_[col];
-      site->set_used();
-      tile->num_used_++;
-      ann_pin = site->annotatePin(udesName, site->bump_, false);
-      used_bump_pins_.insert(site->bump_);
-      used_XYs_.insert(site->xy());
-      if (tr >= 6) {
-        lprintf("\t\t ==1==TX get_available_bump_opin() used_bump_pins_.insert( %s )  row_= %u\n",
-            site->bump_.c_str(), site->row_);
+    modes = site->getTxModes();
+    // ==1== non-GPIO TX
+    for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
+      if (modes[col] && !csv.isRxCol(col)) {
+        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        site->set_used();
+        tile->incr_used();
+        ann_pin = site->annotatePin(udesName, site->bump_, false);
+        used_bump_pins_.insert(site->bump_);
+        used_XYs_.insert(site->xy());
+        if (tr >= 6) {
+          lprintf("\t\t ==1==TX GABO used_bump_pins_.insert( %s )  row_= %u\n",
+              site->bump_.c_str(), site->row_);
+        }
+        found = true;
+        goto ret;
       }
-      found = true;
-      goto ret;
     }
-  }
-  // ==2== GPIO
-  modes = site->getGpioModes();
-  for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
-    if (modes[col]) {
-      result.first = site->bump_;
-      result.second = csv.col_headers_[col];
-      site->set_used();
-      tile->num_used_++;
-      ann_pin = site->annotatePin(udesName, site->bump_, false);
-      used_bump_pins_.insert(site->bump_);
-      used_XYs_.insert(site->xy());
-      if (tr >= 6) {
-        lprintf("\t\t ==2==GPIO_tx get_available_bump_opin() used_bump_pins_.insert( %s )  row_= %u\n",
-            site->bump_.c_str(), site->row_);
+    // ==2== GPIO
+    modes = site->getGpioModes();
+    for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
+      if (modes[col]) {
+        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        site->set_used();
+        tile->incr_used();
+        ann_pin = site->annotatePin(udesName, site->bump_, false);
+        used_bump_pins_.insert(site->bump_);
+        used_XYs_.insert(site->xy());
+        if (tr >= 6) {
+          lprintf("\t\t ==2==GPIO_tx GABO used_bump_pins_.insert( %s )  row_= %u\n",
+              site->bump_.c_str(), site->row_);
+        }
+        found = true;
+        goto ret;
       }
-      found = true;
-      goto ret;
     }
-  }
+    // not found => try another tile
+    if (tr >= 4)
+      lprintf("  not found => disabling tile #%u\n", tile->id_);
+    except.insert(tile->id_);
+  } // iteration
 
 ret:
   if (tr >= 2) {
     if (found && tr >= 4) {
-      const string& bump_pn = result.first;
-      const string& mode_nm = result.second;
+      const string& bump_pn = result.first();
+      const string& mode_nm = result.mode_;
       lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
               mode_nm.c_str());
     } else if (tr >= 7) {
@@ -692,19 +748,17 @@ ret:
   }
 
   if (found) {
-    assert(!result.first.empty());
-    assert(!result.second.empty());
+    assert(!result.first().empty());
+    assert(!result.mode_.empty());
   } else {
-    result.first.clear();
-    result.second.clear();
+    result.reset();
   }
 
   return result;
 }
 
 // create a temporary pcf file and internally pass it to params
-bool PinPlacer::create_temp_pcf(RapidCsvReader& csv)
-{
+bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
   clear_err_code();
   string key = "--pcf";
   temp_pcf_name_ = std::to_string(fio::get_PID()) + ".temp_pcf.pcf";
@@ -754,7 +808,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv)
             uint(input_idx.size()), uint(output_idx.size()));
   }
 
-  StringPair dpin_and_mode; // device pin and mode
+  DevPin dpin;
   ofstream temp_out;
   temp_out.open(temp_pcf_name_, ifstream::out | ifstream::binary);
   if (temp_out.fail()) {
@@ -798,16 +852,20 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv)
       }
     }
     assert(!inpName.empty());
-    dpin_and_mode = get_available_device_pin(csv, true /*INPUT*/, inpName, ann_pin);
-    if (dpin_and_mode.first.length()) {
-      pinName = csv.bumpName2CustomerName(dpin_and_mode.first);
+    dpin = get_available_device_pin(csv, true /*INPUT*/, inpName, ann_pin);
+    if (dpin.first().length()) {
+      pinName = csv.bumpName2CustomerName(dpin.first());
       assert(!pinName.empty());
 
       set_io_str = user_design_inputs_[input_idx[i]];
       set_io_str.push_back(' ');
       set_io_str += pinName;
       set_io_str += " -mode ";
-      set_io_str += dpin_and_mode.second;
+      set_io_str += dpin.mode_;
+      if (dpin.valid_pt_row()) {
+        set_io_str += "  -pt_row ";
+        set_io_str += std::to_string(dpin.pt_row_+2);
+      }
 
       if (tr >= 5 && ann_pin) {
         // debug annotation
@@ -824,7 +882,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv)
 
       if (tr >= 4) {
         lprintf(" ... writing Input to pcf for  bump_pin= %s  pinName= %s\n",
-                dpin_and_mode.first.c_str(), pinName.c_str());
+                dpin.first().c_str(), pinName.c_str());
         lprintf("        set_io %s\n", set_io_str.c_str());
       }
       temp_out << "set_io " << set_io_str << endl;
@@ -854,16 +912,20 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv)
       }
     }
     assert(!outName.empty());
-    dpin_and_mode = get_available_device_pin(csv, false /*OUTPUT*/, outName, ann_pin);
-    if (dpin_and_mode.first.length()) {
-      pinName = csv.bumpName2CustomerName(dpin_and_mode.first);
+    dpin = get_available_device_pin(csv, false /*OUTPUT*/, outName, ann_pin);
+    if (dpin.first().length()) {
+      pinName = csv.bumpName2CustomerName(dpin.first());
       assert(!pinName.empty());
 
       set_io_str = user_design_outputs_[output_idx[i]];
       set_io_str.push_back(' ');
       set_io_str += pinName;
       set_io_str += " -mode ";
-      set_io_str += dpin_and_mode.second;
+      set_io_str += dpin.mode_;
+      if (dpin.valid_pt_row()) {
+        set_io_str += "  -pt_row ";
+        set_io_str += std::to_string(dpin.pt_row_+2);
+      }
 
       if (tr >= 5 && ann_pin) {
         // debug annotation

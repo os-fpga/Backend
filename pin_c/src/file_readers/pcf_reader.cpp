@@ -1,4 +1,5 @@
 #include "file_readers/pcf_reader.h"
+#include "file_readers/Fio.h"
 
 namespace pinc {
 
@@ -23,6 +24,10 @@ bool PcfReader::read_pcf(const string& f) {
   string set_io_cmd, user_pin, bump_or_ball_name, dash_mode, mode_name;
   string optional_dash_internal_pin, optional_internal_pin;
 
+  vector<string> dat;
+  string row_str;
+  int row_num = -1;
+
   while (std::getline(infile, line)) {
     if (line.empty()) continue;
     bool all_spaces = true;
@@ -33,6 +38,22 @@ bool PcfReader::read_pcf(const string& f) {
       }
     }
     if (all_spaces) continue;
+
+    dat.clear();
+    row_str.clear();
+    row_num = -1;
+    bool split_ok = fio::Fio::split_spa(line.c_str(), dat);
+    if (split_ok && dat.size() > 2) {
+      for (uint j = 1; j < dat.size() - 1; j++) {
+        if (dat[j] == "-pt_row") {
+          row_str = dat[j + 1];
+          break;
+        }
+      }
+      if (!row_str.empty()) {
+        row_num = ::atoi(row_str.c_str());
+      }
+    }
 
     std::istringstream iss(line);
     // set_io USER_PPIN BUMP_PIN_NAME -mode MODE_NAME
@@ -82,6 +103,11 @@ bool PcfReader::read_pcf(const string& f) {
     if (has_internal_pin) {
       cur_command.push_back(optional_dash_internal_pin);
       cur_command.push_back(optional_internal_pin);
+    }
+
+    if (row_num > 0) {
+      cur_command.emplace_back("-pt_row");
+      cur_command.emplace_back(std::to_string(row_num));
     }
   }
 

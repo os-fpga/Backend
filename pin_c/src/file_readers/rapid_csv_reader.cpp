@@ -30,7 +30,7 @@ void RapidCsvReader::reset() noexcept {
   tx_cols_.reset();
   gpio_cols_.reset();
 
-  bcd_XY_.clear();
+  bcd_good_.clear();
 
   delete crd_;
   crd_ = nullptr;
@@ -485,9 +485,9 @@ bool RapidCsvReader::createTiles() {
   if (num_rows < 3) return false;
 
   // 0. filter BCDs with valid non-negative XYZs AND with at least one mode
-  //    (create bcd_XY_)
-  bcd_XY_.clear();
-  bcd_XY_.reserve(num_rows);
+  //    (create bcd_good_)
+  bcd_good_.clear();
+  bcd_good_.reserve(num_rows);
   for (uint r = 0; r < num_rows; r++) {
     BCD* bcd = bcd_[r];
     assert(bcd);
@@ -495,23 +495,25 @@ bool RapidCsvReader::createTiles() {
     if (loc.nonNeg() && loc.z_ >= 0 && bcd->numModes()) {
       assert(loc.x_ >= 0);
       assert(loc.y_ >= 0);
-      bcd_XY_.push_back(bcd);
+      bcd_good_.push_back(bcd);
     }
   }
 
-  uint bcd_XY_sz = bcd_XY_.size();
+  uint sz_bcd_good = bcd_good_.size();
   if (tr >= 5)
-    lprintf("createTiles:  num_rows= %u  bcd_XY_sz= %u\n", num_rows, bcd_XY_sz);
-  if (bcd_XY_sz < 3) return false;
+    lprintf("createTiles:  num_rows= %u  sz_bcd_good= %u\n", num_rows, sz_bcd_good);
+  if (sz_bcd_good < 2 && tr >= 2)
+    lputs("createTiles:  NO GOOD BCDs");
+  if (sz_bcd_good < 2) return false;
 
-  tiles_.reserve(bcd_XY_sz);
+  tiles_.reserve(sz_bcd_good);
 
   // 1. determine first_valid_k, max_x_, max_y_
   int first_valid_k = -1;
-  for (uint k = 0; k < bcd_XY_sz; k++) {
-    assert(bcd_XY_[k]);
-    const XY& loc = bcd_XY_[k]->xyz_;
-    auto colM_dir = bcd_XY_[k]->colM_dir_;
+  for (uint k = 0; k < sz_bcd_good; k++) {
+    assert(bcd_good_[k]);
+    const XY& loc = bcd_good_[k]->xyz_;
+    auto colM_dir = bcd_good_[k]->colM_dir_;
     if (colM_dir != BCD::Input_dir && colM_dir != BCD::Output_dir)
       continue;
     assert(loc.valid());
@@ -534,10 +536,10 @@ bool RapidCsvReader::createTiles() {
     return false;
 
   // 2. add tiles_ avoiding duplicates if possible
-  tiles_.emplace_back(bcd_XY_[first_valid_k]->xyz_,
-                      bcd_XY_[first_valid_k]->bump_, first_valid_k);
-  for (uint k = first_valid_k + 1; k < bcd_XY_sz; k++) {
-    const BCD& bcd = *bcd_XY_[k];
+  tiles_.emplace_back(bcd_good_[first_valid_k]->xyz_,
+                      bcd_good_[first_valid_k]->bump_, first_valid_k);
+  for (uint k = first_valid_k + 1; k < sz_bcd_good; k++) {
+    const BCD& bcd = *bcd_good_[k];
     const XY& loc = bcd.xyz_;
     if (tiles_.back().eq(loc, bcd.bump_))
       continue;
@@ -590,9 +592,9 @@ bool RapidCsvReader::createTiles() {
     Tile& ti = tiles_[i];
     assert(ti.loc_.valid());
     ti.id_ = i;
-    assert(ti.beg_row_ < bcd_XY_sz);
-    for (uint k = ti.beg_row_; k < bcd_XY_sz; k++) {
-      BCD* bcd = bcd_XY_[k];
+    assert(ti.beg_row_ < sz_bcd_good);
+    for (uint k = ti.beg_row_; k < sz_bcd_good; k++) {
+      BCD* bcd = bcd_good_[k];
       if (not ti.eq(*bcd))
         continue;
       if (bcd->isA2F())
@@ -608,8 +610,8 @@ bool RapidCsvReader::createTiles() {
     assert(ti.loc_.valid());
     assert(ti.loc_.x_ >= 0);
     assert(ti.loc_.y_ >= 0);
-    assert(ti.beg_row_ < bcd_XY_sz);
-    ti.beg_row_ = bcd_XY_[ti.beg_row_]->row_;
+    assert(ti.beg_row_ < sz_bcd_good);
+    ti.beg_row_ = bcd_good_[ti.beg_row_]->row_;
     assert(ti.beg_row_ < num_rows);
   }
 
@@ -1012,8 +1014,8 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
 
   status_ok = createTiles();
   if (not status_ok) {
-    ls << '\n' << "[Error] status not OK" << endl;
-    std::cerr << "[Error] status not OK" << endl;
+    ls << '\n' << "[Error] createTiles() status not OK" << endl;
+    std::cerr << "[Error] createTiles() status not OK" << endl;
     return false;
   }
 

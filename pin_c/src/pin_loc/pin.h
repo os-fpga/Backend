@@ -61,6 +61,45 @@ struct Pin {
   }
 };
 
+//
+// struct DevPin - new return type for get_available_device_pin()
+//
+// DevPin replaces StringPair here:
+//  // get_available_ methods return pin_and_mode pair, empty strings on error
+//  StringPair get_available_device_pin(RapidCsvReader& csv,
+//                                      bool is_inp, const string& udesName,
+//                                      Pin*& ann_pin);
+//
+struct DevPin {
+  string device_pin_name_;
+  string mode_;
+  uint pt_row_ = UINT_MAX;
+
+  DevPin() noexcept = default;
+
+  DevPin(const string& dp, const string& m, uint r = UINT_MAX) noexcept
+    : device_pin_name_(dp), mode_(m), pt_row_(r)
+  {}
+
+  void set(const string& dp, const string& m, uint r = UINT_MAX) noexcept {
+    device_pin_name_ = dp;
+    mode_ = m;
+    pt_row_ = r;
+  }
+  void set_first(const string& dp) noexcept { device_pin_name_ = dp; }
+
+  const string& first() const noexcept { return device_pin_name_; }
+
+  void reset() noexcept {
+    device_pin_name_.clear();
+    mode_.clear();
+    pt_row_ = UINT_MAX;
+  }
+
+  bool empty() const noexcept { return device_pin_name_.empty(); }
+  bool valid_pt_row() const noexcept { return pt_row_ != UINT_MAX; }
+};
+
 }
 
 #endif
