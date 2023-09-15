@@ -40,9 +40,11 @@
 #include "arch_types.h"
 #include "echo_files.h"
 #include "hash.h"
+#ifdef ENABLE_VERIFIC
 #include "simple_netlist.h"
-#include "edif_blif.hpp"
 #include "veri_prune.h"
+#endif
+#include "edif_blif.hpp"
 
 bool isNestEncrypted = false;
 char* intf_mod_str = nullptr;

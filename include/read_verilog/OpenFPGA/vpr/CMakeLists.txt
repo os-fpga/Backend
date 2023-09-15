@@ -33,8 +33,6 @@ if (NOT RAPTOR)
 	add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
 endif()
 
-option(ENABLE_VERIFIC "Enable Verific" ON)
-
 set(VPR_EXECUTION_ENGINE "auto" CACHE STRING "Specify the framework for (potential) parallel execution")
 set_property(CACHE VPR_EXECUTION_ENGINE PROPERTY STRINGS auto serial tbb)
 
@@ -58,7 +56,7 @@ endif()
 
 
 if(ENABLE_VERIFIC)
-    add_compile_definitions(VPR_ENABLE_VERIFIC)
+    add_compile_definitions(ENABLE_VERIFIC)
 endif()
 
 #Handle graphics setup
@@ -126,6 +124,8 @@ target_include_directories(libvpr PUBLIC ${LIB_INCLUDE_DIRS})
 if(ENABLE_VERIFIC)
     target_include_directories(libvpr PUBLIC ${READ_VERILOG_SRC_DIR})
     target_include_directories(libvpr PUBLIC ${VERI_PRUNE_SRC_DIR})
+    set(read_verilog_lib libreadver)
+    set(veri_prune_lib libveriprune)
 endif()
 target_include_directories(libvpr PUBLIC ${READ_EDIF_SRC_DIR})
 
@@ -161,8 +161,8 @@ if (PRODUCTION_BUILD)
                             libargparse
                             libpugixml
                             librrgraph
-                            libreadver
-                            libveriprune
+                            ${read_verilog_lib}
+                            ${veri_prune_lib}
                             libreadedif
                             rs_licenseManager
                             ${OPENSSL_LIBRARIES}
@@ -178,8 +178,8 @@ else()
                             libargparse
                             libpugixml
                             librrgraph
-                            libreadver
-                            libveriprune
+                            ${read_verilog_lib}
+                            ${veri_prune_lib}
                             libreadedif
                             ${OPENSSL_LIBRARIES}
                              ${VERIFIC_LIBS})
