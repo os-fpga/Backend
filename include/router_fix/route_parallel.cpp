@@ -883,7 +883,7 @@ static NetResultFlags try_parallel_route_net(ConnectionRouter& router,
 
 /* Helper for route_partition_tree(). */
 template<typename ConnectionRouter>
-static route_partition_tree_helper(tbb::task_group& g,
+static void route_partition_tree_helper(tbb::task_group& g,
                                  PartitionTreeNode& node,
                                  RouteIterCtx<ConnectionRouter>& ctx,
                                  vtr::linear_map<ParentNetId, int>& nets_to_retry) {
