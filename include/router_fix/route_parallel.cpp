@@ -805,7 +805,7 @@ static bool try_parallel_route_tmpl(const Netlist<>& net_list,
  * The single-thread router just retries with a full-device BB and does not need to notify the caller.
  * TODO: make the serial router follow this execution path to decrease code duplication */
 template<typename ConnectionRouter>
-static try_parallel_route_net(ConnectionRouter& router,
+static NetResultFlags try_parallel_route_net(ConnectionRouter& router,
                                       const Netlist<>& net_list,
                                       const ParentNetId& net_id,
                                       int itry,
