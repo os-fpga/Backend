@@ -26,6 +26,7 @@ endif()
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
 set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
+set(ROUTER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/router_fix)
 # Enable Analytic Placer in VTR CMake
 set(VTR_CMAKE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/VTR_CMAKE_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
@@ -79,6 +80,10 @@ FILE(COPY ${MEM_FIX_SRC_DIR}/libvtrutil/vtr_ragged_matrix.h
 FILE(COPY ${MEM_FIX_SRC_DIR}/librrgraph/rr_graph_view.h
           DESTINATION
           ${MEM_FIX_DEST_DIR2})
+
+FILE(COPY ${ROUTER_SRC_DIR}/route_parallel.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/route)
 
 FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/cluster_util.cpp
