@@ -188,7 +188,7 @@ FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/base/
 )
-
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
 if(NOT RAPTOR)
   add_subdirectory("Raptor_Tools/graph_partition")
 endif()
