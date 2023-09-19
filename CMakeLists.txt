@@ -45,6 +45,8 @@ set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
 set(MEM_FIX_DEST_DIR1 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libvtrutil/src)
 set(MEM_FIX_DEST_DIR2 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base)
+set(EBLIF_TRANSFORM_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/src)
+set(EBLIF_TRANSFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform)
 
 # Version number
 file (STRINGS "VERSION.md" VERSION_NUMBER)
@@ -69,6 +71,11 @@ else()
   set(OPENFPGA_IPO_BUILD "off" CACHE STRING "Disable VTR/OpenFGPA IPO build - long linktime if on" FORCE)
   set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations? NO!")
 endif()
+
+FILE(COPY ${EBLIF_TRANSFORM_SRC}/blifparse.cpp
+          ${EBLIF_TRANSFORM_SRC}/transform_blif.h
+          DESTINATION
+          ${EBLIF_TRANSFORM_DEST})
 
 FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
           DESTINATION
@@ -181,7 +188,7 @@ FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/base/
 )
-
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
 if(NOT RAPTOR)
   add_subdirectory("Raptor_Tools/graph_partition")
 endif()
