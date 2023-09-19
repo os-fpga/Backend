@@ -196,6 +196,19 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t) {
 }
 void RapidCsvReader::Tile::dump() const { lout() << *this << endl; }
 
+string RapidCsvReader::Tile::key1() const noexcept {
+  string k = loc_.toString();
+  k.push_back(' ');
+  k += colB_;
+  return k;
+}
+string RapidCsvReader::Tile::key2() const noexcept {
+  string k = key1();
+  k += " #";
+  k += std::to_string(id_);
+  return k;
+}
+
 // returns spreadsheet column label ("A", "B", "BC", etc) for column index 'i'
 static inline string label_column(int i) noexcept {
   assert(i >= 0 && i < 1000);
@@ -638,7 +651,7 @@ Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
     assert(ti.loc_.valid());
     assert(ti.loc_.x_ >= 0);
     assert(ti.loc_.y_ >= 0);
-    if (ti.num_used_)
+    if (ti.num_used_ or except.count(i))
       continue;
     if (input_dir) {
       if (ti.a2f_sites_.size()) {
