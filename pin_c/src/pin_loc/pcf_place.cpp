@@ -552,7 +552,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
       goto ret;
     }
     if (tr >= 4) {
-      ls << "  got i-tile " << tile->loc_ << "  #" << tile->id_ << endl;
+      ls << "  got i-tile " << tile->key2() << endl;
       if (tr >= 6) tile->dump();
     }
     assert(tile->not_used());
@@ -602,7 +602,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
     }
     // not found => try another tile
     if (tr >= 4)
-      lprintf("  not found => disabling tile #%u\n", tile->id_);
+      lprintf("  not found => disabling tile %s\n", tile->key2().c_str());
     except.insert(tile->id_);
   } // iteration
 
@@ -670,7 +670,7 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
       goto ret;
     }
     if (tr >= 4) {
-      ls << "  got o-tile " << tile->loc_ << "  #" << tile->id_ << endl;
+      ls << "  got o-tile " << tile->key2() << endl;
       if (tr >= 6) tile->dump();
     }
     assert(tile->not_used());
@@ -720,7 +720,7 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
     }
     // not found => try another tile
     if (tr >= 4)
-      lprintf("  not found => disabling tile #%u\n", tile->id_);
+      lprintf("  not found => disabling tile %s\n", tile->key2().c_str());
     except.insert(tile->id_);
   } // iteration
 

@@ -162,6 +162,9 @@ public:
     void incr_used() noexcept { num_used_++; }
     bool not_used() const noexcept { return num_used_ == 0; }
 
+    string key1() const noexcept;
+    string key2() const noexcept;
+
     void dump() const;
   }; // Tile
 
