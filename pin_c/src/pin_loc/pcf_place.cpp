@@ -134,6 +134,16 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
 #endif // NDEBUG
 }
 
+void PinPlacer::printTileUsage(const RapidCsvReader& csv) const {
+  uint16_t tr = ltrace();
+  auto& ls = lout();
+  if (tr >= 9) lputs("\nPinPlacer::printTileUsage()");
+
+  ls << "  used_bump_pins_.size()= " << used_bump_pins_.size()
+     << "  used_XYs_.size()= " << used_XYs_.size()
+     << "  used_tiles_.size()= " << used_tiles_.size() << endl;
+}
+
 bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
   uint16_t tr = ltrace();
   auto& ls = lout();
@@ -297,6 +307,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       return false;
     }
+
     if (!csv.has_io_pin(device_pin_name)) {
       CERROR << err_lookup("CONSTRAINED_PIN_NOT_FOUND") << ": <"
              << device_pin_name << ">" << endl;
@@ -307,8 +318,11 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
       return false;
     }
 
-    // look for coordinates and write constrain
+    const char* direction = "INPUT";
+
+    // lookup and write XYZ for 'udes_pin_name'
     if (is_out_pin) {
+      direction = "OUTPUT";
       out_file << "out:";
       if (tr >= 4) ls << "out:";
     }
@@ -332,12 +346,30 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
       }
     }
     else {
-      xyz = csv.get_pin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+      if (is_out_pin) {
+        xyz = csv.get_opin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+        if (tr >= 6) {
+          if (xyz.valid())
+            lprintf("    get_opin_xyz annotated pt_row= %u\n", pt_row);
+          else
+            lputs("\n    get_opin_xyz FAILED");
+        }
+      } else {
+        xyz = csv.get_ipin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+        if (tr >= 6) {
+          if (xyz.valid())
+            lprintf("    get_ipin_xyz annotated pt_row= %u\n", pt_row);
+          else
+            lputs("\n    get_ipin_xyz FAILED");
+        }
+      }
     }
 
     if (!xyz.valid()) {
-      CERROR << " PRE-ASSERT: no valid coordinates" << endl;
-      lputs("\n [Error] (ERROR) PRE-ASSERT");
+      CERROR << "\n [Error] PRE-ASSERT: no valid coordinates for "
+             << direction << " pin: " << udes_pin_name << endl;
+      lputs("\n [Error] PRE-ASSERT");
+      lprintf("   user_design_pin_name:  %s\n", udes_pin_name.c_str());
       lprintf("   mode %s  device_pin_name %s   gbox_pin_name %s\n",
               mode.c_str(), device_pin_name.c_str(), gbox_pin_name.c_str());
       lputs();
@@ -540,7 +572,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
   RapidCsvReader::BCD* site = nullptr;
   std::bitset<Pin::MAX_PT_COLS> modes;
   uint num_cols = csv.numCols();
-  std::unordered_set<uint> except;
+  std::unordered_set<uint> except{used_tiles_};
 
   uint iteration = 1;
   for (; iteration <= 100; iteration++) {
@@ -548,7 +580,11 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
       lprintf("  start iteration %u\n", iteration);
     RapidCsvReader::Tile* tile = csv.getUnusedTile(true, except);
     if (!tile) {
-      if (tr >= 3) lputs("  no i-tile");
+      if (tr >= 3) {
+        lputs("  no i-tile");
+        if (tr >= 5)
+          printTileUsage(csv);
+      }
       goto ret;
     }
     if (tr >= 4) {
@@ -574,6 +610,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
         ann_pin = site->annotatePin(udesName, site->bump_, true);
         used_bump_pins_.insert(site->bump_);
         used_XYs_.insert(site->xy());
+        used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==1==RX GABI used_bump_pins_.insert( %s )  row_= %u\n",
               site->bump_.c_str(), site->row_);
@@ -592,6 +629,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
         ann_pin = site->annotatePin(udesName, site->bump_, true);
         used_bump_pins_.insert(site->bump_);
         used_XYs_.insert(site->xy());
+        used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==2==GPIO_rx GABI used_bump_pins_.insert( %s )  row_= %u\n",
               site->bump_.c_str(), site->row_);
@@ -658,7 +696,7 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
   RapidCsvReader::BCD* site = nullptr;
   std::bitset<Pin::MAX_PT_COLS> modes;
   uint num_cols = csv.numCols();
-  std::unordered_set<uint> except;
+  std::unordered_set<uint> except{used_tiles_};
 
   uint iteration = 1;
   for (; iteration <= 100; iteration++) {
@@ -666,7 +704,11 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
       lprintf("  start iteration %u\n", iteration);
     RapidCsvReader::Tile* tile = csv.getUnusedTile(false, except);
     if (!tile) {
-      if (tr >= 3) lputs("  no o-tile");
+      if (tr >= 3) {
+        lputs("  no o-tile");
+        if (tr >= 5)
+          printTileUsage(csv);
+      }
       goto ret;
     }
     if (tr >= 4) {
@@ -692,6 +734,7 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
         ann_pin = site->annotatePin(udesName, site->bump_, false);
         used_bump_pins_.insert(site->bump_);
         used_XYs_.insert(site->xy());
+        used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==1==TX GABO used_bump_pins_.insert( %s )  row_= %u\n",
               site->bump_.c_str(), site->row_);
@@ -710,6 +753,7 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
         ann_pin = site->annotatePin(udesName, site->bump_, false);
         used_bump_pins_.insert(site->bump_);
         used_XYs_.insert(site->xy());
+        used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==2==GPIO_tx GABO used_bump_pins_.insert( %s )  row_= %u\n",
               site->bump_.c_str(), site->row_);
@@ -771,6 +815,10 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     lprintf("\ncreate_temp_pcf() : %s\n", temp_pcf_name_.c_str());
     lprintf("  uniq_by_xy_ : %s\n", uniq_by_xy_ ? "TRUE" : "FALSE");
   }
+
+  used_bump_pins_.clear();
+  used_XYs_.clear();
+  used_tiles_.clear();
 
   // state for get_available_device_pin:
   no_more_inp_bumps_ = false;

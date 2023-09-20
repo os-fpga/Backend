@@ -9,6 +9,7 @@
 #define __rs_PinPlacer_fa337e863b11ab_H_
 
 #include <set>
+#include <unordered_set>
 
 #include "util/cmd_line.h"
 #include "pin_loc/pinc_main.h"
@@ -35,8 +36,9 @@ class PinPlacer {
 
   vector<vector<string>> pcf_pin_cmds_;
 
-  std::set<string> used_bump_pins_; // old uniqueness
-  std::set<XY>     used_XYs_;       // new uniqueness
+  std::set<string> used_bump_pins_;
+  std::set<XY>     used_XYs_;
+  std::unordered_set<uint> used_tiles_;
 
   vector<Pin>  placed_inputs_, placed_outputs_;  // for debug stats
 
@@ -90,6 +92,7 @@ public:
   bool reader_and_writer();
 
   void print_stats(const RapidCsvReader& csv) const;
+  void printTileUsage(const RapidCsvReader& csv) const;
 
   size_t num_placed_pins() const noexcept {
     return placed_inputs_.size() + placed_outputs_.size();

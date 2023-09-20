@@ -185,10 +185,17 @@ public:
   uint print_bcd(std::ostream& os) const noexcept;
   uint print_axi_bcd(std::ostream& os) const noexcept;
 
-  // data query
-  XYZ get_pin_xyz_by_name(const string& mode,
-                          const string& customerPin_or_ID,
-                          const string& gbox_pin_name, uint& pt_row) const noexcept;
+  // input-pin
+  XYZ get_ipin_xyz_by_name(const string& mode,
+                           const string& customerPin_or_ID,
+                           const string& gbox_pin_name,
+                           uint& pt_row) const noexcept;
+
+  // output-pin
+  XYZ get_opin_xyz_by_name(const string& mode,
+                           const string& customerPin_or_ID,
+                           const string& gbox_pin_name,
+                           uint& pt_row) const noexcept;
 
   XYZ get_axi_xyz_by_name(const string& axi_name, uint& pt_row) const noexcept;
 
