@@ -468,7 +468,6 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
     const string& col_M = bcd.col_M_;
     if (col_M.empty())
       continue;
-    // lputs9();
     const char* cm = col_M.c_str();
     if (tr >= 8)
       lprintf("  row#%u  col_M_  %s\n", r, cm);
@@ -593,12 +592,11 @@ bool RapidCsvReader::createTiles() {
     }
   }
 
-  if (tr >= 5) {
-    lprintf("createTiles:  tiles_.size()= %zu\n", tiles_.size());
-  }
+  sz = tiles_.size();
+  if (tr >= 5)
+    lprintf("createTiles:  tiles_.size()= %u\n", sz);
 
   // 4. index and populate tiles
-  sz = tiles_.size();
   if (sz < 2)
     return false;
   for (uint i = 0; i < sz; i++) {
@@ -634,6 +632,8 @@ bool RapidCsvReader::createTiles() {
       ls << ti << endl;
     }
   }
+  if (tr >= 4)
+    lprintf("created Tiles:  tiles_.size()= %u\n", sz);
 
   return true;
 }
@@ -1049,7 +1049,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
         ls << "___ new BCD order ___" << endl;
         print_bcd(ls);
       }
-      lputs9();
+      lputs();
     }
   }
 
@@ -1217,10 +1217,10 @@ uint RapidCsvReader::getModeCol(const string& mode) const noexcept {
   return modeCol;
 }
 
-XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
-                                        const string& customerPin_or_ID,
-                                        const string& gbox_pin_name,
-                                        uint& pt_row) const noexcept {
+XYZ RapidCsvReader::get_ipin_xyz_by_name(const string& mode,
+                                         const string& customerPin_or_ID,
+                                         const string& gbox_pin_name,
+                                         uint& pt_row) const noexcept {
   pt_row = 0;
 
   // 1. if customerPin_or_ID is an AXI-pin, then skip the mode="Y" check
@@ -1239,23 +1239,109 @@ XYZ RapidCsvReader::get_pin_xyz_by_name(const string& mode,
   uint num_rows = numRows();
   assert(num_rows > 1);
 
-  // 3.
+  // 3. try without GPIO
   for (uint i = 0; i < num_rows; i++) {
     const BCD& bcd = *bcd_[i];
+    if (not bcd.isInput())
+      continue;
     uint realRow = bcd.row_;
     assert(realRow == i);
     if (!bcd.match(customerPin_or_ID))
       continue;
-    if (not bcd.modes_[modeCol])
+    if (!bcd.modes_[modeCol])
       continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
       result = bcd.xyz_;
       pt_row = realRow;
       assert(result.valid());
-      break;
+      goto ret;
     }
   }
 
+  // 4. try with GPIO
+  for (uint i = 0; i < num_rows; i++) {
+    const BCD& bcd = *bcd_[i];
+    if (not bcd.isInput())
+      continue;
+    uint realRow = bcd.row_;
+    assert(realRow == i);
+    if (!bcd.match(customerPin_or_ID))
+      continue;
+    if (!bcd.modes_[modeCol] && !bcd.numGpioModes())
+      continue;
+    if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
+      result = bcd.xyz_;
+      pt_row = realRow;
+      assert(result.valid());
+      goto ret;
+    }
+  }
+
+ret:
+  return result;
+}
+
+XYZ RapidCsvReader::get_opin_xyz_by_name(const string& mode,
+                                         const string& customerPin_or_ID,
+                                         const string& gbox_pin_name,
+                                         uint& pt_row) const noexcept {
+  pt_row = 0;
+
+  // 1. if customerPin_or_ID is an AXI-pin, then skip the mode="Y" check
+  XYZ result = get_axi_xyz_by_name(customerPin_or_ID, pt_row);
+  if (result.valid()) return result;
+
+  assert(mode.length() > 1);
+  if (mode.length() <= 1)
+    return result;
+
+  // 2.
+  uint modeCol = getModeCol(mode);
+  if (!modeCol)
+    return result; // 'mode' not found
+
+  uint num_rows = numRows();
+  assert(num_rows > 1);
+
+  // 3. try without GPIO
+  for (uint i = 0; i < num_rows; i++) {
+    const BCD& bcd = *bcd_[i];
+    if (bcd.isInput())
+      continue;
+    uint realRow = bcd.row_;
+    assert(realRow == i);
+    if (!bcd.match(customerPin_or_ID))
+      continue;
+    if (!bcd.modes_[modeCol])
+      continue;
+    if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
+      result = bcd.xyz_;
+      pt_row = realRow;
+      assert(result.valid());
+      goto ret;
+    }
+  }
+
+  // 4. try with GPIO
+  for (uint i = 0; i < num_rows; i++) {
+    const BCD& bcd = *bcd_[i];
+    if (bcd.isInput())
+      continue;
+    uint realRow = bcd.row_;
+    assert(realRow == i);
+    if (!bcd.match(customerPin_or_ID))
+      continue;
+    if (!bcd.modes_[modeCol] && !bcd.numGpioModes())
+      continue;
+    if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
+      result = bcd.xyz_;
+      pt_row = realRow;
+      assert(result.valid());
+      goto ret;
+    }
+  }
+
+ret:
   return result;
 }
 
