@@ -46,8 +46,10 @@ class PinPlacer {
 
   bool pin_assign_def_order_ = true;
 
-  bool uniq_by_xy_ = true; // new mode of device pin uniqueness check
-                           // for old mode: getenv("pinc_old_uniqueness_by_bump_name")
+  bool auto_pcf_created_ = false;
+
+  // bool uniq_by_xy_ = true; // new mode of device pin uniqueness check
+  //                         // for old mode: getenv("pinc_old_uniqueness_by_bump_name")
 
 public:
   enum class PortDir : uint8_t {

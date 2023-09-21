@@ -1277,6 +1277,21 @@ XYZ RapidCsvReader::get_ipin_xyz_by_name(const string& mode,
     }
   }
 
+  // 5. if failed, annotate a partially matching pt_row for debugging:
+  if (!result.valid()) {
+    for (uint i = 0; i < num_rows; i++) {
+      const BCD& bcd = *bcd_[i];
+      if (not bcd.isInput())
+        continue;
+      if (!bcd.match(customerPin_or_ID))
+        continue;
+      if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
+        pt_row = i;
+        break;
+      }
+    }
+  }
+
 ret:
   return result;
 }
@@ -1338,6 +1353,21 @@ XYZ RapidCsvReader::get_opin_xyz_by_name(const string& mode,
       pt_row = realRow;
       assert(result.valid());
       goto ret;
+    }
+  }
+
+  // 5. if failed, annotate a partially matching pt_row for debugging:
+  if (!result.valid()) {
+    for (uint i = 0; i < num_rows; i++) {
+      const BCD& bcd = *bcd_[i];
+      if (bcd.isInput())
+        continue;
+      if (!bcd.match(customerPin_or_ID))
+        continue;
+      if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
+        pt_row = i;
+        break;
+      }
     }
   }
 

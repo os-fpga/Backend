@@ -366,18 +366,21 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     }
 
     if (!xyz.valid()) {
-      CERROR << "\n [Error] PRE-ASSERT: no valid coordinates for "
-             << direction << " pin: " << udes_pin_name << endl;
-      lputs("\n [Error] PRE-ASSERT");
-      lprintf("   user_design_pin_name:  %s\n", udes_pin_name.c_str());
-      lprintf("   mode %s  device_pin_name %s   gbox_pin_name %s\n",
-              mode.c_str(), device_pin_name.c_str(), gbox_pin_name.c_str());
       lputs();
-    }
-    assert(xyz.valid());
-    if (!xyz.valid()) {
+      CERROR << "\n   no valid coordinates for "
+             << direction << " pin: " << udes_pin_name << endl;
+      lputs("\n[Error]");
+      lprintf("   user_design_pin_name:  %s\n", udes_pin_name.c_str());
+      lprintf("   mode %s  device_pin_name %s   gbox_pin_name %s\n\n",
+              mode.c_str(), device_pin_name.c_str(), gbox_pin_name.c_str());
+      lprintf("   related %s pcf command:\n", auto_pcf_created_ ? "auto" : "user");
+      logVec(pcf_cmd, "     ");
+      lputs();
+      lprintf("   related pin table row: %u\n", pt_row > 0 ? pt_row + 2 : pt_row);
+      lputs();
       return false;
     }
+
     const RapidCsvReader::BCD& bcd = csv.getBCD(pt_row);
 
     if (pt_row < min_pt_row_)
@@ -803,6 +806,7 @@ ret:
 
 // create a temporary pcf file and internally pass it to params
 bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
+  auto_pcf_created_ = false;
   clear_err_code();
   string key = "--pcf";
   temp_pcf_name_ = std::to_string(fio::get_PID()) + ".temp_pcf.pcf";
@@ -813,7 +817,6 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
   uint16_t tr = ltrace();
   if (tr >= 3) {
     lprintf("\ncreate_temp_pcf() : %s\n", temp_pcf_name_.c_str());
-    lprintf("  uniq_by_xy_ : %s\n", uniq_by_xy_ ? "TRUE" : "FALSE");
   }
 
   used_bump_pins_.clear();
@@ -1003,6 +1006,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     }
   }
 
+  auto_pcf_created_ = true;
   return true;
 }
 
