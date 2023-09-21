@@ -107,12 +107,7 @@ static string USAGE_MSG_2 =
 PinPlacer::PinPlacer(const cmd_line& cl)
  : cl_(cl) {
   pin_assign_def_order_ = true;
-
-  uniq_by_xy_ = true;
-  if (::getenv("pinc_old_uniqueness_by_bump_name")) {
-    uniq_by_xy_ = false;
-  }
-
+  auto_pcf_created_ = false;
   min_pt_row_ = UINT_MAX;
   max_pt_row_ = 0;
 }
