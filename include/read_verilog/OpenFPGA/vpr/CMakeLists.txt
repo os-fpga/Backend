@@ -14,24 +14,22 @@ if (PRODUCTION_BUILD)
     message("FLEX: "  ${FLEX_LM_SRC_DIR})
 endif(PRODUCTION_BUILD)
 
-option(ENABLE_VERIFIC "Enable Verific frontend" OFF)
-
 if (NOT RAPTOR)
-    if(ENABLE_VERIFIC)
-        get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-        add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
-        get_filename_component(VERI_PRUNE_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/veri_prune"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-        add_subdirectory(${VERI_PRUNE_SRC_DIR} veri_prune)
-        get_filename_component(VERIFIC_HOME "../../../Raptor_Tools/verific_rs/"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-        add_subdirectory(${VERIFIC_HOME} verific_rs)
-    endif()
+    get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+    get_filename_component(VERI_PRUNE_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/veri_prune"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+    get_filename_component(VERIFIC_HOME "../../../Raptor_Tools/verific_rs/"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
     get_filename_component(READ_EDIF_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_edif"
     REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+	add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
+    add_subdirectory(${VERI_PRUNE_SRC_DIR} veri_prune)
 	add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
+    add_subdirectory(${VERIFIC_HOME} verific_rs)
 endif()
+
+option(ENABLE_VERIFIC "Enable Verific" ON)
 
 set(VPR_EXECUTION_ENGINE "auto" CACHE STRING "Specify the framework for (potential) parallel execution")
 set_property(CACHE VPR_EXECUTION_ENGINE PROPERTY STRINGS auto serial tbb)
@@ -56,7 +54,7 @@ endif()
 
 
 if(ENABLE_VERIFIC)
-    add_compile_definitions(ENABLE_VERIFIC)
+    add_compile_definitions(VPR_ENABLE_VERIFIC)
 endif()
 
 #Handle graphics setup
@@ -88,24 +86,21 @@ include(CheckCXXSymbolExists)
 file(GLOB_RECURSE EXEC_SOURCES src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
-
-if(ENABLE_VERIFIC)
-    list(APPEND VERIFIC_LIBS
-        ${VERIFIC_HOME}/verilog/verilog-linux.a
-        ${VERIFIC_HOME}/database/database-linux.a
-        ${VERIFIC_HOME}/util/util-linux.a
-        ${VERIFIC_HOME}/containers/containers-linux.a
-        ${VERIFIC_HOME}/hier_tree/hier_tree-linux.a
-        ${VERIFIC_HOME}/vhdl/vhdl-linux.a
-        ${VERIFIC_HOME}/hdl_encrypt/hdl_encrypt-linux.a
-    )
-    list (APPEND LIB_HEADERS ${VERIFIC_HOME}/hdl_encrypt/hdl_encrypt.h)
-    list (APPEND LIB_HEADERS ${VERIFIC_HOME}/verilog/veri_file.h)
-    list (APPEND LIB_HEADERS ${VERIFIC_HOME}/util/Protect.h)
-    list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/ieee_1735.h)
-    list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/simple_netlist.h)
-    list (APPEND LIB_HEADERS ${VERI_PRUNE_SRC_DIR}/src/veri_prune/veri_prune.h)
-endif()
+list(APPEND VERIFIC_LIBS
+    ${VERIFIC_HOME}/verilog/verilog-linux.a
+    ${VERIFIC_HOME}/database/database-linux.a
+    ${VERIFIC_HOME}/util/util-linux.a
+    ${VERIFIC_HOME}/containers/containers-linux.a
+    ${VERIFIC_HOME}/hier_tree/hier_tree-linux.a
+    ${VERIFIC_HOME}/vhdl/vhdl-linux.a
+    ${VERIFIC_HOME}/hdl_encrypt/hdl_encrypt-linux.a
+)
+list (APPEND LIB_HEADERS ${VERIFIC_HOME}/hdl_encrypt/hdl_encrypt.h)
+list (APPEND LIB_HEADERS ${VERIFIC_HOME}/verilog/veri_file.h)
+list (APPEND LIB_HEADERS ${VERIFIC_HOME}/util/Protect.h)
+list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/ieee_1735.h)
+list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/simple_netlist.h)
+list (APPEND LIB_HEADERS ${VERI_PRUNE_SRC_DIR}/src/veri_prune/veri_prune.h)
 list (APPEND LIB_HEADERS ${READ_EDIF_SRC_DIR}/src/edif_blif.hpp)
 files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
 
@@ -121,12 +116,8 @@ add_library(libvpr STATIC
 
 
 target_include_directories(libvpr PUBLIC ${LIB_INCLUDE_DIRS})
-if(ENABLE_VERIFIC)
-    target_include_directories(libvpr PUBLIC ${READ_VERILOG_SRC_DIR})
-    target_include_directories(libvpr PUBLIC ${VERI_PRUNE_SRC_DIR})
-    set(read_verilog_lib libreadver)
-    set(veri_prune_lib libveriprune)
-endif()
+target_include_directories(libvpr PUBLIC ${READ_VERILOG_SRC_DIR})
+target_include_directories(libvpr PUBLIC ${VERI_PRUNE_SRC_DIR})
 target_include_directories(libvpr PUBLIC ${READ_EDIF_SRC_DIR})
 
 #VPR_ANALYTIC_PLACE is inisitalized in the root CMakeLists
@@ -161,8 +152,8 @@ if (PRODUCTION_BUILD)
                             libargparse
                             libpugixml
                             librrgraph
-                            ${read_verilog_lib}
-                            ${veri_prune_lib}
+                            libreadver
+                            libveriprune
                             libreadedif
                             rs_licenseManager
                             ${OPENSSL_LIBRARIES}
@@ -178,8 +169,8 @@ else()
                             libargparse
                             libpugixml
                             librrgraph
-                            ${read_verilog_lib}
-                            ${veri_prune_lib}
+                            libreadver
+                            libveriprune
                             libreadedif
                             ${OPENSSL_LIBRARIES}
                              ${VERIFIC_LIBS})
