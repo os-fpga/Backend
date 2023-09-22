@@ -47,6 +47,14 @@ void blif_parse_filename(const char* filename, Callback& callback) {
     // Call transform function
     tranformer.rs_transform_eblif(fstr, ss);
     std::string data = ss.str();
+    const char* value = std::getenv("PRINT_TRANSFORMED_EBLIF_FILE");
+    if (value) {
+        std::cout << "PRINT_TRANSFORMED_EBLIF_FILE: " << value << std::endl;
+        std::fstream inner_ofs(value, std::ios::out);
+        inner_ofs << data;
+        inner_ofs.close();
+    }
+
     FILE* infile = fmemopen((void*)data.c_str(), data.size(), "r");
 
     if (infile != NULL) {
