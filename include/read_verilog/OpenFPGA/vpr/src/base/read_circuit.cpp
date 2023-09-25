@@ -68,8 +68,14 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
                 netlist = read_blif(circuit_format, circuit_file, user_models, library_models);
                 break;
             case e_circuit_format::VERILOG:
+            #ifdef ENABLE_VERIFIC
                 circuit_format = e_circuit_format::EBLIF;
                 netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models, vpr_setup, top_mod);
+            #else
+                VPR_FATAL_ERROR(VPR_ERROR_ATOM_NETLIST,
+                                "Unable to identify circuit file format for '%s'. Expect [blif|eblif|fpga-interchange]! as verilog support is disabled\n",
+                                circuit_file);
+            #endif
                 break;
             case e_circuit_format::EDIF:
                 circuit_format = e_circuit_format::EDIF;

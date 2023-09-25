@@ -26,13 +26,16 @@ if (PRODUCTION_BUILD)
 endif(PRODUCTION_BUILD)
 
 if (NOT RAPTOR)
-    get_filename_component(READ_VERILOG_SRC_DIR "../Raptor_Tools/gatelevel_readers/read_verilog"
-    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+    if(ENABLE_VERIFIC)
+        get_filename_component(READ_VERILOG_SRC_DIR "../Raptor_Tools/gatelevel_readers/read_verilog"
+        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+        include_directories(PUBLIC ${READ_VERILOG_SRC_DIR})
+        set(read_verilog_lib libreadver)
+    endif()
     get_filename_component(READ_EDIF_SRC_DIR "../Raptor_Tools/gatelevel_readers/read_edif"
     REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
 endif()
 
-include_directories(PUBLIC ${READ_VERILOG_SRC_DIR})
 include_directories(PUBLIC ${READ_EDIF_SRC_DIR})
 include_directories(PUBLIC ${FLEX_LM_SRC_DIR}
                         ${FLEX_LM_SRC_DIR}/machind)
@@ -97,7 +100,7 @@ if(PRODUCTION_BUILD)
                                        vprst_static
                                        libvtrutil
                                        libpugixml
-                                       libreadver
+                                       ${read_verilog_lib}
                                        libreadedif
                                        rs_licenseManager
                                        ${OPENSSL_LIBRARIES})
@@ -107,7 +110,7 @@ else()
                                        vprst_static
                                        libvtrutil
                                        libpugixml
-                                       libreadver
+                                       ${read_verilog_lib}
                                        libreadedif
                                        ${OPENSSL_LIBRARIES})
 endif()

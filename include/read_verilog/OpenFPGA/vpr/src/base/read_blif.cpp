@@ -40,9 +40,12 @@
 #include "arch_types.h"
 #include "echo_files.h"
 #include "hash.h"
+#ifdef ENABLE_VERIFIC
 #include "simple_netlist.h"
-#include "edif_blif.hpp"
 #include "veri_prune.h"
+#endif
+#include "edif_blif.hpp"
+
 
 bool isNestEncrypted = false;
 char* intf_mod_str = nullptr;
@@ -774,6 +777,7 @@ AtomNetlist read_blif(e_circuit_format circuit_format,
 
     return netlist;
 }
+#ifdef ENABLE_VERIFIC
 AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
                                   const char *blif_file,
                                   const t_model *user_models,
@@ -862,7 +866,7 @@ AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
 
     return netlist;
 }
-
+#endif
 AtomNetlist read_blif_from_edif(e_circuit_format circuit_format,
                                   const char *blif_file,
                                   const t_model *user_models,
