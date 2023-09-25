@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <unordered_set>
 #include <bitset>
 
@@ -189,12 +190,14 @@ public:
   XYZ get_ipin_xyz_by_name(const string& mode,
                            const string& customerPin_or_ID,
                            const string& gbox_pin_name,
+                           const std::set<XYZ>& except,
                            uint& pt_row) const noexcept;
 
   // output-pin
   XYZ get_opin_xyz_by_name(const string& mode,
                            const string& customerPin_or_ID,
                            const string& gbox_pin_name,
+                           const std::set<XYZ>& except,
                            uint& pt_row) const noexcept;
 
   XYZ get_axi_xyz_by_name(const string& axi_name, uint& pt_row) const noexcept;

@@ -38,6 +38,8 @@ class PinPlacer {
 
   std::set<string> used_bump_pins_;
   std::set<XY>     used_XYs_;
+  std::set<XYZ>    used_oxyz_; // used output XYZ
+  std::set<XYZ>    used_ixyz_; // used input XYZ
   std::unordered_set<uint> used_tiles_;
 
   vector<Pin>  placed_inputs_, placed_outputs_;  // for debug stats

@@ -170,6 +170,13 @@ inline string concat(const char* a, const char* b, const string& c, const string
   return z;
 }
 
+inline const char* trimFront(const char* z) noexcept {
+  if (z && *z) {
+    while (std::isspace(*z)) z++;
+  }
+  return z;
+}
+
 }  // NS str
 
 template <typename T>
