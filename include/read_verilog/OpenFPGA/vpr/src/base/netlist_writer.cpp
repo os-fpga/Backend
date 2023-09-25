@@ -30,8 +30,8 @@
 #include "atom_netlist.h"
 #include "atom_netlist_utils.h"
 #include "logic_vec.h"
+#ifdef ENABLE_VERIFIC
 #include "veri_prune.h"
-#ifdef VPR_ENABLE_VERIFIC
 #include "ieee_1735.h"
 #include "hdl_encrypt.h"
 #include "VerificStream.h"
