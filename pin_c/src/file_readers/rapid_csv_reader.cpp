@@ -1220,6 +1220,7 @@ uint RapidCsvReader::getModeCol(const string& mode) const noexcept {
 XYZ RapidCsvReader::get_ipin_xyz_by_name(const string& mode,
                                          const string& customerPin_or_ID,
                                          const string& gbox_pin_name,
+                                         const std::set<XYZ>& except,
                                          uint& pt_row) const noexcept {
   pt_row = 0;
 
@@ -1251,10 +1252,12 @@ XYZ RapidCsvReader::get_ipin_xyz_by_name(const string& mode,
     if (!bcd.modes_[modeCol])
       continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
-      result = bcd.xyz_;
-      pt_row = realRow;
-      assert(result.valid());
-      goto ret;
+      if (not except.count(bcd.xyz_)) {
+        result = bcd.xyz_;
+        pt_row = realRow;
+        assert(result.valid());
+        goto ret;
+      }
     }
   }
 
@@ -1270,10 +1273,12 @@ XYZ RapidCsvReader::get_ipin_xyz_by_name(const string& mode,
     if (!bcd.modes_[modeCol] && !bcd.numGpioModes())
       continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
-      result = bcd.xyz_;
-      pt_row = realRow;
-      assert(result.valid());
-      goto ret;
+      if (not except.count(bcd.xyz_)) {
+        result = bcd.xyz_;
+        pt_row = realRow;
+        assert(result.valid());
+        goto ret;
+      }
     }
   }
 
@@ -1299,6 +1304,7 @@ ret:
 XYZ RapidCsvReader::get_opin_xyz_by_name(const string& mode,
                                          const string& customerPin_or_ID,
                                          const string& gbox_pin_name,
+                                         const std::set<XYZ>& except,
                                          uint& pt_row) const noexcept {
   pt_row = 0;
 
@@ -1330,10 +1336,12 @@ XYZ RapidCsvReader::get_opin_xyz_by_name(const string& mode,
     if (!bcd.modes_[modeCol])
       continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
-      result = bcd.xyz_;
-      pt_row = realRow;
-      assert(result.valid());
-      goto ret;
+      if (not except.count(bcd.xyz_)) {
+        result = bcd.xyz_;
+        pt_row = realRow;
+        assert(result.valid());
+        goto ret;
+      }
     }
   }
 
@@ -1349,10 +1357,12 @@ XYZ RapidCsvReader::get_opin_xyz_by_name(const string& mode,
     if (!bcd.modes_[modeCol] && !bcd.numGpioModes())
       continue;
     if (gbox_pin_name.empty() || bcd.fullchipName_ == gbox_pin_name) {
-      result = bcd.xyz_;
-      pt_row = realRow;
-      assert(result.valid());
-      goto ret;
+      if (not except.count(bcd.xyz_)) {
+        result = bcd.xyz_;
+        pt_row = realRow;
+        assert(result.valid());
+        goto ret;
+      }
     }
   }
 

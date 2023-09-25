@@ -347,7 +347,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     }
     else {
       if (is_out_pin) {
-        xyz = csv.get_opin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+        xyz = csv.get_opin_xyz_by_name(mode, device_pin_name, gbox_pin_name,
+                                       used_oxyz_, pt_row);
         if (tr >= 6) {
           if (xyz.valid())
             lprintf("    get_opin_xyz annotated pt_row= %u\n", pt_row);
@@ -355,7 +356,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
             lputs("\n    get_opin_xyz FAILED");
         }
       } else {
-        xyz = csv.get_ipin_xyz_by_name(mode, device_pin_name, gbox_pin_name, pt_row);
+        xyz = csv.get_ipin_xyz_by_name(mode, device_pin_name, gbox_pin_name,
+                                       used_ixyz_, pt_row);
         if (tr >= 6) {
           if (xyz.valid())
             lprintf("    get_ipin_xyz annotated pt_row= %u\n", pt_row);
@@ -380,6 +382,11 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
       lputs();
       return false;
     }
+
+    if (is_out_pin)
+      used_oxyz_.insert(xyz);
+    else
+      used_ixyz_.insert(xyz);
 
     const RapidCsvReader::BCD& bcd = csv.getBCD(pt_row);
 

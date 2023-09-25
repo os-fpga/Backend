@@ -29,15 +29,11 @@ bool PcfReader::read_pcf(const string& f) {
   int row_num = -1;
 
   while (std::getline(infile, line)) {
-    if (line.empty()) continue;
-    bool all_spaces = true;
-    for (char c : line) {
-      if (!std::isspace(c)) {
-        all_spaces = false;
-        break;
-      }
-    }
-    if (all_spaces) continue;
+    if (line.length() < 2) continue;
+    const char* cline = str::trimFront(line.c_str());
+    if (!cline || !*cline) continue;
+    if (::strlen(cline) < 2) continue;
+    if (cline[0] == '#') continue;
 
     dat.clear();
     row_str.clear();
