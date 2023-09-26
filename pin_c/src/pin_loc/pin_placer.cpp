@@ -311,9 +311,7 @@ bool PinPlacer::reader_and_writer() {
   if (tr >= 2) {
     ls << endl;
     ls << "pin_c done: reader_and_writer() done successfully" << endl;
-    if (tr >= 3) {
-      print_stats(csv_rd);
-    }
+    print_stats(csv_rd);
   }
   return true;
 }

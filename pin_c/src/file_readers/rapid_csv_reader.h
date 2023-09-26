@@ -253,7 +253,8 @@ public:
   uint row0_GBOX_GPIO() const noexcept { return start_GBOX_GPIO_row_; }
   uint row0_CustomerInternal() const noexcept { return start_CustomerInternal_row_; }
 
-  Tile* getUnusedTile(bool input_dir, const std::unordered_set<uint>& except) noexcept;
+  Tile* getUnusedTile(bool input_dir, const std::unordered_set<uint>& except,
+                      uint overlap_level) noexcept;
 
   bool isRxCol(uint col) const noexcept {
     assert(col < numCols());

@@ -32,8 +32,16 @@ const Pin* PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noex
 
 void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   uint16_t tr = ltrace();
-  if (!tr) return;
   auto& ls = lout();
+
+  if (num_warnings_) {
+    lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
+    lprintf("\t itile_overlap_level_= %u  otile_overlap_level_= %u\n",
+            itile_overlap_level_, otile_overlap_level_);
+  }
+
+  if (tr < 3)
+    return;
 
   ls << "======== stats:" << endl;
 
@@ -97,6 +105,12 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     } else if (nr > 2) {
       csv.write_csv("LAST_PINC_PT_full.csv", 0, UINT_MAX);
     }
+  }
+
+  if (num_warnings_) {
+    lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
+    lprintf("\t itile_overlap_level_= %u  otile_overlap_level_= %u\n",
+            itile_overlap_level_, otile_overlap_level_);
   }
 
   // verify
@@ -503,7 +517,7 @@ DevPin PinPlacer::get_available_device_pin(RapidCsvReader& csv,
       return result;
     }
     result = get_available_bump_ipin(csv, udesName, ann_pin);
-    if (result.first().empty()) {
+    if (result.first().empty() && s_axi_inpQ.size()) {
       no_more_inp_bumps_ = true;
       result = get_available_axi_ipin(s_axi_inpQ);
     }
@@ -515,7 +529,7 @@ DevPin PinPlacer::get_available_device_pin(RapidCsvReader& csv,
       return result;
     }
     result = get_available_bump_opin(csv, udesName, ann_pin);
-    if (result.first().empty()) {
+    if (result.first().empty() && s_axi_outQ.size()) {
       no_more_out_bumps_ = true;
       result = get_available_axi_opin(s_axi_outQ);
     }
@@ -582,13 +596,13 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
   RapidCsvReader::BCD* site = nullptr;
   std::bitset<Pin::MAX_PT_COLS> modes;
   uint num_cols = csv.numCols();
-  std::unordered_set<uint> except{used_tiles_};
+  std::unordered_set<uint> except;
 
   uint iteration = 1;
   for (; iteration <= 100; iteration++) {
     if (tr >= 4)
       lprintf("  start iteration %u\n", iteration);
-    RapidCsvReader::Tile* tile = csv.getUnusedTile(true, except);
+    RapidCsvReader::Tile* tile = csv.getUnusedTile(true, except, itile_overlap_level_);
     if (!tile) {
       if (tr >= 3) {
         lputs("  no i-tile");
@@ -601,7 +615,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
       ls << "  got i-tile " << tile->key2() << endl;
       if (tr >= 6) tile->dump();
     }
-    assert(tile->not_used());
+    assert(tile->num_used_ < itile_overlap_level_);
     site = tile->bestInputSite();
     if (!site) {
       if (tr >= 3) lputs("  no i-site");
@@ -706,13 +720,13 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
   RapidCsvReader::BCD* site = nullptr;
   std::bitset<Pin::MAX_PT_COLS> modes;
   uint num_cols = csv.numCols();
-  std::unordered_set<uint> except{used_tiles_};
+  std::unordered_set<uint> except;
 
   uint iteration = 1;
   for (; iteration <= 100; iteration++) {
     if (tr >= 4)
       lprintf("  start iteration %u\n", iteration);
-    RapidCsvReader::Tile* tile = csv.getUnusedTile(false, except);
+    RapidCsvReader::Tile* tile = csv.getUnusedTile(false, except, otile_overlap_level_);
     if (!tile) {
       if (tr >= 3) {
         lputs("  no o-tile");
@@ -725,7 +739,7 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
       ls << "  got o-tile " << tile->key2() << endl;
       if (tr >= 6) tile->dump();
     }
-    assert(tile->not_used());
+    assert(tile->num_used_ < otile_overlap_level_);
     site = tile->bestOutputSite();
     if (!site) {
       if (tr >= 3) lputs("  no o-site");
@@ -819,7 +833,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
   temp_pcf_name_ = std::to_string(fio::get_PID()) + ".temp_pcf.pcf";
   cl_.set_param_value(key, temp_pcf_name_);
 
-  bool continue_on_errors = ::getenv("pinc_continue_on_errors");
+  // bool continue_on_errors = ::getenv("pinc_continue_on_errors");
 
   uint16_t tr = ltrace();
   if (tr >= 3) {
@@ -829,6 +843,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
   used_bump_pins_.clear();
   used_XYs_.clear();
   used_tiles_.clear();
+  otile_overlap_level_ = 1;
+  itile_overlap_level_ = 1;
 
   // state for get_available_device_pin:
   no_more_inp_bumps_ = false;
@@ -950,10 +966,19 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     } else {
       lprintf("\n[Error] pin_c: failed getting device pin for input pin: %s\n", pinName.c_str());
       set_err_code("TOO_MANY_INPUTS");
-      lputs3();
       num_warnings_++;
-      if (not continue_on_errors)
-        return false;
+      // if (not continue_on_errors)
+      //  return false;
+      if (i > 0 && itile_overlap_level_ < 5 && s_axi_inpQ.empty()) {
+        // increase overlap level and re-try this pin
+        itile_overlap_level_++;
+        if (tr >= 3) {
+          lprintf("NOTE: increased itile_overlap_level_ to %u on i=%u\n",
+                  itile_overlap_level_, i);
+        }
+        i--;
+      }
+      lputs3();
       continue;
     }
   }
@@ -1007,8 +1032,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
       set_err_code("TOO_MANY_OUTPUTS");
       lputs3();
       num_warnings_++;
-      if (not continue_on_errors)
-        return false;
+      // if (not continue_on_errors)
+      //  return false;
       continue;
     }
   }

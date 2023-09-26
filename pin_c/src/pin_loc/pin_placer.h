@@ -42,6 +42,8 @@ class PinPlacer {
   std::set<XYZ>    used_ixyz_; // used input XYZ
   std::unordered_set<uint> used_tiles_;
 
+  uint otile_overlap_level_ = 1, itile_overlap_level_ = 1;
+
   vector<Pin>  placed_inputs_, placed_outputs_;  // for debug stats
 
   uint min_pt_row_ = UINT_MAX, max_pt_row_ = 0;  // for debug stats
