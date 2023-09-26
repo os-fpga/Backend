@@ -639,7 +639,8 @@ bool RapidCsvReader::createTiles() {
 }
 
 Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
-                           const std::unordered_set<uint>& except) noexcept {
+                           const std::unordered_set<uint>& except,
+                           uint overlap_level) noexcept {
   if (tiles_.empty())
     return nullptr;
 
@@ -651,7 +652,9 @@ Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
     assert(ti.loc_.valid());
     assert(ti.loc_.x_ >= 0);
     assert(ti.loc_.y_ >= 0);
-    if (ti.num_used_ or except.count(i))
+    if (ti.num_used_ >= overlap_level)
+      continue;
+    if (except.count(i))
       continue;
     if (input_dir) {
       if (ti.a2f_sites_.size()) {
@@ -677,18 +680,24 @@ BCD_p RapidCsvReader::Tile::bestInputSite() noexcept {
   // 1. try skipping "bidi" sites
   for (BCD* bcd : a2f_sites_) {
     assert(bcd->isA2F());
+    if (bcd->used_)
+      continue;
     if (bcd->numRxModes() > 0 && bcd->numTxModes() == 0)
       return bcd;
   }
 
   // 2. not skipping "bidi" sites
   for (BCD* bcd : a2f_sites_) {
+    if (bcd->used_)
+      continue;
     if (bcd->numRxModes() > 0)
       return bcd;
   }
 
   // 3. try MODE_GPIO
   for (BCD* bcd : a2f_sites_) {
+    if (bcd->used_)
+      continue;
     if (bcd->numGpioModes() > 0)
       return bcd;
   }
@@ -703,18 +712,24 @@ BCD_p RapidCsvReader::Tile::bestOutputSite() noexcept {
   // 1. try skipping "bidi" sites
   for (BCD* bcd : f2a_sites_) {
     assert(bcd->isF2A());
+    if (bcd->used_)
+      continue;
     if (bcd->numTxModes() > 0 && bcd->numRxModes() == 0)
       return bcd;
   }
 
   // 2. not skipping "bidi" sites
   for (BCD* bcd : f2a_sites_) {
+    if (bcd->used_)
+      continue;
     if (bcd->numTxModes() > 0)
       return bcd;
   }
 
   // 3. try MODE_GPIO
   for (BCD* bcd : f2a_sites_) {
+    if (bcd->used_)
+      continue;
     if (bcd->numGpioModes() > 0)
       return bcd;
   }
