@@ -33,21 +33,31 @@ const Pin* PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noex
 void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   uint16_t tr = ltrace();
   auto& ls = lout();
+  const vector<string>& inputs = user_design_inputs_;
+  const vector<string>& outputs = user_design_outputs_;
 
   if (num_warnings_) {
     lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
     lprintf("\t itile_overlap_level_= %u  otile_overlap_level_= %u\n",
             itile_overlap_level_, otile_overlap_level_);
+    lprintf("\t pin_c: number of inputs = %zu  number of outputs = %zu\n",
+            inputs.size(), outputs.size());
+    assert(placed_inputs_.size() <= inputs.size());
+    assert(placed_outputs_.size() <= outputs.size());
+    if (placed_inputs_.size() < inputs.size()) {
+      uint num = inputs.size() - placed_inputs_.size();
+      lprintf("\t pin_c: NOTE: some inputs were not placed #= %u\n", num);
+    }
+    if (placed_outputs_.size() < outputs.size()) {
+      uint num = outputs.size() - placed_outputs_.size();
+      lprintf("\t pin_c: NOTE: some outputs were not placed #= %u\n", num);
+    }
   }
 
   if (tr < 3)
     return;
 
   ls << "======== stats:" << endl;
-
-  const vector<string>& inputs = user_design_inputs_;
-  const vector<string>& outputs = user_design_outputs_;
-
   ls << " --> got " << inputs.size() << " inputs and "
      << outputs.size() << " outputs" << endl;
   if (tr >= 4) {
@@ -111,6 +121,18 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
     lprintf("\t itile_overlap_level_= %u  otile_overlap_level_= %u\n",
             itile_overlap_level_, otile_overlap_level_);
+    lprintf("\t pin_c: number of inputs = %zu   number of outputs = %zu\n",
+            inputs.size(), outputs.size());
+    assert(placed_inputs_.size() <= inputs.size());
+    assert(placed_outputs_.size() <= outputs.size());
+    if (placed_inputs_.size() < inputs.size()) {
+      uint num = inputs.size() - placed_inputs_.size();
+      lprintf("\t pin_c: NOTE: some inputs were not placed #= %u\n", num);
+    }
+    if (placed_outputs_.size() < outputs.size()) {
+      uint num = outputs.size() - placed_outputs_.size();
+      lprintf("\t pin_c: NOTE: some outputs were not placed #= %u\n", num);
+    }
   }
 
   // verify
@@ -229,10 +251,10 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
   string out_fn = cl_.get_param("--output");
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 2) {
+  if (tr >= 3) {
     ls << "\npinc::write_dot_place() __ Creating .place file  get_param(--output) : "
        << out_fn << endl;
-    if (tr >= 4) {
+    if (tr >= 5) {
       lprintf("  ___ pcf_pin_cmds_ (%zu):\n", pcf_pin_cmds_.size());
       for (const auto& cmd : pcf_pin_cmds_) {
         logVec(cmd, " ");
@@ -254,10 +276,10 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
   out_file << "#------------ --  --  -" << endl;
   out_file << std::flush;
 
-  if (tr >= 2) {
+  if (tr >= 3) {
     ls << "#Block Name   x   y   z\n";
     ls << "#------------ --  --  -" << endl;
-    ls << std::flush;
+    flush_out();
   }
 
   string gbox_pin_name;
@@ -669,7 +691,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
   } // iteration
 
 ret:
-  if (tr >= 2) {
+  if (tr >= 3) {
     lprintf("  did #iterations: %u\n", iteration);
     if (found && tr >= 4) {
       const string& bump_pn = result.first();
@@ -1030,10 +1052,19 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     } else {
       lprintf("[Error] pin_c: failed getting device pin for output pin: %s\n", pinName.c_str());
       set_err_code("TOO_MANY_OUTPUTS");
-      lputs3();
       num_warnings_++;
       // if (not continue_on_errors)
       //  return false;
+      if (i > 0 && otile_overlap_level_ < 5 && s_axi_outQ.empty()) {
+        // increase overlap level and re-try this pin
+        otile_overlap_level_++;
+        if (tr >= 3) {
+          lprintf("NOTE: increased otile_overlap_level_ to %u on i=%u\n",
+                  otile_overlap_level_, i);
+        }
+        i--;
+      }
+      lputs3();
       continue;
     }
   }
