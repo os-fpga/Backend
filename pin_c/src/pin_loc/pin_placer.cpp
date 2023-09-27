@@ -17,6 +17,7 @@
 
 #include <set>
 #include <map>
+#include <filesystem>
 
 namespace pinc {
 
@@ -323,12 +324,12 @@ bool PinPlacer::read_design_ports() {
   }
 
   string port_info_fn = cl_.get_param("--port_info");
-  string path;
+  string str_path;
   ifstream json_ifs;
 
   if (port_info_fn.length() > 0) {
-    path = port_info_fn;
-    if (Fio::regularFileExists(path)) {
+    str_path = port_info_fn;
+    if (Fio::regularFileExists(str_path)) {
       json_ifs.open(port_info_fn);
       if (!json_ifs.is_open())
         lprintf("\nWARNING: could not open port info file %s => using blif\n",
@@ -352,9 +353,19 @@ bool PinPlacer::read_design_ports() {
   } else {
     string blif_fn = cl_.get_param("--blif");
     if (tr >= 2) lprintf("... reading %s\n", blif_fn.c_str());
-    path = blif_fn;
-    if (not Fio::regularFileExists(path)) {
-      lprintf("\nWARNING: blif file %s does not exist\n", blif_fn.c_str());
+    str_path = blif_fn;
+    if (not Fio::regularFileExists(str_path)) {
+      lprintf("\npin_c WARNING: blif file %s does not exist\n", str_path.c_str());
+      std::filesystem::path fs_path{str_path}, eblif_ext{"eblif"};
+      fs_path.replace_extension(eblif_ext);
+      string eblif_fn = fs_path.string();
+      if (Fio::regularFileExists(fs_path)) {
+        blif_fn = eblif_fn;
+        str_path = blif_fn;
+        lprintf("\npin_c INFO: using eblif file %s\n", eblif_fn.c_str());
+      } else {
+        lprintf("pin_c WARNING: eblif file %s does not exist\n", eblif_fn.c_str());
+      }
     }
     BlifReader rd_blif;
     if (!rd_blif.read_blif(blif_fn)) {
@@ -363,6 +374,12 @@ bool PinPlacer::read_design_ports() {
     }
     user_design_inputs_ = rd_blif.get_inputs();
     user_design_outputs_ = rd_blif.get_outputs();
+    if (user_design_inputs_.empty() and user_design_outputs_.empty()) {
+      if (tr >= 2)
+        lputs("\nread_design_ports() FAILED : both user_design_inputs_ and user_design_outputs_ are empty");
+      CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
+      return false;
+    }
   }
 
   if (tr >= 2) {
