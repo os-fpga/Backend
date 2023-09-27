@@ -15,5 +15,5 @@ make checkout
 Then, you can compile the codebase using
 
 ```
-make compile
+make release
 ```
