@@ -1066,7 +1066,7 @@ protected:
 
         print_primary_io(depth);
         verilog_os_ << indent(depth) << ");\n";
-#ifdef VPR_ENABLE_VERIFIC
+#ifdef ENABLE_VERIFIC
         if (isNestEncrypted)
             formating_encrypt_file(1);
 #endif
@@ -1136,7 +1136,7 @@ protected:
         verilog_os_ << instances_ss.str();
 
         verilog_os_ << "\n";
-#ifdef VPR_ENABLE_VERIFIC
+#ifdef ENABLE_VERIFIC
         if (isNestEncrypted)
             formating_encrypt_file(2);
 #endif
@@ -2683,7 +2683,7 @@ public:                                                  // Public interface
 // Externally Accessible Functions
 //
 
-#ifdef VPR_ENABLE_VERIFIC
+#ifdef ENABLE_VERIFIC
 std::istringstream *ss;
 Verific::verific_stream *get_verific_stream(const char *file_name)
 {
@@ -2733,7 +2733,7 @@ void netlist_writer(const std::string basename, std::shared_ptr<const AnalysisDe
         nl_walker.walk();
     }
 
-#ifdef VPR_ENABLE_VERIFIC
+#ifdef ENABLE_VERIFIC
     std::string file_name = basename + "_encrypted_post_synthesis.v";
     Verific::ieee_1735 ieee_1735;
     if (isNestEncrypted)
