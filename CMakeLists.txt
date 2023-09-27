@@ -38,11 +38,10 @@ set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
 set(UTIL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/util_fix)
 set(TATUM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tatum_fix)
 
-set(XML_KEYS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
+set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
 set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
 set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libdecrypt/)
-set(XML_ENC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libencrypt/)
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
 set(MEM_FIX_DEST_DIR1 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libvtrutil/src)
 set(MEM_FIX_DEST_DIR2 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base)
@@ -148,17 +147,10 @@ FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
           DESTINATION
           ${VPR_DEST_DIR}/src/place/)
 
-
-FILE(COPY ${XML_KEYS_SRC}/private_key.pem  
-          DESTINATION
-          ${XML_DEC_KEY_DEST}
+file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
+  DESTINATION
+  ${XML_DEC_KEY_DEST}/
  )
-
-FILE(COPY ${XML_KEYS_SRC}/config.txt
-          ${XML_KEYS_SRC}/public_key.pem
-          DESTINATION
-          ${XML_ENC_KEY_DEST}
-)
 
 FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
           ${TILEABLE_SRC_DIR}/rr_graph_builder.h
@@ -215,4 +207,5 @@ set_target_properties(libpinconst pin_c
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pin_c")
 
 # Sub-project stars (Static Timing Analysis Rapid Silicon)
-add_subdirectory(
+add_subdirectory(stars)
+add_dependencies(stars vpr)
