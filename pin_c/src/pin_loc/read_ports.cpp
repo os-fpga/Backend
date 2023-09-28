@@ -31,8 +31,15 @@ bool PinPlacer::read_design_ports() {
         lprintf("\nWARNING: could not open port info file %s => using blif\n",
                 port_info_fn.c_str());
     } else {
-      lprintf("\nWARNING: port info file %s does not exist => using blif\n",
-              port_info_fn.c_str());
+      if (cl_.get_param("--blif").length() > 1) {
+        lprintf("\nWARNING: port info file %s does not exist => using blif\n",
+                port_info_fn.c_str());
+      } else {
+        lprintf("\nWARNING: port info file %s does not exist => exiting\n",
+                port_info_fn.c_str());
+        flush_out(true);
+        std::quick_exit(0);
+      }
     }
   } else {
     if (tr >= 1) lprintf("port_info cmd option not specified => using blif\n");
@@ -43,6 +50,8 @@ bool PinPlacer::read_design_ports() {
     if (!read_port_info(json_ifs, user_design_inputs_, user_design_outputs_)) {
       CERROR    << " failed reading " << port_info_fn << endl;
       OUT_ERROR << " failed reading " << port_info_fn << endl;
+      flush_out(true);
+      std::quick_exit(0);
       return false;
     }
     json_ifs.close();
