@@ -134,7 +134,9 @@ public:
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);
 
-  bool write_logical_clocks_to_physical_clks();
+  // map logical clocks to physical clocks. status = 0 if NOP, -1 if error
+  int map_clocks();
+  int write_clocks_logical_to_physical();
 
   static string err_lookup(const string& key) noexcept; // err_map lookup
   static void clear_err_code() noexcept;
