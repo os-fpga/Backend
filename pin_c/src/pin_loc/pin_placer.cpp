@@ -9,7 +9,6 @@
 #include "file_readers/blif_reader.h"
 #include "file_readers/pcf_reader.h"
 #include "file_readers/rapid_csv_reader.h"
-#include "file_readers/xml_reader.h"
 #include "file_readers/Fio.h"
 #include "util/cmd_line.h"
 
@@ -138,13 +137,13 @@ bool PinPlacer::reader_and_writer() {
   num_warnings_ = 0;
   clear_err_code();
 
-  const cmd_line& cmd = cl_;
-  string xml_name = cmd.get_param("--xml");
-  string csv_name = cmd.get_param("--csv");
-  string pcf_name = cmd.get_param("--pcf");
-  string blif_name = cmd.get_param("--blif");
-  string json_name = cmd.get_param("--port_info");
-  string output_name = cmd.get_param("--output");
+  ////const cmd_line& cmd = cl_;
+  string xml_name = cl_.get_param("--xml");
+  string csv_name = cl_.get_param("--csv");
+  string pcf_name = cl_.get_param("--pcf");
+  string blif_name = cl_.get_param("--blif");
+  string json_name = cl_.get_param("--port_info");
+  string output_name = cl_.get_param("--output");
 
   uint16_t tr = ltrace();
   auto& ls = lout();
@@ -288,134 +287,25 @@ bool PinPlacer::reader_and_writer() {
     return false;
   }
 
-  //  rs only - user want to map its design clocks to gemini fabric
-  // clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15].And user clocks
-  // are clk_a,clk_b and want to map clk_a with clk[15] like it
-  // in such case, we need to make sure a xml repack constraint file is properly
-  // generated to guide bitstream generation correctly.
-  string fpga_repack = cmd.get_param("--read_repack");
-  string user_constrained_repack = cmd.get_param("--write_repack");
-  string clk_map_file = cmd.get_param("--clk_map");
-  bool create_constraint_xml_requirement =
-      !(fpga_repack.empty() && clk_map_file.empty());
-
-  if (create_constraint_xml_requirement) {
-    if (!write_logical_clocks_to_physical_clks()) {
-      CERROR << err_lookup("FAIL_TO_CREATE_CLKS_CONSTRAINT_XML") << endl;
-      return false;
+  // --6. optionally, map logical clocks to physical clocks
+  //      status = 0 if NOP, -1 if error
+  int map_clk_status = map_clocks();
+  if (map_clk_status < 0) {
+    if (tr) {
+      ls << "[Error] pin_c: map_clocks() failed" << endl;
+      CERROR << "map_clocks() failed" << endl;
     }
+    CERROR << err_lookup("FAIL_TO_CREATE_CLKS_CONSTRAINT_XML") << endl;
+    return false;
   }
 
   // -- done successfully
   if (tr >= 2) {
     ls << endl;
-    ls << "pin_c done: reader_and_writer() done successfully" << endl;
+    lprintf("pin_c done:  reader_and_writer() succeeded.  map_clk_status= %i\n",
+            map_clk_status);
     print_stats(csv_rd);
   }
-  return true;
-}
-
-bool PinPlacer::write_logical_clocks_to_physical_clks() {
-  std::vector<std::string> set_clks;
-  string clkmap_file_name = cl_.get_param("--clk_map");
-  std::ifstream file(clkmap_file_name);
-  std::string command;
-  std::vector<std::string> commands;
-  if (file.is_open()) {
-    while (getline(file, command)) {
-      commands.push_back(command);
-    }
-    file.close();
-  } else {
-    return false;
-  }
-
-  // Tokenize each command
-  std::vector<std::vector<std::string>> tokens;
-  for (const auto &cmd : commands) {
-    std::stringstream ss(cmd);
-    std::vector<std::string> cmd_tokens;
-    std::string token;
-    while (ss >> token) {
-      cmd_tokens.push_back(token);
-    }
-    tokens.push_back(cmd_tokens);
-  }
-
-  pugi::xml_document doc;
-  std::vector<std::string> design_clk;
-  std::vector<std::string> device_clk;
-  std::string userPin;
-  std::string userNet;
-  bool d_c = false;
-  bool p_c = false;
-  string out_fn = cl_.get_param("--write_repack");
-  string in_fn = cl_.get_param("--read_repack");
-  std::ifstream infile(in_fn);
-  if (!infile.is_open()) {
-    std::cerr << "ERROR: cound not open the file " << in_fn << std::endl;
-    return false;
-  }
-  // Load the XML file
-  pugi::xml_parse_result result = doc.load_file(in_fn.c_str());
-  if (!result) {
-    std::cerr << "Error loading repack constraints XML file: "
-              << result.description() << '\n';
-    return 1;
-  }
-
-  for (const auto &cmd_tokens : tokens) {
-    for (const auto &token : cmd_tokens) {
-      if (token == "-device_clock") {
-        d_c = true;
-        p_c = false;
-        continue;
-      } else if (token == "-design_clock") {
-        d_c = false;
-        p_c = true;
-        continue;
-      }
-      if (d_c) {
-        device_clk.push_back(token);
-      }
-
-      if (p_c) {
-        design_clk.push_back(token);
-        p_c = false;
-      }
-    }
-  }
-
-  std::map<std::string, std::string> userPins;
-
-  for (size_t k = 0; k < device_clk.size(); k++) {
-    userPin = device_clk[k];
-    userNet = design_clk[k];
-    if (userNet.empty()) {
-      userNet = "OPEN";
-    }
-    userPins[userPin] = userNet;
-  }
-
-  // If the user does not provide a net name, set it to "open"
-  if (userNet.empty()) {
-    userNet = "OPEN";
-  }
-
-  // Update the XML file
-  for (pugi::xml_node node :
-       doc.child("repack_design_constraints").children("pin_constraint")) {
-    auto it = userPins.find(node.attribute("pin").value());
-    if (it != userPins.end()) {
-      node.attribute("net").set_value(it->second.c_str());
-    } else {
-      node.attribute("net").set_value("OPEN");
-    }
-  }
-
-  // Save the updated XML file
-  doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
-  remove(clkmap_file_name.c_str());
   return true;
 }
 
