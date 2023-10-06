@@ -485,6 +485,27 @@ int64_t MMapReader::printWC(std::ostream& os) const noexcept {
   return numLines;
 }
 
+int64_t MMapReader::printLines(std::ostream& os) noexcept {
+  if (!fsz_ || !sz_ || !buf_ || fnm_.empty())
+    return 0;
+  bool hasl = hasLines();
+  if (!hasl) {
+    if (makeLines(false, true))
+      hasl = hasLines();
+  }
+  if (!hasl)
+    return 0;
+
+  size_t cnt = 0, sz = lines_.size();
+  for (size_t i = 0; i < sz; i++) {
+    const char* cs = lines_[i];
+    if (!cs || !cs[0]) continue;
+    cnt++;
+    os << i << ": " << cs << endl;
+  }
+  return cnt;
+}
+
 uint64_t MMapReader::hashSum() const noexcept {
   assert(fsz_ == sz_);
   if (!fsz_ || !sz_ || !buf_) return 0;

@@ -81,6 +81,16 @@ public:
 
   virtual bool makeLines(bool cutComments, bool cutNL) noexcept { return false; }
 
+  bool hasLines() const noexcept {
+    if (!sz_ || !fsz_ || !num_lines_)
+      return false;
+    for (const char* z : lines_) {
+      if (z && z[0])
+        return true;
+    }
+    return false;
+  }
+
   uint16_t trace() const noexcept { return trace_; }
   void setTrace(int t) noexcept;
 
@@ -228,6 +238,8 @@ public:
 
   int64_t countWC(int64_t& numWords) const noexcept;  // ~ wc command
   int64_t printWC(std::ostream& os) const noexcept;   // ~ wc command
+
+  int64_t printLines(std::ostream& os) noexcept;
 
   char* skipLine(char* curL) noexcept;
   bool advanceLine(char*& curL) noexcept;
