@@ -11,6 +11,7 @@
 #include <set>
 #include <map>
 #include <filesystem>
+#include <unistd.h>
 
 namespace pinc {
 
@@ -55,28 +56,43 @@ int PinPlacer::map_clocks() {
 int PinPlacer::write_clocks_logical_to_physical() {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 3)
-    lputs("pin_c: write_clocks_logical_to_physical()..");
+  string cur_dir;
+  if (tr >= 3) {
+    lputs("pin_c:  write_clocks_logical_to_physical()..");
+    char buf[5000] = {}; // unix max path is 4096
+    if (::getcwd(buf, 4098)) {
+      cur_dir = buf;
+      lprintf("pin_c:  current directory= %s\n", buf);
+    }
+  }
 
-  std::vector<std::string> set_clks;
+  bool rd_ok = false;
+  vector<string> set_clks;
   string clkmap_file_name = cl_.get_param("--clk_map");
+
   if (tr >= 4) {
     bool exi = Fio::regularFileExists(clkmap_file_name);
     ls << "    clkmap_file_name : " << clkmap_file_name
        << "  exists:" << int(exi);
     if (exi) {
       fio::MMapReader mrd(clkmap_file_name);
-      bool rd_ok = mrd.read();
+      rd_ok = mrd.read();
       if (rd_ok) {
-        ls << "  size= " << mrd.fsz_ << "  #lines= " << mrd.countLines();
+        int64_t numL = mrd.countLines();
+        ls << "  size= " << mrd.fsz_ << "  #lines= " << numL << endl;
+        if (numL > 0) {
+          ls << "=========== lines of " << mrd.fileName() << " ===" << endl;
+          mrd.printLines(ls);
+          ls << "===========" << endl;
+        }
       }
     }
     ls << endl;
   }
 
   std::ifstream file(clkmap_file_name);
-  std::string command;
-  std::vector<std::string> commands;
+  string command;
+  vector<string> commands;
   if (file.is_open()) {
     while (getline(file, command)) {
       commands.push_back(command);
@@ -91,11 +107,11 @@ int PinPlacer::write_clocks_logical_to_physical() {
   }
 
   // Tokenize each command
-  std::vector<std::vector<std::string>> tokens;
-  for (const auto &cmd : commands) {
-    std::stringstream ss(cmd);
-    std::vector<std::string> cmd_tokens;
-    std::string token;
+  vector<vector<string>> tokens;
+  for (const string& cmd : commands) {
+    stringstream ss(cmd);
+    vector<string> cmd_tokens;
+    string token;
     while (ss >> token) {
       cmd_tokens.push_back(token);
     }
@@ -103,33 +119,55 @@ int PinPlacer::write_clocks_logical_to_physical() {
   }
 
   pugi::xml_document doc;
-  std::vector<std::string> design_clk;
-  std::vector<std::string> device_clk;
-  std::string userPin;
-  std::string userNet;
+  vector<string> design_clk;
+  vector<string> device_clk;
+  string userPin;
+  string userNet;
   bool d_c = false;
   bool p_c = false;
   string out_fn = cl_.get_param("--write_repack");
-  if (tr >= 3)
-    ls << "out_fn (--write_repack): " << out_fn << endl;
+  if (tr >= 3) {
+    ls << "  out_fn (--write_repack): " << out_fn << endl;
+  }
 
   string in_fn = cl_.get_param("--read_repack");
-  std::ifstream infile(in_fn);
-  if (!infile.is_open()) {
-    std::cerr << "ERROR: cound not open the file " << in_fn << endl;
+  if (tr >= 3) {
+    ls << "   in_fn (--read_repack): " << in_fn << endl;
+    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
+  }
+  if (not Fio::regularFileExists(in_fn)) {
+    CERROR << " no such file (--read_repack): " << in_fn << endl;
+    ls << " no such file (--read_repack): " << in_fn << endl;
     return -1;
+  }
+  fio::MMapReader reReader(in_fn);
+  rd_ok = reReader.read();
+  if (not rd_ok) {
+    CERROR << " can't read file (--read_repack): " << in_fn << endl;
+    ls << " can't read file (--read_repack): " << in_fn << endl;
+    return -1;
+  }
+  if (tr >= 5) {
+    int64_t numL = reReader.countLines();
+    ls << "\n  size= " << reReader.fsz_ << "  #lines= " << numL << endl;
+    if (numL > 0) {
+      ls << "=========== lines of " << reReader.fileName() << " ===" << endl;
+      reReader.printLines(ls);
+      ls << "===========\n" << endl;
+    }
+    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
 
   // Load the XML file
   pugi::xml_parse_result result = doc.load_file(in_fn.c_str());
   if (!result) {
-    std::cerr << "Error loading repack constraints XML file: "
-              << result.description() << '\n';
+    CERROR << " Error loading repack constraints XML file: "
+           << result.description() << '\n';
     return -1;
   }
 
-  for (const auto &cmd_tokens : tokens) {
-    for (const auto &token : cmd_tokens) {
+  for (const auto& cmd_tokens : tokens) {
+    for (const string& token : cmd_tokens) {
       if (token == "-device_clock") {
         d_c = true;
         p_c = false;
@@ -150,7 +188,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
     }
   }
 
-  std::map<std::string, std::string> userPins;
+  std::map<string, string> userPins;
 
   for (size_t k = 0; k < device_clk.size(); k++) {
     userPin = device_clk[k];
@@ -178,13 +216,25 @@ int PinPlacer::write_clocks_logical_to_physical() {
   }
 
   // Save the updated XML file
-  if (tr >= 3) ls << "pin_c: writing XML: " << out_fn << endl;
+  bool wr_ok = false;
+  if (tr >= 3) {
+    ls << "pin_c:  writing XML: " << out_fn << endl;
+    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
+  }
   try {
     doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
+    wr_ok = true;
     if (tr >= 4) ls << "OK: doc.save_file() succeeded" << endl;
   } catch (...) {
     ls << "FAIL: doc.save_file() failed" << endl;
-    ls << "pin_c: failed writing XML: " << out_fn << endl;
+    ls << "pin_c:  failed writing XML: " << out_fn << endl;
+  }
+  if (wr_ok && tr >= 3) {
+    ls << "pin_c:  written OK: " << out_fn << endl;
+    if (cur_dir.length()) {
+      ls << "full path: " << cur_dir << '/' << out_fn << endl;
+      ls << "input was: " << in_fn << endl;
+    }
   }
 
   if (tr >= 4) {
@@ -193,6 +243,9 @@ int PinPlacer::write_clocks_logical_to_physical() {
   } else {
     remove(clkmap_file_name.c_str());
   }
+
+  if (tr >= 3)
+    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
 
   return 1;
 }
