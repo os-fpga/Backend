@@ -297,7 +297,8 @@ public:
       if (tokens[0] == ".subckt") {
         std::string name = tokens[1];
         std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-        if (name.find("dff") != std::string::npos) {
+        if (name.find("dff") != std::string::npos ||
+            name == std::string("adder_carry")) {
           tokens[1] = name;
           for (auto &t : tokens) {
             ofs << t << " ";
@@ -317,11 +318,12 @@ public:
             for (uint idx = 2; idx < tokens.size() - 1; ++idx) {
               std::string s = tokens[idx];
               s[2] = '-';
-              if (s.find("A[-]=") == std::string::npos &&  s.find("A=") == std::string::npos) {
+              if (s.find("A[-]=") == std::string::npos &&
+                  s.find("A=") == std::string::npos) {
                 supported = false;
                 break;
               }
-              if(s.find("A=") != std::string::npos){
+              if (s.find("A=") != std::string::npos) {
                 wholeA = true;
               }
             }
@@ -341,13 +343,14 @@ public:
 
           names.Y = tokens.back().substr(2);
           names.A = std::vector<std::string>(tokens.size() - 3, "$undef");
-          if(wholeA){
-                        names.A[0] = tokens[2].substr(2);
-          } else 
-          {for (int idx = 2; idx < tokens.size() - 1; ++idx) {
-            int pos = tokens[idx][2] - '0';
-            names.A[pos] = tokens[idx].substr(5);
-          }}
+          if (wholeA) {
+            names.A[0] = tokens[2].substr(2);
+          } else {
+            for (int idx = 2; idx < tokens.size() - 1; ++idx) {
+              int pos = tokens[idx][2] - '0';
+              names.A[pos] = tokens[idx].substr(5);
+            }
+          }
           std::string init_line;
           std::getline(ifs, init_line);
           auto init_tokens = split_on_space(init_line);
@@ -390,17 +393,17 @@ public:
               if (s == "Q")
                 names.Y = port_conn; // output of the latch
               uint idx = latch_lut_port_conversion.at(tokens[1]).at(s)[2] - '0';
-              bool flipped = false;
+              // bool flipped = false;
               int w_pos = -1;
-              const char *value =
-                  std::getenv("FLIP_TRANSFORMED_EBLIF_INPUT_ORDER");
-              if (value) {
-                std::cout << "FLIP_TRANSFORMED_EBLIF_INPUT_ORDER is set"
-                          << std::endl;
-                w_pos = sz - 1 - idx;
-              } else {
-                w_pos = idx;
-              }
+              // const char *value =
+              //     std::getenv("FLIP_TRANSFORMED_EBLIF_INPUT_ORDER");
+              // if (value) {
+              //   std::cout << "FLIP_TRANSFORMED_EBLIF_INPUT_ORDER is set"
+              //             << std::endl;
+              //   w_pos = sz - 1 - idx;
+              // } else {
+              w_pos = idx;
+              // }
               names.A.at(w_pos) = port_conn;
             }
             names.INIT_VALUE = latch_lut_LUT_strs.at(tokens[1]);
@@ -434,7 +437,7 @@ public:
     ofs.close();
   }
 
-  void printFileContents(FILE *pf, bool close = false) {
+  void printFileContents(FILE *pf, FILE *pfout = nullptr, bool close = false) {
     if (!pf) {
       std::cerr << "Invalid file pointer!" << std::endl;
       return;
@@ -442,9 +445,14 @@ public:
 
     char buffer[1024];
     size_t bytesRead = 0;
-
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), pf)) > 0) {
-      fwrite(buffer, 1, bytesRead, stdout);
+    if (pfout) {
+      while ((bytesRead = fread(buffer, 1, sizeof(buffer), pf)) > 0) {
+        fwrite(buffer, 1, bytesRead, pfout);
+      }
+    } else {
+      while ((bytesRead = fread(buffer, 1, sizeof(buffer), pf)) > 0) {
+        fwrite(buffer, 1, bytesRead, stdout);
+      }
     }
 
     if (ferror(pf)) {
