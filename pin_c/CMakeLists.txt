@@ -80,7 +80,7 @@ set(VPRST_STATIC_LIB libvpr.a)
 add_library(vprst_static STATIC IMPORTED )
 
 set_target_properties(vprst_static PROPERTIES
-  IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/${VPRST_STATIC_LIB})      
+  IMPORTED_LOCATION  ${CMAKE_CURRENT_BINARY_DIR}/../OpenFPGA/vtr-verilog-to-routing/vpr/${VPRST_STATIC_LIB})
 
 set(BLIF_PARSE_STATIC_LIB libblifparse.a)
 add_library(blif_parse_static STATIC IMPORTED )
@@ -95,12 +95,11 @@ add_executable(pin_c ${EXEC_SOURCES})
 set_target_properties(pin_c libpinconst PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
 
 if(PRODUCTION_BUILD)
-    target_link_libraries(pin_c PUBLIC libpinconst 
+    target_link_libraries(pin_c PUBLIC libpinconst
                                        blif_parse_static
                                        vprst_static
                                        libvtrutil
                                        libpugixml
-                                       ${read_verilog_lib}
                                        libreadedif
                                        rs_licenseManager
                                        ${OPENSSL_LIBRARIES})
@@ -110,7 +109,6 @@ else()
                                        vprst_static
                                        libvtrutil
                                        libpugixml
-                                       ${read_verilog_lib}
                                        libreadedif
                                        ${OPENSSL_LIBRARIES})
 endif()
@@ -124,45 +122,13 @@ endif()
 #
 # PIN_C compiler options
 #
-target_compile_options(pin_c PRIVATE -Werror -Wall -fPIC -O2 -pipe -mavx)
-
-#
-# Profile Guilded Optimization Configuration
-#
-set(PROF_GEN_FLAGS_TO_CHECK
-    #GCC-like
-    "-fprofile-generate" #Build will generate profiling information
-    )
-set(PROF_USE_FLAGS_TO_CHECK
-    #GCC-like
-    "-fprofile-use"     #Build will use previously generated profiling information to guide code optimization
-    "-Wmissing-profile" #Warn if the used profiling information doesn't match the source code or is missing
-    )
+target_compile_options(pin_c PRIVATE -Werror -Wall -Wextra -O2 -pipe -mavx)
 
 
-#
-# Unit Tests
-#
-file(GLOB_RECURSE TEST_SOURCES test/*.cpp)
-add_executable(test_pin_c ${TEST_SOURCES})
-target_link_libraries(test_pin_c
-                        libpinconst)
-
-add_dependencies(test_pin_c pin_c)
 add_dependencies(pin_c vprst_static)
 add_dependencies(pin_c blif_parse_static)
 
-set_target_properties(pin_c libpinconst test_pin_c PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
-
-##Supress IPO link warnings if IPO is enabled
-#get_target_property(TEST_PIN_C_USES_IPO pin_c INTERPROCEDURAL_OPTIMIZATION)
-#if (TEST_PIN_C_USES_IPO)
-#    set_target_properties(test_vpr PROPERTIES LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
-#endif()
-
-add_test(NAME test_vpr
-    COMMAND test_vpr --use-colour=yes
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test
-    )
+set_target_properties(pin_c libpinconst PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
 
   install(TARGETS pin_c DESTINATION bin)
+
