@@ -277,6 +277,18 @@ bool Fio::isEmptyLine(const char* src) noexcept {
   return len < 2;
 }
 
+void Fio::copyLines(vector<string>& out) const noexcept {
+  out.clear();
+  if (!hasLines() || lines_.empty())
+    return;
+
+  out.reserve(lines_.size());
+  for (size_t li = 1; li < lines_.size(); li++) {
+    const char* line = lines_[li];
+    if (line)
+      out.emplace_back(line);
+  }
+}
 
 // ======== 1. MMapReader ==============================================
 
