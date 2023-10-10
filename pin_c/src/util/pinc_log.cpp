@@ -26,53 +26,57 @@ void set_ltrace(int t) noexcept {
 #define LEND cout << endl; fflush(stdout);
 
 void lputs(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
+}
+void err_puts(const char* cs) noexcept {
+  if (cs && cs[0]) cerr << cs;
+  cerr << endl; fflush(stdout);
 }
 
 void lputs0(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs1(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs2(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs3(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs4(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs5(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs6(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs7(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs8(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs9(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputsX(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 
 void lputs(const string& s) noexcept {
@@ -80,6 +84,12 @@ void lputs(const string& s) noexcept {
     cout << endl;
   else
     lputs(s.c_str());
+}
+void err_puts(const string& s) noexcept {
+  if (s.empty())
+    cerr << endl;
+  else
+    err_puts(s.c_str());
 }
 
 static constexpr char q = '\'';

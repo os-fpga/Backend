@@ -53,6 +53,8 @@ void set_ltrace(int t) noexcept;
 
 void lprintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 void lputs(const char* cs = 0) noexcept;
+void err_puts(const char* cs = 0) noexcept;
+
 void lputs0(const char* cs = 0) noexcept;
 void lputs1(const char* cs = 0) noexcept;
 void lputs2(const char* cs = 0) noexcept;
@@ -64,7 +66,8 @@ void lputs7(const char* cs = 0) noexcept;
 void lputs8(const char* cs = 0) noexcept;
 void lputs9(const char* cs = 0) noexcept;
 void lputsX(const char* cs = 0) noexcept;
-void lputs(const std::string& s) noexcept;
+
+void err_puts(const std::string& s) noexcept;
 
 void bh1(const char* fn, int l, const char* s = 0) noexcept;
 void bh2(const char* fn, int l, const char* s = 0) noexcept;

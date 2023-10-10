@@ -90,6 +90,7 @@ public:
     }
     return false;
   }
+  void copyLines(vector<string>& out) const noexcept;
 
   uint16_t trace() const noexcept { return trace_; }
   void setTrace(int t) noexcept;

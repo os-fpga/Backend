@@ -1,6 +1,12 @@
+//
+// RS only - user want to map its design clocks to gemini fabric
+// clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15]. And user clocks
+// are clk_a,clk_b and want to map clk_a with clk[15] like it
+// in such case, we need to make sure a xml repack constraint file is properly
+// generated to guide bitstream generation correctly.
+//
 
 #include "pin_loc/pin_placer.h"
-
 #include "file_readers/blif_reader.h"
 #include "file_readers/pcf_reader.h"
 #include "file_readers/rapid_csv_reader.h"
@@ -23,14 +29,10 @@ using fio::Fio;
 int PinPlacer::map_clocks() {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 3)
+  if (tr >= 3) {
+    if (tr >= 5) lputs();
     lputs("PinPlacer::map_clocks()..");
-
-  // RS only - user want to map its design clocks to gemini fabric
-  // clocks. like gemini has 16 clocks clk[0],clk[1]....,clk[15].And user clocks
-  // are clk_a,clk_b and want to map clk_a with clk[15] like it
-  // in such case, we need to make sure a xml repack constraint file is properly
-  // generated to guide bitstream generation correctly.
+  }
 
   string fpga_repack = cl_.get_param("--read_repack");
   string user_constrained_repack = cl_.get_param("--write_repack");
@@ -68,54 +70,69 @@ int PinPlacer::write_clocks_logical_to_physical() {
 
   bool rd_ok = false;
   vector<string> set_clks;
-  string clkmap_file_name = cl_.get_param("--clk_map");
+  string clkmap_fn = cl_.get_param("--clk_map");
 
-  if (tr >= 4) {
-    bool exi = Fio::regularFileExists(clkmap_file_name);
-    ls << "    clkmap_file_name : " << clkmap_file_name
-       << "  exists:" << int(exi);
-    if (exi) {
-      fio::MMapReader mrd(clkmap_file_name);
-      rd_ok = mrd.read();
-      if (rd_ok) {
-        int64_t numL = mrd.countLines();
-        ls << "  size= " << mrd.fsz_ << "  #lines= " << numL << endl;
-        if (numL > 0) {
-          ls << "=========== lines of " << mrd.fileName() << " ===" << endl;
-          mrd.printLines(ls);
-          ls << "===========" << endl;
-        }
+  if (not Fio::regularFileExists(clkmap_fn)) {
+    CERROR << " no such file (--clk_map): " << clkmap_fn << endl;
+    ls << " [Error] no such file (--clk_map): " << clkmap_fn << endl;
+    return -1;
+  }
+
+  if (tr >= 3) {
+    ls << "  clkmap_fn : " << clkmap_fn << endl;
+    fio::MMapReader mrd(clkmap_fn);
+    rd_ok = mrd.read();
+    if (rd_ok) {
+      int64_t numL = mrd.countLines();
+      ls << "  size= " << mrd.fsz_ << "  #lines= " << numL << endl;
+      if (numL > 0) {
+        ls << "=========== lines of " << mrd.fileName() << " ===" << endl;
+        mrd.printLines(ls);
+        ls << "===========" << endl;
       }
+    } else {
+      ls << "\n pin_c WARNING: --clk_map file is not readable: " <<  clkmap_fn << endl;
     }
     ls << endl;
   }
 
-  std::ifstream file(clkmap_file_name);
-  string command;
-  vector<string> commands;
-  if (file.is_open()) {
-    while (getline(file, command)) {
-      commands.push_back(command);
-    }
-    file.close();
-  } else {
+  // read clkmap file
+  fio::LineReader lr(clkmap_fn);
+  rd_ok = lr.read(true, true);
+  if (tr >= 3)
+    lprintf("\t  rd_ok : %i\n", rd_ok);
+  if (not rd_ok) {
+    CERROR << " error reading file (--clk_map): " << clkmap_fn << endl;
+    ls << " [Error] error reading file (--clk_map): " << clkmap_fn << endl;
     return -1;
   }
+  if (not lr.hasLines()) {
+    CERROR << " empty file (--clk_map): " << clkmap_fn << endl;
+    ls << " [Error] empty file (--clk_map): " << clkmap_fn << endl;
+    return -1;
+  }
+
+  vector<string> commands;
+  lr.copyLines(commands);
 
   if (tr >= 4) {
     ls << "    commands.size()= " << commands.size() << endl;
   }
 
   // Tokenize each command
-  vector<vector<string>> tokens;
+  vector<vector<string>> tokenized_cmds;
+  tokenized_cmds.reserve(commands.size());
   for (const string& cmd : commands) {
-    stringstream ss(cmd);
-    vector<string> cmd_tokens;
-    string token;
-    while (ss >> token) {
-      cmd_tokens.push_back(token);
-    }
-    tokens.push_back(cmd_tokens);
+    const char* cs = cmd.c_str();
+    if (Fio::isEmptyLine(cs))
+      continue;
+    tokenized_cmds.emplace_back();
+    vector<string>& words = tokenized_cmds.back();
+    Fio::split_spa(cs, words);
+  }
+
+  if (tr >= 4) {
+    ls << "    tokenized_cmds.size()= " << tokenized_cmds.size() << endl;
   }
 
   pugi::xml_document doc;
@@ -166,23 +183,25 @@ int PinPlacer::write_clocks_logical_to_physical() {
     return -1;
   }
 
-  for (const auto& cmd_tokens : tokens) {
-    for (const string& token : cmd_tokens) {
-      if (token == "-device_clock") {
+  for (const auto& tcmd : tokenized_cmds) {
+    if (tr >= 5)
+      logVec(tcmd, "      tcmd: ");
+    for (const string& word : tcmd) {
+      if (word == "-device_clock") {
         d_c = true;
         p_c = false;
         continue;
-      } else if (token == "-design_clock") {
+      } else if (word == "-design_clock") {
         d_c = false;
         p_c = true;
         continue;
       }
       if (d_c) {
-        device_clk.push_back(token);
+        device_clk.push_back(word);
       }
 
       if (p_c) {
-        design_clk.push_back(token);
+        design_clk.push_back(word);
         p_c = false;
       }
     }
@@ -237,11 +256,10 @@ int PinPlacer::write_clocks_logical_to_physical() {
     }
   }
 
-  if (tr >= 4) {
-    lprintf("keeping clock-map file for debugging: %s\n",
-            clkmap_file_name.c_str());
+  if (tr >= 3) {
+    lprintf("keeping clock-map file for debugging: %s\n", clkmap_fn.c_str());
   } else {
-    remove(clkmap_file_name.c_str());
+    std::filesystem::remove(clkmap_fn);
   }
 
   if (tr >= 3)
