@@ -183,7 +183,12 @@ void PinPlacer::printTileUsage(const RapidCsvReader& csv) const {
 bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 2) lputs("\nPinPlacer::read_pcf()");
+  string cur_dir = fio::get_CWD();
+  if (tr >= 2) {
+    lputs();
+    lputs("pin_c:  PinPlacer::read_pcf()");
+    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
+  }
 
   pcf_pin_cmds_.clear();
 

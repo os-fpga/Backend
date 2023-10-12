@@ -14,7 +14,6 @@
 #include "file_readers/Fio.h"
 #include "util/cmd_line.h"
 
-#include <set>
 #include <map>
 #include <filesystem>
 #include <unistd.h>
@@ -29,8 +28,8 @@ using fio::Fio;
 int PinPlacer::map_clocks() {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 3) {
-    if (tr >= 5) lputs();
+  if (tr >= 2) {
+    lputs();
     lputs("PinPlacer::map_clocks()..");
   }
 
@@ -40,7 +39,7 @@ int PinPlacer::map_clocks() {
 
   bool constraint_xml_requested = fpga_repack.size() or clk_map_file.size();
   if (not constraint_xml_requested) {
-    if (tr >= 3)
+    if (tr >= 2)
       lputs("PinPlacer::map_clocks() returns NOP");
     return 0;
   }
@@ -50,7 +49,7 @@ int PinPlacer::map_clocks() {
     return -1;
   }
 
-  if (tr >= 3)
+  if (tr >= 2)
     ls << "PinPlacer::map_clocks() returns OK" << endl;
   return 1;
 }
@@ -58,18 +57,13 @@ int PinPlacer::map_clocks() {
 int PinPlacer::write_clocks_logical_to_physical() {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  string cur_dir;
-  if (tr >= 3) {
+  string cur_dir = fio::get_CWD();
+  if (tr >= 2) {
     lputs("pin_c:  write_clocks_logical_to_physical()..");
-    char buf[5000] = {}; // unix max path is 4096
-    if (::getcwd(buf, 4098)) {
-      cur_dir = buf;
-      lprintf("pin_c:  current directory= %s\n", buf);
-    }
+    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
 
-  bool rd_ok = false;
-  vector<string> set_clks;
+  bool rd_ok = false, wr_ok = false;
   string clkmap_fn = cl_.get_param("--clk_map");
 
   if (not Fio::regularFileExists(clkmap_fn)) {
@@ -85,7 +79,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
     if (rd_ok) {
       int64_t numL = mrd.countLines();
       ls << "  size= " << mrd.fsz_ << "  #lines= " << numL << endl;
-      if (numL > 0) {
+      if (numL > 0 && tr >= 4) {
         ls << "=========== lines of " << mrd.fileName() << " ===" << endl;
         mrd.printLines(ls);
         ls << "===========" << endl;
@@ -135,13 +129,6 @@ int PinPlacer::write_clocks_logical_to_physical() {
     ls << "    tokenized_cmds.size()= " << tokenized_cmds.size() << endl;
   }
 
-  pugi::xml_document doc;
-  vector<string> design_clk;
-  vector<string> device_clk;
-  string userPin;
-  string userNet;
-  bool d_c = false;
-  bool p_c = false;
   string out_fn = cl_.get_param("--write_repack");
   if (tr >= 3) {
     ls << "  out_fn (--write_repack): " << out_fn << endl;
@@ -176,6 +163,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
   }
 
   // Load the XML file
+  pugi::xml_document doc;
   pugi::xml_parse_result result = doc.load_file(in_fn.c_str());
   if (!result) {
     CERROR << " Error loading repack constraints XML file: "
@@ -183,51 +171,87 @@ int PinPlacer::write_clocks_logical_to_physical() {
     return -1;
   }
 
+  vector<string> udes_clocks; // user design clocks
+  vector<string> pdev_clocks; // physical device clocks
+  udes_clocks.reserve(tokenized_cmds.size());
+  pdev_clocks.reserve(tokenized_cmds.size());
+
   for (const auto& tcmd : tokenized_cmds) {
-    if (tr >= 5)
+    assert(tcmd.size() < USHRT_MAX);
+    uint sz = tcmd.size();
+    if (tr >= 5) {
       logVec(tcmd, "      tcmd: ");
-    for (const string& word : tcmd) {
-      if (word == "-device_clock") {
-        d_c = true;
-        p_c = false;
-        continue;
-      } else if (word == "-design_clock") {
-        d_c = false;
-        p_c = true;
+      lprintf("\t  tcmd.size()= %u\n", sz);
+    }
+    if (sz < 2)
+      continue;
+    for (uint j = 0; j < sz - 1; j++) {
+      const string& tk = tcmd[j];
+      if (tk == "-device_clock") {
+        pdev_clocks.push_back(tcmd[j + 1]);
+        j++;
         continue;
       }
-      if (d_c) {
-        device_clk.push_back(word);
-      }
-
-      if (p_c) {
-        design_clk.push_back(word);
-        p_c = false;
+      if (tk == "-design_clock") {
+        udes_clocks.push_back(tcmd[j + 1]);
+        j++;
+        continue;
       }
     }
   }
+  if (tr >= 3) {
+    lprintf("\n    udes_clocks.size()= %zu  pdev_clocks.size()= %zu\n",
+        udes_clocks.size(), pdev_clocks.size());
+    logVec(udes_clocks, "  udes_clocks: ");
+    logVec(pdev_clocks, "  pdev_clocks: ");
+  }
+  assert(udes_clocks.size() == pdev_clocks.size());
+  if (udes_clocks.empty()) {
+    CERROR << " no clocks in file (--clk_map): " << clkmap_fn << endl;
+    ls << " [Error] no clocks in file (--clk_map): " << clkmap_fn << endl;
+    return -1;
+  }
 
-  std::map<string, string> userPins;
+  std::map<string, string> dpin2unet;
 
-  for (size_t k = 0; k < device_clk.size(); k++) {
-    userPin = device_clk[k];
-    userNet = design_clk[k];
-    if (userNet.empty()) {
-      userNet = "OPEN";
+  for (size_t i = 0; i < pdev_clocks.size(); i++) {
+    string dpin = pdev_clocks[i];
+    string unet = udes_clocks[i];
+    if (unet.empty())
+      unet = "OPEN";
+    dpin2unet[dpin] = unet;
+  }
+
+  if (tr >= 3) {
+    lprintf("\n    dpin2unet.size()= %zu\n", dpin2unet.size());
+  }
+
+  // Save the original XML file for diff-ing
+  if (tr >= 5) {
+    lputs();
+    string debug_fn = str::concat("debug_origXML__", out_fn);
+    ls << "pin_c-debug:  writing original XML: " << debug_fn << endl;
+    try {
+      wr_ok = doc.save_file(debug_fn.c_str(), "", pugi::format_no_declaration);
+    } catch (...) {
+      wr_ok = false;
     }
-    userPins[userPin] = userNet;
+    if (wr_ok) {
+      ls << "pin_c-debug:  written OK: " << debug_fn << endl;
+      if (cur_dir.length()) {
+        ls << "full path: " << cur_dir << '/' << debug_fn << endl;
+        ls << "input was: " << in_fn << endl;
+      }
+    } else {
+      ls << "pin_c-debug:  failed writing debug-XML: " << debug_fn << endl;
+    }
+    lputs();
   }
 
-  // If the user does not provide a net name, set it to "open"
-  if (userNet.empty()) {
-    userNet = "OPEN";
-  }
-
-  // Update the XML file
-  for (pugi::xml_node node :
-       doc.child("repack_design_constraints").children("pin_constraint")) {
-    auto it = userPins.find(node.attribute("pin").value());
-    if (it != userPins.end()) {
+  // Update the doc
+  for (auto node : doc.child("repack_design_constraints").children("pin_constraint")) {
+    auto it = dpin2unet.find(node.attribute("pin").value());
+    if (it != dpin2unet.end()) {
       node.attribute("net").set_value(it->second.c_str());
     } else {
       node.attribute("net").set_value("OPEN");
@@ -235,30 +259,35 @@ int PinPlacer::write_clocks_logical_to_physical() {
   }
 
   // Save the updated XML file
-  bool wr_ok = false;
   if (tr >= 3) {
     ls << "pin_c:  writing XML: " << out_fn << endl;
-    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
+    if (tr >= 6)
+      lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
   try {
-    doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
-    wr_ok = true;
+    wr_ok = doc.save_file(out_fn.c_str(), "", pugi::format_no_declaration);
     if (tr >= 4) ls << "OK: doc.save_file() succeeded" << endl;
   } catch (...) {
-    ls << "FAIL: doc.save_file() failed" << endl;
-    ls << "pin_c:  failed writing XML: " << out_fn << endl;
+    wr_ok = false;
   }
-  if (wr_ok && tr >= 3) {
-    ls << "pin_c:  written OK: " << out_fn << endl;
-    if (cur_dir.length()) {
-      ls << "full path: " << cur_dir << '/' << out_fn << endl;
-      ls << "input was: " << in_fn << endl;
+  if (wr_ok) {
+    if (tr >= 3) {
+      ls << "pin_c:  written OK: " << out_fn << endl;
+      if (cur_dir.length()) {
+        ls << "full path: " << cur_dir << '/' << out_fn << endl;
+        ls << "input was: " << in_fn << endl;
+      }
     }
+  } else {
+    ls << "FAIL:  doc.save_file() failed" << endl;
+    ls << "pin_c:  failed writing XML: " << out_fn << endl;
   }
 
   if (tr >= 3) {
     lprintf("keeping clock-map file for debugging: %s\n", clkmap_fn.c_str());
   } else {
+    if (tr >= 2)
+      lprintf("pin_c:  removed clock-map file: %s\n", clkmap_fn.c_str());
     std::filesystem::remove(clkmap_fn);
   }
 
