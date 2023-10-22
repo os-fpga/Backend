@@ -359,21 +359,19 @@ install(TARGETS vpr libvpr DESTINATION bin)
 #
 # Unit Tests
 #
-if(NOT (PRODUCTION_BUILD))
-	file(GLOB_RECURSE TEST_SOURCES test/*.cpp)
-	add_executable(test_vpr ${TEST_SOURCES})
-	target_link_libraries(test_vpr
-                        Catch2::Catch2WithMain
-                        libvpr)
+file(GLOB_RECURSE TEST_SOURCES test/*.cpp)
+add_executable(test_vpr ${TEST_SOURCES})
+target_link_libraries(test_vpr
+                    Catch2::Catch2WithMain
+                    libvpr)
 
-	#Supress IPO link warnings if IPO is enabled
-	get_target_property(TEST_VPR_USES_IPO vpr INTERPROCEDURAL_OPTIMIZATION)
-	if (TEST_VPR_USES_IPO)
-    		set_property(TARGET test_vpr APPEND PROPERTY LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
-	endif()
-
-	add_test(NAME test_vpr
-    	COMMAND test_vpr --use-colour=yes
-    	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test
-   	 )
+#Supress IPO link warnings if IPO is enabled
+get_target_property(TEST_VPR_USES_IPO vpr INTERPROCEDURAL_OPTIMIZATION)
+if (TEST_VPR_USES_IPO)
+        set_property(TARGET test_vpr APPEND PROPERTY LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
 endif()
+
+add_test(NAME test_vpr
+    COMMAND test_vpr --use-colour=yes
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test
+    )
