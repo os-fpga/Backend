@@ -57,7 +57,7 @@ int PinPlacer::map_clocks() {
 int PinPlacer::write_clocks_logical_to_physical() {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  string cur_dir = fio::get_CWD();
+  string cur_dir = get_CWD();
   if (tr >= 2) {
     lputs("pin_c:  write_clocks_logical_to_physical()..");
     lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());

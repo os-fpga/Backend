@@ -53,6 +53,7 @@ void set_ltrace(int t) noexcept;
 
 void lprintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 void lputs(const char* cs = 0) noexcept;
+void lputs(const std::string& s) noexcept;
 void err_puts(const char* cs = 0) noexcept;
 
 void lputs0(const char* cs = 0) noexcept;
@@ -85,6 +86,10 @@ inline size_t p_strlen(const char* p) noexcept { return p ? ::strlen(p) : 0; }
 inline void p_free(void* p) noexcept {
   if (p) ::free(p);
 }
+
+int get_PID() noexcept;
+std::string get_CWD() noexcept;
+void traceEnv(int argc = 0, const char** argv = nullptr) noexcept;
 
 namespace str {
 

@@ -25,9 +25,6 @@ class XMLPrinter;
 
 namespace fio {
 
-using std::string;
-using std::vector;
-
 inline void p_free(void* p) noexcept {
   if (p) ::free(p);
 }
@@ -37,8 +34,8 @@ inline char* p_strdup(const char* p) noexcept {
   return ::strdup(p);
 }
 
-int get_PID() noexcept;    // wrapper for getpid() to reduce usage of unistd.h
-string get_CWD() noexcept; // wrapper for getcwd()
+using std::string;
+using std::vector;
 
 struct Info
 {
