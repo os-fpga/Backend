@@ -183,7 +183,7 @@ void PinPlacer::printTileUsage(const RapidCsvReader& csv) const {
 bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  string cur_dir = fio::get_CWD();
+  string cur_dir = get_CWD();
   if (tr >= 2) {
     lputs();
     lputs("pin_c:  PinPlacer::read_pcf()");
@@ -857,7 +857,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
   auto_pcf_created_ = false;
   clear_err_code();
   string key = "--pcf";
-  temp_pcf_name_ = std::to_string(fio::get_PID()) + ".temp_pcf.pcf";
+  temp_pcf_name_ = std::to_string(get_PID()) + ".temp_pcf.pcf";
   cl_.set_param_value(key, temp_pcf_name_);
 
   // bool continue_on_errors = ::getenv("pinc_continue_on_errors");

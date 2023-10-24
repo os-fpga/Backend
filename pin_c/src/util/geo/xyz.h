@@ -37,18 +37,18 @@ struct XY {
   }
   XY negated() const noexcept { return XY(-x_, -y_); }
 
-  int64_t dotP(XY b) const noexcept {
+  int64_t dot(XY b) const noexcept {
     return int64_t(x_) * int64_t(b.x_) + int64_t(y_) * int64_t(b.y_);
   }
-  int64_t crossP(XY b) const noexcept {
+  int64_t det(XY b) const noexcept {
     return int64_t(x_) * int64_t(b.y_) - int64_t(y_) * int64_t(b.x_);
   }
   XY perp() const noexcept { return XY(-y_, x_); }
 
-  static int64_t is_left_triple(XY a, XY b, XY c) noexcept {
+  static int64_t det3(XY a, XY b, XY c) noexcept {
     b -= a;
     c -= a;
-    return b.crossP(c);
+    return b.det(c);
   }
 
   bool equals2(int a, int b) const noexcept { return x_ == a && y_ == b; }
@@ -161,8 +161,8 @@ inline std::ostream& operator<<(std::ostream& os, const XYZ& u) {
   return os;
 }
 
-inline int64_t dot_product(XY a, XY b) noexcept { return a.dotP(b); }
-inline int64_t cross_product(XY a, XY b) noexcept { return a.crossP(b); }
+inline int64_t dot(XY a, XY b) noexcept { return a.dot(b); }
+inline int64_t det(XY a, XY b) noexcept { return a.det(b); }
 
 inline XY operator-(XY a, XY b) noexcept {
   return XY(a.x_ - b.x_, a.y_ - b.y_);
@@ -172,7 +172,7 @@ inline XY operator+(XY a, XY b) noexcept {
 }
 
 inline int triangle_orientation(XY a, XY b, XY c) noexcept {
-  int64_t lt = XY::is_left_triple(a, b, c);
+  int64_t lt = XY::det3(a, b, c);
   if (lt > 0) return 1;
   if (lt < 0) return -1;
   return 0;

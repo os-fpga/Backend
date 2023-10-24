@@ -16,15 +16,6 @@ namespace fio {
 using namespace pinc;
 using namespace std;
 
-int get_PID() noexcept { return ::getpid(); }
-
-string get_CWD() noexcept {
-  char buf[5000] = {}; // unix max path is 4096
-  if (::getcwd(buf, 4098))
-    return buf;
-  return {};
-}
-
 static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
 
 Info::Info(const char* nm) noexcept {

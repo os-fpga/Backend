@@ -23,6 +23,9 @@ int main(int argc, const char* argv[]) {
   cmd_line cmd(argc, argv);
 
   if (ltrace() >= 3) {
+    lputs("\n    pin_c");
+    if (ltrace() >= 4)
+      traceEnv(argc, argv);
     cmd.print_options();
   }
 
