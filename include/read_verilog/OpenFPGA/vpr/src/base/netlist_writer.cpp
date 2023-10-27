@@ -689,6 +689,10 @@ public:
                                      // for verilog only
       mod_name = "ADDER_CARRY";
     }
+    if (mod_name.find("dff") == 0) {
+      std::transform(mod_name.begin(), mod_name.end(), mod_name.begin(),
+                     ::toupper);
+    }
     os << indent(depth) << mod_name << " #(\n";
 
     // Verilog parameters
