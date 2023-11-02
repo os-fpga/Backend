@@ -75,6 +75,7 @@
 
 #include "re_cluster_util.h"
 #include "constraints_report.h"
+#include "Partitioning.h"
 
 #include "config.h"
 
@@ -246,202 +247,45 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
     int nb_packed_molecules = 0;
 
     if(packer_opts.use_partitioning_in_pack){
+        int npart = packer_opts.number_of_molecules_in_partition;
+        // scanf("%d",&npart);
+        // auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
 
-        AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+        Partitioning part = Partitioning(molecule_head);
+        part.recursive_partitioning(npart);
 
-        std::vector<t_pack_molecule*> molecules;
-        int numberOfMolecules = 0;
-        for (auto cur_molecule = molecule_head; cur_molecule != nullptr; cur_molecule = cur_molecule->next) {
-            molecules.push_back(cur_molecule);
-            numberOfMolecules++;
-        }
+        // auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
+        int size = static_cast<int>(part.partitions[part.partitions.size()-1]+100);
+        std::vector<int>* clusterMoleculeOrder = new std::vector<int>[size];
 
-        int numberOfNets = 0;
-        int numberOfAtoms = 0;
-        for (auto netId : myNetlist.nets()) {
-            numberOfNets++;
-        }
-
-        for (auto blockId : myNetlist.blocks()) {
-            numberOfAtoms++;
-        }
-
-        int* atomBlockIdToMoleculeId = new int[numberOfAtoms];
-
-        for (int i = 0; i < numberOfAtoms; i++) {
-            atomBlockIdToMoleculeId[i] = -1;
-        }
-
-        {
-            int i = 0;
-            for (auto molecule : molecules) {
-                for (auto abid : molecule->atom_block_ids) {
-                    int bid = size_t(abid);
-                    if (bid < 0 || bid >= numberOfAtoms) continue;
-                    atomBlockIdToMoleculeId[bid] = i;
-                }
-                i++;
-            }
-        }
-
-
-
-
-        std::ofstream hmetisFile;
-        hmetisFile.open("hmetis.txt", std::ofstream::out);
-        //hmetisFile << numberOfNets << " " << numberOfAtoms  << std::endl;
-
-        //std::vector<std::vector<int>> netLines;
-        std::vector<std::string> uniqueLines;
-        std::vector<int> lineCounts;
-
-        //int nextIndexForMolecule = numberOfMolecules + 1;
-
-        //bool addNewNodeAndUseWeightsInHmetis = false;
-
-        for (auto netId : myNetlist.nets()) {
-            //VTR_LOG("NET ID: %d\n", size_t(netId));
-            std::vector<int> newLine;
-            AtomBlockId driverBlockId = myNetlist.net_driver_block(netId);
-            int moleculeId = atomBlockIdToMoleculeId[size_t(driverBlockId)];
-            newLine.push_back(moleculeId + 1);
-            double maxCriticality = 0;
-            for (auto pin_id : myNetlist.net_pins(netId)) {
-
-                double pinCriticality = timing_info->setup_pin_criticality(pin_id);
-                if(pinCriticality > maxCriticality){
-                    maxCriticality = pinCriticality;
-                }
-                
-                //VTR_LOG("pin criticality: %f\n", pinCriticality);
-
-
-                auto port_id = myNetlist.pin_port(pin_id);
-                auto blk_id = myNetlist.port_block(port_id);
-                if (blk_id == driverBlockId) continue;
-                //VTR_LOG("%d ", size_t(blk_id));
-                //hmetisFile << size_t(blk_id)+1 << " ";
-                moleculeId = atomBlockIdToMoleculeId[size_t(blk_id)];
-                if (std::find(newLine.begin(), newLine.end(), moleculeId + 1) == newLine.end()) {
-                    newLine.push_back(moleculeId + 1);
-                }
-            }
-            int lineWeight = 1;
-            
-            if (newLine.size() > 1) {
-
-                std::sort(newLine.begin(), newLine.end());
-                std::string s = std::accumulate(newLine.begin() + 1, newLine.end(), std::to_string(newLine[0]),
-                                                [](const std::string& a, int b) {
-                                                    return a + " " + std::to_string(b);
-                                                });
-                auto pointer = std::find(uniqueLines.begin(), uniqueLines.end(), s);
-                if (pointer == uniqueLines.end()) {
-                    //netLines.push_back(newLine);
-                    lineCounts.push_back(lineWeight);
-                    uniqueLines.push_back(s);
-                } else {
-                    lineCounts[pointer - uniqueLines.begin()]+= lineWeight;
-                }
-                
-            }
-        }
-
-        hmetisFile << uniqueLines.size() << " " << numberOfMolecules << " " << 11 << std::endl;
-        {
-            int i = 0;
-            for (auto line : uniqueLines) {
-                hmetisFile << lineCounts[i] << " " << line << std::endl;
-                i++;
-            }
-            for (auto molecule : molecules) {
-                hmetisFile << molecule->atom_block_ids.size() << std::endl;
-            }
-        }
-        
-        hmetisFile.close();
-
-        int numberOfClusters = ceil(numberOfMolecules *1.0 / packer_opts.number_of_molecules_in_partition);
-        if (numberOfClusters <= 1) numberOfClusters = 2;
-
-        char* commandToExecute = new char[1000];
-        unsigned num_cpus = std::thread::hardware_concurrency();
-        int num_threads = (int)(num_cpus / 2) > 1? (int)(num_cpus / 2) : 1;
-        // sprintf(commandToExecute, "%s hmetis.txt %d 3 10 4 1 3 0 0 ", packer_opts.hmetis_path.c_str(), numberOfClusters);
-        sprintf(commandToExecute, 
-                "%s -h hmetis.txt --preset-type=quality -t %d -k %d -e 3 -o soed --enable-progress-bar=true --show-detailed-timings=true --verbose=true --write-partition-file=true", 
-                MtKaHyPar_BINARY_FILE_PATH, num_threads, numberOfClusters);
-        VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
-
-        int code = system(commandToExecute);
-        VTR_ASSERT_MSG(code == 0, "Running MtKaHyPar failed with code 0");
-
-        delete commandToExecute;
-
-        char* newFilename = new char[100];
-        // sprintf(newFilename, "hmetis.txt.part.%d", numberOfClusters);
-        sprintf(newFilename, "hmetis.txt.part%d.epsilon3..seed0.KaHyPar", numberOfClusters);
-
-        int* atomBlockIdToCluster = new int[numberOfAtoms];
-
-        std::ifstream hmetisOutFile;
-        hmetisOutFile.open(newFilename);
-
-        int* clusterOfMolecule = new int[numberOfMolecules];
-
-        for (int i = 0; i < numberOfMolecules; i++) {
-            int clusterId;
-            hmetisOutFile >> clusterId;
-
-            clusterOfMolecule[i] = clusterId;
-
-            for (AtomBlockId abid : molecules[i]->atom_block_ids) {
-                if (size_t(abid) >= numberOfAtoms) continue;
-                atomBlockIdToCluster[size_t(abid)] = clusterId;
-            }
-
-        }
-        hmetisOutFile.close();
-
-        std::vector<int>* clusterMoleculeOrder = new std::vector<int>[numberOfClusters];
-
-        for (int i = 0; i < numberOfClusters; i++) {
+        for (int i = 0; i < size; i++) {
             clusterMoleculeOrder[i] = std::vector<int>();
         }
 
-        for (auto atom : seed_atoms) {
-            int id = size_t(atom);
-            int clusterId = atomBlockIdToCluster[id];
-            if (clusterId < 0 || clusterId >= numberOfClusters) {
-                VTR_LOG("BAD CLUSTER ID: %d, atomBlockId: %d\n", clusterId, id);
-                clusterId = 1;
-            }
-            VTR_ASSERT(clusterId >= 0 && clusterId < numberOfClusters);
-            int moleculeId = atomBlockIdToMoleculeId[id];
-            VTR_ASSERT(moleculeId >= 0 && moleculeId < numberOfMolecules);
-            clusterMoleculeOrder[clusterId].push_back(moleculeId);
+        for (int moldId = 0; moldId < part.numberOfMolecules; moldId++) {
+            clusterMoleculeOrder[part.partition_array[moldId]].push_back(moldId);
         }
 
-
-        for (int partId = 0; partId < numberOfClusters; partId++) {
+        for (int partId : part.partitions) {
+            
             int currentIndexOfBestMolecule = 0;
 
-            for (int moldId = 0; moldId < numberOfMolecules; moldId++) {
-                if (clusterOfMolecule[moldId] == partId) {
-                    molecules[moldId]->valid = true;
+            for (int moldId = 0; moldId < part.numberOfMolecules; moldId++) {
+                if (part.partition_array[moldId] == partId) {
+                    part.molecules[moldId]->valid = true;
                     //istart = molecules[moldId];
                 } else {
-                    molecules[moldId]->valid = false;
+                    part.molecules[moldId]->valid = false;
                 }
             }
 
             if (currentIndexOfBestMolecule >= clusterMoleculeOrder[partId].size()) {
                 istart = nullptr;
             } else {
-                istart = molecules[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
+                istart = part.molecules[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
                 currentIndexOfBestMolecule++;
                 while (!istart->valid && currentIndexOfBestMolecule < clusterMoleculeOrder[partId].size()) {
-                    istart = molecules[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
+                    istart = part.molecules[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
                     currentIndexOfBestMolecule++;
                 }
                 if (!istart->valid) {
@@ -689,7 +533,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                     }
                     
                     for (int index = 0; index < clusterMoleculeOrder[partId].size(); index++) {
-                        istart = molecules[clusterMoleculeOrder[partId][index]];
+                        istart = part.molecules[clusterMoleculeOrder[partId][index]];
                         if (istart->valid) {
                             break;
                         }
