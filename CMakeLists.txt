@@ -94,6 +94,8 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/output_clustering.h
           ${PACKER_SRC_DIR}/cluster_router.cpp
           ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+          ${PACKER_SRC_DIR}/Partitioning.h
+          ${PACKER_SRC_DIR}/Partitioning.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
 
