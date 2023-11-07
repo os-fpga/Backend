@@ -13,7 +13,7 @@ struct XY {
 
   bool valid() const noexcept { return x_ != INT_MIN; }
   bool nonNeg() const noexcept { return x_ >= 0; }
-  void invalidate() noexcept { x_ = INT_MIN; }
+  void inval() noexcept { x_ = INT_MIN; }
 
   void setPoint(int a, int b) noexcept {
     x_ = a;
@@ -24,12 +24,6 @@ struct XY {
     x_ = 0;
     y_ = 0;
   }
-
-  void moveBy(int dx, int dy) noexcept {
-    x_ += dx;
-    y_ += dy;
-  }
-  void moveBy(XY d) noexcept { moveBy(d.x_, d.y_); }
 
   void negate() noexcept {
     x_ = -x_;
@@ -44,6 +38,7 @@ struct XY {
     return int64_t(x_) * int64_t(b.y_) - int64_t(y_) * int64_t(b.x_);
   }
   XY perp() const noexcept { return XY(-y_, x_); }
+  XY conj() const noexcept { return XY(x_, -y_); }
 
   static int64_t det3(XY a, XY b, XY c) noexcept {
     b -= a;
@@ -73,9 +68,18 @@ struct XY {
     y_ -= p.y_;
   }
 
+  static constexpr int p_round(double x) noexcept {
+    if (x >= 0) {
+      if (x >= double(INT_MAX) - 0.5) return INT_MAX;
+      return x + 0.5;
+    }
+    if (x <= double(INT_MIN) + 0.5) return INT_MIN;
+    return x - 0.5;
+  }
+
   void multiply(double t) noexcept {
-    x_ = protectedRound(t * x_);
-    y_ = protectedRound(t * y_);
+    x_ = p_round(t * x_);
+    y_ = p_round(t * y_);
   }
   XY multipliedBy(double t) const noexcept {
     XY c(*this);
@@ -97,11 +101,10 @@ struct XY {
     return std::abs(x_ - a) + std::abs(y_ - b);
   }
   int distL2(XY p) const noexcept {
-    return protectedRound(::hypot(p.x_ - x_, p.y_ - y_));
+    return p_round(::hypot(p.x_ - x_, p.y_ - y_));
   }
   double sqDist(XY p) const noexcept {
-    return double(p.x_ - x_) * double(p.x_ - x_) +
-           double(p.y_ - y_) * double(p.y_ - y_);
+    return double(p.x_ - x_) * (p.x_ - x_) + double(p.y_ - y_) * (p.y_ - y_);
   }
 
   std::string toString() const noexcept {
@@ -164,17 +167,10 @@ inline std::ostream& operator<<(std::ostream& os, const XYZ& u) {
 inline int64_t dot(XY a, XY b) noexcept { return a.dot(b); }
 inline int64_t det(XY a, XY b) noexcept { return a.det(b); }
 
-inline XY operator-(XY a, XY b) noexcept {
-  return XY(a.x_ - b.x_, a.y_ - b.y_);
-}
-inline XY operator+(XY a, XY b) noexcept {
-  return XY(a.x_ + b.x_, a.y_ + b.y_);
-}
-
-inline int triangle_orientation(XY a, XY b, XY c) noexcept {
-  int64_t lt = XY::det3(a, b, c);
-  if (lt > 0) return 1;
-  if (lt < 0) return -1;
+inline int abc_ori(XY a, XY b, XY c) noexcept {
+  int64_t det = XY::det3(a, b, c);
+  if (det > 0) return 1;
+  if (det < 0) return -1;
   return 0;
 }
 

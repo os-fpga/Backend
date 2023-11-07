@@ -11,7 +11,7 @@
 #include "file_readers/pcf_reader.h"
 #include "file_readers/rapid_csv_reader.h"
 #include "file_readers/xml_reader.h"
-#include "file_readers/Fio.h"
+#include "file_readers/pinc_Fio.h"
 #include "util/cmd_line.h"
 
 #include <map>

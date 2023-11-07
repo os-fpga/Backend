@@ -52,7 +52,7 @@ struct Pin {
     all_modes_.reset();
     udes_pin_name_.clear();
     device_pin_name_.clear();
-    xyz_.invalidate();
+    xyz_.inval();
     pt_row_ = 0;
     is_usr_input_ = false;
     is_dev_input_ = false;
