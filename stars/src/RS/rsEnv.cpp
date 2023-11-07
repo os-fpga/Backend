@@ -234,21 +234,6 @@ bool rsEnv::readLink(const std::string& path, std::string& out) noexcept {
 
 bool rsEnv::getPidExePath(int pid, std::string& out) noexcept { return true; }
 
-
-#ifdef RSBE_TCMALLOC
-extern "C" const char* tc_version(int* major, int* minor, const char** patch);
-#endif
-#ifdef __GLIBC__
-#include <gnu/libc-version.h>
-#endif
-
-namespace {
-template <typename T>
-inline void lst(const char* nm, T t) {
-  cout << std::setw(30) << nm << " : " << t << endl;
-}
-}
-
 void rsEnv::listDevEnv() const noexcept {
   printf("\n\t   RSBE ver.  %s\n", shortVer_.c_str());
   printf("\t compiled:  %s\n\n", compTimeCS());
@@ -263,64 +248,6 @@ void rsEnv::listDevEnv() const noexcept {
   printf("\t  RSBE_UNIT_TEST :   ON  => unit tests are enabled\n");
 #else
   printf("\t  RSBE_UNIT_TEST :   OFF => unit tests are disabled\n");
-#endif
-
-  puts("\n(gcc)\n");
-#ifdef __GNUC__
-  printf("\t  __GNUC__ \t\t %i\n", __GNUC__);
-#endif
-#ifdef __GNUC_MINOR__
-  printf("\t  __GNUC_MINOR__ \t %i\n", __GNUC_MINOR__);
-#endif
-#ifdef __VERSION__
-  printf("\t  __VERSION__ \t\t %s\n", __VERSION__);
-#endif
-#ifdef __OPTIMIZE__
-  printf("\t  __OPTIMIZE__ \t\t %i\n", __OPTIMIZE__);
-#else
-  printf("\t  __OPTIMIZE__  :\t NOT DEFINED  => dbg binary\n");
-#endif
-#ifdef __NO_INLINE__
-  cout << "\t  __NO_INLINE__ :\t (defined)\n";
-#endif
-
-  cout << "\n(c++)\n" << endl;
-#ifdef __GNUG__
-  lst("__GNUG__", __GNUG__);
-#endif
-#ifdef __cplusplus
-  lst("__cplusplus", __cplusplus);
-#endif
-
-  cout << "\n(libc)\n" << endl;
-#ifdef __GLIBC__
-  printf("\t  __GLIBC__ \t\t %i\n", __GLIBC__);
-  printf("\t  __GLIBC_MINOR__ \t %i\n", __GLIBC_MINOR__);
-  printf("\t  runtime glibc version: %s\n", gnu_get_libc_version());
-#endif
-#ifdef RSBE_TCMALLOC
-  lst("RSBE_TCMALLOC", RSBE_TCMALLOC);
-  const char* tcm_ver = tc_version(nullptr, nullptr, nullptr);
-  if (tcm_ver) cout << "\t  tc_version(): " << tcm_ver << endl;
-#endif
-
-  /*
-    cout << "\n(Tcl)\n" << endl;
-
-#ifdef TCL_MAJOR_VERSION
-    lst("TCL_MAJOR_VERSION", TCL_MAJOR_VERSION);
-#endif
-#ifdef TCL_MINOR_VERSION
-    lst("TCL_MINOR_VERSION", TCL_MINOR_VERSION);
-#endif
-#ifdef TCL_PATCH_LEVEL
-    lst("TCL_PATCH_LEVEL", TCL_PATCH_LEVEL);
-#endif
-*/
-
-  cout << "\n(limits)\n" << endl;
-#ifdef PATH_MAX
-  lst("PATH_MAX", PATH_MAX);
 #endif
 
   pinc::flush_out(true);

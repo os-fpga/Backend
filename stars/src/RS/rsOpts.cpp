@@ -10,7 +10,7 @@ namespace rsbe {
 using namespace std;
 using namespace pinc;
 
-namespace eq {
+namespace alias {
 
 static const char* _ver_[] = {"V", "v", "ver", "vers", "version", nullptr};
 
@@ -55,22 +55,6 @@ static constexpr size_t UNIX_Path_Max = PATH_MAX - 4;
 // non-null string
 inline static const char* nns(const char* s) noexcept { return s ? s : "(NULL)"; }
 
-/*
-static bool input_dir_exists(const char* pa) noexcept {
-  if (!pa) return false;
-
-  struct stat sb;
-  if (::stat(pa, &sb)) return false;
-
-  if (not(S_IFDIR & sb.st_mode)) return false;
-
-  int err = ::access(pa, R_OK);
-  if (err) return false;
-
-  return true;
-}
-*/
-
 static bool input_file_exists(const char* fn) noexcept {
   if (!fn) return false;
 
@@ -90,16 +74,16 @@ static bool input_file_exists(const char* fn) noexcept {
   return sz > 1;  // require non-empty file
 }
 
-static bool op_match(const char* op, const char** EQ) noexcept {
-  assert(op and EQ);
-  if (!op || !EQ) return false;
+static bool op_match(const char* op, const char** aliases) noexcept {
+  assert(op and aliases);
+  if (!op || !aliases) return false;
   assert(op[0] == '-');
   if (op[0] != '-') return false;
   op++;
   if (op[0] == '-') op++;
 
-  for (const char** eq = EQ; *eq; eq++) {
-    if (::strcmp(op, *eq) == 0) return true;
+  for (const char** al = aliases; *al; al++) {
+    if (::strcmp(op, *al) == 0) return true;
   }
   return false;
 }
@@ -201,7 +185,7 @@ static char* make_file_name(const char* arg) noexcept {
 }
 
 void rsOpts::parse(int argc, const char** argv) noexcept {
-  using namespace ::rsbe::eq;
+  using namespace ::rsbe::alias;
 
   reset();
   argc_ = argc;
@@ -241,34 +225,6 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
     }
 
 #ifdef RSBE_UNIT_TEST_ON
-    if (op_match(arg, _uni1_)) {
-      unit1_ = true;
-      continue;
-    }
-    if (op_match(arg, _uni2_)) {
-      unit2_ = true;
-      continue;
-    }
-    if (op_match(arg, _uni3_)) {
-      unit3_ = true;
-      continue;
-    }
-    if (op_match(arg, _uni4_)) {
-      unit4_ = true;
-      continue;
-    }
-    if (op_match(arg, _uni5_)) {
-      unit5_ = true;
-      continue;
-    }
-    if (op_match(arg, _uni6_)) {
-      unit6_ = true;
-      continue;
-    }
-    if (op_match(arg, _uni7_)) {
-      unit7_ = true;
-      continue;
-    }
 #endif  // RSBE_UNIT_TEST_ON
 
     if (op_match(arg, _csv_)) {
@@ -367,193 +323,6 @@ bool rsOpts::set_VPR_TC1() noexcept {
   bool ok = false;
 
 #ifdef RSBE_UNIT_TEST_ON
-  static const char* raw_TC1 = R"(
-   $HOME/raps/5jul/Raptor/build/share/raptor/etc/devices/gemini_compact_104x68/gemini_vpr.xml
-   $HOME/raps/5jul/Raptor/and2_gemini/run_1/synth_1_1/synthesis/and2_gemini_post_synth.v
-   --sdc_file $HOME/raps/5jul/Raptor/and2_gemini/run_1/impl_1_1/packing/and2_gemini_openfpga.sdc
-   --route_chan_width 160 --suppress_warnings check_rr_node_warnings.log,check_rr_node
-   --clock_modeling ideal --absorb_buffer_luts off --skip_sync_clustering_and_routing_results off
-   --constant_net_method route --post_place_timing_report and2_gemini_post_place_timing.rpt --device castor104x68_heterogeneous
-   --allow_unrelated_clustering on --allow_dangling_combinational_nodes on
-   --place_delta_delay_matrix_calculation_method dijkstra
-   --gen_post_synthesis_netlist on --post_synth_netlist_unconn_inputs gnd
-   --inner_loop_recompute_divider 1 --max_router_iterations 1500 --timing_report_detail detailed
-   --timing_report_npaths 100 --top and2
-   --net_file $HOME/raps/5jul/Raptor/and2_gemini/run_1/impl_1_1/packing/and2_gemini_post_synth.net
-   --place_file $HOME/raps/5jul/Raptor/and2_gemini/run_1/impl_1_1/placement/and2_gemini_post_synth.place
-   --route_file $HOME/raps/5jul/Raptor/and2_gemini/run_1/impl_1_1/routing/and2_gemini_post_synth.route
-   --place
-  )";
-  ok = set_VPR_TC_args(raw_TC1);
-#endif  // RSBE_UNIT_TEST_ON
-
-  flush_out(true);
-  return ok;
-}
-
-bool rsOpts::set_STA_TC2() noexcept {
-  lputs(" O-set_STA_TC2: arch 1GE100-ES1");
-  assert(argc_ > 0 && argv_);
-  bool ok = false;
-
-#ifdef RSBE_UNIT_TEST_ON
-  static const char* raw_TC2 = R"(
-    $HOME/raps/5jul/Raptor/build/share/raptor/etc/devices/1GE100-ES1/gemini_vpr.xml
-    $HOME/raps/5jul/Raptor/EDA-1704/stars_TC/synth_1_1/synthesis/flop2flop_post_synth.v
-    --sdc_file $HOME/raps/5jul/Raptor/EDA-1704/stars_TC/impl_1_1/packing/flop2flop_openfpga.sdc
-    --route_chan_width 160 --suppress_warnings check_rr_node_warnings.log,check_rr_node
-    --clock_modeling ideal --absorb_buffer_luts off --skip_sync_clustering_and_routing_results off
-    --constant_net_method route --post_place_timing_report flop2flop_post_place_timing.rpt
-    --device castor104x68_heterogeneous --allow_unrelated_clustering on
-    --allow_dangling_combinational_nodes on --place_delta_delay_matrix_calculation_method dijkstra
-    --gen_post_synthesis_netlist on
-    --post_synth_netlist_unconn_inputs gnd
-    --inner_loop_recompute_divider 1 --max_router_iterations 1500
-    --timing_report_detail detailed --timing_report_npaths 100
-    --net_file $HOME/raps/5jul/Raptor/EDA-1704/stars_TC/impl_1_1/packing/flop2flop_post_synth.net
-    --place_file $HOME/raps/5jul/Raptor/EDA-1704/stars_TC/impl_1_1/placement/flop2flop_post_synth.place
-    --route_file $HOME/raps/5jul/Raptor/EDA-1704/stars_TC/impl_1_1/routing/flop2flop_post_synth.route
-    --place
-  )";
-  ok = set_VPR_TC_args(raw_TC2);
-#endif  // RSBE_UNIT_TEST_ON
-
-  flush_out(true);
-  return ok;
-}
-
-bool rsOpts::set_STA_TC3() noexcept {
-  lputs(" O-set_STA_TC3: flop2flop, arch GEMINI");
-  assert(argc_ > 0 && argv_);
-  bool ok = false;
-
-#ifdef RSBE_UNIT_TEST_ON
-  static const char* raw_TC3 = R"(
-    $HOME/raps/TC_10jul/Raptor/build/share/raptor/etc/devices/1GE100-ES1/gemini_vpr.xml
-    $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/synth_1_1/synthesis/flop2flop_post_synth.v
-    --sdc_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_openfpga.sdc
-    --route_chan_width 160 --suppress_warnings check_rr_node_warnings.log,check_rr_node
-    --clock_modeling ideal --absorb_buffer_luts off --skip_sync_clustering_and_routing_results off
-    --constant_net_method route --post_place_timing_report flop2flop_post_place_timing.rpt
-    --device castor104x68_heterogeneous --allow_unrelated_clustering on
-    --allow_dangling_combinational_nodes on --place_delta_delay_matrix_calculation_method dijkstra
-    --gen_post_synthesis_netlist on
-    --post_synth_netlist_unconn_inputs gnd
-    --inner_loop_recompute_divider 1 --max_router_iterations 1500
-    --timing_report_detail detailed --timing_report_npaths 100
-    --net_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/packing/flop2flop_post_synth.net
-    --place_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/placement/flop2flop_post_synth.place
-    --route_file $HOME/raps/TC_10jul/Raptor/EDA-1704/stars_TC3/impl_1_1/routing/flop2flop_post_synth.route
-    --place
-  )";
-  ok = set_VPR_TC_args(raw_TC3);
-#endif  // RSBE_UNIT_TEST_ON
-
-  flush_out(true);
-  return ok;
-}
-
-bool rsOpts::set_STA_TC4() noexcept {
-  lputs(" O-set_STA_TC4: vex_soc_no_carry, arch GEMINI");
-  assert(argc_ > 0 && argv_);
-  bool ok = false;
-
-#ifdef RSBE_UNIT_TEST_ON
-  static const char* raw_TC4 = R"(
-  $HOME/raps/01STA_vex/Raptor/build/share/raptor/etc/devices/gemini/gemini_vpr.xml
-  $HOME/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/synthesis/vex_soc_no_carry_post_synth.v
-  --sdc_file $HOME/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_openfpga.sdc
-  --route_chan_width 192
-  --suppress_warnings check_rr_node_warnings.log,check_rr_node
-  --clock_modeling ideal --absorb_buffer_luts off
-  --skip_sync_clustering_and_routing_results on
-  --constant_net_method route
-  --post_place_timing_report vex_soc_no_carry_post_place_timing.rpt
-  --device castor82x68_heterogeneous --allow_unrelated_clustering on
-  --gen_post_synthesis_netlist on
-  --allow_dangling_combinational_nodes on
-  --post_synth_netlist_unconn_inputs gnd
-  --inner_loop_recompute_divider 1
-  --max_router_iterations 1500
-  --timing_report_detail detailed
-  --timing_report_npaths 100
-  --top vex_soc
-  --net_file $HOME/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_post_synth.net
-  --place_file $HOME/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/placement/vex_soc_no_carry_post_synth.place
-  --route_file $HOME/raps/01STA_vex/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/routing/vex_soc_no_carry_post_synth.route
-  )";
-  ok = set_VPR_TC_args(raw_TC4);
-#endif  // RSBE_UNIT_TEST_ON
-
-  flush_out(true);
-  return ok;
-}
-
-bool rsOpts::set_STA_TC5() noexcept {
-  lputs(" O-set_STA_TC5: param_up_counter EDA-1828");
-  assert(argc_ > 0 && argv_);
-  bool ok = false;
-
-#ifdef RSBE_UNIT_TEST_ON
-  static const char* raw_TC5 = R"(
-  $HOME/raps/TC27jul/Raptor/build/share/raptor/etc/devices/gemini_10x8/gemini_vpr.xml
-  $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/synthesis/param_up_counter_post_synth.v
-  --sdc_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_openfpga.sdc
-  --route_chan_width 192
-  --suppress_warnings check_rr_node_warnings.log,check_rr_node
-  --clock_modeling ideal
-  --absorb_buffer_luts off
-  --skip_sync_clustering_and_routing_results on
-  --constant_net_method route
-  --post_place_timing_report param_up_counter_post_place_timing.rpt
-  --device castor10x8_heterogeneous --allow_unrelated_clustering on
-  --allow_dangling_combinational_nodes on
-  --gen_post_synthesis_netlist on
-  --post_synth_netlist_unconn_inputs gnd
-  --inner_loop_recompute_divider 1
-  --max_router_iterations 1500
-  --timing_report_detail detailed
-  --timing_report_npaths 100
-  --top param_up_counter
-  --net_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/packing/param_up_counter_post_synth.net
-  --place_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/placement/param_up_counter_post_synth.place
-  --route_file $HOME/raps/TC27jul/Raptor/param_up_counter/run_1/synth_1_1/impl_1_1/routing/param_up_counter_post_synth.route
-  )";
-  ok = set_VPR_TC_args(raw_TC5);
-#endif  // RSBE_UNIT_TEST_ON
-
-  flush_out(true);
-  return ok;
-}
-
-bool rsOpts::set_STA_TC6() noexcept {
-  lputs(" O-set_STA_TC6: vex");
-  assert(argc_ > 0 && argv_);
-  bool ok = false;
-
-#ifdef RSBE_UNIT_TEST_ON
-  static const char* raw_TC6 = R"(
-  $HOME/raps/TC6_vex_2aug/Raptor/build/share/raptor/etc/devices/gemini/gemini_vpr.xml
-  $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/synthesis/vex_soc_no_carry_post_synth.v
-  --sdc_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_openfpga.sdc
-  --route_chan_width 192 --suppress_warnings check_rr_node_warnings.log,check_rr_node
-  --clock_modeling ideal --absorb_buffer_luts off --skip_sync_clustering_and_routing_results on
-  --constant_net_method route --post_place_timing_report vex_soc_no_carry_post_place_timing.rpt
-  --device castor82x68_heterogeneous
-  --allow_unrelated_clustering on
-  --allow_dangling_combinational_nodes on
-  --gen_post_synthesis_netlist on
-  --post_synth_netlist_unconn_inputs gnd
-  --inner_loop_recompute_divider 1
-  --max_router_iterations 1500
-  --timing_report_detail detailed
-  --timing_report_npaths 100
-  --top vex_soc
-  --net_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/packing/vex_soc_no_carry_post_synth.net
-  --place_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/placement/vex_soc_no_carry_post_synth.place
-  --route_file $HOME/raps/TC6_vex_2aug/Raptor/vex_soc_no_carry/run_1/synth_1_1/impl_1_1/routing/vex_soc_no_carry_post_synth.route
-  )";
-  ok = set_VPR_TC_args(raw_TC6);
 #endif  // RSBE_UNIT_TEST_ON
 
   flush_out(true);
@@ -561,18 +330,6 @@ bool rsOpts::set_STA_TC6() noexcept {
 }
 
 bool rsOpts::set_STA_testCase(int TC_id) noexcept {
-  if (TC_id <= 1)
-    return false;
-  if (TC_id == 2)
-    return set_STA_TC2();
-  if (TC_id == 3)
-    return set_STA_TC3();
-  if (TC_id == 4)
-    return set_STA_TC4();
-  if (TC_id == 5)
-    return set_STA_TC5();
-  if (TC_id == 6)
-    return set_STA_TC6();
   return false;
 }
 
@@ -637,6 +394,29 @@ bool rsOpts::createVprArgv(vector<string>& W) noexcept {
   vprArgc_ = cnt;
 
   return true;
+}
+
+static inline bool ends_with_dot_cmd(const char* z, size_t len) noexcept {
+  assert(z);
+  if (len < 5) return false;
+  return z[len - 1] == 'd' and z[len - 2] == 'm' and z[len - 3] == 'c' and
+         z[len - 4] == '.';
+  // .cmd
+  // dmc.
+}
+
+bool rsOpts::isCmdInput() const noexcept {
+
+  if (!input_ || !input_[0])
+    return false;
+  size_t len = ::strlen(input_);
+  if (len < 5 || len > UNIX_Path_Max)
+    return false;
+
+  if (!ends_with_dot_cmd(input_, len))
+    return false;
+
+  return input_file_exists(input_);
 }
 
 }  // NS

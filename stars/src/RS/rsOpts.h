@@ -69,15 +69,11 @@ struct rsOpts {
 
   bool set_VPR_TC1() noexcept;  // and2_gemini
 
-  bool set_STA_TC2() noexcept;  // flop2flop, arch 1GE100-ES1
-  bool set_STA_TC3() noexcept;  // flop2flop, arch GEMINI
-  bool set_STA_TC4() noexcept;  // vex_soc_no_carry
-  bool set_STA_TC5() noexcept;  // param_up_counter EDA-1828
-  bool set_STA_TC6() noexcept;  // vex_soc_no_carry
-
   bool set_STA_testCase(int TC_id) noexcept;
 
   bool createVprArgv(vector<string>& W) noexcept;
+
+  bool isCmdInput() const noexcept;
 
 private:
   bool set_VPR_TC_args(CStr raw_tc) noexcept;

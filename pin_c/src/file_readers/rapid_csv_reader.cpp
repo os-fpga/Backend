@@ -1,5 +1,5 @@
 #include "file_readers/rapid_csv_reader.h"
-#include "file_readers/Fio.h"
+#include "file_readers/pinc_Fio.h"
 #include "pin_loc/pin.h"
 
 #include <iomanip>
@@ -576,7 +576,7 @@ bool RapidCsvReader::createTiles() {
       if (!tj.loc_.valid())
         continue;
       if (ti == tj) {
-        tj.loc_.invalidate();
+        tj.loc_.inval();
         num_invalidated++;
       }
     }

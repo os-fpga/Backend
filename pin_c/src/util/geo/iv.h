@@ -1,8 +1,6 @@
 // class Iv - Interval
 #pragma once
 
-#include <inttypes.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -25,51 +23,12 @@
 
 namespace pinc {
 
-inline constexpr int protectedAdd(int a, int b) noexcept {
-  int64_t c = int64_t(a) + int64_t(b);
-  if (c > INT_MAX) return INT_MAX;
-  if (c < INT_MIN) return INT_MIN;
-  return c;
-}
-
-inline constexpr int protectedSub(int a, int b) noexcept {
-  int64_t c = int64_t(a) - int64_t(b);
-  if (c > INT_MAX) return INT_MAX;
-  if (c < INT_MIN) return INT_MIN;
-  return c;
-}
-
 inline constexpr int64_t add64(int a, int b) noexcept {
   return int64_t(a) + int64_t(b);
 }
+
 inline constexpr int64_t sub64(int a, int b) noexcept {
   return int64_t(a) - int64_t(b);
-}
-
-inline constexpr int protectedRound(double x) noexcept {
-  if (x >= 0) {
-    if (x >= double(INT_MAX) - 0.5) return INT_MAX;
-    return x + 0.5;
-  }
-  if (x <= double(INT_MIN) + 0.5) return INT_MIN;
-  return x - 0.5;
-}
-
-inline constexpr int inlineRound(double x) noexcept {
-  return x >= 0 ? x + 0.5 : x - 0.5;
-}
-
-inline constexpr int64_t inlineRound64(double x) noexcept {
-  return x >= 0 ? int64_t(x + 0.5) : int64_t(x - 0.5);
-}
-
-inline constexpr int64_t protectedRound64(double x) noexcept {
-  if (x >= 0) {
-    if (x >= double(LLONG_MAX) - 0.5) return LLONG_MAX;
-    return int64_t(x + 0.5);
-  }
-  if (x <= double(LLONG_MIN) + 0.5) return LLONG_MIN;
-  return int64_t(x - 0.5);
 }
 
 struct Iv {
@@ -101,49 +60,6 @@ struct Iv {
   void invert() noexcept { std::swap(a_, b_); }
   int center() const noexcept { return add64(a_, b_) / 2; }
 
-  void bloat(int lo, int hi) noexcept {
-    assert(valid() && normal());
-    assert(lo >= 0 && hi >= 0);
-    a_ -= lo;
-    b_ += hi;
-    assert(valid() && normal());
-  }
-
-  void bloat(int delta) noexcept {
-    assert(delta >= 0);
-    bloat(delta, delta);
-  }
-
-  void moveTo(int t) noexcept {
-    assert(valid() && normal());
-    int l = len();
-    a_ = t;
-    b_ = t + l;
-  }
-
-  void moveBy(int dt) noexcept {
-    assert(valid() && normal());
-    a_ += dt;
-    b_ += dt;
-  }
-
-  inline void unite(Iv i) noexcept;
-  inline void unite(int t) noexcept;
-
-  bool intersects(Iv iv) const noexcept {
-    return intersects(a_, b_, iv.a_, iv.b_);
-  }
-  inline static bool intersects(int a, int b, int c, int d) noexcept;
-
-  bool overlaps(Iv iv) const noexcept { return overlaps(a_, b_, iv.a_, iv.b_); }
-  inline static bool overlaps(int a, int b, int c, int d) noexcept;
-
-  inline static int ovLen(int a, int b, int c, int d, int* p1 = nullptr,
-                          int* p2 = nullptr) noexcept;
-  int ovLen(Iv iv, int* p1 = nullptr, int* p2 = nullptr) const noexcept {
-    return ovLen(a_, b_, iv.a_, iv.b_, p1, p2);
-  }
-
   static bool inside(int t, int a, int b) noexcept {
     if (a > b) std::swap(a, b);
     return t >= a && t <= b;
@@ -162,17 +78,6 @@ struct Iv {
     return t > a && t < b;
   }
 
-  bool covers(Iv iv) const noexcept {
-    assert(valid() && normal());
-    assert(iv.valid());
-    return insideNorm(iv.a_, a_, b_) && insideNorm(iv.b_, a_, b_);
-  }
-  bool strictlyCovers(Iv iv) const noexcept {
-    assert(valid() && normal());
-    assert(iv.valid());
-    return insideOpenNorm(iv.a_, a_, b_) && insideOpenNorm(iv.b_, a_, b_);
-  }
-
   bool operator<(Iv i) const noexcept {
     if (a_ < i.a_) return true;
     if (a_ > i.a_) return false;
@@ -184,68 +89,6 @@ struct Iv {
 inline std::ostream& operator<<(std::ostream& os, Iv iv) {
   os << "(iv " << iv.a_ << ' ' << iv.b_ << ')';
   return os;
-}
-
-inline bool Iv::intersects(int a, int b, int c, int d) noexcept {
-  assert(a < b && c < d);
-  if (c < a) {
-    std::swap(a, c);
-    std::swap(b, d);
-  }
-  if (d < b) return true;
-  if (c > b) return false;
-  return true;
-}
-
-inline bool Iv::overlaps(int a, int b, int c, int d) noexcept {
-  assert(a < b && c < d);
-  if (c < a) {
-    std::swap(a, c);
-    std::swap(b, d);
-  }
-  if (d <= b) return true;
-  if (c >= b) return false;
-  return true;
-}
-
-inline int Iv::ovLen(int a, int b, int c, int d, int* p1, int* p2) noexcept {
-  assert(a < b && c < d);
-  if (c < a) {
-    std::swap(a, c);
-    std::swap(b, d);
-  }
-  if (d <= b) {
-    if (p1) *p1 = c;
-    if (p2) *p2 = d;
-    return d - c;
-  }
-  if (c >= b) return 0;
-
-  if (p1) *p1 = c;
-  if (p2) *p2 = b;
-  return b - c;
-}
-
-inline void Iv::unite(Iv i) noexcept {
-  assert(i.valid());
-  i.normalize();
-  if (valid()) {
-    assert(normal());
-    if (i.a_ < a_) a_ = i.a_;
-    if (i.b_ > b_) b_ = i.b_;
-    return;
-  }
-  set(i);
-}
-
-inline void Iv::unite(int t) noexcept {
-  if (valid()) {
-    assert(normal());
-    if (t < a_) a_ = t;
-    if (t > b_) b_ = t;
-    return;
-  }
-  set(t, t);
 }
 
 }  // namespace pinc
