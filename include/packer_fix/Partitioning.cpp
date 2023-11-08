@@ -3,7 +3,10 @@
 #include <fstream>
 #include <algorithm>
 #include <thread>
-#include "config.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 Partitioning::Partitioning(t_pack_molecule* molecule_head) {
     AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
@@ -50,6 +53,71 @@ Partitioning::Partitioning(t_pack_molecule* molecule_head) {
     for (int i = 0; i < numberOfAtoms; i++) {
         VTR_ASSERT(atomBlockIdToMoleculeId[i] != -1);
     }
+}
+
+static bool read_exe_link(const std::string& path, std::string& out) {
+  out.clear();
+  if (path.empty()) return false;
+
+  const char* cs = path.c_str();
+  struct stat sb;
+  if (::stat(cs, &sb))
+    return false;
+  if (not(S_IFREG & sb.st_mode))
+    return false;
+  if (::lstat(cs, &sb))
+    return false;
+  if (not(S_ISLNK(sb.st_mode))) {
+    out = "(* NOT A LINK : !S_ISLNK *)";
+    return false;
+  }
+
+  char buf[8192];
+  buf[0] = 0;
+  buf[1] = 0;
+  buf[8190] = 0;
+  buf[8191] = 0;
+
+  int64_t numBytes = ::readlink(cs, buf, 8190);
+  if (numBytes == -1) {
+      perror("readlink()");
+      return false;
+  }
+  buf[numBytes] = 0;
+  out = buf;
+
+  return true;
+}
+
+static std::string get_MtKaHyPar_path() {
+  int pid  = ::getpid();
+  std::string selfPath, exe_link;
+
+  exe_link.reserve(512);
+  exe_link = "/proc/";
+  exe_link += std::to_string(pid);
+  exe_link += "/exe";
+  if (!read_exe_link(exe_link, selfPath))
+    return {};
+
+  // replace 'vpr' by 'MtKaHyPar' in selfPath
+  if (selfPath == "vpr")
+    return "MtKaHyPar";
+  size_t len = selfPath.length();
+  if (len < 4 || len > 10000)
+    return {};
+  const char* cs = selfPath.c_str();
+  int i = len - 1;
+  for (; i >= 0; i--) {
+    if (cs[i] == '/')
+      break;
+  }
+  if (i < 1 || i == int(len) - 1)
+    return {};
+
+  std::string result {selfPath.begin(), selfPath.begin() + i + 1};
+  result += "MtKaHyPar";
+  return result;
 }
 
 void Partitioning::Bi_Partion(int partition_index){
@@ -146,21 +214,24 @@ void Partitioning::Bi_Partion(int partition_index){
     if (numberOfClusters == 1) numberOfClusters = 2;
 
     //numberOfClusters = 3;
-    char* commandToExecute = new char[1000];
+    char commandToExecute[6000] = {}; // unix PATH_MAX is 4096
     unsigned num_cpus = std::thread::hardware_concurrency();
     int num_threads = (int)(num_cpus / 2) > 1? (int)(num_cpus / 2) : 1;
-    // sprintf(commandToExecute, "%s hmetis.txt %d 3 10 4 1 3 0 0 ", packer_opts.hmetis_path.c_str(), numberOfClusters);
-    sprintf(commandToExecute, 
+
+    std::string MtKaHyPar_path = get_MtKaHyPar_path();
+    VTR_LOG("MtKaHPar PATH: %s\n", MtKaHyPar_path.c_str());
+
+    sprintf(commandToExecute,
             "%s -h hmetis.txt --preset-type=quality -t %d -k %d -e 0.01 -o soed --enable-progress-bar=true --show-detailed-timings=true --verbose=true --write-partition-file=true", 
-            MtKaHyPar_BINARY_FILE_PATH, num_threads, numberOfClusters);
+            MtKaHyPar_path.c_str(), num_threads, numberOfClusters);
     VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
 
     int code = system(commandToExecute);
-    VTR_ASSERT_MSG(code == 0, "Running MtKaHyPar failed with code 0");
+    VTR_ASSERT_MSG(code == 0, "Running MtKaHyPar failed with non-zero code");
 
     // delete commandToExecute;
 
-    char* newFilename = new char[100];
+    char newFilename[1024] = {};
     // sprintf(newFilename, "hmetis.txt.part.%d", numberOfClusters);
     sprintf(newFilename, "hmetis.txt.part%d.epsilon0.01.seed0.KaHyPar", numberOfClusters);
     // char* commandToExecute = new char[1000];
@@ -200,9 +271,6 @@ void Partitioning::Bi_Partion(int partition_index){
         //atgs[clusterId].group_atoms.push_back(_aid);
     }
     hmetisOutFile.close();
-    free(commandToExecute);
-    free(newFilename);
-
 }
 
 struct partition_position{
@@ -303,7 +371,7 @@ void Partitioning::recursive_partitioning(int molecule_per_partition){
 
     fprintf(file, "<vpr_constraints tool_name=\"vpr\">\n");
     fprintf(file, "\t<partition_list>\n");
-    for(int i=0;i<partitions.size();i++){
+    for(unsigned int i=0;i<partitions.size();i++){
         // VTR_LOG("%d %d %d\n",i,int(pow(2,num_partitions)),i-int(pow(2,num_partitions)));
         fprintf(file, "\t<partition name=\"Part%d\">\n",i);
         for(int j=0;j<numberOfMolecules;j++){
@@ -316,7 +384,6 @@ void Partitioning::recursive_partitioning(int molecule_per_partition){
                         exit(0);
                     }
                     fprintf(file, "\t\t<add_atom name_pattern=\"%s\"/>\n",myNetlist.block_name(abid).c_str());
-                    
                 }
             }
         }
