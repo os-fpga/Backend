@@ -1,10 +1,4 @@
 #pragma once
-////////////////////////////////////////////////////////////////////////////////
-// Important:                                                                 //
-//    This is for rs internally - don't make this part public until a written //
-//    approval is obtained from rapidsilicon open source review commitee      //
-////////////////////////////////////////////////////////////////////////////////
-
 #ifndef __rs_PinPlacer_fa337e863b11ab_H_
 #define __rs_PinPlacer_fa337e863b11ab_H_
 
