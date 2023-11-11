@@ -445,6 +445,16 @@ private:
 
 bool addIncludeGuards(LineReader& lr) noexcept;
 
+inline bool has_digit(const char* z) noexcept {
+  if (!z || !z[0]) return false;
+
+  for (; *z; z++) {
+    bool is_digit = (uint32_t(*z) - '0' < 10u);
+    if (is_digit) return true;
+  }
+  return false;
+}
+
 inline bool is_integer(const char* z) noexcept {
   if (!z || !z[0]) return false;
   if (*z == '-' || *z == '+') z++;
@@ -454,7 +464,6 @@ inline bool is_integer(const char* z) noexcept {
     bool is_digit = (uint32_t(*z) - '0' < 10u);
     if (!is_digit) return false;
   }
-
   return true;
 }
 
@@ -467,7 +476,6 @@ inline bool is_uint(const char* z) noexcept {
     bool is_digit = (uint32_t(*z) - '0' < 10u);
     if (!is_digit) return false;
   }
-
   return true;
 }
 

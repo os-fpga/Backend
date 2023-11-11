@@ -1,14 +1,8 @@
-////////////////////////////////////////////////////////////////////////////////
-// Important:                                                                 //
-//    This is for rs internally - don't make this part public until a written //
-//    approval is obtained from rapidsilicon open source review commitee      //
-////////////////////////////////////////////////////////////////////////////////
-
 #include "pin_loc/pin_placer.h"
 
 #include "file_readers/blif_reader.h"
 #include "file_readers/pcf_reader.h"
-#include "file_readers/rapid_csv_reader.h"
+#include "file_readers/pinc_csv_reader.h"
 #include "file_readers/pinc_Fio.h"
 #include "util/cmd_line.h"
 
