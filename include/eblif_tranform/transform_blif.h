@@ -408,8 +408,8 @@ public:
         std::transform(name.begin(), name.end(), name.begin(), ::tolower);
         if (name.find("dff") != std::string::npos ||
             name == std::string("adder_carry") ||
-            name == std::string("carry_chain")) {
-          if (name == std::string("carry_chain")) {
+            name == std::string("carry")) {
+          if (name == std::string("carry")) {
             name = std::string("adder_carry");
           }
           tokens[1] = name;
