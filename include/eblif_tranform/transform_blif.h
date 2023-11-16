@@ -417,6 +417,9 @@ public:
                 continue;
               }
               std::transform(tokens[i].begin(),tokens[i].begin() + itr, tokens[i].begin(), ::tolower);
+              if(tokens[i].size() > 2 && tokens[i][0] == 'o' && tokens[i][1] == '='){
+                tokens[i] = std::string("sumout=") + tokens[i].substr(2);
+              }
             }
           }
           tokens[1] = name;
