@@ -411,6 +411,13 @@ public:
             name == std::string("carry")) {
           if (name == std::string("carry")) {
             name = std::string("adder_carry");
+            for(int i =2; i < tokens.size(); ++i){
+              auto itr = tokens[i].find('=');
+              if(std::string::npos == itr){
+                continue;
+              }
+              std::transform(tokens[i].begin(),tokens[i].begin() + itr, tokens[i].begin(), ::tolower);
+            }
           }
           tokens[1] = name;
           for (auto &t : tokens) {
