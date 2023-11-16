@@ -30,7 +30,7 @@ set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
 set(VTR_CMAKE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/VTR_CMAKE_fix)
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
 set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
-set(MEM_FIX_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/mem_fix)
+
 # Logical Levels
 set(ANALYSIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/analysis_fix)
 set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
@@ -79,13 +79,6 @@ FILE(COPY ${EBLIF_TRANSFORM_SRC}/blifparse.cpp
 FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
           DESTINATION
           ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_verilog/)
-
-FILE(COPY ${MEM_FIX_SRC_DIR}/libvtrutil/vtr_ragged_matrix.h
-          DESTINATION
-          ${MEM_FIX_DEST_DIR1})
-FILE(COPY ${MEM_FIX_SRC_DIR}/librrgraph/rr_graph_view.h
-          DESTINATION
-          ${MEM_FIX_DEST_DIR2})
 
 FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/cluster_util.cpp
