@@ -36,7 +36,7 @@ struct rsOpts {
   int traceIndex_ = 0;
 
   bool version_ = false;
-  bool dev_ver_ = false;
+  bool det_ver_ = false;
 
   bool help_ = false;
   bool check_ = false;
@@ -62,7 +62,7 @@ struct rsOpts {
   bool unit_specified() const noexcept {
     return unit1_ || unit2_ || unit3_ || unit4_ || unit5_ || unit6_ || unit7_;
   }
-  bool ver_or_help() const noexcept { return version_ || dev_ver_ || help_; }
+  bool ver_or_help() const noexcept { return version_ || det_ver_ || help_; }
 
   bool trace_specified() const noexcept { return traceIndex_ > 0; }
   bool test_id_specified() const noexcept { return test_id_ > 0; }

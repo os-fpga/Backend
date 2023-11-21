@@ -1,14 +1,16 @@
 #pragma once
-#ifndef __rsbe__PARTITIONING_H
-#define __rsbe__PARTITIONING_H
-#include <iostream>
-#include <string>
-#include <vector>
+// nl::Par -- Netlist Partitioning
+#ifndef __rsbe__nl_Par_H_41abdef2db313ec_
+#define __rsbe__nl_Par_H_41abdef2db313ec_
+
+#include "pinc_log.h"
 #include "vpr_types.h"
 
-class Partitioning {
+namespace nlp {
+
+class Par {
 public:
-  Partitioning(t_pack_molecule* molecule_head);
+  Par(t_pack_molecule* molecule_head);
   void Bi_Partion(int partion_index);
   void recursive_partitioning(int num_partitions);
 
@@ -22,5 +24,7 @@ public:
   int* partition_array = nullptr;
   std::vector<int> partitions;
 };
+
+}
 
 #endif

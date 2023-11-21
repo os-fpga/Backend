@@ -1,6 +1,12 @@
 #include "pinc_log.h"
 
 #include <stdarg.h>
+#include <alloca.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 namespace pinc {
 
@@ -26,53 +32,57 @@ void set_ltrace(int t) noexcept {
 #define LEND cout << endl; fflush(stdout);
 
 void lputs(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
+}
+void err_puts(const char* cs) noexcept {
+  if (cs && cs[0]) cerr << cs;
+  cerr << endl; fflush(stdout);
 }
 
 void lputs0(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs1(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs2(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs3(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs4(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs5(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs6(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs7(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs8(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputs9(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 void lputsX(const char* cs) noexcept {
-    LPUT
-    LEND
+  LPUT
+  LEND
 }
 
 void lputs(const string& s) noexcept {
@@ -80,6 +90,12 @@ void lputs(const string& s) noexcept {
     cout << endl;
   else
     lputs(s.c_str());
+}
+void err_puts(const string& s) noexcept {
+  if (s.empty())
+    cerr << endl;
+  else
+    err_puts(s.c_str());
 }
 
 static constexpr char q = '\'';
@@ -119,6 +135,76 @@ void lprintf(const char* format, ...) {
     cout.flush();
     fflush(stdout);
   }
+}
+
+int get_PID() noexcept { return ::getpid(); }
+
+string get_CWD() noexcept {
+  char buf[4100] = {}; // unix max path is 4096
+  if (::getcwd(buf, 4098))
+    return buf;
+  return {};
+}
+
+bool s_readLink(const string& path, string& out) noexcept {
+  out.clear();
+  if (path.empty()) return false;
+
+  const char* cs = path.c_str();
+  struct stat sb;
+
+  if (::stat(cs, &sb))
+    return false;
+  if (not(S_IFREG & sb.st_mode))
+    return false;
+
+  if (::lstat(cs, &sb))
+    return false;
+
+  if (not(S_ISLNK(sb.st_mode))) {
+    out = "(* NOT A LINK : !S_ISLNK *)";
+    return false;
+  }
+
+  char buf[8192];
+  buf[0] = 0;
+  buf[1] = 0;
+  buf[8190] = 0;
+  buf[8191] = 0;
+
+  int64_t numBytes = ::readlink(cs, buf, 8190);
+  if (numBytes == -1) {
+      perror("readlink()");
+      return false;
+  }
+  buf[numBytes] = 0;
+  out = buf;
+
+  return true;
+}
+
+void traceEnv(int argc, const char** argv) noexcept {
+  int pid  = ::getpid();
+  int ppid = ::getppid();
+  string selfPath, parentPath, exe_link;
+
+  exe_link = str::concat("/proc/", std::to_string(pid), "/exe");
+  s_readLink(exe_link, selfPath);
+
+  exe_link = str::concat("/proc/", std::to_string(ppid), "/exe");
+  s_readLink(exe_link, parentPath);
+
+  lprintf("    PID: %i   parentPID: %i\n", pid, ppid);
+  lout() << "      self-path: " << selfPath << endl;
+  lout() << "    parent-path: " << parentPath << endl;
+  lout() << "    CWD: " << get_CWD() << endl;
+
+  if (argc > 0 && argv) {
+    lprintf("    argc= %i\n", argc);
+    for (int i = 0; i < argc; i++)
+      lprintf("    |%i| %s\n", i, argv[i]);
+  }
+  lputs();
 }
 
 namespace str {

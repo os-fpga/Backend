@@ -1,4 +1,4 @@
-#include "rsFio.h"
+#include "pinc_Fio.h"
 #include <set>
 
 namespace fio {
@@ -83,7 +83,7 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
   static std::set<string> skip_cols = {
     "Remark", "Voltage2", "Discription", "Power Pad", "Voltage", "Mbist Mode",
     "Scan Mode", "Debug Mode", "ALT Function", "MODE_ETH", "MODE_USB",
-    "MODE_GPIO", "MODE_UART0", "MODE_UART1", "MODE_I2C", "MODE_SPI0",
+    "MODE_UART0", "MODE_UART1", "MODE_I2C", "MODE_SPI0",
     "MODE_PWM", "MODE_DDR", "Ref clock", "IS_FPGA_GPIO", "Main Function",
     "Identifier", "Direction", "Type", "BANK", "MODE_MIPI"
   };
@@ -193,7 +193,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     lowHeader_[c] = str::sToLower(header_[c]);
 
   nr_ = nel - 1;
-  if (nr_ < 2) return false;
+  if (nr_ < 1) return false;
   if (trace() >= 3) {
     lprintf("CReader::parse()  nr_= %zu  nc_= %zu\n", nr_, nc_);
   }
@@ -284,7 +284,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
 
 void CSV_Reader::alloc_num_matrix() noexcept {
   assert(!nmat_);
-  assert(nr_ > 1 && nc_ > 1);
+  assert(nr_ > 0 && nc_ > 1);
 
   nmat_ = new int*[nr_ + 2];
   for (size_t r = 0; r < nr_ + 2; r++) {
@@ -295,7 +295,7 @@ void CSV_Reader::alloc_num_matrix() noexcept {
 
 void CSV_Reader::alloc_str_matrix() noexcept {
   assert(!smat_);
-  assert(nr_ > 1 && nc_ > 1);
+  assert(nr_ > 0 && nc_ > 1);
 
   smat_ = new string*[nr_ + 2];
   for (size_t r = 0; r < nr_ + 2; r++) {

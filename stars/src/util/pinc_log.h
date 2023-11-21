@@ -53,6 +53,9 @@ void set_ltrace(int t) noexcept;
 
 void lprintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 void lputs(const char* cs = 0) noexcept;
+void lputs(const std::string& s) noexcept;
+void err_puts(const char* cs = 0) noexcept;
+
 void lputs0(const char* cs = 0) noexcept;
 void lputs1(const char* cs = 0) noexcept;
 void lputs2(const char* cs = 0) noexcept;
@@ -64,7 +67,8 @@ void lputs7(const char* cs = 0) noexcept;
 void lputs8(const char* cs = 0) noexcept;
 void lputs9(const char* cs = 0) noexcept;
 void lputsX(const char* cs = 0) noexcept;
-void lputs(const std::string& s) noexcept;
+
+void err_puts(const std::string& s) noexcept;
 
 void bh1(const char* fn, int l, const char* s = 0) noexcept;
 void bh2(const char* fn, int l, const char* s = 0) noexcept;
@@ -82,6 +86,10 @@ inline size_t p_strlen(const char* p) noexcept { return p ? ::strlen(p) : 0; }
 inline void p_free(void* p) noexcept {
   if (p) ::free(p);
 }
+
+int get_PID() noexcept;
+std::string get_CWD() noexcept;
+void traceEnv(int argc = 0, const char** argv = nullptr) noexcept;
 
 namespace str {
 
@@ -167,6 +175,13 @@ inline string concat(const char* a, const char* b, const string& c, const string
   if (b) z.append(b);
   z.append(c);
   z.append(d);
+  return z;
+}
+
+inline const char* trimFront(const char* z) noexcept {
+  if (z && *z) {
+    while (std::isspace(*z)) z++;
+  }
   return z;
 }
 

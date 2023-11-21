@@ -1,4 +1,4 @@
-#include "Partitioning.h"
+#include "nl_Par.h"
 #include "globals.h"
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -7,7 +7,9 @@
 #include <fstream>
 #include <thread>
 
-Partitioning::Partitioning(t_pack_molecule* molecule_head) {
+namespace nlp {
+
+Par::Par(t_pack_molecule* molecule_head) {
   AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
   for (auto cur_molecule = molecule_head; cur_molecule; cur_molecule = cur_molecule->next) {
     molecules.push_back(cur_molecule);
@@ -111,7 +113,7 @@ static std::string get_MtKaHyPar_path() {
   return result;
 }
 
-void Partitioning::Bi_Partion(int partition_index) {
+void Par::Bi_Partion(int partition_index) {
   //making the intermediate nodes
   std::vector<int> MoleculesToIntermediate;
   std::vector<int> IntermediateToMolecules;
@@ -272,7 +274,7 @@ struct partition_position {
 };
 
 
-void Partitioning::recursive_partitioning(int molecule_per_partition) {
+void Par::recursive_partitioning(int molecule_per_partition) {
   AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
   auto& device_ctx = g_vpr_ctx.device();
   auto& grid = device_ctx.grid;
@@ -395,3 +397,6 @@ void Partitioning::recursive_partitioning(int molecule_per_partition) {
   // Close the file
   fclose(file);
 }
+
+}
+

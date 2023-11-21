@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0093";
+static const char* _rsbe_VERSION_STR = "rsbe0094";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -100,25 +100,15 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
 static void do_help(const rsOpts& opts) {
   printf("RSBE ver. %s\n", _rsbe_VERSION_STR);
 
-  if (opts.dev_ver_) {
+  if (opts.det_ver_) {
     s_env.listDevEnv();
   }
-  if (opts.dev_ver_ || opts.version_) {
+  if (opts.det_ver_ || opts.version_) {
     return;
   }
   if (opts.help_) {
     opts.printHelp();
   }
-}
-
-static void do_units(const rsOpts& opts) {
-#ifdef RSBE_UNIT_TEST_ON
-  using namespace tes;
-  if (opts.unit1_) tes::run_U1();
-  if (opts.unit2_) tes::run_U2();
-  if (opts.unit3_) tes::run_U3();
-  if (opts.unit4_) tes::run_U4();
-#endif
 }
 
 }  // NS rsbe
@@ -159,11 +149,6 @@ int main(int argc, char** argv) {
     std::quick_exit(0);
   }
 
-  if (opts.unit_specified()) {
-    do_units(opts);
-    ::exit(0);
-  }
-
   if (ltrace() >= 2) {
     lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
   }
@@ -172,32 +157,6 @@ int main(int argc, char** argv) {
   bool ok = false;
 
 #ifdef RSBE_UNIT_TEST_ON
-  const char* str_STA_TC = getenv("rsbe_builtin_STA_TC");
-  int num_STA_TC = 0;
-  if (str_STA_TC)
-    num_STA_TC = ::atoi(str_STA_TC);
-  constexpr bool rsbe_builtin_VPR_TC = false; //getenv("rsbe_builtin_VPR_TC");
-  if (num_STA_TC > 0) {
-    lprintf("\n### num_STA_TC= %i\n", num_STA_TC);
-    ok = opts.set_STA_testCase(num_STA_TC);
-    if (ok) {
-      ok = do_stars(opts, false);
-      if (ok) {
-        lputs("do_stars() succeeded.");
-        status = 0;
-      }
-    }
-  } else if (rsbe_builtin_VPR_TC) {
-    lputs("\n(rsbe_builtin_VPR_TC)\n");
-    ok = opts.set_VPR_TC1();
-    if (ok) {
-      status = do_vpr(opts);
-      lprintf("DID vpr. status= %i\n", status);
-    } else {
-      lputs(" [Error] set_VPR_TC FAILED");
-    }
-  }
-  goto ret;
 #endif  // RSBE_UNIT_TEST_ON
 
   ok = do_stars(opts, true);
@@ -208,7 +167,6 @@ int main(int argc, char** argv) {
     if (ltrace() >= 2) lputs("do_stars() failed.");
   }
 
-ret:
   pinc::flush_out(true);
   return status;
 }
