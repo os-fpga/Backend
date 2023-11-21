@@ -1,5 +1,5 @@
 #include "rsOpts.h"
-#include "rsFio.h"
+#include "pinc_Fio.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -14,7 +14,7 @@ namespace alias {
 
 static const char* _ver_[] = {"V", "v", "ver", "vers", "version", nullptr};
 
-static const char* _dev_ver_[] = {"DV", "VV", "vv", "dev_ver", "dev_version", nullptr};
+static const char* _det_ver_[] = {"VV", "vv", "VVV", "vvv", "det_ver", nullptr};
 
 static const char* _help_[] = {"H", "h", "help", "hel", "hlp", "-he", nullptr};
 
@@ -34,7 +34,8 @@ static const char* _output_[] = {"O", "o", "ou", "OU", "out", "outp", "output", 
 
 static const char* _trace_[] = {"TR", "trace", "tr", "tra", nullptr};
 
-static const char* _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst", "test_case", "test_c", nullptr};
+static const char* _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst",
+                               "test_case", "test_c", nullptr};
 
 #ifdef RSBE_UNIT_TEST_ON
 
@@ -136,7 +137,7 @@ void rsOpts::print(const char* label) const noexcept {
   cout << "   unit_specified: " << std::boolalpha << unit_specified() << endl;
 
   printf("  help_:%i  check_:%i\n", help_, check_);
-  printf("  ver:%i  dev_ver_:%i\n", version_, dev_ver_);
+  printf("  ver:%i  det_ver_:%i\n", version_, det_ver_);
 
   lputs();
 #endif  // RSBE_UNIT_TEST_ON
@@ -146,25 +147,6 @@ void rsOpts::printHelp() const noexcept {
   cout << "Usage:" << endl;
 
 #ifdef RSBE_UNIT_TEST_ON
-  cout << "  pin_c [options] [PinTable.csv]" << endl;
-
-  puts("\nOpts:");
-
-  auto print_line = [](const char* a, const char* b) -> void {
-    cout << std::setw(32) << a << "  :  " << b << '\n';
-  };
-
-  print_line("--help,-H,-h", "this help");
-  print_line("--version,-V,-v", "version");
-  print_line("--dev_version,-DV,-vv", "dev version");
-  print_line("--trace,-TR <n>", "trace level");
-
-  lputs();
-  print_line("--csv,-CS", "csv file (Pin Table)");
-  print_line("--pcf,-PC", "pcf file (Pin Constraint File)");
-  print_line("--json,-JS,--port_info,-PI", "json file (Port Info File)");
-
-  lputs();
 #endif  // RSBE_UNIT_TEST_ON
 }
 
@@ -211,8 +193,8 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
       version_ = true;
       continue;
     }
-    if (op_match(arg, _dev_ver_)) {
-      dev_ver_ = true;
+    if (op_match(arg, _det_ver_)) {
+      det_ver_ = true;
       continue;
     }
     if (op_match(arg, _help_)) {

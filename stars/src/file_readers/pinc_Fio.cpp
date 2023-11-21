@@ -1,5 +1,5 @@
 // File IO - namespace fio
-#include "rsFio.h"
+#include "pinc_Fio.h"
 #include "pinc_tinyxml2.h"
 
 #include <alloca.h>
@@ -15,8 +15,6 @@ namespace fio {
 
 using namespace pinc;
 using namespace std;
-
-int get_PID() noexcept { return ::getpid(); }
 
 static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
 
@@ -277,6 +275,18 @@ bool Fio::isEmptyLine(const char* src) noexcept {
   return len < 2;
 }
 
+void Fio::copyLines(vector<string>& out) const noexcept {
+  out.clear();
+  if (!hasLines() || lines_.empty())
+    return;
+
+  out.reserve(lines_.size());
+  for (size_t li = 1; li < lines_.size(); li++) {
+    const char* line = lines_[li];
+    if (line)
+      out.emplace_back(line);
+  }
+}
 
 // ======== 1. MMapReader ==============================================
 
@@ -483,6 +493,27 @@ int64_t MMapReader::printWC(std::ostream& os) const noexcept {
   os << numLines << ' ' << numWords << ' ' << sz_ << ' ' << fnm_ << endl;
 
   return numLines;
+}
+
+int64_t MMapReader::printLines(std::ostream& os) noexcept {
+  if (!fsz_ || !sz_ || !buf_ || fnm_.empty())
+    return 0;
+  bool hasl = hasLines();
+  if (!hasl) {
+    if (makeLines(false, true))
+      hasl = hasLines();
+  }
+  if (!hasl)
+    return 0;
+
+  size_t cnt = 0, sz = lines_.size();
+  for (size_t i = 0; i < sz; i++) {
+    const char* cs = lines_[i];
+    if (!cs || !cs[0]) continue;
+    cnt++;
+    os << i << ": " << cs << endl;
+  }
+  return cnt;
 }
 
 uint64_t MMapReader::hashSum() const noexcept {
@@ -718,6 +749,27 @@ bool LineReader::readBuffer() noexcept {
   }
 
   ::fclose(f);
+
+  curLine_ = buf_;
+  curLine2_ = buf_;
+  return true;
+}
+
+bool LineReader::readStdin() noexcept {
+
+  if (!buf_) {
+    buf_ = (char*)::malloc(cap_ + 4);
+    buf_[cap_] = 0;
+  }
+
+  while (!feof(stdin)) {
+    char* mem = getFreeMem();
+    char* line = ::fgets(mem, lr_MAX_LINE_LEN, stdin);
+    if (!line) break;
+    num_lines_++;
+    char* nextMem = skipLine(mem);
+    sz_ += (nextMem - mem);
+  }
 
   curLine_ = buf_;
   curLine2_ = buf_;
