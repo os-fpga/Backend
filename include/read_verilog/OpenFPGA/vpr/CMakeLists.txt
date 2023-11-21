@@ -18,13 +18,13 @@ option(ENABLE_VERIFIC "Enable Verific front end" OFF)
 
 
 if (NOT RAPTOR)
-    if(ENABLE_VERIFIC)
         get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
         REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
         add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
         get_filename_component(VERI_PRUNE_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/veri_prune"
         REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
         add_subdirectory(${VERI_PRUNE_SRC_DIR} veri_prune)
+    if(ENABLE_VERIFIC)
         get_filename_component(VERIFIC_HOME "../../../Raptor_Tools/verific_rs/"
         REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
         add_subdirectory(${VERIFIC_HOME} verific_rs)
@@ -105,9 +105,9 @@ if(ENABLE_VERIFIC)
     list (APPEND LIB_HEADERS ${VERIFIC_HOME}/verilog/veri_file.h)
     list (APPEND LIB_HEADERS ${VERIFIC_HOME}/util/Protect.h)
     list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/ieee_1735.h)
+endif()
     list (APPEND LIB_HEADERS ${READ_VERILOG_SRC_DIR}/src/read_nl/simple_netlist.h)
     list (APPEND LIB_HEADERS ${VERI_PRUNE_SRC_DIR}/src/veri_prune/veri_prune.h)
-endif()
 
 list (APPEND LIB_HEADERS ${READ_EDIF_SRC_DIR}/src/edif_blif.hpp)
 files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
@@ -124,12 +124,10 @@ add_library(libvpr STATIC
 
 
 target_include_directories(libvpr PUBLIC ${LIB_INCLUDE_DIRS})
-if(ENABLE_VERIFIC)
     target_include_directories(libvpr PUBLIC ${READ_VERILOG_SRC_DIR})
     target_include_directories(libvpr PUBLIC ${VERI_PRUNE_SRC_DIR})
     set(read_verilog_lib libreadver)
     set(veri_prune_lib libveriprune)
-endif()
 target_include_directories(libvpr PUBLIC ${READ_EDIF_SRC_DIR})
 
 #VPR_ANALYTIC_PLACE is inisitalized in the root CMakeLists
