@@ -1,38 +1,26 @@
-#ifndef PARTITIONING_H
-#define PARTITIONING_H
-#include<vector>
-#include<iostream>
+#pragma once
+#ifndef __rsbe__PARTITIONING_H
+#define __rsbe__PARTITIONING_H
+#include <iostream>
+#include <string>
+#include <vector>
 #include "vpr_types.h"
 
-class Partitioning{
-public: 
-    Partitioning(t_pack_molecule* molecule_head);
-    void Bi_Partion(int partion_index);
-    void recursive_partitioning(int num_partitions);
-// private:
-    std::vector<t_pack_molecule*> molecules;
-    int numberOfMolecules = 0;
-    int numberOfNets = 0;
-    int numberOfAtoms = 0;
-    int* atomBlockIdToMoleculeId;
-    std::string* moleculeIdToName;
-    int* partition_array;
-    std::vector<int> partitions;
-};
-
-class Person {
+class Partitioning {
 public:
-    // Constructor
-    Person(std::string name, int age);
+  Partitioning(t_pack_molecule* molecule_head);
+  void Bi_Partion(int partion_index);
+  void recursive_partitioning(int num_partitions);
 
-    // Member functions
-    std::string getName() const;
-    int getAge() const;
-    void setName(std::string name);
-    void setAge(int age);
-
-private:
-    std::string name;
-    int age;
+// DATA:
+  std::vector<t_pack_molecule*> molecules;
+  int numberOfMolecules = 0;
+  int numberOfNets = 0;
+  int numberOfAtoms = 0;
+  int* atomBlockIdToMoleculeId = nullptr;
+  std::string* moleculeIdToName = nullptr;
+  int* partition_array = nullptr;
+  std::vector<int> partitions;
 };
+
 #endif
