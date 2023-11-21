@@ -6,8 +6,8 @@
 // ======== 3. CSV_Reader ============
 // ======== 4. XML_Reader ============
 
-#ifndef __rs_file_readers_Fio_H_h_
-#define __rs_file_readers_Fio_H_h_
+#ifndef __rs_file_readers_pinc_Fio_H_h_
+#define __rs_file_readers_pinc_Fio_H_h_
 
 #include "pinc_log.h"
 #include <string_view>
@@ -33,8 +33,6 @@ inline char* p_strdup(const char* p) noexcept {
   if (!p) return nullptr;
   return ::strdup(p);
 }
-
-int get_PID() noexcept; // wrapper for getpid() to reduce usage of unistd.h
 
 using std::string;
 using std::vector;
@@ -80,6 +78,17 @@ public:
   virtual void reset(const char* nm, uint16_t tr = 0) noexcept;
 
   virtual bool makeLines(bool cutComments, bool cutNL) noexcept { return false; }
+
+  bool hasLines() const noexcept {
+    if (!sz_ || !fsz_ || !num_lines_)
+      return false;
+    for (const char* z : lines_) {
+      if (z && z[0])
+        return true;
+    }
+    return false;
+  }
+  void copyLines(vector<string>& out) const noexcept;
 
   uint16_t trace() const noexcept { return trace_; }
   void setTrace(int t) noexcept;
@@ -229,6 +238,8 @@ public:
   int64_t countWC(int64_t& numWords) const noexcept;  // ~ wc command
   int64_t printWC(std::ostream& os) const noexcept;   // ~ wc command
 
+  int64_t printLines(std::ostream& os) noexcept;
+
   char* skipLine(char* curL) noexcept;
   bool advanceLine(char*& curL) noexcept;
 
@@ -283,6 +294,7 @@ public:
   void reIterate2() const noexcept { curLine2_ = buf_; }
 
   bool readBuffer() noexcept;
+  bool readStdin() noexcept;
 
   bool read(bool mkLines, bool cutComments = false) noexcept;
 
@@ -434,6 +446,28 @@ private:
 
 bool addIncludeGuards(LineReader& lr) noexcept;
 
+inline bool has_digit(const char* z) noexcept {
+  if (!z || !z[0]) return false;
+
+  for (; *z; z++) {
+    bool is_digit = (uint32_t(*z) - '0' < 10u);
+    if (is_digit) return true;
+  }
+  return false;
+}
+
+inline size_t count_digits(const char* z) noexcept {
+  if (!z || !z[0]) return 0;
+
+  size_t cnt = 0;
+  for (; *z; z++) {
+    bool is_digit = (uint32_t(*z) - '0' < 10u);
+    if (is_digit)
+      cnt++;
+  }
+  return cnt;
+}
+
 inline bool is_integer(const char* z) noexcept {
   if (!z || !z[0]) return false;
   if (*z == '-' || *z == '+') z++;
@@ -443,7 +477,6 @@ inline bool is_integer(const char* z) noexcept {
     bool is_digit = (uint32_t(*z) - '0' < 10u);
     if (!is_digit) return false;
   }
-
   return true;
 }
 
@@ -456,7 +489,6 @@ inline bool is_uint(const char* z) noexcept {
     bool is_digit = (uint32_t(*z) - '0' < 10u);
     if (!is_digit) return false;
   }
-
   return true;
 }
 
