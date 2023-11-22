@@ -16,7 +16,7 @@ public:
   Par(t_pack_molecule* molecule_head);
   ~Par();
 
-  void Bi_Partion(uint partion_index);
+  bool Bi_Partion(uint partion_index);
 
   bool recursive_partitioning(int num_partitions);
 
