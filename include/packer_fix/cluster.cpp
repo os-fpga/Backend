@@ -75,9 +75,7 @@
 
 #include "re_cluster_util.h"
 #include "constraints_report.h"
-#include "Partitioning.h"
-
-#include "config.h"
+#include "nl_Par.h"
 
 /*
  * When attraction groups are created, the purpose is to pack more densely by adding more molecules
@@ -246,46 +244,54 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
     int max_nb_molecule;
     int nb_packed_molecules = 0;
 
-    if(packer_opts.use_partitioning_in_pack){
+    bool have_partitioning = false;
+    nlp::Par part{molecule_head};
+
+    if (packer_opts.use_partitioning_in_pack) {
         int npart = packer_opts.number_of_molecules_in_partition;
-        // scanf("%d",&npart);
         // auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
 
-        Partitioning part = Partitioning(molecule_head);
         part.recursive_partitioning(npart);
 
+        uint psz = part.partitions_.size();
+        if (psz < 2) {
+          VTR_LOG("Partitioning FAILED.  #partitions= %u\n", psz);
+        } else {
+          VTR_LOG("Partitioning succeeded.  #partitions= %u\n", psz);
+          have_partitioning = true;
+        }
+    }
+
+    if (have_partitioning) {
+
         // auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
-        int size = static_cast<int>(part.partitions[part.partitions.size()-1]+100);
+        uint lastIdx = part.partitions_.size() - 1;
+        uint size = part.partitions_[lastIdx] + 100;
         std::vector<int>* clusterMoleculeOrder = new std::vector<int>[size];
 
-        for (int i = 0; i < size; i++) {
-            clusterMoleculeOrder[i] = std::vector<int>();
+        for (uint mid = 0; mid < part.numMolecules_; mid++) {
+            clusterMoleculeOrder[part.partition_array_[mid]].push_back(mid);
         }
 
-        for (int moldId = 0; moldId < part.numberOfMolecules; moldId++) {
-            clusterMoleculeOrder[part.partition_array[moldId]].push_back(moldId);
-        }
+        for (uint partId : part.partitions_) {
+            uint currentIndexOfBestMolecule = 0;
 
-        for (int partId : part.partitions) {
-            
-            int currentIndexOfBestMolecule = 0;
-
-            for (int moldId = 0; moldId < part.numberOfMolecules; moldId++) {
-                if (part.partition_array[moldId] == partId) {
-                    part.molecules[moldId]->valid = true;
-                    //istart = molecules[moldId];
+            for (uint mid = 0; mid < part.numMolecules_; mid++) {
+                if (part.partition_array_[mid] == partId) {
+                    part.molecules_[mid]->valid = true;
+                    //istart = molecules[mid];
                 } else {
-                    part.molecules[moldId]->valid = false;
+                    part.molecules_[mid]->valid = false;
                 }
             }
 
             if (currentIndexOfBestMolecule >= clusterMoleculeOrder[partId].size()) {
                 istart = nullptr;
             } else {
-                istart = part.molecules[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
+                istart = part.molecules_[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
                 currentIndexOfBestMolecule++;
                 while (!istart->valid && currentIndexOfBestMolecule < clusterMoleculeOrder[partId].size()) {
-                    istart = part.molecules[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
+                    istart = part.molecules_[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
                     currentIndexOfBestMolecule++;
                 }
                 if (!istart->valid) {
@@ -478,41 +484,41 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                         //
                         if (!strcmp(cluster_ctx.clb_nlist.block_type(clb_index)->name, "clb")) {
 
-                        // Temporary fix : make sure that the solution has no mode confict. This check is 
-                        // performed by initiating a first xml kind of output work. There may be a tricky 
-                        // conflict with some lb routing so we need to store temporary the lb nets in the 
+                        // Temporary fix : make sure that the solution has no mode confict. This check is
+                        // performed by initiating a first xml kind of output work. There may be a tricky
+                        // conflict with some lb routing so we need to store temporary the lb nets in the
                         // cluster data structure to make the check inside "check_if_xml_mode_conflict".
                         // (T.Besson, Rapid Silicon)
                         //
                         (clustering_data.intra_lb_routing).push_back(router_data->saved_lb_nets);
 
-                        // Call the check as if we would output the final packing ... and see if there is any 
+                        // Call the check as if we would output the final packing ... and see if there is any
                         // mode conflict. (T.Besson)
                         // 'is_cluster_legal' turns to false if there is a mode conflict.
                         //
-                        is_cluster_legal = check_if_xml_mode_conflict(packer_opts, arch, 
+                        is_cluster_legal = check_if_xml_mode_conflict(packer_opts, arch,
                                                                         clustering_data.intra_lb_routing);
 
-                        // Remove the previous pushed "intra_lb_routing_solution" to clean up 
+                        // Remove the previous pushed "intra_lb_routing_solution" to clean up
                         // the place. (T.Besson)
                         //
                         (clustering_data.intra_lb_routing).pop_back();
 
                         if (!is_cluster_legal &&
-                            (detailed_routing_stage == (int)E_DETAILED_ROUTE_FOR_EACH_ATOM)) {  
+                            (detailed_routing_stage == (int)E_DETAILED_ROUTE_FOR_EACH_ATOM)) {
 
-                            VTR_LOGV(verbosity > 0, "Info: rejected cluster packing solution with modes conflict [%d]\n", 
+                            VTR_LOGV(verbosity > 0, "Info: rejected cluster packing solution with modes conflict [%d]\n",
                                     max_nb_molecule);
                         }
                         }
 
                         if (is_cluster_legal) {
 
-                            istart = save_cluster_routing_and_pick_new_seed(packer_opts, helper_ctx.total_clb_num, 
-                                                        seed_atoms, num_blocks_hill_added, clustering_data.intra_lb_routing, 
+                            istart = save_cluster_routing_and_pick_new_seed(packer_opts, helper_ctx.total_clb_num,
+                                                        seed_atoms, num_blocks_hill_added, clustering_data.intra_lb_routing,
                                                         seedindex, cluster_stats, router_data);
 
-                            store_cluster_info_and_free(packer_opts, clb_index, logic_block_type, le_pb_type, 
+                            store_cluster_info_and_free(packer_opts, clb_index, logic_block_type, le_pb_type,
                                                         le_count, clb_inter_blk_nets);
 
                             nb_packed_molecules += max_nb_molecule;
@@ -522,18 +528,18 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                             failed_for_loop = false; // tell the outer loop that we succeeded within this loop
 
                         } else {
-                        free_data_and_requeue_used_mols_if_illegal(clb_index, savedseedindex, 
+                        free_data_and_requeue_used_mols_if_illegal(clb_index, savedseedindex,
                                                     num_used_type_instances, helper_ctx.total_clb_num, seedindex);
                         }
 
 
                     } else {
-                        free_data_and_requeue_used_mols_if_illegal(clb_index, savedseedindex, 
+                        free_data_and_requeue_used_mols_if_illegal(clb_index, savedseedindex,
                                                     num_used_type_instances, helper_ctx.total_clb_num, seedindex);
                     }
-                    
-                    for (int index = 0; index < clusterMoleculeOrder[partId].size(); index++) {
-                        istart = part.molecules[clusterMoleculeOrder[partId][index]];
+
+                    for (uint index = 0; index < clusterMoleculeOrder[partId].size(); index++) {
+                        istart = part.molecules_[clusterMoleculeOrder[partId][index]];
                         if (istart->valid) {
                             break;
                         }
@@ -547,8 +553,8 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                 }
 
             }
-        } // for(int partId=0;partId < numberOfClusters;partId++){    
-    }else{
+        } //// for(int partId=0;partId < numberOfClusters;partId++)
+    } else {
         while (istart != nullptr) {
 
             is_cluster_legal = false;
