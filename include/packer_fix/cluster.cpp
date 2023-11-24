@@ -87,6 +87,9 @@
  */
 #define ATTRACTION_GROUPS_MAX_REPEATED_MOLECULES 500
 
+static bool s_partitioning_status_NOP = false;
+bool partitioning_status_NOP() { return s_partitioning_status_NOP; }
+
 std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& packer_opts,
                                                          const t_analysis_opts& analysis_opts,
                                                          const t_arch* arch,
@@ -132,7 +135,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
 
     const int verbosity = packer_opts.pack_verbosity;
 
-    int unclustered_list_head_size;
+    int unclustered_list_head_size = 0;
     std::unordered_map<AtomNetId, int> net_output_feeds_driving_block_input;
 
     cluster_stats.num_molecules_processed = 0;
@@ -140,12 +143,12 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
 
     std::map<t_logical_block_type_ptr, size_t> num_used_type_instances;
 
-    bool is_cluster_legal;
+    bool is_cluster_legal = 0;
     enum e_block_pack_status block_pack_status;
 
-    t_cluster_placement_stats* cur_cluster_placement_stats_ptr;
+    t_cluster_placement_stats* cur_cluster_placement_stats_ptr = nullptr;
     t_lb_router_data* router_data = nullptr;
-    t_pack_molecule *istart, *next_molecule, *prev_molecule;
+    t_pack_molecule *istart = 0, *next_molecule = 0, *prev_molecule = 0;
 
     auto& atom_ctx = g_vpr_ctx.atom();
     auto& device_ctx = g_vpr_ctx.mutable_device();
@@ -241,57 +244,68 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
     // (T.Besson)
     //
     bool failed_for_loop = false;
-    int max_nb_molecule;
+    int max_nb_molecule = 0;
     int nb_packed_molecules = 0;
 
     bool have_partitioning = false;
-    nlp::Par part{molecule_head};
+    nlp::Par par;
 
     if (packer_opts.use_partitioning_in_pack) {
         int npart = packer_opts.number_of_molecules_in_partition;
         // auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
 
-        part.recursive_partitioning(npart);
+        int mol_count = nlp::Par::countMolecules(molecule_head);
 
-        uint psz = part.partitions_.size();
-        if (psz < 2) {
-          VTR_LOG("Partitioning FAILED.  #partitions= %u\n", psz);
+        VTR_LOG("(in packer_opts.use_partitioning_in_pack)  mol_count= %i  #molecules_in_partition= %i\n",
+                       mol_count, npart);
+
+        if (mol_count < npart) {
+            VTR_LOG("Partitioning NOP.  mol_count= %i  #molecules_in_partition= %i\n",
+                       mol_count, npart);
+            s_partitioning_status_NOP = true;
         } else {
-          VTR_LOG("Partitioning succeeded.  #partitions= %u\n", psz);
-          have_partitioning = true;
+            par.init(molecule_head);
+            par.recursive_partitioning(npart);
+            uint psz = par.partitions_.size();
+            if (psz < 2) {
+              VTR_LOG("Partitioning FAILED.  #partitions= %u\n", psz);
+            } else {
+              VTR_LOG("Partitioning succeeded.  #partitions= %u\n", psz);
+              have_partitioning = true;
+            }
         }
     }
 
     if (have_partitioning) {
 
         // auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
-        uint lastIdx = part.partitions_.size() - 1;
-        uint size = part.partitions_[lastIdx] + 100;
+        uint lastIdx = par.partitions_.size() - 1;
+        uint size = par.partitions_[lastIdx] + 100;
         std::vector<int>* clusterMoleculeOrder = new std::vector<int>[size];
 
-        for (uint mid = 0; mid < part.numMolecules_; mid++) {
-            clusterMoleculeOrder[part.partition_array_[mid]].push_back(mid);
+        for (uint mid = 0; mid < par.numMolecules_; mid++) {
+            clusterMoleculeOrder[par.partition_array_[mid]].push_back(mid);
         }
 
-        for (uint partId : part.partitions_) {
+        for (uint partId : par.partitions_) {
             uint currentIndexOfBestMolecule = 0;
 
-            for (uint mid = 0; mid < part.numMolecules_; mid++) {
-                if (part.partition_array_[mid] == partId) {
-                    part.molecules_[mid]->valid = true;
+            for (uint mid = 0; mid < par.numMolecules_; mid++) {
+                if (par.partition_array_[mid] == partId) {
+                    par.molecules_[mid]->valid = true;
                     //istart = molecules[mid];
                 } else {
-                    part.molecules_[mid]->valid = false;
+                    par.molecules_[mid]->valid = false;
                 }
             }
 
             if (currentIndexOfBestMolecule >= clusterMoleculeOrder[partId].size()) {
                 istart = nullptr;
             } else {
-                istart = part.molecules_[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
+                istart = par.molecules_[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
                 currentIndexOfBestMolecule++;
                 while (!istart->valid && currentIndexOfBestMolecule < clusterMoleculeOrder[partId].size()) {
-                    istart = part.molecules_[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
+                    istart = par.molecules_[clusterMoleculeOrder[partId][currentIndexOfBestMolecule]];
                     currentIndexOfBestMolecule++;
                 }
                 if (!istart->valid) {
@@ -539,7 +553,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                     }
 
                     for (uint index = 0; index < clusterMoleculeOrder[partId].size(); index++) {
-                        istart = part.molecules_[clusterMoleculeOrder[partId][index]];
+                        istart = par.molecules_[clusterMoleculeOrder[partId][index]];
                         if (istart->valid) {
                             break;
                         }
