@@ -13,12 +13,16 @@ using std::vector;
 
 class Par {
 public:
-  Par(t_pack_molecule* molecule_head);
+  Par() noexcept = default;
   ~Par();
 
-  bool Bi_Partion(uint partion_index);
+  static uint countMolecules(t_pack_molecule* molecule_head);
+
+  bool init(t_pack_molecule* molecule_head);
 
   bool recursive_partitioning(int num_partitions);
+
+  bool Bi_Partion(uint partion_index);
 
 // DATA:
   vector<t_pack_molecule*> molecules_;
