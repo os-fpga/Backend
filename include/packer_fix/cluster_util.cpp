@@ -1654,6 +1654,8 @@ void try_fill_cluster(const t_packer_opts& packer_opts,
     }
 }
 
+bool partitioning_status_NOP(); // in cluster.cpp
+
 t_pack_molecule* save_cluster_routing_and_pick_new_seed(const t_packer_opts& packer_opts,
                                                         const int& num_clb,
                                                         const std::vector<AtomBlockId>& seed_atoms,
@@ -1669,7 +1671,7 @@ t_pack_molecule* save_cluster_routing_and_pick_new_seed(const t_packer_opts& pac
     router_data->saved_lb_nets = nullptr;
 
     //Pick a new seed
-    if(!packer_opts.use_partitioning_in_pack){
+    if (not packer_opts.use_partitioning_in_pack or partitioning_status_NOP()) {
         next_seed = get_highest_gain_seed_molecule(&seedindex, seed_atoms);
     }
 

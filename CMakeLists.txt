@@ -87,8 +87,10 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/output_clustering.h
           ${PACKER_SRC_DIR}/cluster_router.cpp
           ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-          ${PACKER_SRC_DIR}/Partitioning.h
-          ${PACKER_SRC_DIR}/Partitioning.cpp
+          ${PACKER_SRC_DIR}/nl_Par.h
+          ${PACKER_SRC_DIR}/nl_Par.cpp
+          ${PACKER_SRC_DIR}/pinc_log.h
+          ${PACKER_SRC_DIR}/pinc_log.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
 
