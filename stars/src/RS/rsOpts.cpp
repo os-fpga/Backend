@@ -9,44 +9,38 @@ namespace rsbe {
 
 using namespace std;
 using namespace pinc;
+using CStr = const char*;
 
 namespace alias {
 
-static const char* _ver_[] = {"V", "v", "ver", "vers", "version", nullptr};
+static CStr _ver_[] = {"V", "v", "ver", "vers", "version", nullptr};
 
-static const char* _det_ver_[] = {"VV", "vv", "VVV", "vvv", "det_ver", nullptr};
+static CStr _det_ver_[] = {"VV", "vv", "VVV", "vvv", "det_ver", nullptr};
 
-static const char* _help_[] = {"H", "h", "help", "hel", "hlp", "-he", nullptr};
+static CStr _help_[] = {"H", "h", "help", "hel", "hlp", "he", nullptr};
 
-static const char* _check_[] = {"ch", "che", "chec", "check", nullptr};
+static CStr _fun_[] = {"F", "fu", "fun", "func", "funct", "function", nullptr};
 
-static const char* _csv_[] = {"CS", "cs", "csv", nullptr};
+static CStr _check_[] = {"ch", "che", "chec", "check", nullptr};
 
-static const char* _xml_[] = {"XM", "xm", "xml", "XML", nullptr};
+static CStr _csv_[] = {"CS", "cs", "csv", nullptr};
 
-static const char* _pcf_[] = {"PC", "pc", "pcf", nullptr};
+static CStr _xml_[] = {"XM", "xm", "xml", "XML", nullptr};
 
-static const char* _blif_[] = {"BL", "blif", nullptr};
+static CStr _pcf_[] = {"PC", "pc", "pcf", nullptr};
 
-static const char* _json_[] = {"JS", "js", "jsf", "json", "port_info", "port_i", "PI", nullptr};
+static CStr _blif_[] = {"BL", "blif", nullptr};
 
-static const char* _output_[] = {"O", "o", "ou", "OU", "out", "outp", "output", nullptr};
+static CStr _json_[] = {"JS", "js", "jsf", "json", "port_info", "port_i", "PI", nullptr};
 
-static const char* _trace_[] = {"TR", "trace", "tr", "tra", nullptr};
+static CStr _output_[] = {"O", "o", "ou", "OU", "out", "outp", "output", nullptr};
 
-static const char* _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst",
+static CStr _trace_[] = {"TR", "trace", "tr", "tra", nullptr};
+
+static CStr _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst",
                                "test_case", "test_c", nullptr};
 
 #ifdef RSBE_UNIT_TEST_ON
-
-const char* _uni1_[] = {"U1", "u1", "Unit1", "unit1", "un1", "uni1", nullptr};
-const char* _uni2_[] = {"U2", "u2", "Unit2", "unit2", "un2", "uni2", nullptr};
-const char* _uni3_[] = {"U3", "u3", "Unit3", "unit3", "un3", "uni3", nullptr};
-const char* _uni4_[] = {"U4", "u4", "Unit4", "unit4", "un4", "uni4", nullptr};
-const char* _uni5_[] = {"U5", "u5", "Unit5", "unit5", "un5", "uni5", nullptr};
-const char* _uni6_[] = {"U6", "u6", "Unit6", "unit6", "un6", "uni6", nullptr};
-const char* _uni7_[] = {"U7", "u7", "Unit7", "unit7", "un7", "uni7", nullptr};
-
 #endif  // RSBE_UNIT_TEST_ON
 
 }
@@ -54,9 +48,9 @@ const char* _uni7_[] = {"U7", "u7", "Unit7", "unit7", "un7", "uni7", nullptr};
 static constexpr size_t UNIX_Path_Max = PATH_MAX - 4;
 
 // non-null string
-inline static const char* nns(const char* s) noexcept { return s ? s : "(NULL)"; }
+inline static CStr nns(CStr s) noexcept { return s ? s : "(NULL)"; }
 
-static bool input_file_exists(const char* fn) noexcept {
+static bool input_file_exists(CStr fn) noexcept {
   if (!fn) return false;
 
   struct stat sb;
@@ -75,7 +69,7 @@ static bool input_file_exists(const char* fn) noexcept {
   return sz > 1;  // require non-empty file
 }
 
-static bool op_match(const char* op, const char** aliases) noexcept {
+static bool op_match(CStr op, CStr* aliases) noexcept {
   assert(op and aliases);
   if (!op || !aliases) return false;
   assert(op[0] == '-');
@@ -83,10 +77,16 @@ static bool op_match(const char* op, const char** aliases) noexcept {
   op++;
   if (op[0] == '-') op++;
 
-  for (const char** al = aliases; *al; al++) {
+  for (CStr* al = aliases; *al; al++) {
     if (::strcmp(op, *al) == 0) return true;
   }
   return false;
+}
+
+bool rsOpts::isFunctionArg(CStr arg) noexcept {
+  if (!arg or !arg[0])
+    return false;
+  return op_match(arg, alias::_fun_);
 }
 
 void rsOpts::reset() noexcept {
@@ -150,7 +150,7 @@ void rsOpts::printHelp() const noexcept {
 #endif  // RSBE_UNIT_TEST_ON
 }
 
-static char* make_file_name(const char* arg) noexcept {
+static char* make_file_name(CStr arg) noexcept {
   if (!arg) return nullptr;
 
   char* fn = nullptr;
@@ -166,6 +166,41 @@ static char* make_file_name(const char* arg) noexcept {
   return fn;
 }
 
+void rsOpts::setFunction(CStr fun) noexcept {
+  function_ = nullptr;
+  if (!fun)
+    return;
+  static CStr s_funList[] = {
+    "pinc",      // 0
+    "stars",     // 1
+    "partition", // 2
+    "pack", nullptr
+  };
+  string f = str::sToLower(fun);
+  if (f.empty())
+    return;
+  if (f == "pin" or f == "pinc" or f == "pin_c") {
+    function_ = s_funList[0];
+    assert(is_fun_pinc());
+    return;
+  }
+  if (f == "sta" or f == "star" or f == "stars") {
+    function_ = s_funList[1];
+    assert(is_fun_stars());
+    return;
+  }
+  if (f == "par" or f == "part" or f == "partition") {
+    function_ = s_funList[2];
+    assert(is_fun_partition());
+    return;
+  }
+  if (f == "pac" or f == "pack" or f == "packing") {
+    function_ = s_funList[3];
+    assert(is_fun_pack());
+    return;
+  }
+}
+
 void rsOpts::parse(int argc, const char** argv) noexcept {
   using namespace ::rsbe::alias;
 
@@ -175,7 +210,8 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
 
   assert(argc_ > 0 and argv_);
 
-  CStr inp = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0, out = 0;
+  CStr inp = 0, out = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0,
+       fun = 0;
 
   for (int i = 1; i < argc_; i++) {
     CStr arg = argv_[i];
@@ -249,6 +285,14 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
         jsnf = nullptr;
       continue;
     }
+    if (op_match(arg, _fun_)) {
+      i++;
+      if (i < argc_)
+        fun = argv_[i];
+      else
+        fun = nullptr;
+      continue;
+    }
     if (op_match(arg, _output_)) {
       i++;
       if (i < argc_)
@@ -293,6 +337,8 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   pcfFile_ = p_strdup(pcf);
   blifFile_ = p_strdup(blif);
   jsonFile_ = p_strdup(jsnf);
+
+  setFunction(fun);
 
   if (trace_ < 0) trace_ = 0;
   if (test_id_ < 0) test_id_ = 0;

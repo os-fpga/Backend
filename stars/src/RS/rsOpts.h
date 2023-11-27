@@ -17,6 +17,22 @@ struct rsOpts {
   int argc_ = 0;
   const char** argv_ = nullptr;
 
+  CStr function_ = nullptr; // {pinc, stars, partition, pack}
+  bool have_function() const noexcept { return function_; }
+  bool is_fun_pinc() const noexcept {
+    return function_ && !strcmp(function_, "pinc");
+  }
+  bool is_fun_stars() const noexcept {
+    return function_ && !strcmp(function_, "stars");
+  }
+  bool is_fun_partition() const noexcept {
+    return function_ && !strcmp(function_, "partition");
+  }
+  bool is_fun_pack() const noexcept {
+    return function_ && !strcmp(function_, "pack");
+  }
+  static bool isFunctionArg(CStr arg) noexcept;
+
   int vprArgc_ = 0;
   char** vprArgv_ = nullptr;
 
@@ -77,6 +93,8 @@ struct rsOpts {
 
 private:
   bool set_VPR_TC_args(CStr raw_tc) noexcept;
+
+  void setFunction(CStr fun) noexcept;
 };
 
 }

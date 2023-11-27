@@ -16,9 +16,19 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-Par::Par(t_pack_molecule* molecule_head) {
+uint Par::countMolecules(t_pack_molecule* molecule_head) {
+  uint cnt = 0;
+  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+  for (auto cur_mol = molecule_head; cur_mol; cur_mol = cur_mol->next) {
+    cnt++;
+  }
+  return cnt;
+}
+
+bool Par::init(t_pack_molecule* molecule_head) {
   assert(molecule_head);
   numMolecules_ = numNets_ = numAtoms_ = 0;
+  set_ltrace(3);
   auto tr = ltrace();
 
   AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
@@ -38,7 +48,7 @@ Par::Par(t_pack_molecule* molecule_head) {
   }
 
   if (tr >= 2) {
-    lprintf("nlp::Par:  numMolecules_= %u  numNets_= %u  numAtoms_= %u\n",
+    lprintf("nlp::Par::init  numMolecules_= %u  numNets_= %u  numAtoms_= %u\n",
               numMolecules_, numNets_, numAtoms_);
   }
 
@@ -72,10 +82,11 @@ Par::Par(t_pack_molecule* molecule_head) {
   for (uint i = 0; i < numAtoms_; i++) {
     VTR_ASSERT(atomBlockIdToMolId_[i] != -1);
   }
+  return true;
 }
 
 Par::~Par() {
-  p_free(partition_array_);
+  // p_free(partition_array_);
 }
 
 static bool read_exe_link(const string& path, string& out) {
@@ -135,7 +146,7 @@ static string get_MtKaHyPar_path() {
   return result;
 }
 
-void Par::Bi_Partion(uint partition_index) {
+bool Par::Bi_Partion(uint partition_index) {
   auto tr = ltrace();
   if (tr >= 3)
     lprintf("+Par::Bi_Partion( partition_index= %u )\n", partition_index);
@@ -244,9 +255,15 @@ void Par::Bi_Partion(uint partition_index) {
   VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
 
   int code = system(commandToExecute);
-  VTR_ASSERT_MSG(code == 0, "Running MtKaHyPar failed with non-zero code");
-
-  // delete commandToExecute;
+  //VTR_ASSERT_MSG(code == 0, "Running MtKaHyPar failed with non-zero code");
+  if (code == 0) {
+    VTR_LOG("MtKaHPar succeeded.\n");
+  } else {
+    VTR_LOG("MtKaHPar FAILED: exit code = %i\n", code);
+    cerr << "[Error] MtKaHPar FAILED: exit code = " << code << endl;
+    partitions_.clear(); // empty partitions_ mean failure for the caller
+    return false;
+  }
 
   char newFilename[1024] = {};
   // sprintf(newFilename, "hmetis.txt.part.%d", numberOfClusters);
@@ -288,7 +305,10 @@ void Par::Bi_Partion(uint partition_index) {
     //atgs[clusterId].group_atoms.push_back(_aid);
   }
   hmetisOutFile.close();
+  return true;
 }
+
+namespace {
 
 struct partition_position {
   int x1 = 0;
@@ -296,8 +316,11 @@ struct partition_position {
   int y1 = 0;
   int y2 = 0;
   bool direction = true;  //false means from left to right and true means from top to bottom
+
+  partition_position() noexcept = default;
 };
 
+}
 
 bool Par::recursive_partitioning(int molecule_per_partition) {
   AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
@@ -320,11 +343,19 @@ bool Par::recursive_partitioning(int molecule_per_partition) {
     partion_size.push_back(sum_partition);
     if (sum_partition > molecule_per_partition) {
       VTR_LOG("start Bipartitioning\n");
-      Bi_Partion(cnt);
+      if (!Bi_Partion(cnt)) {
+        VTR_LOG("Bipartitioning FAILED. cnt= %u\n", cnt);
+        partitions_.clear();
+        return false;
+      }
       VTR_LOG("end Bipartitioning\n");
       max_itration = 2 * cnt + 1;
     } else {
+      VTR_LOG("Bipartitioning NOP.  sum_partition= %i  molecule_per_partition= %i\n",
+              sum_partition, molecule_per_partition);
       partitions_.push_back(cnt);
+      //partitions_.clear(); // NOP handling is the same as error handling for the caller
+      //return false;
     }
     cnt++;
   }
@@ -407,8 +438,11 @@ bool Par::recursive_partitioning(int molecule_per_partition) {
             continue;
           //atgs[clusterId].group_atoms.push_back(abid);
           if (size_t(abid) >= numAtoms_) {
-            cout << numAtoms_ << "\t" << size_t(abid) << endl;
-            exit(0);
+            cout << '\n' << numAtoms_ << "\t" << size_t(abid) << endl;
+            //// exit(0);
+            lout() << "internal [Error] in Par::recursive_partitioning()" << endl;
+            cerr   << "internal [Error] in Par::recursive_partitioning()" << endl;
+            return false;
           }
           fprintf(file, "\t\t<add_atom name_pattern=\"%s\"/>\n", myNetlist.block_name(abid).c_str());
         }
@@ -422,10 +456,6 @@ bool Par::recursive_partitioning(int molecule_per_partition) {
 
   fprintf(file, "\t</partition_list>\n");
   fprintf(file, "</vpr_constraints>\n");
-  if (file == NULL) {
-    perror("Error opening the file");
-    exit(0);
-  }
 
   // Write some text to the file
 
