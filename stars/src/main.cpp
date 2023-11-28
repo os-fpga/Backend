@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0094";
+static const char* _rsbe_VERSION_STR = "rsbe0121";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -23,7 +23,9 @@ using std::string;
 
 static rsEnv s_env;
 
-static bool do_stars(const rsOpts& opts, bool orig_args) {
+static bool deal_stars(const rsOpts& opts, bool orig_args) {
+  bool status = false;
+
   uint16_t tr = ltrace();
   auto& ls = lout();
   int argc;
@@ -54,23 +56,23 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
   // call vpr to build design context
   ls << "\nSTARS: Preparing design data ... " << endl;
 
-  // add --analysis if it's missing:
+  // add --analysis if it's missing, and remove --function
   char** vprArgv = (char**)calloc(argc + 4, sizeof(char*));
-  int vprArgc = argc;
+  int vprArgc = 0;
   bool found_analysis = false;
   string analysis = "--analysis";
   for (int i = 0; i < argc; i++) {
     const char* a = argv[i];
     if (analysis == a) found_analysis = true;
-    vprArgv[i] = strdup(a);
+    vprArgv[vprArgc++] = ::strdup(a);
   }
   if (not found_analysis) {
     ls << "STARS: added --analysis to vpr options" << endl;
-    vprArgv[argc] = strdup("--analysis");
+    vprArgv[argc] = ::strdup("--analysis");
     vprArgc++;
   }
 
-  bool status = true;
+  status = true;
   ls << "STARS: Initializing VPR data ... " << endl;
 
   int vpr_code = vpr4stars(vprArgc, vprArgv);
@@ -97,7 +99,7 @@ static bool do_stars(const rsOpts& opts, bool orig_args) {
   return status;
 }
 
-static void do_help(const rsOpts& opts) {
+static void deal_help(const rsOpts& opts) {
   printf("RSBE ver. %s\n", _rsbe_VERSION_STR);
 
   if (opts.det_ver_) {
@@ -144,7 +146,7 @@ int main(int argc, char** argv) {
   }
 
   if (opts.ver_or_help()) {
-    do_help(opts);
+    deal_help(opts);
     pinc::flush_out();
     std::quick_exit(0);
   }
@@ -159,12 +161,12 @@ int main(int argc, char** argv) {
 #ifdef RSBE_UNIT_TEST_ON
 #endif  // RSBE_UNIT_TEST_ON
 
-  ok = do_stars(opts, true);
+  ok = deal_stars(opts, true);
   if (ok) {
-    if (ltrace() >= 2) lputs("do_stars() succeeded.");
+    if (ltrace() >= 2) lputs("deal_stars() succeeded.");
     status = 0;
   } else {
-    if (ltrace() >= 2) lputs("do_stars() failed.");
+    if (ltrace() >= 2) lputs("deal_stars() failed.");
   }
 
   pinc::flush_out(true);
