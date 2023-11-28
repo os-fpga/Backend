@@ -20,6 +20,7 @@ updates:
       - "bbambhania1"
       - "chungshien"
       - "georgechen-rs"
+      - "serge-rs"
     # Allow dependabot to open up to 10 open pull requests. Default is 5.
     # open-pull-requests-limit: 10
     allow:
