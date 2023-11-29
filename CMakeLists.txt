@@ -102,9 +102,12 @@ if (ADD_READ_VERILOG_TO_VPR)
     ${VPR_SRC_DIR}/src/base/read_circuit.cpp
     ${VPR_SRC_DIR}/src/base/read_circuit.h
     ${VPR_SRC_DIR}/src/base/read_options.cpp
+    ${VPR_SRC_DIR}/src/base/read_options.h
     ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
     ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
     ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
+    ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
+    ${VPR_SRC_DIR}/src/base/vpr_types.h
     DESTINATION
     ${VPR_DEST_DIR}/src/base/)
 
@@ -117,9 +120,6 @@ if (ADD_READ_VERILOG_TO_VPR)
 #    ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
 #    ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
 #    ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
-#    #${VPR_SRC_DIR}/src/base/SetupVPR.cpp
-#    #${VPR_SRC_DIR}/src/base/read_options.h
-#    #${VPR_SRC_DIR}/src/base/vpr_types.h
 #    #${PACKER_SRC_DIR}/cluster_placement.cpp
 #    DESTINATION
 #    ${VPR_DEST_DIR}/src/base/)
@@ -129,13 +129,6 @@ file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
   ${VPR_DEST_DIR}/
 )
 endif()
-
-# FILE(COPY ${PLACER_SRC_DIR}/SetupVPR.cpp
-#           ${PLACER_SRC_DIR}/read_options.cpp
-#           ${PLACER_SRC_DIR}/read_options.h
-#           ${PLACER_SRC_DIR}/vpr_types.h
-#           DESTINATION
-#           ${VPR_DEST_DIR}/src/base/)
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ${PLACER_SRC_DIR}/place.cpp
