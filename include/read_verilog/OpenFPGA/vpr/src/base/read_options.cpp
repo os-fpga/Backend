@@ -409,8 +409,6 @@ struct ParsePlaceAlgorithm {
             conv_value.set_value(CRITICALITY_TIMING_PLACE);
         } else if (str == "slack_timing") {
             conv_value.set_value(SLACK_TIMING_PLACE);
-        } else if (str == "congestion_aware"){
-            conv_value.set_value(CONGESTION_AWARE_PLACE);
         } else {
             std::stringstream msg;
             msg << "Invalid conversion from '" << str << "' to e_place_algorithm (expected one of: " << argparse::join(default_choices(), ", ") << ")";
@@ -432,8 +430,6 @@ struct ParsePlaceAlgorithm {
             conv_value.set_value("bounding_box");
         } else if (val == CRITICALITY_TIMING_PLACE) {
             conv_value.set_value("criticality_timing");
-        } else if (val == CONGESTION_AWARE_PLACE) {
-            conv_value.set_value("congestion_aware");
         } else {
             VTR_ASSERT(val == SLACK_TIMING_PLACE);
             conv_value.set_value("slack_timing");
@@ -442,7 +438,42 @@ struct ParsePlaceAlgorithm {
     }
 
     std::vector<std::string> default_choices() {
-       return {"bounding_box", "criticality_timing", "slack_timing","congestion_aware"};
+        return {"bounding_box", "criticality_timing", "slack_timing"};
+    }
+};
+
+struct ParsePlaceBoundingBox {
+    ConvertedValue<e_place_bounding_box_mode> from_str(std::string str) {
+        ConvertedValue<e_place_bounding_box_mode> conv_value;
+        if (str == "auto_bb") {
+            conv_value.set_value(AUTO_BB);
+        } else if (str == "cube_bb") {
+            conv_value.set_value(CUBE_BB);
+        } else if (str == "per_layer_bb") {
+            conv_value.set_value(PER_LAYER_BB);
+        } else {
+            std::stringstream msg;
+            msg << "Invalid conversion from '" << str << "' to e_place_algorithm (expected one of: " << argparse::join(default_choices(), ", ") << ")";
+            conv_value.set_error(msg.str());
+        }
+        return conv_value;
+    }
+
+    ConvertedValue<std::string> to_str(e_place_bounding_box_mode val) {
+        ConvertedValue<std::string> conv_value;
+        if (val == AUTO_BB) {
+            conv_value.set_value("auto_bb");
+        } else if (val == CUBE_BB) {
+            conv_value.set_value("cube_bb");
+        } else {
+            VTR_ASSERT(val == PER_LAYER_BB);
+            conv_value.set_value("per_layer_bb");
+        }
+        return conv_value;
+    }
+
+    std::vector<std::string> default_choices() {
+        return {"auto_bb", "cube_bb", "per_layer_bb"};
     }
 };
 
@@ -481,9 +512,9 @@ struct ParsePlaceAgentSpace {
     ConvertedValue<e_agent_space> from_str(std::string str) {
         ConvertedValue<e_agent_space> conv_value;
         if (str == "move_type")
-            conv_value.set_value(MOVE_TYPE);
+            conv_value.set_value(e_agent_space::MOVE_TYPE);
         else if (str == "move_block_type")
-            conv_value.set_value(MOVE_BLOCK_TYPE);
+            conv_value.set_value(e_agent_space::MOVE_BLOCK_TYPE);
         else {
             std::stringstream msg;
             msg << "Invalid conversion from '" << str << "' to e_agent_space (expected one of: " << argparse::join(default_choices(), ", ") << ")";
@@ -494,10 +525,10 @@ struct ParsePlaceAgentSpace {
 
     ConvertedValue<std::string> to_str(e_agent_space val) {
         ConvertedValue<std::string> conv_value;
-        if (val == MOVE_TYPE)
+        if (val == e_agent_space::MOVE_TYPE)
             conv_value.set_value("move_type");
         else {
-            VTR_ASSERT(val == MOVE_BLOCK_TYPE);
+            VTR_ASSERT(val == e_agent_space::MOVE_BLOCK_TYPE);
             conv_value.set_value("move_block_type");
         }
         return conv_value;
@@ -1389,10 +1420,6 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .help("Show this help message then exit")
         .action(argparse::Action::HELP);
 
-    gen_grp.add_argument(args.top_mod, "--top", "-t")
-        .help("Top module name")
-        .default_value("");
-
     gen_grp.add_argument<bool, ParseOnOff>(args.show_version, "--version")
         .help("Show version information then exit")
         .action(argparse::Action::VERSION);
@@ -1587,6 +1614,11 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
     file_grp.add_argument(args.write_rr_graph_file, "--write_rr_graph")
         .help("Writes the routing resource graph to the specified file")
         .metavar("RR_GRAPH_FILE")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    file_grp.add_argument(args.write_initial_place_file, "--write_initial_place_file")
+        .help("Writes out the the placement chosen by the initial placement algorithm to the specified file")
+        .metavar("INITIAL_PLACE_FILE")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     file_grp.add_argument(args.read_vpr_constraints_file, "--read_vpr_constraints")
@@ -1845,16 +1877,6 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("semiDirectedSwap")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
-    pack_grp.add_argument<bool, ParseOnOff>(args.use_partitioning_in_pack, "--use_partitioning_in_pack")
-        .help("Whether to use partitioning in pack.")
-        .default_value("off")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-
-    pack_grp.add_argument<int>(args.number_of_molecules_in_partition, "--number_of_molecules_in_partition")
-        .help("Average number of molecules in each cluster. It should be used when --use_partitioning_in_pack is on.")
-        .default_value("64")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-
     auto& place_grp = parser.add_argument_group("placement options");
 
     place_grp.add_argument(args.Seed, "--seed")
@@ -1958,10 +1980,9 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Controls which placement algorithm is used. Valid options:\n"
             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
-            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n"
-            " * congestion_aware: Focuses on improving routability.\n")
+            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
-        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
+        .choices({"bounding_box", "criticality_timing", "slack_timing"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument<e_place_algorithm, ParsePlaceAlgorithm>(args.PlaceQuenchAlgorithm, "--place_quench_algorithm")
@@ -1971,10 +1992,9 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Valid options:\n"
             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
-            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n"
-            " * congestion_aware: Focuses on improving routability.\n")
+            " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
-        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
+        .choices({"bounding_box", "criticality_timing", "slack_timing"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument(args.PlaceChanWidth, "--place_chan_width")
@@ -2011,14 +2031,6 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Once analytic placement is done, the result is passed through the quench phase of the annealing placer for local improvement")
         .default_value("false")
         .show_in(argparse::ShowIn::HELP_ONLY);
-    
-    // Cascade Placer
-    place_grp.add_argument(args.enable_cascade_placer, "--enable_cascade_placer")
-        .help(
-            "Enables the cascade placer. "
-            "Once analytic placement is done, the result is passed through the annealing (SA) placer")
-        .default_value("false")
-        .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument(args.place_static_move_prob, "--place_static_move_prob")
         .help(
@@ -2045,6 +2057,20 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Sets the assumed high fanout net during placement. "
             "Any net with higher fanout would be ignored while calculating some of the directed moves: Median and WeightedMedian")
         .default_value("10")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    place_grp.add_argument<e_place_bounding_box_mode, ParsePlaceBoundingBox>(args.place_bounding_box_mode, "--place_bounding_box_mode")
+        .help(
+            "Specifies the type of bounding box to be used in 3D architectures.\n"
+            "\n"
+            "MODE options:\n"
+            "  auto_bb     : Automatically determine the appropriate bounding box based on the connections between layers.\n"
+            "  cube_bb            : Use 3D bounding boxes.\n"
+            "  per_layer_bb     : Use per-layer bounding boxes.\n"
+            "\n"
+            "Choose one of the available modes to define the behavior of bounding boxes in your 3D architecture. The default mode is 'automatic'.")
+        .default_value("auto_bb")
+        .choices({"auto_bb", "cube_bb", "per_layer_bb"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument<bool, ParseOnOff>(args.RL_agent_placement, "--RL_agent_placement")
@@ -2153,13 +2179,37 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
         .default_value("softmax")
         .choices({"e_greedy", "softmax"})
         .show_in(argparse::ShowIn::HELP_ONLY);
-    
+
     place_grp.add_argument<e_agent_space, ParsePlaceAgentSpace>(args.place_agent_space, "--place_agent_space")
         .help(
             "Agent exploration space can be either based on only move types or also consider different block types\n"
             "The available values are: move_type, move_block_type")
         .default_value("move_block_type")
         .choices({"move_type", "move_block_type"})
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    place_grp.add_argument(args.placer_debug_block, "--placer_debug_block")
+        .help(
+            " Controls when placer debugging is enabled for blocks.\n"
+            " * For values >= 0, the value is taken as the block ID for\n"
+            "   which to enable placer debug output.\n"
+            " * For value == -1, placer debug output is enabled for\n"
+            "   all blocks.\n"
+            " * For values < -1, all block-based placer debug output is disabled.\n"
+            "Note if VPR as compiled without debug logging enabled this will produce only limited output.\n")
+        .default_value("-2")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    place_grp.add_argument(args.placer_debug_net, "--placer_debug_net")
+        .help(
+            "Controls when placer debugging is enabled for nets.\n"
+            " * For values >= 0, the value is taken as the net ID for\n"
+            "   which to enable placer debug output.\n"
+            " * For value == -1, placer debug output is enabled for\n"
+            "   all nets.\n"
+            " * For values < -1, all net-based placer debug output is disabled.\n"
+            "Note if VPR as compiled without debug logging enabled this will produce only limited output.\n")
+        .default_value("-2")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     auto& place_timing_grp = parser.add_argument_group("timing-driven placement options");
@@ -2169,14 +2219,6 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
             "Trade-off control between delay and wirelength during placement."
             " 0.0 focuses completely on wirelength, 1.0 completely on timing")
         .default_value("0.5")
-        .show_in(argparse::ShowIn::HELP_ONLY);
-
-    place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
-        .help(
-            "Trade-off control the bouding value for the contestion matrix.\n"
-            " a value near routing channel width can be a good value.\n"
-            " a high value let the VPR to ignore the congestion aware placement and continue its own course of action.\n")
-        .default_value("1.0")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_timing_grp.add_argument(args.RecomputeCritIter, "--recompute_crit_iter")

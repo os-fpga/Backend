@@ -25,7 +25,6 @@ static void show_circuit_stats(const AtomNetlist& netlist);
 AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setup& vpr_setup, t_arch& arch) {
     // Options
     const char* circuit_file = vpr_setup.PackerOpts.circuit_file_name.c_str();
-    const char* top_mod = vpr_setup.PackerOpts.top_mod.c_str();
     const t_model* user_models = vpr_setup.user_models;
     const t_model* library_models = vpr_setup.library_models;
     e_const_gen_inference const_gen_inference = vpr_setup.NetlistOpts.const_gen_inference;
@@ -34,7 +33,7 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
     bool should_sweep_dangling_nets = vpr_setup.NetlistOpts.sweep_dangling_nets;
     bool should_sweep_dangling_blocks = vpr_setup.NetlistOpts.sweep_dangling_blocks;
     bool should_sweep_constant_primary_outputs = vpr_setup.NetlistOpts.sweep_constant_primary_outputs;
-    bool verbosity = vpr_setup.NetlistOpts.netlist_verbosity;
+    int verbosity = vpr_setup.NetlistOpts.netlist_verbosity;
 
     if (circuit_format == e_circuit_format::AUTO) {
         auto name_ext = vtr::split_ext(circuit_file);
