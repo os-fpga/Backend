@@ -25,7 +25,7 @@ if (NOT RAPTOR)
 endif()
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
-set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
+#set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
 
 # Enable Analytic Placer in VTR CMake
 set(VPR_ANALYTIC_PLACE ON CACHE BOOL "Enable Analytic Placer in VTR" FORCE)
@@ -82,19 +82,19 @@ FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
           DESTINATION
           ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_verilog/)
 
-FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
-          ${PACKER_SRC_DIR}/cluster_util.cpp
-          ${PACKER_SRC_DIR}/cluster_util.h
-          ${PACKER_SRC_DIR}/output_clustering.cpp
-          ${PACKER_SRC_DIR}/output_clustering.h
-          ${PACKER_SRC_DIR}/cluster_router.cpp
-          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-          ${PACKER_SRC_DIR}/nl_Par.h
-          ${PACKER_SRC_DIR}/nl_Par.cpp
-          ${PACKER_SRC_DIR}/pinc_log.h
-          ${PACKER_SRC_DIR}/pinc_log.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/pack)
+#FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.h
+#          ${PACKER_SRC_DIR}/output_clustering.cpp
+#          ${PACKER_SRC_DIR}/output_clustering.h
+#          ${PACKER_SRC_DIR}/cluster_router.cpp
+#          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+#          ${PACKER_SRC_DIR}/nl_Par.h
+#          ${PACKER_SRC_DIR}/nl_Par.cpp
+#          ${PACKER_SRC_DIR}/pinc_log.h
+#          ${PACKER_SRC_DIR}/pinc_log.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/pack)
 
 if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
@@ -105,12 +105,24 @@ if (ADD_READ_VERILOG_TO_VPR)
     ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
     ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
     ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
-    ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
-    ${VPR_SRC_DIR}/src/base/read_options.h
-     ${VPR_SRC_DIR}/src/base/vpr_types.h
-    ${PACKER_SRC_DIR}/cluster_placement.cpp
     DESTINATION
     ${VPR_DEST_DIR}/src/base/)
+
+#if (ADD_READ_VERILOG_TO_VPR)
+#  file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
+#    ${VPR_SRC_DIR}/src/base/read_blif.h
+#    ${VPR_SRC_DIR}/src/base/read_circuit.cpp
+#    ${VPR_SRC_DIR}/src/base/read_circuit.h
+#    ${VPR_SRC_DIR}/src/base/read_options.cpp
+#    ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
+#    ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
+#    ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
+#    #${VPR_SRC_DIR}/src/base/SetupVPR.cpp
+#    #${VPR_SRC_DIR}/src/base/read_options.h
+#    #${VPR_SRC_DIR}/src/base/vpr_types.h
+#    #${PACKER_SRC_DIR}/cluster_placement.cpp
+#    DESTINATION
+#    ${VPR_DEST_DIR}/src/base/)
 
 file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
   DESTINATION
@@ -125,15 +137,15 @@ endif()
 #           DESTINATION
 #           ${VPR_DEST_DIR}/src/base/)
 
-FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
-          ${PLACER_SRC_DIR}/place.cpp
-          ${PLACER_SRC_DIR}/place_util.cpp
-          ${PLACER_SRC_DIR}/place_util.h
-          # Analytical Placer
-          ${PLACER_SRC_DIR}/analytic_placer.h
-          ${PLACER_SRC_DIR}/analytic_placer.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/place/)
+#FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
+#          ${PLACER_SRC_DIR}/place.cpp
+#          ${PLACER_SRC_DIR}/place_util.cpp
+#          ${PLACER_SRC_DIR}/place_util.h
+#          # Analytical Placer
+#          ${PLACER_SRC_DIR}/analytic_placer.h
+#          ${PLACER_SRC_DIR}/analytic_placer.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/place/)
 
 file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
@@ -150,32 +162,32 @@ file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
 #          ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
-FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
-          ${TATUM_SRC_DIR}/TimingReporter.cpp
-          DESTINATION
-          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
-)
+#FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
+#          ${TATUM_SRC_DIR}/TimingReporter.cpp
+#          DESTINATION
+#          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
+#)
 
 # Logical Levels
-FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
-          ${UTIL_SRC_DIR}/vpr_utils.h
-          DESTINATION
-          ${VPR_DEST_DIR}/src/util/
-)
+#FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
+#          ${UTIL_SRC_DIR}/vpr_utils.h
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/util/
+#)
 
 # Logical Levels
-FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.h
-          ${ANALYSIS_SRC_DIR}/timing_reports.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/analysis
-)
+#FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.h
+#          ${ANALYSIS_SRC_DIR}/timing_reports.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/analysis
+#)
 
 # Logical Levels
-FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
-          ${BASE_SRC_DIR}/vpr_context.h
-          DESTINATION
-          ${VPR_DEST_DIR}/src/base/
-)
+#FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
+#          ${BASE_SRC_DIR}/vpr_context.h
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/base/
+#)
 
 if(NOT RAPTOR)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
