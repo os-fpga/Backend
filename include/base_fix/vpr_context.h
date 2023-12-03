@@ -404,17 +404,16 @@ struct PlacementContext : public Context {
     std::string placement_id;
 
     /**
-     * @brief Map physical block type to RL-agent block type
-     *
-     * RL-agent block types are the physical block types that are used in the netlist (at least one logical block in the netlist maps to).
-     * As an example:
-     *      Having physical block types (EMPTY, LAB, DSP, IO),
-     *      agent block types would be (LAB,IO) if netlist doesn't contain DSP blocks.
-     * Key   : physical (agent) block type index
-     * Value : agent (physical) block type index
+     * Use during placement to print extra debug information. It is set to true based on the number assigned to
+     * placer_debug_net or placer_debug_block parameters in the command line.
      */
-    std::unordered_map<int, int> phys_blk_type_to_agent_blk_type_map;
-    std::unordered_map<int, int> agent_blk_type_to_phys_blk_type_map;
+    bool f_placer_debug = false;
+
+    /**
+     * Set this variable to ture if the type of the bounding box used in placement is of the type cube. If it is false,
+     * it would mean that per-layer bounding box is used. For the 2D architecture, the cube bounding box would be used.
+     */
+    bool cube_bb = false;
 };
 
 /**
@@ -639,8 +638,8 @@ class VprContext : public Context {
     const PackingMultithreadingContext& packing_multithreading() const { return packing_multithreading_; }
     PackingMultithreadingContext& mutable_packing_multithreading() { return packing_multithreading_; }
 
-    const Levelized& logic_levels() const {return logic_levels_;}
-    Levelized& mutable_logic_levels() {return logic_levels_;}
+    const rsu::Levelized& logic_levels() const {return logic_levels_;}
+    rsu::Levelized& mutable_logic_levels() {return logic_levels_;}
 
   private:
     DeviceContext device_;
@@ -665,7 +664,7 @@ class VprContext : public Context {
      * It provides methods to perform graph levelization, check if the graph has been levelized, and access information about
      * nodes in each logic level and the total number of logic levels.
      */
-    Levelized logic_levels_;
+    rsu::Levelized logic_levels_;
 };
 
 #endif

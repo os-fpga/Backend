@@ -155,11 +155,11 @@ file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
 #          ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
-#FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
-#          ${TATUM_SRC_DIR}/TimingReporter.cpp
-#          DESTINATION
-#          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
-#)
+FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
+          ${TATUM_SRC_DIR}/TimingReporter.cpp
+          DESTINATION
+          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
+)
 
 # Logical Levels
 FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
@@ -169,18 +169,17 @@ FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
 )
 
 # Logical Levels
-#FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.h
-#          ${ANALYSIS_SRC_DIR}/timing_reports.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/analysis
-#)
+FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/analysis
+)
 
 # Logical Levels
-#FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
-#          ${BASE_SRC_DIR}/vpr_context.h
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/base/
-#)
+FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
+          ${BASE_SRC_DIR}/vpr_context.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/base/
+)
 
 if(NOT RAPTOR)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
