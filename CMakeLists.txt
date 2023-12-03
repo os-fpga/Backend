@@ -162,11 +162,11 @@ file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
 #)
 
 # Logical Levels
-#FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
-#          ${UTIL_SRC_DIR}/vpr_utils.h
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/util/
-#)
+FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
+          ${UTIL_SRC_DIR}/vpr_utils.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/util/
+)
 
 # Logical Levels
 #FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.h
