@@ -1182,7 +1182,7 @@ const t_port* find_pb_graph_port(const t_pb_graph_node* pb_gnode, std::string po
 
 const t_pb_graph_pin* find_pb_graph_pin(const t_pb_graph_node* pb_gnode, std::string port_name, int index) {
     for (int iport = 0; iport < pb_gnode->num_input_ports; iport++) {
-        if (pb_gnode->num_input_pins[iport] <= index) continue;
+        if (pb_gnode->num_input_pins[iport] < index) continue;
 
         const t_pb_graph_pin* gpin = &pb_gnode->input_pins[iport][index];
 
@@ -1191,7 +1191,7 @@ const t_pb_graph_pin* find_pb_graph_pin(const t_pb_graph_node* pb_gnode, std::st
         }
     }
     for (int iport = 0; iport < pb_gnode->num_output_ports; iport++) {
-        if (pb_gnode->num_output_pins[iport] <= index) continue;
+        if (pb_gnode->num_output_pins[iport] < index) continue;
 
         const t_pb_graph_pin* gpin = &pb_gnode->output_pins[iport][index];
 
@@ -1200,7 +1200,7 @@ const t_pb_graph_pin* find_pb_graph_pin(const t_pb_graph_node* pb_gnode, std::st
         }
     }
     for (int iport = 0; iport < pb_gnode->num_clock_ports; iport++) {
-        if (pb_gnode->num_clock_pins[iport] <= index) continue;
+        if (pb_gnode->num_clock_pins[iport] < index) continue;
 
         const t_pb_graph_pin* gpin = &pb_gnode->clock_pins[iport][index];
 
@@ -2524,7 +2524,29 @@ void add_pb_child_to_list(std::list<const t_pb*>& pb_list, const t_pb* parent_pb
     }
 }
 
+float get_min_cross_layer_delay(const std::vector<t_arch_switch_inf>& arch_switch_inf,
+                                const std::vector<t_segment_inf>& segment_inf,
+                                const int wire_to_ipin_arch_sw_id) {
+    float min_delay = std::numeric_limits<float>::max();
 
+    // Check whether the inter-layer switch type for connection block is defined. If it is,
+    // get the delay of it.
+    if (wire_to_ipin_arch_sw_id != OPEN) {
+        min_delay = arch_switch_inf[wire_to_ipin_arch_sw_id].Tdel();
+    }
+
+    // Iterate over inter-layer switch types of segments to find the minimum delay
+    for (const auto& seg_inf : segment_inf) {
+        int cross_layer_sw_arch_id = seg_inf.arch_opin_between_dice_switch;
+        if (cross_layer_sw_arch_id != OPEN) {
+            min_delay = std::min(min_delay, arch_switch_inf[cross_layer_sw_arch_id].Tdel());
+        }
+    }
+
+    return min_delay;
+}
+
+namespace rsu {
 // Function to perform graph levelization
 void Levelized::levelize() {
     //Levelizes the graph
@@ -2636,20 +2658,5 @@ void Levelized::levelize() {
     num_logic_levels_ = level_idx;
 }
 
+}  // namespace rsu
 
-// Function to check if the graph has been levelized
-bool Levelized::is_levelized() const{
-    return is_levelized_;
-}
-
-
-// Function to get a pointer to the map of nodes in each level
-vtr::vector_map<int , std::vector<AtomBlockId>>* Levelized::level_nodes(){
-    return &level_nodes_;
-}
-
-
-// Function to get the number of logic levels in the levelized graph
-int Levelized::num_logic_levels() const{
-    return num_logic_levels_;
-}

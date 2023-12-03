@@ -317,23 +317,42 @@ void add_pb_child_to_list(std::list<const t_pb*>& pb_list, const t_pb* parent_pb
 class VprConstraints;
 void apply_route_constraints(VprConstraints& constraint);
 
+/**
+ * @brief Iterate over all inter-layer switch types and return the minimum delay of it.
+ * useful four router lookahead to to have some estimate of the cost of crossing a layer
+ * @param arch_switch_inf
+ * @param segment_inf
+ * @param wire_to_ipin_arch_sw_id
+ * @return
+ */
+float get_min_cross_layer_delay(const std::vector<t_arch_switch_inf>& arch_switch_inf,
+                                const std::vector<t_segment_inf>& segment_inf,
+                                const int wire_to_ipin_arch_sw_id);
 
 // Class definition for a levelized graph
+namespace rsu {
 /**
  * @brief The Levelized class represents a graph that has been levelized, allowing efficient traversal and analysis.
  * It provides methods to perform graph levelization, check if the graph has been levelized, and access information about
  * nodes in each logic level and the total number of logic levels.
  */
-class Levelized{
-    public:
-        void levelize(); // Function to perform graph levelization
-        bool is_levelized() const; // Check if the graph has been levelized
-        vtr::vector_map<int , std::vector<AtomBlockId>>* level_nodes(); // Get a pointer to the map of nodes in each level
-        int num_logic_levels() const; // Get the number of logic levels in the levelized graph
-    private:
-        vtr::vector_map<int , std::vector<AtomBlockId>> level_nodes_; //Nodes in each level
-        bool is_levelized_; // Flag to indicate whether graph has been levelized
-        int num_logic_levels_; // Number of logic levels in the levelized graph
+class Levelized {
+public:
+    void levelize(); // Function to perform graph levelization
+
+    bool is_levelized() const noexcept { return is_levelized_; }
+
+    int num_logic_levels() const noexcept { return num_logic_levels_; }
+
+    vtr::vector_map<int, std::vector<AtomBlockId>>* level_nodes() noexcept {
+        return &level_nodes_;
+    }
+private:
+    vtr::vector_map<int , std::vector<AtomBlockId>> level_nodes_; // Nodes in each level
+    bool is_levelized_ = false; // Flag to indicate whether graph has been levelized
+    int num_logic_levels_ = 0;  // Number of logic levels in the levelized graph
 };
+
+}
 
 #endif
