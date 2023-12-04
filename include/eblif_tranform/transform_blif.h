@@ -348,6 +348,9 @@ public:
 
     std::string line;
     while (std::getline(ifs, line)) {
+      if (line.empty()) {
+        continue;
+      }
       std::string ln(line);
       while ('\\' == ln.back() && std::getline(ifs, line)) {
         ln.pop_back();
