@@ -9,8 +9,11 @@ void output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_
 
 void write_packing_results_to_xml(const bool& global_clocks, const std::string& architecture_id, const char* out_fname);
 
-bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing, const std::string& architecture_id, const char* out_fname);
+namespace rsbe {
 
-void print_stats();
+bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing,
+                             const std::string& architecture_id, const char* out_fname);
+
+}
 
 #endif

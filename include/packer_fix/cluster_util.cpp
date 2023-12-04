@@ -7,16 +7,6 @@
 #include "vtr_math.h"
 #include "SetupGrid.h"
 
-// #include "vtr_assert.h"
-// #include "vtr_log.h"
-// #include "vtr_digest.h"
-// #include "vtr_memory.h"
-
-// #include "vpr_types.h"
-// #include "vpr_error.h"
-
-// #include "pugixml.hpp"
-
 #include "globals.h"
 #include "atom_netlist.h"
 #include "pack_types.h"
@@ -288,15 +278,17 @@ void check_and_output_clustering(const t_packer_opts& packer_opts,
     VTR_ASSERT(cluster_ctx.clb_nlist.blocks().size() == intra_lb_routing.size());
 }
 
+namespace rsbe {
+
 bool check_if_xml_mode_conflict(const t_packer_opts& packer_opts,
-                                 const t_arch* arch,
-                                 const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing) {
+                                const t_arch* arch,
+                                const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing) {
 
     bool legal = check_output_clustering(intra_lb_routing, arch->architecture_id, packer_opts.output_file.c_str());
-
     return legal;
 }
 
+} // namespace rsbe
 
 void get_max_cluster_size_and_pb_depth(int& max_cluster_size,
                                        int& max_pb_depth) {

@@ -82,19 +82,19 @@ FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
           DESTINATION
           ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_verilog/)
 
-#FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
-#          ${PACKER_SRC_DIR}/cluster_util.cpp
-#          ${PACKER_SRC_DIR}/cluster_util.h
-#          ${PACKER_SRC_DIR}/output_clustering.cpp
-#          ${PACKER_SRC_DIR}/output_clustering.h
-#          ${PACKER_SRC_DIR}/cluster_router.cpp
-#          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-#          ${PACKER_SRC_DIR}/nl_Par.h
-#          ${PACKER_SRC_DIR}/nl_Par.cpp
-#          ${PACKER_SRC_DIR}/pinc_log.h
-#          ${PACKER_SRC_DIR}/pinc_log.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/pack)
+FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
+          ${PACKER_SRC_DIR}/cluster_util.cpp
+          ${PACKER_SRC_DIR}/cluster_util.h
+          ${PACKER_SRC_DIR}/output_clustering.cpp
+          ${PACKER_SRC_DIR}/output_clustering.h
+          ${PACKER_SRC_DIR}/cluster_router.cpp
+          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+          ${PACKER_SRC_DIR}/nl_Par.h
+          ${PACKER_SRC_DIR}/nl_Par.cpp
+          ${PACKER_SRC_DIR}/pinc_log.h
+          ${PACKER_SRC_DIR}/pinc_log.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/pack)
 
 if (ADD_READ_VERILOG_TO_VPR)
   file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp

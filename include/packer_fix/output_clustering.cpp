@@ -38,7 +38,7 @@ static void print_clustering_stats(char* block_name, int num_block_type, float n
 
 /* Prints out one cluster (clb).  Both the external pins and the *
  * internal connections are printed out.                         */
-void print_stats() {
+static void print_stats() {
     int ipin;
     unsigned int itype;
     int total_nets_absorbed;
@@ -936,7 +936,9 @@ static bool check_clustering_xml_block(pugi::xml_node parent_node, t_logical_blo
     return true;
 }
 
-bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing, 
+namespace rsbe {
+
+bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing,
                              const std::string& architecture_id, const char* out_fname) {
 
     auto& device_ctx = g_vpr_ctx.device();
@@ -951,7 +953,7 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
     }
 
     if (!intra_lb_routing.empty()) {
-      cluster_ctx.clb_nlist.block_pb(last_id)->pb_route = alloc_and_load_pb_route(intra_lb_routing[last_id], 
+      cluster_ctx.clb_nlist.block_pb(last_id)->pb_route = alloc_and_load_pb_route(intra_lb_routing[last_id],
                                                                          cluster_ctx.clb_nlist.block_pb(last_id)->pb_graph_node);
     }
 
@@ -968,7 +970,7 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
 
     // Check only the last_id block
     //
-    if (!check_clustering_xml_block(block_node, cluster_ctx.clb_nlist.block_type(last_id), pb_graph_pin_lookup_from_index_by_type, 
+    if (!check_clustering_xml_block(block_node, cluster_ctx.clb_nlist.block_type(last_id), pb_graph_pin_lookup_from_index_by_type,
                              cluster_ctx.clb_nlist.block_pb(last_id), size_t(last_id), cluster_ctx.clb_nlist.block_pb(last_id)->pb_route)) {
            return false;
     }
@@ -979,6 +981,8 @@ bool check_output_clustering(const vtr::vector<ClusterBlockId, std::vector<t_int
 
     return true; // check was legal
 }
+
+} // namespace rsbe
 
 /* This routine dumps out the output netlist in a format suitable for  *
  * input to vpr. This routine also dumps out the internal structure of *
