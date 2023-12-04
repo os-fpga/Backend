@@ -31,7 +31,7 @@ set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
 set(VPR_ANALYTIC_PLACE ON CACHE BOOL "Enable Analytic Placer in VTR" FORCE)
 
 set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
-#set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
+set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
 
 # Logical Levels
 set(ANALYSIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/analysis_fix)
@@ -145,14 +145,14 @@ file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   ${XML_DEC_KEY_DEST}/
  )
 
-#FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
-#          ${TILEABLE_SRC_DIR}/rr_graph_builder.h
-#          DESTINATION
-#          ${LIB_RRG_DEST_DIR}/src/base)
+FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
+          ${TILEABLE_SRC_DIR}/rr_graph_builder.h
+          DESTINATION
+          ${LIB_RRG_DEST_DIR}/src/base)
 
-#FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
-#          DESTINATION
-#          ${LIB_RRG_DEST_DIR}/src/io)
+FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
+          DESTINATION
+          ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
 FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp

@@ -326,6 +326,12 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
         // Initialize internal data
         init_side_map();
         init_segment_inf_x_y();
+        curr_tmp_block_type_id = -1;
+        curr_tmp_height_offset = -1;
+        curr_tmp_width_offset = -1;
+        curr_tmp_layer = 0;
+        curr_tmp_x = -1;
+        curr_tmp_y = -1;
     }
 
     /* A truth table to help understand the conversion from VPR side mask to uxsd side code
@@ -524,7 +530,6 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
         bool is_internal_sw = string_name.compare(0, 15, "Internal Switch") == 0;
         for (const auto& arch_sw_inf: arch_switch_inf_) {
             if (string_name == arch_sw_inf.name || is_internal_sw) {
-                string_name = arch_sw_inf.name;
                 found_arch_name = true;
                 break;
             }
@@ -687,12 +692,13 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
      * </xs:complexType>
      */
 
-    inline int init_node_loc(int& inode, int layer, int ptc, int xhigh, int xlow, int yhigh, int ylow) final {
+    inline int init_node_loc(int& inode, int ptc, int xhigh, int xlow, int yhigh, int ylow) final {
         auto node = (*rr_nodes_)[inode];
         RRNodeId node_id = node.id();
 
         rr_graph_builder_->set_node_coordinates(node_id, xlow, ylow, xhigh, yhigh);
-        rr_graph_builder_->set_node_layer(node_id, layer);
+        // We set the layer num 0 - If it is specified in the XML, it will be overwritten
+        rr_graph_builder_->set_node_layer(node_id, 0);
         rr_graph_builder_->set_node_ptc_num(node_id, ptc);
         return inode;
     }
@@ -707,6 +713,9 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
     inline int get_node_loc_layer(const t_rr_node& node) final {
         return rr_graph_->node_layer(node.id());
     }
+    inline int get_node_loc_twist(const t_rr_node& node) final{
+        return rr_graph_->node_ptc_twist(node.id());
+    }
     inline int get_node_loc_xhigh(const t_rr_node& node) final {
         return rr_graph_->node_xhigh(node.id());
     }
@@ -718,6 +727,15 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
     }
     inline int get_node_loc_ylow(const t_rr_node& node) final {
         return rr_graph_->node_ylow(node.id());
+    }
+
+    inline void set_node_loc_layer(int layer_num, int& inode) final {
+        auto node = (*rr_nodes_)[inode];
+        RRNodeId node_id = node.id();
+
+
+        VTR_ASSERT(layer_num >= 0);
+        rr_graph_builder_->set_node_layer(node_id, layer_num);
     }
 
     inline void set_node_loc_side(uxsd::enum_loc_side side, int& inode) final {
@@ -741,6 +759,13 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
             }
         }
     }
+
+    inline void set_node_loc_twist(int twist, int& inode) final {
+        auto node = (*rr_nodes_)[inode];
+        RRNodeId node_id = node.id();
+        rr_graph_builder_->set_node_ptc_twist_incr(node_id,twist);
+    }
+
     inline uxsd::enum_loc_side get_node_loc_side(const t_rr_node& node) final {
         const auto& rr_graph = (*rr_graph_);
         if (rr_graph.node_type(node.id()) == IPIN || rr_graph.node_type(node.id()) == OPIN) {
@@ -1083,7 +1108,7 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
                 /*Keeps track of the number of the specific type of switch that connects a wire to an ipin
                  * use the pair data structure to keep the maximum*/
                 if (rr_graph.node_type(node.id()) == CHANX || rr_graph.node_type(node.id()) == CHANY) {
-                    if (rr_graph.node_type(RRNodeId(sink_node)) == IPIN) {
+                    if(rr_graph.node_type(RRNodeId(sink_node)) == IPIN){
                         if (rr_graph.node_layer(RRNodeId(sink_node)) == rr_graph.node_layer(RRNodeId(source_node))) {
                             count_for_wire_to_ipin_switches[switch_id]++;
                             if (count_for_wire_to_ipin_switches[switch_id] > most_frequent_switch.second) {
@@ -1106,7 +1131,7 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
 
         VTR_ASSERT(wire_to_rr_ipin_switch_ != nullptr);
         *wire_to_rr_ipin_switch_ = most_frequent_switch.first;
-        
+
         VTR_ASSERT(wire_to_rr_ipin_switch_between_dice_ != nullptr);
         *wire_to_rr_ipin_switch_between_dice_ = most_frequent_switch_between_dice.first;
     }
@@ -1539,28 +1564,58 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
                 grid_.grid_size(), size);
         }
     }
-    inline void* add_grid_locs_grid_loc(void*& /*ctx*/, int block_type_id, int height_offset, int width_offset, int x, int y, int layer) final {
-        const auto& type = grid_.get_physical_type({x, y, layer});
-        int grid_width_offset = grid_.get_width_offset({x, y, layer});
-        int grid_height_offset = grid_.get_height_offset({x, y, layer});
+    inline void* add_grid_locs_grid_loc(void*& /*ctx*/, int block_type_id, int height_offset, int width_offset, int x, int y) final {
+        curr_tmp_block_type_id = block_type_id;
+        curr_tmp_height_offset = height_offset;
+        curr_tmp_width_offset = width_offset;
+        curr_tmp_x = x;
+        curr_tmp_y = y;
 
-        if (type->index != block_type_id) {
-            report_error(
-                "Architecture file does not match RR graph's block_type_id at (%d, %d): arch used ID %d, RR graph used ID %d.", x, y,
-                (type->index), block_type_id);
-        }
-        if (grid_width_offset != width_offset) {
-            report_error(
-                "Architecture file does not match RR graph's width_offset at (%d, %d)", x, y);
-        }
-
-        if (grid_height_offset != height_offset) {
-            report_error(
-                "Architecture file does not match RR graph's height_offset at (%d, %d)", x, y);
-        }
         return nullptr;
     }
-    inline void finish_grid_locs_grid_loc(void*& /*ctx*/) final {}
+    inline void finish_grid_locs_grid_loc(void*& /*ctx*/) final {
+        VTR_ASSERT(curr_tmp_block_type_id >= 0);
+        VTR_ASSERT(curr_tmp_height_offset >= 0);
+        VTR_ASSERT(curr_tmp_width_offset >= 0);
+        VTR_ASSERT(curr_tmp_layer >= 0);
+        VTR_ASSERT(curr_tmp_x >= 0);
+        VTR_ASSERT(curr_tmp_y >= 0);
+        const auto& type = grid_.get_physical_type({curr_tmp_x, curr_tmp_y, curr_tmp_layer});
+        int grid_width_offset = grid_.get_width_offset({curr_tmp_x, curr_tmp_y, curr_tmp_layer});
+        int grid_height_offset = grid_.get_height_offset({curr_tmp_x, curr_tmp_y, curr_tmp_layer});
+
+        if (type->index != curr_tmp_block_type_id) {
+            report_error(
+                "Architecture file does not match RR graph's block_type_id at (%d, %d): arch used ID %d, RR graph used ID %d.",
+                curr_tmp_layer,
+                curr_tmp_x,
+                curr_tmp_y,
+                (type->index),
+                curr_tmp_block_type_id);
+        }
+        if (grid_width_offset != curr_tmp_width_offset) {
+            report_error(
+                "Architecture file does not match RR graph's width_offset at (%d, %d)",
+                curr_tmp_layer,
+                curr_tmp_x,
+                curr_tmp_y);
+        }
+
+        if (grid_height_offset != curr_tmp_height_offset) {
+            report_error(
+                "Architecture file does not match RR graph's height_offset at (%d, %d)",
+                curr_tmp_layer,
+                curr_tmp_x,
+                curr_tmp_y);
+        }
+
+        curr_tmp_block_type_id = -1;
+        curr_tmp_height_offset = -1;
+        curr_tmp_width_offset = -1;
+        curr_tmp_layer = 0;
+        curr_tmp_x = -1;
+        curr_tmp_y = -1;
+    }
 
     inline void* init_rr_graph_grid(void*& /*ct*/) final {
         return nullptr;
@@ -1593,6 +1648,10 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
     }
     inline const t_grid_tile* get_grid_locs_grid_loc(int n, void*& /*ctx*/) final {
         return grid_.get_grid_locs_grid_loc(n);
+    }
+
+    inline void set_grid_loc_layer(int layer_num, void*& /*ctx*/) final {
+        curr_tmp_layer = layer_num;
     }
 
 
@@ -1668,22 +1727,12 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
         process_rr_node_indices();
 
         rr_graph_builder_->init_fan_in();
-
-        /* Create a temp copy to convert from vtr::vector to std::vector
-         * This is required because the ``alloc_and_load_rr_indexed_data()`` function supports only std::vector data
-         * type for ``rr_segments``
-         * Note that this is a dirty fix (to avoid massive code changes)
-         * TODO: The ``alloc_and_load_rr_indexed_data()`` function should embrace ``vtr::vector`` for ``rr_segments``
-         */
+        
         std::vector<t_segment_inf> temp_rr_segs;
         temp_rr_segs.reserve(segment_inf_.size());
         for (auto& rr_seg : segment_inf_) {
             temp_rr_segs.push_back(rr_seg);
         }
-
-        t_unified_to_parallel_seg_index seg_index_map;
-        auto segment_inf_x_ = get_parallel_segs(temp_rr_segs, seg_index_map, X_AXIS);
-        auto segment_inf_y_ = get_parallel_segs(temp_rr_segs, seg_index_map, Y_AXIS);
 
         alloc_and_load_rr_indexed_data(
             *rr_graph_,
@@ -1727,9 +1776,9 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
         /* Alloc the lookup table */
         for (t_rr_type rr_type : RR_TYPES) {
             if (rr_type == CHANX) {
-                rr_graph_builder.node_lookup().resize_nodes(grid_.get_num_layers(), grid_.height(), grid_.width(), rr_type, NUM_SIDES);
+                rr_graph_builder.node_lookup().resize_nodes(grid_.get_num_layers(),grid_.height(), grid_.width(), rr_type, NUM_SIDES);
             } else {
-                rr_graph_builder.node_lookup().resize_nodes(grid_.get_num_layers(), grid_.width(), grid_.height(), rr_type, NUM_SIDES);
+                rr_graph_builder.node_lookup().resize_nodes(grid_.get_num_layers(),grid_.width(), grid_.height(), rr_type, NUM_SIDES);
             }
         }
 
@@ -2039,4 +2088,12 @@ class RrGraphSerializer final : public uxsd::RrGraphBase<RrGraphContextTypes> {
     vtr::interned_string empty_;
     const std::function<void(const char*)>* report_error_;
     bool is_flat_;
+
+    // Temporary data to check grid block types
+    int curr_tmp_block_type_id;
+    int curr_tmp_height_offset;
+    int curr_tmp_width_offset;
+    int curr_tmp_layer;
+    int curr_tmp_x;
+    int curr_tmp_y;
 };
