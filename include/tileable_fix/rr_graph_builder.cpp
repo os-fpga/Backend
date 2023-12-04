@@ -41,42 +41,49 @@ void RRGraphBuilder::add_node_to_all_locs(RRNodeId node, t_graph_type graph_type
     t_rr_type node_type = node_storage_.node_type(node);
     short node_ptc_num = node_storage_.node_ptc_num(node);
     short node_layer = node_storage_.node_layer(node);
+    short node_twist = node_storage_.node_ptc_twist(node);
+    int node_offset = 0;
 
-    
-    int twist = 0; // if INC_DIR --> twist must be +2. Otherwise -2
-    if(graph_type == t_graph_type::GRAPH_UNIDIR_TILEABLE && (node_type == CHANX || node_type == CHANY)){
+    // -- Mahdi's and Behnam's code. TODO.
+    int rs_twist = 0; // if INC_DIR --> twist must be +2. Otherwise -2
+    if (graph_type == t_graph_type::GRAPH_UNIDIR_TILEABLE && (node_type == CHANX || node_type == CHANY)) {
+        static int trace_twist = 0;
+        if (trace_twist == 0) {
+            const char* ts = ::getenv("rrg_trace_twist");
+            trace_twist = ts ? ::atoi(ts) : 1;
+        }
         Direction node_dir = node_storage_.node_direction(node);
         if (node_dir == Direction::INC)
-            twist = 2;
+            rs_twist = 2;
         else if (node_dir == Direction::DEC)
-            twist = -2;
+            rs_twist = -2;
+        if (trace_twist >= 2)
+            printf("\t  rs_twist= %i\n", rs_twist);
     }
+    // --
 
-    int i = 0;
     for (int ix = node_storage_.node_xlow(node); ix <= node_storage_.node_xhigh(node); ix++) {
         for (int iy = node_storage_.node_ylow(node); iy <= node_storage_.node_yhigh(node); iy++) {
+            node_ptc_num += node_twist * node_offset;
+            node_offset++;
             switch (node_type) {
                 case SOURCE:
                 case SINK:
-                    node_lookup_.add_node(node, node_layer, ix, iy, node_type, node_ptc_num, SIDES[0]);
-                    break;
                 case CHANY:
-                    node_lookup_.add_node(node, node_layer, ix, iy, node_type, node_ptc_num + (i*twist), SIDES[0]);
-                    i++;
+                    node_lookup_.add_node(node,node_layer, ix, iy, node_type, node_ptc_num, SIDES[0]);
                     break;
                 case CHANX:
                     /* Currently need to swap x and y for CHANX because of chan, seg convention 
                      * TODO: Once the builders is reworked for use consistent (x, y) convention,
                      * the following swapping can be removed
                      */
-                    node_lookup_.add_node(node, node_layer, iy, ix, node_type, node_ptc_num + (i*twist), SIDES[0]);
-                    i++;
+                    node_lookup_.add_node(node,node_layer, iy, ix, node_type, node_ptc_num, SIDES[0]);
                     break;
                 case OPIN:
                 case IPIN:
                     for (const e_side& side : SIDES) {
                         if (node_storage_.is_node_on_specific_side(node, side)) {
-                            node_lookup_.add_node(node, node_layer, ix, iy, node_type, node_ptc_num, side);
+                            node_lookup_.add_node(node,node_layer, ix, iy, node_type, node_ptc_num, side);
                         }
                     }
                     break;
