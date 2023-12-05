@@ -21,8 +21,10 @@ endif(NOT CMAKE_BUILD_TYPE)
 #variable_watch(VPR_DEST_DIR)
 
 if (NOT RAPTOR)
+  message(STATUS "NOTE: NOT RAPTOR")
   set(ADD_READ_VERILOG_TO_VPR 1)
 endif()
+
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
 #set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
@@ -44,8 +46,7 @@ set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr
 set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
 set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libdecrypt/)
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
-set(MEM_FIX_DEST_DIR1 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libvtrutil/src)
-set(MEM_FIX_DEST_DIR2 ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph/src/base)
+
 set(EBLIF_TRANSFORM_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/src)
 set(EBLIF_TRANSFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform)
 
@@ -82,6 +83,7 @@ FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
           DESTINATION
           ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_verilog/)
 
+# patch VPR
 FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/cluster_util.cpp
           ${PACKER_SRC_DIR}/cluster_util.h
@@ -89,15 +91,21 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           ${PACKER_SRC_DIR}/output_clustering.h
           ${PACKER_SRC_DIR}/cluster_router.cpp
           ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-          ${PACKER_SRC_DIR}/nl_Par.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/pack)
+
+# add to VPR
+FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
           ${PACKER_SRC_DIR}/nl_Par.cpp
           ${PACKER_SRC_DIR}/pinc_log.h
           ${PACKER_SRC_DIR}/pinc_log.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
+message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 
 if (ADD_READ_VERILOG_TO_VPR)
-  file(COPY ${VPR_SRC_DIR}/src/base/read_blif.cpp
+  message(STATUS "NOTE: ADDING READ_VERILOG_TO_VPR")
+  file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
     ${VPR_SRC_DIR}/src/base/read_blif.h
     ${VPR_SRC_DIR}/src/base/read_circuit.cpp
     ${VPR_SRC_DIR}/src/base/read_circuit.h
@@ -106,15 +114,24 @@ if (ADD_READ_VERILOG_TO_VPR)
     ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
     ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
     ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
-    ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
+    ${VPR_SRC_DIR}/src/base/read_blif.cpp
     ${VPR_SRC_DIR}/src/base/vpr_types.h
     DESTINATION
     ${VPR_DEST_DIR}/src/base/)
 
-file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
-  DESTINATION
-  ${VPR_DEST_DIR}/
-)
+  message(STATUS "NOTE: PATCHING VPR CMakefile")
+  file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
+    DESTINATION
+    ${VPR_DEST_DIR}/
+  )
+else()
+  message(STATUS "NOTE: SKIPPING READ_VERILOG_TO_VPR")
+  file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
+    ${VPR_SRC_DIR}/src/base/read_options.cpp
+    ${VPR_SRC_DIR}/src/base/read_options.h
+    ${VPR_SRC_DIR}/src/base/vpr_types.h
+    DESTINATION
+    ${VPR_DEST_DIR}/src/base/)
 endif()
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
