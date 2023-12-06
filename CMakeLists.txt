@@ -2,9 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project("Backend_RS" C CXX)
 
-if (NOT RAPTOR)
-  set(BACKEND_RS on)
-endif()
+set(BACKEND_RS on)
 
 # Detect build type, fallback to release and throw a warning if use didn't
 # specify any
@@ -19,11 +17,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 
 #variable_watch(VPR_DEST_DIR)
-
-if (NOT RAPTOR)
-  message(STATUS "NOTE: NOT RAPTOR")
-  set(ADD_READ_VERILOG_TO_VPR 1)
-endif()
 
 set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
@@ -103,36 +96,26 @@ FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
           ${VPR_DEST_DIR}/src/pack)
 message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 
-if (ADD_READ_VERILOG_TO_VPR)
-  message(STATUS "NOTE: ADDING READ_VERILOG_TO_VPR")
-  file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
-    ${VPR_SRC_DIR}/src/base/read_blif.h
-    ${VPR_SRC_DIR}/src/base/read_circuit.cpp
-    ${VPR_SRC_DIR}/src/base/read_circuit.h
-    ${VPR_SRC_DIR}/src/base/read_options.cpp
-    ${VPR_SRC_DIR}/src/base/read_options.h
-    ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
-    ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
-    ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
-    ${VPR_SRC_DIR}/src/base/read_blif.cpp
-    ${VPR_SRC_DIR}/src/base/vpr_types.h
-    DESTINATION
-    ${VPR_DEST_DIR}/src/base/)
+message(STATUS "NOTE: ADDING READ_VERILOG_TO_VPR")
+file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
+  ${VPR_SRC_DIR}/src/base/read_blif.h
+  ${VPR_SRC_DIR}/src/base/read_circuit.cpp
+  ${VPR_SRC_DIR}/src/base/read_circuit.h
+  ${VPR_SRC_DIR}/src/base/read_options.cpp
+  ${VPR_SRC_DIR}/src/base/read_options.h
+  ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
+  ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
+  ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
+  ${VPR_SRC_DIR}/src/base/read_blif.cpp
+  ${VPR_SRC_DIR}/src/base/vpr_types.h
+  DESTINATION
+  ${VPR_DEST_DIR}/src/base/)
 
-  message(STATUS "NOTE: PATCHING VPR CMakefile")
-  file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
-    DESTINATION
-    ${VPR_DEST_DIR}/
-  )
-else()
-  message(STATUS "NOTE: SKIPPING READ_VERILOG_TO_VPR")
-  file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
-    ${VPR_SRC_DIR}/src/base/read_options.cpp
-    ${VPR_SRC_DIR}/src/base/read_options.h
-    ${VPR_SRC_DIR}/src/base/vpr_types.h
-    DESTINATION
-    ${VPR_DEST_DIR}/src/base/)
-endif()
+message(STATUS "NOTE: PATCHING VPR CMakefile")
+file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
+  DESTINATION
+  ${VPR_DEST_DIR}/
+)
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ${PLACER_SRC_DIR}/place.cpp
