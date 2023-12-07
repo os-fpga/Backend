@@ -18,21 +18,24 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 #variable_watch(VPR_DEST_DIR)
 
-set(VPR_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/read_verilog/OpenFPGA/vpr)
-set(PACKER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/packer_fix)
-#set(PLACER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/placer_fix)
+set(PATCH_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+message(STATUS "NOTE: PATCH_DIR= ${PATCH_DIR}")
+
+set(VPR_SRC_DIR ${PATCH_DIR}/read_verilog/OpenFPGA/vpr)
+set(PACKER_SRC_DIR ${PATCH_DIR}/packer_fix)
+#set(PLACER_SRC_DIR ${PATCH_DIR}/placer_fix)
 
 # Enable Analytic Placer in VTR CMake
 set(VPR_ANALYTIC_PLACE ON CACHE BOOL "Enable Analytic Placer in VTR" FORCE)
 
-set(OPENFPGA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/openfpga)
-set(TILEABLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tileable_fix)
+set(OPENFPGA_SRC_DIR ${PATCH_DIR}/openfpga)
+set(TILEABLE_SRC_DIR ${PATCH_DIR}/tileable_fix)
 
 # Logical Levels
-set(ANALYSIS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/analysis_fix)
-set(BASE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/base_fix)
-set(UTIL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/util_fix)
-set(TATUM_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tatum_fix)
+set(ANALYSIS_SRC_DIR ${PATCH_DIR}/analysis_fix)
+set(BASE_SRC_DIR ${PATCH_DIR}/base_fix)
+set(UTIL_SRC_DIR ${PATCH_DIR}/util_fix)
+set(TATUM_SRC_DIR ${PATCH_DIR}/tatum_fix)
 
 set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
@@ -118,7 +121,7 @@ file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
   ${VPR_DEST_DIR}/src/base/)
 
 message(STATUS "NOTE: PATCHING VPR CMakefile")
-file(COPY ${VPR_SRC_DIR}/CMakeLists.txt
+file(COPY ${PATCH_DIR}/CMAKE_fix/CMakeLists.txt
   DESTINATION
   ${VPR_DEST_DIR}/
 )
