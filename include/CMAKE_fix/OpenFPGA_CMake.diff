@@ -1,0 +1,26 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 10035118..e6865b80 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -171,10 +171,10 @@ else ()
+       "-Wmissing-include-dirs"        #Warn if a user include directory is missing
+       "-Wredundant-decls"             #Warn if there are overlapping declarations
+       "-Wswitch-default"              #Warn if a switch has no default
+-      "-Wundef"                       #Warn if #if() preprocessor refers to an undefined directive
++      "-Wno-undef"                    #No-Warn if #if() preprocessor refers to an undefined directive
+       "-Wunused"                      #Warn about unused variables/parameters
+       "-Wunused-variable"             #Warn about variables that are not used
+-      "-Wunused-parameter"            #Warn about function parameters which are unused
++      "-Wno-unused-parameter"         #No-Warn about function parameters which are unused
+       "-Wdisabled-optimization"       #Warn when optimizations are skipped (usually due to large/complex code)
+       "-Wnoexcept"                    #Warn when functions should be noexcept (i.e. compiler know it doesn't throw)
+       "-Woverloaded-virtual"          #Warn when a function declaration overrides a virtual method
+@@ -186,7 +186,7 @@ else ()
+       "-Wuninitialized"               #Warn about unitialized values
+       "-Winit-self"                   #Warn about self-initialization
+       "-Wcatch-value=3"               #Warn when catch statements don't catch by reference
+-      "-Wextra-semi"                  #Warn about redudnant semicolons
++      "-Wno-extra-semi"               #No-Warn about redudnant semicolons
+       "-Wimplicit-fallthrough=3"      #Warn about case fallthroughs, but allow 'fallthrough' comments to suppress warnings
+       #GCC-like optional
+       #"-Wsuggest-final-types"         #Suggest where 'final' would help if specified on a type methods
