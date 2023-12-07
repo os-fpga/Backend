@@ -87,7 +87,7 @@ FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
 
-# add to VPR
+# add to VPR/pack
 FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
           ${PACKER_SRC_DIR}/nl_Par.cpp
           ${PACKER_SRC_DIR}/pinc_log.h
@@ -96,7 +96,15 @@ FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
           ${VPR_DEST_DIR}/src/pack)
 message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 
-message(STATUS "NOTE: ADDING READ_VERILOG_TO_VPR")
+# add to VPR/base
+file(COPY
+  ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
+  ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
+  DESTINATION
+  ${VPR_DEST_DIR}/src/base/)
+message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h")
+
+message(STATUS "NOTE: PATCHING VPR: src/base")
 file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
   ${VPR_SRC_DIR}/src/base/read_blif.h
   ${VPR_SRC_DIR}/src/base/read_circuit.cpp
@@ -104,8 +112,6 @@ file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
   ${VPR_SRC_DIR}/src/base/read_options.cpp
   ${VPR_SRC_DIR}/src/base/read_options.h
   ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
-  ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
-  ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
   ${VPR_SRC_DIR}/src/base/read_blif.cpp
   ${VPR_SRC_DIR}/src/base/vpr_types.h
   DESTINATION
