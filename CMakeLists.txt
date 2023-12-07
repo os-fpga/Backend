@@ -120,11 +120,42 @@ file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
   DESTINATION
   ${VPR_DEST_DIR}/src/base/)
 
+# patch CMakefiles
 message(STATUS "NOTE: PATCHING VPR CMakefile")
 file(COPY ${PATCH_DIR}/CMAKE_fix/CMakeLists.txt
   DESTINATION
   ${VPR_DEST_DIR}/
 )
+message("")
+message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by git apply..")
+set(GIT_APPLY_STATUS 111)
+set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
+message(STATUS "NOTE: DIFF_FILE= ${DIFF_FILE}")
+
+# check if already patched:
+execute_process(
+  COMMAND git apply --quiet --reverse --check ${DIFF_FILE}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA
+  TIMEOUT 30
+  RESULT_VARIABLE GIT_APPLY_STATUS
+  )
+message(STATUS "NOTE: REVERSE_CHECK_STATUS= ${GIT_APPLY_STATUS}")
+if (GIT_APPLY_STATUS EQUAL "0")
+  message(STATUS "      ALREADY PATCHED, skipping ${DIFF_FILE}")
+else()
+  # actual patch:
+  execute_process(
+    COMMAND git apply ${DIFF_FILE}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA
+    TIMEOUT 30
+    RESULT_VARIABLE GIT_APPLY_STATUS
+    )
+  message(STATUS "NOTE: ACTUAL_APPLY_STATUS= ${GIT_APPLY_STATUS}")
+endif()
+message(STATUS "NOTE: FINAL_APPLY_STATUS= ${GIT_APPLY_STATUS}\n")
+if (NOT GIT_APPLY_STATUS EQUAL "0")
+  message(FATAL_ERROR "PATCHING OpenFPGA CMakefile by git apply FAILED")
+endif()
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ${PLACER_SRC_DIR}/place.cpp
@@ -141,6 +172,7 @@ file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   ${XML_DEC_KEY_DEST}/
  )
 
+message(STATUS "NOTE: PATCHING rr_graph_builder")
 FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
           ${TILEABLE_SRC_DIR}/rr_graph_builder.h
           DESTINATION
@@ -151,6 +183,7 @@ FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
           ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
+message(STATUS "NOTE: PATCHING TimingReporter")
 FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
           ${TATUM_SRC_DIR}/TimingReporter.cpp
           DESTINATION
@@ -176,11 +209,10 @@ FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/base/
 )
+message(STATUS "NOTE: DONE PATCHING\n")
 
-if(NOT RAPTOR)
-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
-  add_subdirectory("Raptor_Tools/graph_partition")
-endif()
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
+add_subdirectory("Raptor_Tools/graph_partition")
 add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
