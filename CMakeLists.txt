@@ -201,11 +201,12 @@ FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
 )
 
 # Logical Levels
-FILE(COPY ${UTIL_SRC_DIR}/vpr_utils.cpp
-          ${UTIL_SRC_DIR}/vpr_utils.h
+FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
+          ${UTIL_SRC_DIR}/rsbe_utils.h
           DESTINATION
           ${VPR_DEST_DIR}/src/util/
 )
+message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
 
 # Logical Levels
 FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
