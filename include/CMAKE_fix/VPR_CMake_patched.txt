@@ -1,13 +1,11 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.14)
 
 project("vpr")
 
 if (PRODUCTION_BUILD)
-    if(NOT RAPTOR)
-        get_filename_component(FLEX_LM_SRC_DIR "../../../Raptor_Tools/Flex_LM"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-        add_subdirectory(${FLEX_LM_SRC_DIR} flex_lm)
-    endif()
+    get_filename_component(FLEX_LM_SRC_DIR "../../../Raptor_Tools/Flex_LM"
+    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    add_subdirectory(${FLEX_LM_SRC_DIR} flex_lm)
     message("Production Build type set to ON")
     set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
     add_definitions(-DPRODUCTION_BUILD)
@@ -16,24 +14,20 @@ endif(PRODUCTION_BUILD)
 
 option(ENABLE_VERIFIC "Enable Verific front end" OFF)
 
-
-if (NOT RAPTOR)
-        get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-        add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
-        get_filename_component(VERI_PRUNE_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/veri_prune"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-        add_subdirectory(${VERI_PRUNE_SRC_DIR} veri_prune)
-    if(ENABLE_VERIFIC)
-        get_filename_component(VERIFIC_HOME "../../../Raptor_Tools/verific_rs/"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-        add_subdirectory(${VERIFIC_HOME} verific_rs)
-    endif()    
-        get_filename_component(READ_EDIF_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_edif"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-    	add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
-endif()
-
+  get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
+  REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+  add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
+  get_filename_component(VERI_PRUNE_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/veri_prune"
+  REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+  add_subdirectory(${VERI_PRUNE_SRC_DIR} veri_prune)
+  if(ENABLE_VERIFIC)
+      get_filename_component(VERIFIC_HOME "../../../Raptor_Tools/verific_rs/"
+      REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+      add_subdirectory(${VERIFIC_HOME} verific_rs)
+  endif()
+  get_filename_component(READ_EDIF_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_edif"
+  REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
+  add_subdirectory(${READ_EDIF_SRC_DIR} read_edif)
 
 set(VPR_EXECUTION_ENGINE "auto" CACHE STRING "Specify the framework for (potential) parallel execution")
 set_property(CACHE VPR_EXECUTION_ENGINE PROPERTY STRINGS auto serial tbb)
@@ -114,6 +108,11 @@ files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
 
 if(${VTR_ENABLE_CAPNPROTO})
     add_definitions("-DVTR_ENABLE_CAPNPROTO")
+endif()
+
+if(${VPR_DEBUG_PARTITION_TREE})
+    message(STATUS "VPR: Partition tree debug logs: enabled")
+    add_definitions("-DVPR_DEBUG_PARTITION_TREE")
 endif()
 
 #Create the library
@@ -360,16 +359,17 @@ install(TARGETS vpr libvpr DESTINATION bin)
 file(GLOB_RECURSE TEST_SOURCES test/*.cpp)
 add_executable(test_vpr ${TEST_SOURCES})
 target_link_libraries(test_vpr
-                    Catch2::Catch2WithMain
-                    libvpr)
+                        Catch2::Catch2WithMain
+                        libvpr)
 
 #Supress IPO link warnings if IPO is enabled
 get_target_property(TEST_VPR_USES_IPO vpr INTERPROCEDURAL_OPTIMIZATION)
 if (TEST_VPR_USES_IPO)
-        set_property(TARGET test_vpr APPEND PROPERTY LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
+    set_property(TARGET test_vpr APPEND PROPERTY LINK_FLAGS ${IPO_LINK_WARN_SUPRESS_FLAGS})
 endif()
 
 add_test(NAME test_vpr
-    COMMAND test_vpr --use-colour=yes
+    COMMAND test_vpr --colour-mode ansi
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/test
     )
+

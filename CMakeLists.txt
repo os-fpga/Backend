@@ -16,6 +16,8 @@ if(NOT CMAKE_BUILD_TYPE)
             FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
 
+find_package(Git QUIET)
+
 #variable_watch(VPR_DEST_DIR)
 
 set(PATCH_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -70,6 +72,41 @@ else()
   set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations? NO!")
 endif()
 
+message(STATUS "NOTE: BEGIN PATCHING")
+
+# apply_git_diff() takes a diff file and applies it in WORK_DIR by 'git apply'.
+#  'git apply' fails in case of NOP (if patch is already applied).
+#  We check if the patch is already applied by 'git apply --quiet --reverse --check'
+function(apply_git_diff DIFF_F WORK_DIR TITLE)
+  message(STATUS "(apply_git_diff) ${TITLE} : ${DIFF_F}")
+  message(STATUS "(apply_git_diff) WORK_DIR= ${WORK_DIR}")
+  set(GIT_APPLY_STATUS 111)
+  # check if already patched:
+  execute_process(
+    COMMAND git apply --quiet --reverse --check ${DIFF_F}
+    WORKING_DIRECTORY ${WORK_DIR}
+    TIMEOUT 30
+    RESULT_VARIABLE GIT_APPLY_STATUS
+    )
+  message(STATUS "(apply_git_diff) REVERSE_CHECK_STATUS= ${GIT_APPLY_STATUS}")
+  if (GIT_APPLY_STATUS EQUAL "0")
+    message(STATUS "ALREADY PATCHED, skipping ${DIFF_F}")
+  else()
+    # actual patch:
+    execute_process(
+      COMMAND git apply ${DIFF_F}
+      WORKING_DIRECTORY ${WORK_DIR}
+      TIMEOUT 30
+      RESULT_VARIABLE GIT_APPLY_STATUS
+      )
+    message(STATUS "(apply_git_diff) ACTUAL_APPLY_STATUS= ${GIT_APPLY_STATUS}")
+  endif()
+  message(STATUS "(apply_git_diff) FINAL_APPLY_STATUS= ${GIT_APPLY_STATUS}\n")
+  if (NOT GIT_APPLY_STATUS EQUAL "0")
+    message(FATAL_ERROR "PATCHING ${TITLE} by git apply FAILED")
+  endif()
+endfunction(apply_git_diff)
+
 FILE(COPY ${EBLIF_TRANSFORM_SRC}/blifparse.cpp
           ${EBLIF_TRANSFORM_SRC}/transform_blif.h
           DESTINATION
@@ -121,41 +158,14 @@ file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
   ${VPR_DEST_DIR}/src/base/)
 
 # patch CMakefiles
-message(STATUS "NOTE: PATCHING VPR CMakefile")
-file(COPY ${PATCH_DIR}/CMAKE_fix/CMakeLists.txt
-  DESTINATION
-  ${VPR_DEST_DIR}/
-)
 message("")
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by git apply..")
-set(GIT_APPLY_STATUS 111)
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
-message(STATUS "NOTE: DIFF_FILE= ${DIFF_FILE}")
+apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
 
-# check if already patched:
-execute_process(
-  COMMAND git apply --quiet --reverse --check ${DIFF_FILE}
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA
-  TIMEOUT 30
-  RESULT_VARIABLE GIT_APPLY_STATUS
-  )
-message(STATUS "NOTE: REVERSE_CHECK_STATUS= ${GIT_APPLY_STATUS}")
-if (GIT_APPLY_STATUS EQUAL "0")
-  message(STATUS "      ALREADY PATCHED, skipping ${DIFF_FILE}")
-else()
-  # actual patch:
-  execute_process(
-    COMMAND git apply ${DIFF_FILE}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA
-    TIMEOUT 30
-    RESULT_VARIABLE GIT_APPLY_STATUS
-    )
-  message(STATUS "NOTE: ACTUAL_APPLY_STATUS= ${GIT_APPLY_STATUS}")
-endif()
-message(STATUS "NOTE: FINAL_APPLY_STATUS= ${GIT_APPLY_STATUS}\n")
-if (NOT GIT_APPLY_STATUS EQUAL "0")
-  message(FATAL_ERROR "PATCHING OpenFPGA CMakefile by git apply FAILED")
-endif()
+message(STATUS "NOTE: PATCHING VPR CMakefile by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff_U22)
+apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ${PLACER_SRC_DIR}/place.cpp
