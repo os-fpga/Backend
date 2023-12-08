@@ -145,19 +145,26 @@ file(COPY
 message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h")
 
 message(STATUS "NOTE: PATCHING VPR: src/base")
-file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
-  ${VPR_SRC_DIR}/src/base/read_blif.h
-  ${VPR_SRC_DIR}/src/base/read_circuit.cpp
-  ${VPR_SRC_DIR}/src/base/read_circuit.h
-  ${VPR_SRC_DIR}/src/base/read_options.cpp
-  ${VPR_SRC_DIR}/src/base/read_options.h
-  ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
-  ${VPR_SRC_DIR}/src/base/read_blif.cpp
-  DESTINATION
-  ${VPR_DEST_DIR}/src/base/)
+file(COPY ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
+  DESTINATION ${VPR_DEST_DIR}/src/base/)
+
+message("")
+message(STATUS "NOTE: PATCHING VPR src/base TYPES by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/VPR_src_base_TYPES.diff)
+set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
+apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base TYPES")
+
+message(STATUS "NOTE: PATCHING VPR src/base READ by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/READ/VPR_src_base_READ.diff)
+set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
+apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base READ")
+
+message(STATUS "NOTE: PATCHING VPR src/base/SetupVPR.cpp by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/base_SetupVPR_cpp.diff)
+set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
+apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/src/base/SetupVPR.cpp")
 
 # patch CMakefiles
-message("")
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by git apply..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
 apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
@@ -212,13 +219,6 @@ FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/analysis
 )
-
-# Logical Levels
-message("")
-message(STATUS "NOTE: PATCHING VPR src/base TYPES by git apply..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/VPR_src_base_TYPES.diff)
-set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base TYPES")
 
 message(STATUS "NOTE: DONE PATCHING\n")
 
