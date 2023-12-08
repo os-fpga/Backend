@@ -153,7 +153,6 @@ file(COPY ${VPR_SRC_DIR}/src/base/SetupVPR.cpp
   ${VPR_SRC_DIR}/src/base/read_options.h
   ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
   ${VPR_SRC_DIR}/src/base/read_blif.cpp
-  ${VPR_SRC_DIR}/src/base/vpr_types.h
   DESTINATION
   ${VPR_DEST_DIR}/src/base/)
 
@@ -215,11 +214,12 @@ FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
 )
 
 # Logical Levels
-FILE(COPY ${BASE_SRC_DIR}/vpr_api.cpp
-          ${BASE_SRC_DIR}/vpr_context.h
-          DESTINATION
-          ${VPR_DEST_DIR}/src/base/
-)
+message("")
+message(STATUS "NOTE: PATCHING VPR src/base TYPES by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/VPR_src_base_TYPES.diff)
+set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
+apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base TYPES")
+
 message(STATUS "NOTE: DONE PATCHING\n")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
