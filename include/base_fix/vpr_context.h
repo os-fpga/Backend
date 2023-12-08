@@ -33,6 +33,8 @@
 #include "noc_traffic_flows.h"
 #include "noc_routing.h"
 
+#include "rsbe_utils.h" // rsbe::Levelized logic_levels_
+
 /**
  * @brief A Context is collection of state relating to a particular part of VPR
  *
@@ -638,8 +640,8 @@ class VprContext : public Context {
     const PackingMultithreadingContext& packing_multithreading() const { return packing_multithreading_; }
     PackingMultithreadingContext& mutable_packing_multithreading() { return packing_multithreading_; }
 
-    const rsu::Levelized& logic_levels() const {return logic_levels_;}
-    rsu::Levelized& mutable_logic_levels() {return logic_levels_;}
+    const rsbe::Levelized& logic_levels() const { return logic_levels_; }
+    rsbe::Levelized& mutable_logic_levels() { return logic_levels_; }
 
   private:
     DeviceContext device_;
@@ -664,7 +666,7 @@ class VprContext : public Context {
      * It provides methods to perform graph levelization, check if the graph has been levelized, and access information about
      * nodes in each logic level and the total number of logic levels.
      */
-    rsu::Levelized logic_levels_;
+    rsbe::Levelized logic_levels_;
 };
 
 #endif
