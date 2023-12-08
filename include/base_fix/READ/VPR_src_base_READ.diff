@@ -1,0 +1,591 @@
+diff --git a/vpr/src/base/read_blif.cpp b/vpr/src/base/read_blif.cpp
+index 326216896..34d995ef9 100644
+--- a/vpr/src/base/read_blif.cpp
++++ b/vpr/src/base/read_blif.cpp
+@@ -15,14 +15,16 @@
+  * netlist data structures.
+  */
+ #include <cstdio>
+ #include <cstring>
+ #include <ctime>
+ #include <sstream>
++#include <fstream>
+ #include <unordered_set>
+ #include <cctype> //std::isdigit
++#include <filesystem>
+ 
+ #include "blifparse.hpp"
+ #include "atom_netlist.h"
+ 
+ #include "vtr_assert.h"
+ #include "vtr_util.h"
+@@ -35,25 +37,35 @@
+ #include "vpr_error.h"
+ #include "globals.h"
+ #include "read_blif.h"
+ #include "arch_types.h"
+ #include "echo_files.h"
+ #include "hash.h"
++#include "simple_netlist.h"
++#include "veri_prune.h"
++#include "edif_blif.hpp"
+ 
++
++bool isNestEncrypted = false;
++char* intf_mod_str = nullptr;
++char* top_mod_str = nullptr;
++char *mod_str = nullptr;
+ vtr::LogicValue to_vtr_logic_value(blifparse::LogicValue);
+ 
+ struct BlifAllocCallback : public blifparse::Callback {
+   public:
+     BlifAllocCallback(e_circuit_format blif_format, AtomNetlist& main_netlist, const std::string netlist_id, const t_model* user_models, const t_model* library_models)
+         : main_netlist_(main_netlist)
+         , netlist_id_(netlist_id)
+         , user_arch_models_(user_models)
+         , library_arch_models_(library_models)
+         , blif_format_(blif_format) {
+         VTR_ASSERT(blif_format_ == e_circuit_format::BLIF
+-                   || blif_format_ == e_circuit_format::EBLIF);
++                   || blif_format_ == e_circuit_format::EBLIF
++                   || blif_format_ == e_circuit_format::VERILOG
++                   || blif_format_ == e_circuit_format::EDIF);
+         inpad_model_ = find_model(MODEL_INPUT);
+         outpad_model_ = find_model(MODEL_OUTPUT);
+ 
+         main_netlist_.set_block_types(inpad_model_, outpad_model_);
+     }
+ 
+@@ -383,20 +395,22 @@ struct BlifAllocCallback : public blifparse::Callback {
+ 
+     void param(std::string name, std::string value) override {
+         if (blif_format_ != e_circuit_format::EBLIF) {
+             parse_error(lineno_, ".param", "Supported only in extended BLIF format");
+         }
+ 
+-        // Validate the parameter value
+-        bool is_valid = is_string_param(value) || is_binary_param(value) || is_real_param(value);
++        if (is_known_param(value)) {
++            // Validate the parameter value
++            bool is_valid = is_known_param(value) && (is_string_param(value) || is_binary_param(value) || is_real_param(value));
+ 
+-        if (!is_valid) {
+-            parse_error(lineno_, ".param", "Incorrect parameter value specification");
+-        }
++            if (!is_valid) {
++                parse_error(lineno_, ".param", "Incorrect parameter value specification");
++            }
+ 
+-        curr_model().set_block_param(curr_block(), name, value);
++            curr_model().set_block_param(curr_block(), name, value);
++        }
+     }
+ 
+     //Utilities
+     void filename(std::string fname) override { filename_ = fname; }
+ 
+     void lineno(int line_num) override { lineno_ = line_num; }
+@@ -715,12 +729,27 @@ bool is_binary_param(const std::string& param) {
+     }
+ 
+     /* This is a binary word param */
+     return true;
+ }
+ 
++bool is_known_param(const std::string& param) {
++    /* Must be non-empty */
++    if (param.empty()) {
++        return false;
++    }
++
++    /* The parameter must not contain 'x' and 'X' */
++    for (size_t i = 0; i < param.length(); ++i) {
++        if (param[i] == 'x' || param[i] == 'X') {
++            return false;
++        }
++    }
++    return true;
++}
++
+ bool is_real_param(const std::string& param) {
+     /* Must be non-empty */
+     if (param.empty()) {
+         return false;
+     }
+ 
+@@ -743,6 +772,125 @@ AtomNetlist read_blif(e_circuit_format circuit_format,
+ 
+     BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
+     blifparse::blif_parse_filename(blif_file, alloc_callback);
+ 
+     return netlist;
+ }
++
++AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
++                                  const char *blif_file,
++                                  const t_model *user_models,
++                                  const t_model *library_models,
++                                  t_vpr_setup& vpr_setup,
++                                  const char* top_mod)
++{
++    AtomNetlist netlist;
++    simple_netlist n_l;
++    std::string blif_file_ = blif_file;
++    std::string arch_file = vpr_setup.FileNameOpts.ArchFile;
++    std::stringstream ss(arch_file);
++    std::vector<std::string> tokens;
++    std::string token;
++
++    while (std::getline(ss, token, '/')) {
++        if (!token.empty()) {
++            tokens.push_back(token);
++        }
++    }
++    tokens.pop_back();
++    std::string directoryName =  tokens.back();
++
++    gb_constructs gb;
++    prune_verilog(blif_file, gb, directoryName);
++    if (gb.contains_io_prem) {
++        n_l.create_ps_json = false;
++        mod_str = gb.mod_str;
++        std::filesystem::path pathObj(blif_file_);
++        blif_file_ = pathObj.filename().string();
++        blif_file_.insert(blif_file_.find_last_of("."), "_");
++        std::string directory = std::filesystem::current_path().string();
++        blif_file_ = directory + "/" +blif_file_;
++        std::ofstream new_file(blif_file_.c_str());
++        new_file << mod_str;
++        new_file.close();
++
++        std::string interface_data_dump_file(blif_file_);
++        if (interface_data_dump_file.size() > 2 &&
++            'v' == interface_data_dump_file.back() &&
++            '.' == interface_data_dump_file[interface_data_dump_file.size() - 2]) {
++          interface_data_dump_file.pop_back();
++          interface_data_dump_file.pop_back();
++        }
++        interface_data_dump_file += "interface.json";
++        std::ofstream interface_structure_file;
++        interface_structure_file.open(interface_data_dump_file);
++        interface_structure_file << gb.interface_data_dump;
++        interface_structure_file.close();
++
++        intf_mod_str = gb.intf_mod_str;
++        top_mod_str = gb.top_mod_str;
++    }
++
++    std::string netlist_id = vtr::secure_digest_file(blif_file_.c_str());
++
++    BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
++
++    const char* key_file = "private_key.pem";
++    if (std::string(top_mod) == "") {
++        top_mod = nullptr;
++    }
++
++    FILE *infile = tmpfile();
++    parse_verilog(blif_file_.c_str(), n_l, key_file, top_mod);
++    {
++        std::stringstream ss;
++        n_l.b_print(ss);
++        fputs(ss.str().c_str(), infile);
++    }
++    rewind(infile);
++    if (infile != NULL)
++    {
++        // Parse the file
++        blif_parse_file(infile, alloc_callback, blif_file_.c_str());
++
++        std::fclose(infile);
++    }
++    else
++    {
++        // blif_error_wrap(alloc_callback, 0, "", "Could not open file '%s'.\n", blif_file);
++    }
++        if(n_l.encrypted){
++        isNestEncrypted = true;
++    }
++
++    return netlist;
++}
++
++AtomNetlist read_blif_from_edif(e_circuit_format circuit_format,
++                                  const char *blif_file,
++                                  const t_model *user_models,
++                                  const t_model *library_models)
++{
++    AtomNetlist netlist;
++    std::string netlist_id = vtr::secure_digest_file(blif_file);
++
++    BlifAllocCallback alloc_callback(circuit_format, netlist, netlist_id, user_models, library_models);
++
++    FILE *infile = tmpfile();
++
++   edif_blif(blif_file,infile);
++
++    rewind(infile);
++    if (infile != NULL)
++    {
++        // Parse the file
++    	std::cout<< "The input file is not empty "<<std::endl;
++        blif_parse_file(infile, alloc_callback, blif_file);
++        std::fclose(infile);
++    }
++    else
++    {
++        // blif_error_wrap(alloc_callback, 0, "", "Could not open file '%s'.\n", blif_file);
++    }
++
++    return netlist;
++}
+diff --git a/vpr/src/base/read_blif.h b/vpr/src/base/read_blif.h
+index a11ba4ecb..300a22bd5 100644
+--- a/vpr/src/base/read_blif.h
++++ b/vpr/src/base/read_blif.h
+@@ -4,13 +4,29 @@
+ #include "atom_netlist_fwd.h"
+ #include "read_circuit.h"
+ 
+ bool is_string_param(const std::string& param);
+ bool is_binary_param(const std::string& param);
+ bool is_real_param(const std::string& param);
++bool is_known_param(const std::string& param);
+ 
+ AtomNetlist read_blif(e_circuit_format circuit_format,
+                       const char* blif_file,
+                       const t_model* user_models,
+                       const t_model* library_models);
+ 
++AtomNetlist read_blif_from_vrilog(e_circuit_format circuit_format,
++                      const char* blif_file,
++                      const t_model* user_models,
++                      const t_model* library_models,
++                      t_vpr_setup& vpr_setup,
++                      const char* top_mod);
++AtomNetlist read_blif_from_edif(e_circuit_format circuit_format,
++                      const char* blif_file,
++                      const t_model* user_models,
++                      const t_model* library_models);
++
++extern bool isNestEncrypted;
++extern char* intf_mod_str;
++extern char* top_mod_str;
++
+ #endif /*READ_BLIF_H*/
+diff --git a/vpr/src/base/read_circuit.cpp b/vpr/src/base/read_circuit.cpp
+index ac46b3857..7adcd1002 100644
+--- a/vpr/src/base/read_circuit.cpp
++++ b/vpr/src/base/read_circuit.cpp
+@@ -40,13 +40,21 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
+ 
+         VTR_LOGV(verbosity, "Circuit file: %s\n", circuit_file);
+         if (name_ext[1] == ".blif") {
+             circuit_format = e_circuit_format::BLIF;
+         } else if (name_ext[1] == ".eblif") {
+             circuit_format = e_circuit_format::EBLIF;
+-        } else {
++        } else if (name_ext[1] == ".v") {
++            circuit_format = e_circuit_format::VERILOG;
++        }  else if (name_ext[1] == ".edif") {
++            circuit_format = e_circuit_format::EDIF;
++        }  else if (name_ext[1] == ".edn") {
++            circuit_format = e_circuit_format::EDIF;
++        }  else if (name_ext[1] == ".edf") {
++            circuit_format = e_circuit_format::EDIF;
++        }  else {
+             VPR_FATAL_ERROR(VPR_ERROR_ATOM_NETLIST, "Failed to determine file format for '%s' expected .blif or .eblif extension",
+                             circuit_file);
+         }
+     }
+ 
+     AtomNetlist netlist;
+@@ -55,12 +63,26 @@ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setu
+ 
+         switch (circuit_format) {
+             case e_circuit_format::BLIF:
+             case e_circuit_format::EBLIF:
+                 netlist = read_blif(circuit_format, circuit_file, user_models, library_models);
+                 break;
++            case e_circuit_format::VERILOG:
++            #ifdef ENABLE_VERIFIC
++                circuit_format = e_circuit_format::EBLIF;
++                netlist = read_blif_from_vrilog(circuit_format, circuit_file, user_models, library_models, vpr_setup, top_mod);
++            #else
++                VPR_FATAL_ERROR(VPR_ERROR_ATOM_NETLIST,
++                                "Unable to identify circuit file format for '%s'. Expect [blif|eblif|fpga-interchange]! as verilog support is disabled\n",
++                                circuit_file);
++            #endif
++                break;
++            case e_circuit_format::EDIF:
++                circuit_format = e_circuit_format::EDIF;
++                netlist = read_blif_from_edif(circuit_format, circuit_file, user_models, library_models);
++                break;
+             case e_circuit_format::FPGA_INTERCHANGE:
+                 netlist = read_interchange_netlist(circuit_file, arch);
+                 break;
+             default:
+                 VPR_FATAL_ERROR(VPR_ERROR_ATOM_NETLIST,
+                                 "Unable to identify circuit file format for '%s'. Expect [blif|eblif|fpga-interchange]!\n",
+diff --git a/vpr/src/base/read_circuit.h b/vpr/src/base/read_circuit.h
+index 90be01a38..0521e0a00 100644
+--- a/vpr/src/base/read_circuit.h
++++ b/vpr/src/base/read_circuit.h
+@@ -4,12 +4,14 @@
+ #include "atom_netlist_fwd.h"
+ #include "vpr_types.h"
+ 
+ enum class e_circuit_format {
+     AUTO,            ///<Infer from file extension
+     BLIF,            ///<Strict structural BLIF
+-    EBLIF,           ///<Structural blif with extensions
++    EBLIF, //Structural blif with extensions
++    VERILOG, // verilog netlist
++    EDIF,
+     FPGA_INTERCHANGE ///<FPGA Interhange logical netlis format
+ };
+ 
+ AtomNetlist read_and_process_circuit(e_circuit_format circuit_format, t_vpr_setup& vpr_setup, t_arch& arch);
+ #endif
+diff --git a/vpr/src/base/read_options.cpp b/vpr/src/base/read_options.cpp
+index 240f2cbc2..c71112fe9 100644
+--- a/vpr/src/base/read_options.cpp
++++ b/vpr/src/base/read_options.cpp
+@@ -99,12 +99,20 @@ struct ParseCircuitFormat {
+         if (str == "auto")
+             conv_value.set_value(e_circuit_format::AUTO);
+         else if (str == "blif")
+             conv_value.set_value(e_circuit_format::BLIF);
+         else if (str == "eblif")
+             conv_value.set_value(e_circuit_format::EBLIF);
++        else if (str == "verilog")
++            conv_value.set_value(e_circuit_format::VERILOG);
++        else if (str == "edif")
++            conv_value.set_value(e_circuit_format::EDIF);
++         else if (str == "edf")
++            conv_value.set_value(e_circuit_format::EDIF);
++        else if (str == "edn")
++            conv_value.set_value(e_circuit_format::EDIF);
+         else if (str == "fpga-interchange")
+             conv_value.set_value(e_circuit_format::FPGA_INTERCHANGE);
+         else {
+             std::stringstream msg;
+             msg << "Invalid conversion from '" << str << "' to e_circuit_format (expected one of: " << argparse::join(default_choices(), ", ") << ")";
+             conv_value.set_error(msg.str());
+@@ -118,22 +126,26 @@ struct ParseCircuitFormat {
+         if (val == e_circuit_format::AUTO)
+             conv_value.set_value("auto");
+         else if (val == e_circuit_format::BLIF)
+             conv_value.set_value("blif");
+         else if (val == e_circuit_format::EBLIF)
+             conv_value.set_value("eblif");
++        else if (val == e_circuit_format::VERILOG)
++            conv_value.set_value("verilog");
++        else if (val == e_circuit_format::EDIF)
++            conv_value.set_value("edif");
+         else {
+             VTR_ASSERT(val == e_circuit_format::FPGA_INTERCHANGE);
+             conv_value.set_value("fpga-interchange");
+         }
+ 
+         return conv_value;
+     }
+ 
+     std::vector<std::string> default_choices() {
+-        return {"auto", "blif", "eblif", "fpga-interchange"};
++        return {"auto", "blif", "eblif", "verilog", "edif", "edn", "edf", "fpga-interchange"};
+     }
+ };
+ struct ParseRoutePredictor {
+     ConvertedValue<e_routing_failure_predictor> from_str(std::string str) {
+         ConvertedValue<e_routing_failure_predictor> conv_value;
+         if (str == "safe")
+@@ -394,12 +406,14 @@ struct ParsePlaceAlgorithm {
+         if (str == "bounding_box") {
+             conv_value.set_value(BOUNDING_BOX_PLACE);
+         } else if (str == "criticality_timing") {
+             conv_value.set_value(CRITICALITY_TIMING_PLACE);
+         } else if (str == "slack_timing") {
+             conv_value.set_value(SLACK_TIMING_PLACE);
++        } else if (str == "congestion_aware") {
++            conv_value.set_value(CONGESTION_AWARE_PLACE);
+         } else {
+             std::stringstream msg;
+             msg << "Invalid conversion from '" << str << "' to e_place_algorithm (expected one of: " << argparse::join(default_choices(), ", ") << ")";
+ 
+             //Deprecated option: "path_timing_driven" -> PATH_DRIVEN_TIMING_PLACE
+             //New option: "criticality_timing" -> CRITICALITY_TIMING_PLACE
+@@ -415,21 +429,23 @@ struct ParsePlaceAlgorithm {
+     ConvertedValue<std::string> to_str(e_place_algorithm val) {
+         ConvertedValue<std::string> conv_value;
+         if (val == BOUNDING_BOX_PLACE) {
+             conv_value.set_value("bounding_box");
+         } else if (val == CRITICALITY_TIMING_PLACE) {
+             conv_value.set_value("criticality_timing");
++        } else if (val == CONGESTION_AWARE_PLACE) {
++            conv_value.set_value("congestion_aware");
+         } else {
+             VTR_ASSERT(val == SLACK_TIMING_PLACE);
+             conv_value.set_value("slack_timing");
+         }
+         return conv_value;
+     }
+ 
+     std::vector<std::string> default_choices() {
+-        return {"bounding_box", "criticality_timing", "slack_timing"};
++       return {"bounding_box", "criticality_timing", "slack_timing","congestion_aware"};
+     }
+ };
+ 
+ struct ParsePlaceBoundingBox {
+     ConvertedValue<e_place_bounding_box_mode> from_str(std::string str) {
+         ConvertedValue<e_place_bounding_box_mode> conv_value;
+@@ -1405,12 +1421,16 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
+     auto& gen_grp = parser.add_argument_group("general options");
+ 
+     gen_grp.add_argument(args.show_help, "--help", "-h")
+         .help("Show this help message then exit")
+         .action(argparse::Action::HELP);
+ 
++    gen_grp.add_argument(args.top_mod, "--top", "-t")
++        .help("Top module name")
++        .default_value("");
++
+     gen_grp.add_argument<bool, ParseOnOff>(args.show_version, "--version")
+         .help("Show version information then exit")
+         .action(argparse::Action::VERSION);
+ 
+     gen_grp.add_argument<std::string>(args.device_layout, "--device")
+         .help(
+@@ -1862,12 +1882,22 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
+         .help(
+             "The move type used in packing."
+             "The available values are: randomSwap, semiDirectedSwap, semiDirectedSameTypeSwap")
+         .default_value("semiDirectedSwap")
+         .show_in(argparse::ShowIn::HELP_ONLY);
+ 
++    pack_grp.add_argument<bool, ParseOnOff>(args.use_partitioning_in_pack, "--use_partitioning_in_pack")
++        .help("Whether to use partitioning in pack.")
++        .default_value("off")
++        .show_in(argparse::ShowIn::HELP_ONLY);
++
++    pack_grp.add_argument<int>(args.number_of_molecules_in_partition, "--number_of_molecules_in_partition")
++        .help("Average number of molecules in each cluster. It should be used when --use_partitioning_in_pack is on.")
++        .default_value("64")
++        .show_in(argparse::ShowIn::HELP_ONLY);
++
+     auto& place_grp = parser.add_argument_group("placement options");
+ 
+     place_grp.add_argument(args.Seed, "--seed")
+         .help("Placement random number generator seed")
+         .default_value("1")
+         .show_in(argparse::ShowIn::HELP_ONLY);
+@@ -1967,25 +1997,25 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
+         .help(
+             "Controls which placement algorithm is used. Valid options:\n"
+             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
+             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
+             " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
+         .default_value("criticality_timing")
+-        .choices({"bounding_box", "criticality_timing", "slack_timing"})
++        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
+         .show_in(argparse::ShowIn::HELP_ONLY);
+ 
+     place_grp.add_argument<e_place_algorithm, ParsePlaceAlgorithm>(args.PlaceQuenchAlgorithm, "--place_quench_algorithm")
+         .help(
+             "Controls which placement algorithm is used during placement quench.\n"
+             "If specified, it overrides the option --place_algorithm during placement quench.\n"
+             "Valid options:\n"
+             " * bounding_box: Focuses purely on minimizing the bounding box wirelength of the circuit. Turns off timing analysis if specified.\n"
+             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
+             " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
+         .default_value("criticality_timing")
+-        .choices({"bounding_box", "criticality_timing", "slack_timing"})
++        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
+         .show_in(argparse::ShowIn::HELP_ONLY);
+ 
+     place_grp.add_argument(args.PlaceChanWidth, "--place_chan_width")
+         .help(
+             "Sets the assumed channel width during placement. "
+             "If --place_chan_width is unspecified, but --route_chan_width is specified the "
+@@ -2205,12 +2235,18 @@ argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& arg
+     place_timing_grp.add_argument(args.PlaceTimingTradeoff, "--timing_tradeoff")
+         .help(
+             "Trade-off control between delay and wirelength during placement."
+             " 0.0 focuses completely on wirelength, 1.0 completely on timing")
+         .default_value("0.5")
+         .show_in(argparse::ShowIn::HELP_ONLY);
++            place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
++        .help(
++            "Trade-off control between routability and timing during placement."
++            " 0.0 focuses completely on routability, 1.0 completely on timing")
++        .default_value("1.0")
++        .show_in(argparse::ShowIn::HELP_ONLY);
+ 
+     place_timing_grp.add_argument(args.RecomputeCritIter, "--recompute_crit_iter")
+         .help("Controls how many temperature updates occur between timing analysis during placement")
+         .default_value("1")
+         .show_in(argparse::ShowIn::HELP_ONLY);
+ 
+diff --git a/vpr/src/base/read_options.h b/vpr/src/base/read_options.h
+index 274ebbccf..97dba3305 100644
+--- a/vpr/src/base/read_options.h
++++ b/vpr/src/base/read_options.h
+@@ -61,12 +61,13 @@ struct t_options {
+     argparse::ArgValue<size_t> num_workers;
+     argparse::ArgValue<bool> timing_analysis;
+     argparse::ArgValue<e_timing_update_type> timing_update_type;
+     argparse::ArgValue<bool> CreateEchoFile;
+     argparse::ArgValue<bool> verify_file_digests;
+     argparse::ArgValue<std::string> device_layout;
++    argparse::ArgValue<std::string> top_mod;
+     argparse::ArgValue<float> target_device_utilization;
+     argparse::ArgValue<e_constant_net_method> constant_net_method;
+     argparse::ArgValue<e_clock_modeling> clock_modeling;
+     argparse::ArgValue<bool> two_stage_clock_routing;
+     argparse::ArgValue<bool> exit_before_pack;
+     argparse::ArgValue<bool> strict_checks;
+@@ -99,12 +100,14 @@ struct t_options {
+     argparse::ArgValue<int> pack_feasible_block_array_size;
+     argparse::ArgValue<std::vector<std::string>> pack_high_fanout_threshold;
+     argparse::ArgValue<int> pack_verbosity;
+     argparse::ArgValue<bool> use_attraction_groups;
+     argparse::ArgValue<int> pack_num_moves;
+     argparse::ArgValue<std::string> pack_move_type;
++    argparse::ArgValue<bool> use_partitioning_in_pack;
++    argparse::ArgValue<int> number_of_molecules_in_partition;
+     /* Placement options */
+     argparse::ArgValue<int> Seed;
+     argparse::ArgValue<bool> ShowPlaceTiming;
+     argparse::ArgValue<float> PlaceInnerNum;
+     argparse::ArgValue<float> PlaceInitT;
+     argparse::ArgValue<float> PlaceExitT;
+@@ -122,12 +125,14 @@ struct t_options {
+     argparse::ArgValue<float> place_rlim_escape_fraction;
+     argparse::ArgValue<std::string> place_move_stats_file;
+     argparse::ArgValue<int> placement_saves_per_temperature;
+     argparse::ArgValue<e_place_effort_scaling> place_effort_scaling;
+     argparse::ArgValue<e_place_delta_delay_algorithm> place_delta_delay_matrix_calculation_method;
+     argparse::ArgValue<bool> enable_analytic_placer;
++    //Cascade_placer
++    argparse::ArgValue<bool> enable_cascade_placer;
+     argparse::ArgValue<std::vector<float>> place_static_move_prob;
+     argparse::ArgValue<std::vector<float>> place_static_notiming_move_prob;
+     argparse::ArgValue<int> place_high_fanout_net;
+     argparse::ArgValue<e_place_bounding_box_mode> place_bounding_box_mode;
+ 
+     argparse::ArgValue<bool> RL_agent_placement;
+@@ -157,12 +162,13 @@ struct t_options {
+     argparse::ArgValue<double> noc_latency_weighting;
+     argparse::ArgValue<double> noc_swap_percentage;
+     argparse::ArgValue<std::string> noc_placement_file_name;
+ 
+     /* Timing-driven placement options only */
+     argparse::ArgValue<float> PlaceTimingTradeoff;
++    argparse::ArgValue<float> CongestionTradeoff;
+     argparse::ArgValue<int> RecomputeCritIter;
+     argparse::ArgValue<int> inner_loop_recompute_divider;
+     argparse::ArgValue<int> quench_recompute_divider;
+     argparse::ArgValue<float> place_exp_first;
+     argparse::ArgValue<float> place_exp_last;
+     argparse::ArgValue<float> place_delay_offset;
