@@ -251,8 +251,10 @@ FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
 
 message(STATUS "NOTE: DONE PATCHING\n")
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
-add_subdirectory("Raptor_Tools/graph_partition")
+if(NOT RAPTOR)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
+    add_subdirectory("Raptor_Tools/graph_partition")
+endif()
 add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
