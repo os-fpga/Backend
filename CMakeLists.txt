@@ -83,7 +83,7 @@ function(apply_git_diff DIFF_F WORK_DIR TITLE)
   set(GIT_APPLY_STATUS 111)
   # check if already patched:
   execute_process(
-    COMMAND git apply --ignore-whitespace --quiet --reverse --check ${DIFF_F}
+    COMMAND git apply --ignore-whitespace --ignore-space-change --whitespace=nowarn --quiet --reverse --check ${DIFF_F}
     WORKING_DIRECTORY ${WORK_DIR}
     TIMEOUT 30
     RESULT_VARIABLE GIT_APPLY_STATUS
@@ -94,7 +94,7 @@ function(apply_git_diff DIFF_F WORK_DIR TITLE)
   else()
     # actual patch:
     execute_process(
-      COMMAND git apply --ignore-whitespace ${DIFF_F}
+      COMMAND git apply --ignore-whitespace --ignore-space-change --whitespace=nowarn ${DIFF_F}
       WORKING_DIRECTORY ${WORK_DIR}
       TIMEOUT 30
       RESULT_VARIABLE GIT_APPLY_STATUS
@@ -177,10 +177,17 @@ set(DIFF_FILE ${PATCH_DIR}/base_fix/base_SetupVPR_cpp.diff)
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
 apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/src/base/SetupVPR.cpp")
 
-# patch CMakefiles
+# copy RS additions and patch CMakefiles
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by git apply..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
 apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
+
+file(COPY
+  ${PATCH_DIR}/CMAKE_fix/VPR_CMake_RS1.cmake
+  ${PATCH_DIR}/CMAKE_fix/VPR_CMake_PRODUCTION_BUILD_RS2.cmake
+  DESTINATION
+  ${VPR_DEST_DIR})
+message(STATUS "NOTE: ADDED to VPR root: VPR_CMake_RS1.cmake, VPR_CMake_PRODUCTION_BUILD_RS2.cmake\n")
 
 message(STATUS "NOTE: PATCHING VPR CMakefile by git apply..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
