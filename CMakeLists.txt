@@ -189,9 +189,18 @@ file(COPY
   ${VPR_DEST_DIR})
 message(STATUS "NOTE: ADDED to VPR root: VPR_CMake_RS1.cmake, VPR_CMake_PRODUCTION_BUILD_RS2.cmake\n")
 
-message(STATUS "NOTE: PATCHING VPR CMakefile by git apply..")
-set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
-apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
+## Resort to copying VPR_CMake_patched.txt to <VPR-root>/CMakeLists.txt
+## Somehow, 'git apply' for VPR_CMake works fine in Backend, but doesn't work in Raptor.
+## On Raptor level, git says "patch does not apply". Different global git configs?
+file(COPY
+  ${PATCH_DIR}/CMAKE_fix/CMakeLists.txt
+  DESTINATION
+  ${VPR_DEST_DIR})
+message(STATUS "NOTE: COPIED ${PATCH_DIR}/CMAKE_fix/CMakeLists.txt to <VPR-root>/CMakeLists.txt\n")
+
+#message(STATUS "NOTE: PATCHING VPR CMakefile by git apply..")
+#set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
+#apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ${PLACER_SRC_DIR}/place.cpp
