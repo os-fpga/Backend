@@ -143,10 +143,11 @@ file(COPY
   ${PATCH_DIR}/base_fix/READ/read_blif_RS.cpp
   ${PATCH_DIR}/base_fix/READ/read_blif_RS.h
   ${PATCH_DIR}/base_fix/READ/read_blif.cpp
+  ${PATCH_DIR}/base_fix/READ/BlifAllocCallback.cpp
   ${PATCH_DIR}/base_fix/READ/BlifAllocCallback.h
   DESTINATION
   ${VPR_DEST_DIR}/src/base/)
-message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h read_blif_RS.cpp,h read_blif.cpp BlifAllocCallback.h")
+message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h read_blif_RS.cpp,h read_blif.cpp BlifAllocCallback.cpp,h")
 
 message(STATUS "NOTE: PATCHING VPR: src/base")
 file(COPY ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
