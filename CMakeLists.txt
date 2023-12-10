@@ -83,7 +83,7 @@ function(apply_git_diff DIFF_F WORK_DIR TITLE)
   set(GIT_APPLY_STATUS 111)
   # check if already patched:
   execute_process(
-    COMMAND git apply --quiet --reverse --check ${DIFF_F}
+    COMMAND git apply --ignore-whitespace --quiet --reverse --check ${DIFF_F}
     WORKING_DIRECTORY ${WORK_DIR}
     TIMEOUT 30
     RESULT_VARIABLE GIT_APPLY_STATUS
@@ -94,7 +94,7 @@ function(apply_git_diff DIFF_F WORK_DIR TITLE)
   else()
     # actual patch:
     execute_process(
-      COMMAND git apply ${DIFF_F}
+      COMMAND git apply --ignore-whitespace ${DIFF_F}
       WORKING_DIRECTORY ${WORK_DIR}
       TIMEOUT 30
       RESULT_VARIABLE GIT_APPLY_STATUS
@@ -140,19 +140,31 @@ message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 file(COPY
   ${VPR_SRC_DIR}/src/base/vcs_enc_support.cpp
   ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
+  ${PATCH_DIR}/base_fix/READ/read_blif_RS.cpp
+  ${PATCH_DIR}/base_fix/READ/read_blif_RS.h
+  ${PATCH_DIR}/base_fix/READ/read_blif.cpp
+  ${PATCH_DIR}/base_fix/READ/BlifAllocCallback.h
   DESTINATION
   ${VPR_DEST_DIR}/src/base/)
-message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h")
+message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h read_blif_RS.cpp,h read_blif.cpp BlifAllocCallback.h")
 
 message(STATUS "NOTE: PATCHING VPR: src/base")
 file(COPY ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
   DESTINATION ${VPR_DEST_DIR}/src/base/)
 
 message("")
-message(STATUS "NOTE: PATCHING VPR src/base TYPES by git apply..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/VPR_src_base_TYPES.diff)
+message(STATUS "NOTE: PATCHING VPR src/base/vpr_api.cpp by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_api_cpp__ignore_space.diff)
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base TYPES")
+apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_api.cpp")
+
+message(STATUS "NOTE: PATCHING VPR src/base/vpr_context.h by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_context_h__ignore_space.diff)
+apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_context.h")
+
+message(STATUS "NOTE: PATCHING VPR src/base/vpr_types.h by git apply..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_types_h__ignore_space.diff)
+apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_types.h")
 
 message(STATUS "NOTE: PATCHING VPR src/base READ by git apply..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/READ/VPR_src_base_READ.diff)

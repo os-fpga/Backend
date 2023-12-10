@@ -21,7 +21,7 @@
 #include "vpr_error.h"
 #include "vpr_types.h"
 
-#include "read_blif.h"
+#include "read_blif_RS.h"
 
 #include "netlist_walker.h"
 #include "netlist_writer.h"
