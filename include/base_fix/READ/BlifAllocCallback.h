@@ -48,44 +48,18 @@
 struct BlifAllocCallback : public blifparse::Callback {
   public:
     BlifAllocCallback(e_circuit_format blif_format, AtomNetlist& main_netlist,
-                      const std::string netlist_id, const t_model* user_models, const t_model* library_models)
-        : main_netlist_(main_netlist)
-        , netlist_id_(netlist_id)
-        , user_arch_models_(user_models)
-        , library_arch_models_(library_models)
-        , blif_format_(blif_format) {
-        VTR_ASSERT(blif_format_ == e_circuit_format::BLIF
-                   || blif_format_ == e_circuit_format::EBLIF
-                   || blif_format_ == e_circuit_format::VERILOG
-                   || blif_format_ == e_circuit_format::EDIF);
-        inpad_model_ = find_model(MODEL_INPUT);
-        outpad_model_ = find_model(MODEL_OUTPUT);
+                      const std::string netlist_id, const t_model* user_models, const t_model* library_models);
 
-        main_netlist_.set_block_types(inpad_model_, outpad_model_);
-    }
+    virtual ~BlifAllocCallback();
 
     static constexpr const char* OUTPAD_NAME_PREFIX = "out:";
 
   public: //Callback interface
     void start_parse() override {}
 
-    void finish_parse() override {
-        //When parsing is finished we *move* the main netlist
-        //into the user object. This ensures we never have two copies
-        //(consuming twice the memory).
-        size_t main_netlist_idx = determine_main_netlist_index();
-        main_netlist_ = std::move(blif_models_[main_netlist_idx]);
-    }
+    void finish_parse() override;
 
-    void begin_model(std::string model_name) override {
-        //Create a new model, and set it's name
-
-        blif_models_.emplace_back(model_name, netlist_id_);
-        blif_models_.back().set_block_types(inpad_model_, outpad_model_);
-        blif_models_black_box_.emplace_back(false);
-        ended_ = false;
-        set_curr_block(AtomBlockId::INVALID()); //This statement doesn't define a block, so mark invalid
-    }
+    void begin_model(std::string model_name) override;
 
     void inputs(std::vector<std::string> input_names) override;
 
