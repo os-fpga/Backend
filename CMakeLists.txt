@@ -183,7 +183,7 @@ set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
 apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
 
 message(STATUS "NOTE: PATCHING VPR CMakefile by git apply..")
-set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff_U22)
+set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
 apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
