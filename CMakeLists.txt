@@ -83,7 +83,7 @@ function(apply_git_diff DIFF_F WORK_DIR TITLE)
   set(GIT_APPLY_STATUS 111)
   # check if already patched:
   execute_process(
-    COMMAND git apply --ignore-whitespace --ignore-space-change --whitespace=nowarn --quiet --reverse --check ${DIFF_F}
+    COMMAND git apply --ignore-whitespace --ignore-space-change --whitespace=nowarn --reverse --check ${DIFF_F}
     WORKING_DIRECTORY ${WORK_DIR}
     TIMEOUT 30
     RESULT_VARIABLE GIT_APPLY_STATUS
@@ -149,15 +149,24 @@ file(COPY
   ${VPR_DEST_DIR}/src/base/)
 message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h read_blif_RS.cpp,h read_blif.cpp BlifAllocCallback.cpp,h")
 
-message(STATUS "NOTE: PATCHING VPR: src/base")
-file(COPY ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
-  DESTINATION ${VPR_DEST_DIR}/src/base/)
-
-message("")
-message(STATUS "NOTE: PATCHING VPR src/base/vpr_api.cpp by git apply..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_api_cpp__ignore_space.diff)
+message(STATUS "NOTE: PATCHING VPR: src/base\n")
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_api.cpp")
+file(COPY ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
+  DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED ${VPR_SRC_DIR}/src/base/netlist_writer.cpp to ${BASE_SRC_DIR}/\n")
+
+## Temporarily resort to copying vpr_api.cpp
+## because git version on CentOS7 is too old and fails to apply this diff
+##
+file(COPY
+  ${PATCH_DIR}/base_fix/TYPES/vpr_api.cpp
+  DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/TYPES/vpr_api.cpp to ${BASE_SRC_DIR}/\n")
+##
+#message(STATUS "NOTE: PATCHING VPR src/base/vpr_api.cpp by git apply..")
+#set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_api_cpp__ignore_space.diff)
+#set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
+#apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_api.cpp")
 
 message(STATUS "NOTE: PATCHING VPR src/base/vpr_context.h by git apply..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_context_h__ignore_space.diff)
