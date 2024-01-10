@@ -72,7 +72,9 @@ else()
   set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations? NO!")
 endif()
 
+message(STATUS "NOTE: VPR-root= ${VPR_DEST_DIR}")
 message(STATUS "NOTE: BEGIN PATCHING")
+
 
 # apply_git_diff() takes a diff file and applies it in WORK_DIR by 'git apply'.
 #  'git apply' fails in case of NOP (if patch is already applied).
@@ -106,6 +108,39 @@ function(apply_git_diff DIFF_F WORK_DIR TITLE)
     message(FATAL_ERROR "PATCHING ${TITLE} by git apply FAILED")
   endif()
 endfunction(apply_git_diff)
+
+
+# apply_patch() takes a diff file and applies it in WORK_DIR by 'GNU patch'.
+function(apply_patch DIFF_F WORK_DIR TITLE)
+  message(STATUS "(apply_patch) ${TITLE} : ${DIFF_F}")
+  message(STATUS "(apply_patch) WORK_DIR= ${WORK_DIR}")
+  set(PATCH_APPLY_STATUS 111)
+  # check if already patched:
+  execute_process(
+    COMMAND patch --silent -f -u --ignore-whitespace --reverse --dry-run -i ${DIFF_F}
+    WORKING_DIRECTORY ${WORK_DIR}
+    TIMEOUT 30
+    RESULT_VARIABLE PATCH_APPLY_STATUS
+    )
+  message(STATUS "(apply_patch) REVERSE_CHECK_STATUS= ${PATCH_APPLY_STATUS}")
+  if (PATCH_APPLY_STATUS EQUAL "0")
+    message(STATUS "ALREADY PATCHED, skipping ${DIFF_F}")
+  else()
+    # actual patch:
+    execute_process(
+      COMMAND patch --verbose -f -u --ignore-whitespace -i ${DIFF_F}
+      WORKING_DIRECTORY ${WORK_DIR}
+      TIMEOUT 30
+      RESULT_VARIABLE PATCH_APPLY_STATUS
+      )
+    message(STATUS "(apply_patch) ACTUAL_APPLY_STATUS= ${PATCH_APPLY_STATUS}")
+  endif()
+  message(STATUS "(apply_patch) FINAL_APPLY_STATUS= ${PATCH_APPLY_STATUS}\n")
+  if (NOT PATCH_APPLY_STATUS EQUAL "0")
+    message(FATAL_ERROR "PATCHING ${TITLE} by GNU-patch FAILED")
+  endif()
+endfunction(apply_patch)
+
 
 FILE(COPY ${EBLIF_TRANSFORM_SRC}/blifparse.cpp
           ${EBLIF_TRANSFORM_SRC}/transform_blif.h
@@ -187,29 +222,21 @@ set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/s
 apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/src/base/SetupVPR.cpp")
 
 # copy RS additions and patch CMakefiles
-message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by git apply..")
+message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by GNU-patch..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
-apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
+apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
 
 file(COPY
   ${PATCH_DIR}/CMAKE_fix/VPR_CMake_RS1.cmake
   ${PATCH_DIR}/CMAKE_fix/VPR_CMake_PRODUCTION_BUILD_RS2.cmake
   DESTINATION
   ${VPR_DEST_DIR})
-message(STATUS "NOTE: ADDED to VPR root: VPR_CMake_RS1.cmake, VPR_CMake_PRODUCTION_BUILD_RS2.cmake\n")
+message(STATUS "NOTE: ADDED to VPR-root: VPR_CMake_RS1.cmake, VPR_CMake_PRODUCTION_BUILD_RS2.cmake")
+message(STATUS "NOTE: VPR-root= ${VPR_DEST_DIR}\n")
 
-## Resort to copying VPR_CMake_patched.txt to <VPR-root>/CMakeLists.txt
-## Somehow, 'git apply' for VPR_CMake works fine in Backend, but doesn't work in Raptor.
-## On Raptor level, git says "patch does not apply". Different global git configs?
-file(COPY
-  ${PATCH_DIR}/CMAKE_fix/CMakeLists.txt
-  DESTINATION
-  ${VPR_DEST_DIR})
-message(STATUS "NOTE: COPIED ${PATCH_DIR}/CMAKE_fix/CMakeLists.txt to <VPR-root>/CMakeLists.txt\n")
-
-#message(STATUS "NOTE: PATCHING VPR CMakefile by git apply..")
-#set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
-#apply_git_diff(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
+message(STATUS "NOTE: PATCHING VPR CMakefile by GNU-patch..")
+set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
+apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ${PLACER_SRC_DIR}/place.cpp
