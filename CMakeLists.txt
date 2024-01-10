@@ -76,41 +76,7 @@ message(STATUS "NOTE: VPR-root= ${VPR_DEST_DIR}")
 message(STATUS "NOTE: BEGIN PATCHING")
 
 
-# apply_git_diff() takes a diff file and applies it in WORK_DIR by 'git apply'.
-#  'git apply' fails in case of NOP (if patch is already applied).
-#  We check if the patch is already applied by 'git apply --quiet --reverse --check'
-function(apply_git_diff DIFF_F WORK_DIR TITLE)
-  message(STATUS "(apply_git_diff) ${TITLE} : ${DIFF_F}")
-  message(STATUS "(apply_git_diff) WORK_DIR= ${WORK_DIR}")
-  set(GIT_APPLY_STATUS 111)
-  # check if already patched:
-  execute_process(
-    COMMAND git apply --ignore-whitespace --ignore-space-change --whitespace=nowarn --reverse --check ${DIFF_F}
-    WORKING_DIRECTORY ${WORK_DIR}
-    TIMEOUT 30
-    RESULT_VARIABLE GIT_APPLY_STATUS
-    )
-  message(STATUS "(apply_git_diff) REVERSE_CHECK_STATUS= ${GIT_APPLY_STATUS}")
-  if (GIT_APPLY_STATUS EQUAL "0")
-    message(STATUS "ALREADY PATCHED, skipping ${DIFF_F}")
-  else()
-    # actual patch:
-    execute_process(
-      COMMAND git apply --ignore-whitespace --ignore-space-change --whitespace=nowarn ${DIFF_F}
-      WORKING_DIRECTORY ${WORK_DIR}
-      TIMEOUT 30
-      RESULT_VARIABLE GIT_APPLY_STATUS
-      )
-    message(STATUS "(apply_git_diff) ACTUAL_APPLY_STATUS= ${GIT_APPLY_STATUS}")
-  endif()
-  message(STATUS "(apply_git_diff) FINAL_APPLY_STATUS= ${GIT_APPLY_STATUS}\n")
-  if (NOT GIT_APPLY_STATUS EQUAL "0")
-    message(FATAL_ERROR "PATCHING ${TITLE} by git apply FAILED")
-  endif()
-endfunction(apply_git_diff)
-
-
-# apply_patch() takes a diff file and applies it in WORK_DIR by 'GNU patch'.
+# apply_patch() takes a diff and applies it in WORK_DIR by 'GNU patch'.
 function(apply_patch DIFF_F WORK_DIR TITLE)
   message(STATUS "(apply_patch) ${TITLE} : ${DIFF_F}")
   message(STATUS "(apply_patch) WORK_DIR= ${WORK_DIR}")
@@ -146,10 +112,6 @@ FILE(COPY ${EBLIF_TRANSFORM_SRC}/blifparse.cpp
           ${EBLIF_TRANSFORM_SRC}/transform_blif.h
           DESTINATION
           ${EBLIF_TRANSFORM_DEST})
-
-FILE(COPY ${OPENFPGA_SRC_DIR}/src/fpga_verilog/verilog_top_testbench.cpp
-          DESTINATION
-          ${OPENFPGA_DEST_DIR}/openfpga/src/fpga_verilog/)
 
 # patch VPR
 FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
@@ -188,38 +150,30 @@ message(STATUS "NOTE: PATCHING VPR: src/base\n")
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
 file(COPY ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
   DESTINATION ${TARGET_DIR})
-message(STATUS "NOTE: COPIED ${VPR_SRC_DIR}/src/base/netlist_writer.cpp to ${BASE_SRC_DIR}/\n")
+message(STATUS "NOTE: COPIED ${VPR_SRC_DIR}/src/base/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
 
-## Temporarily resort to copying vpr_api.cpp
-## because git version on CentOS7 is too old and fails to apply this diff
-##
-file(COPY
-  ${PATCH_DIR}/base_fix/TYPES/vpr_api.cpp
-  DESTINATION ${TARGET_DIR})
-message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/TYPES/vpr_api.cpp to ${BASE_SRC_DIR}/\n")
-##
-#message(STATUS "NOTE: PATCHING VPR src/base/vpr_api.cpp by git apply..")
-#set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_api_cpp__ignore_space.diff)
-#set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-#apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_api.cpp")
+message(STATUS "NOTE: PATCHING VPR src/base/vpr_api.cpp by GNU-patch..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_api_cpp__ignore_space.diff)
+set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_api.cpp")
 
-message(STATUS "NOTE: PATCHING VPR src/base/vpr_context.h by git apply..")
+message(STATUS "NOTE: PATCHING VPR src/base/vpr_context.h by GNU-patch..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_context_h__ignore_space.diff)
-apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_context.h")
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_context.h")
 
-message(STATUS "NOTE: PATCHING VPR src/base/vpr_types.h by git apply..")
+message(STATUS "NOTE: PATCHING VPR src/base/vpr_types.h by GNU-patch..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_types_h__ignore_space.diff)
-apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_types.h")
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_types.h")
 
-message(STATUS "NOTE: PATCHING VPR src/base READ by git apply..")
+message(STATUS "NOTE: PATCHING VPR src/base READ by GNU-patch..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/READ/VPR_src_base_READ.diff)
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base READ")
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base READ")
 
-message(STATUS "NOTE: PATCHING VPR src/base/SetupVPR.cpp by git apply..")
+message(STATUS "NOTE: PATCHING VPR src/base/SetupVPR.cpp by GNU-patch..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/base_SetupVPR_cpp.diff)
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_git_diff(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/src/base/SetupVPR.cpp")
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/src/base/SetupVPR.cpp")
 
 # copy RS additions and patch CMakefiles
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by GNU-patch..")
