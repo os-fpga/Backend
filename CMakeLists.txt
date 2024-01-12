@@ -109,6 +109,10 @@ endfunction(apply_patch)
 
 
 FILE(COPY ${EBLIF_TRANSFORM_SRC}/blifparse.cpp
+          ${EBLIF_TRANSFORM_SRC}/reconstruct_dsp38.h
+          ${EBLIF_TRANSFORM_SRC}/reconstruct_ram18kx2.h
+          ${EBLIF_TRANSFORM_SRC}/reconstruct_ram36k.h
+          ${EBLIF_TRANSFORM_SRC}/reconstruct_utils.h
           ${EBLIF_TRANSFORM_SRC}/transform_blif.h
           DESTINATION
           ${EBLIF_TRANSFORM_DEST})
