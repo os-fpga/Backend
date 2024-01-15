@@ -13,7 +13,6 @@ updates:
     # must use the full team name, including the organization, as if you were @mentioning the team
     reviewers:
       - "alain-rs"
-      - "behnam-rs"
       - "ManadherRS"
       - "behzadmehmood-rs"
       - "umariqbal-rs"
