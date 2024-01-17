@@ -46,7 +46,13 @@ set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
 
 set(EBLIF_TRANSFORM_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/src)
-set(EBLIF_TRANSFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform)
+if(RAPTOR)
+       file(GLOB EBLIF_TRANSFORM_SRC_H ${CMAKE_CURRENT_SOURCE_DIR}/../Raptor_Tools/gatelevel_readers/reconstruct_verilog/src/*.h)
+       file(GLOB EBLIF_TRANSFORM_SRC_CPP ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform/*.cpp)
+else()
+       file(GLOB EBLIF_TRANSFORM_SRC_H ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform/*.h)
+       file(GLOB EBLIF_TRANSFORM_SRC_CPP ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform/*.cpp)
+endif()
 
 # Version number
 file (STRINGS "VERSION.md" VERSION_NUMBER)
@@ -108,14 +114,10 @@ function(apply_patch DIFF_F WORK_DIR TITLE)
 endfunction(apply_patch)
 
 
-FILE(COPY ${EBLIF_TRANSFORM_SRC}/blifparse.cpp
-          ${EBLIF_TRANSFORM_SRC}/reconstruct_dsp38.h
-          ${EBLIF_TRANSFORM_SRC}/reconstruct_ram18kx2.h
-          ${EBLIF_TRANSFORM_SRC}/reconstruct_ram36k.h
-          ${EBLIF_TRANSFORM_SRC}/reconstruct_utils.h
-          ${EBLIF_TRANSFORM_SRC}/transform_blif.h
-          DESTINATION
-          ${EBLIF_TRANSFORM_DEST})
+FILE(COPY ${EBLIF_TRANSFORM_SRC_H}
+          ${EBLIF_TRANSFORM_SRC_CPP}
+           DESTINATION
+           ${EBLIF_TRANSFORM_DEST})
 
 # patch VPR
 FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
