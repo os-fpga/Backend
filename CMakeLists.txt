@@ -50,7 +50,7 @@ if(RAPTOR)
        file(GLOB EBLIF_TRANSFORM_SRC_H ${CMAKE_CURRENT_SOURCE_DIR}/../Raptor_Tools/gatelevel_readers/reconstruct_verilog/src/*.h)
        file(GLOB EBLIF_TRANSFORM_SRC_CPP ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform/*.cpp)
 else()
-       file(GLOB EBLIF_TRANSFORM_SRC_H ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform/*.h)
+       file(GLOB EBLIF_TRANSFORM_SRC_H ${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/gatelevel_readers/reconstruct_verilog/src/*.h)
        file(GLOB EBLIF_TRANSFORM_SRC_CPP ${CMAKE_CURRENT_SOURCE_DIR}/include/eblif_tranform/*.cpp)
 endif()
 
