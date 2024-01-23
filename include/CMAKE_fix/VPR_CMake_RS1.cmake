@@ -17,12 +17,6 @@ endif(PRODUCTION_BUILD)
 option(ENABLE_VERIFIC "Enable Verific front end" OFF)
 
 if (NOT RAPTOR)
-    get_filename_component(READ_VERILOG_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/read_verilog"
-    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-    add_subdirectory(${READ_VERILOG_SRC_DIR} read_verilog)
-    get_filename_component(VERI_PRUNE_SRC_DIR "../../../Raptor_Tools/gatelevel_readers/veri_prune"
-    REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE)
-    add_subdirectory(${VERI_PRUNE_SRC_DIR} veri_prune)
 
     if(ENABLE_VERIFIC)
         get_filename_component(VERIFIC_HOME "../../../Raptor_Tools/verific_rs/"

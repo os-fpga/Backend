@@ -39,8 +39,6 @@
 #include "arch_types.h"
 #include "echo_files.h"
 #include "hash.h"
-#include "simple_netlist.h"
-#include "veri_prune.h"
 #include "edif_blif.hpp"
 
 bool is_string_param(const std::string& param) {
