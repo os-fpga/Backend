@@ -16,8 +16,6 @@ if (PRODUCTION_BUILD)
                             libargparse
                             libpugixml
                             librrgraph
-                            ${read_verilog_lib}
-                            ${veri_prune_lib}
                             libreadedif
                             rs_licenseManager
                             ${OPENSSL_LIBRARIES}
@@ -33,8 +31,6 @@ else()
                             libargparse
                             libpugixml
                             librrgraph
-                            ${read_verilog_lib}
-                            ${veri_prune_lib}
                             libreadedif
                             ${OPENSSL_LIBRARIES}
                             ${VERIFIC_LIBS})

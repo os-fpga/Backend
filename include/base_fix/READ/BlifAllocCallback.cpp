@@ -30,8 +30,6 @@
 #include "arch_types.h"
 #include "echo_files.h"
 #include "hash.h"
-#include "simple_netlist.h"
-#include "veri_prune.h"
 #include "edif_blif.hpp"
 
 static vtr::LogicValue to_vtr_logic_value(blifparse::LogicValue val) {

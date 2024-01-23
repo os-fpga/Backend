@@ -41,8 +41,6 @@
 #include "read_blif.h"
 #include "arch_types.h"
 #include "echo_files.h"
-#include "simple_netlist.h"
-#include "veri_prune.h"
 #include "edif_blif.hpp"
 
 struct BlifAllocCallback : public blifparse::Callback {
