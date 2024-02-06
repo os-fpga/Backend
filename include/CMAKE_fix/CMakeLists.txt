@@ -103,9 +103,9 @@ endif()
 set_target_properties(libvpr PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
 #Specify link-time dependancies
-# 2nd RS patch - PRODUCTION_BUILD
-include("${CMAKE_CURRENT_LIST_DIR}/VPR_CMake_PRODUCTION_BUILD_RS2.cmake")
-message(STATUS "NOTE: INCLUDED VPR_CMake_PRODUCTION_BUILD_RS2.cmake\n")
+# 2nd RS patch - PRODUCTION_BUILD #TODO disable
+#include("${CMAKE_CURRENT_LIST_DIR}/VPR_CMake_PRODUCTION_BUILD_RS2.cmake")
+#message(STATUS "NOTE: INCLUDED VPR_CMake_PRODUCTION_BUILD_RS2.cmake\n")
 
 #link graphics library only when graphics set to on
 if (VPR_USE_EZGL STREQUAL "on")
