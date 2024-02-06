@@ -1,4 +1,4 @@
-# Rapid Silicon's Integration for OpenFPGA
+# Raptor's Integration for OpenFPGA
 
 Adds features like a Verilog reader to VPR, a Pin assignment checker, encryption of Architecture file...
 
