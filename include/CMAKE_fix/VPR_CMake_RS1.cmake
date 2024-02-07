@@ -2,17 +2,17 @@
 #  1st Rapid Silicon addition to VPR CMake
 #
 
-if (PRODUCTION_BUILD)
-    if(NOT RAPTOR)
-        get_filename_component(FLEX_LM_SRC_DIR "../../../Raptor_Tools/Flex_LM"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-        add_subdirectory(${FLEX_LM_SRC_DIR} flex_lm)
-    endif()
-    message("Production Build type set to ON")
-    set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
-    add_definitions(-DPRODUCTION_BUILD)
-    message("FLEX: "  ${FLEX_LM_SRC_DIR})
-endif(PRODUCTION_BUILD)
+#if (PRODUCTION_BUILD)
+#    if(NOT RAPTOR)
+#        get_filename_component(FLEX_LM_SRC_DIR "../../../Raptor_Tools/Flex_LM"
+#        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+#        add_subdirectory(${FLEX_LM_SRC_DIR} flex_lm)
+#    endif()
+#    message("Production Build type set to ON")
+#    set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
+#    add_definitions(-DPRODUCTION_BUILD)
+#    message("FLEX: "  ${FLEX_LM_SRC_DIR})
+#endif(PRODUCTION_BUILD)
 
 option(ENABLE_VERIFIC "Enable Verific front end" OFF)
 

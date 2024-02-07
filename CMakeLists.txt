@@ -188,7 +188,7 @@ apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakef
 
 file(COPY
   ${PATCH_DIR}/CMAKE_fix/VPR_CMake_RS1.cmake
-  ${PATCH_DIR}/CMAKE_fix/VPR_CMake_PRODUCTION_BUILD_RS2.cmake
+  #${PATCH_DIR}/CMAKE_fix/VPR_CMake_PRODUCTION_BUILD_RS2.cmake
   DESTINATION
   ${VPR_DEST_DIR})
 message(STATUS "NOTE: ADDED to VPR-root: VPR_CMake_RS1.cmake")
