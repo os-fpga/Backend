@@ -5,7 +5,7 @@
 #include "blif_common.hpp"
 #include "blif_lexer.hpp"
 #include "blif_error.hpp"
-#include "reconstruct_verilog.h"
+#include "transform_blif.h"
 
 namespace blifparse {
 
