@@ -18,6 +18,139 @@
 /* Include global variables of VPR */
 #include "globals.h"
 
+struct PB_route_error
+{
+  PB_route_error() noexcept = default;
+
+  void reset() noexcept {
+    clbInstName_.clear();
+    clbTypeName_.clear();
+    badLeaves_.clear();
+  }
+
+  size_t num_errors() const noexcept { return badLeaves_.size(); }
+
+  ClusterBlockId clb_id_;
+  t_block_loc clbLoc_;
+  std::string clbTypeName_;
+  std::string clbInstName_;
+  std::vector<int> badLeaves_;
+};
+
+using RNode = t_pb_route;
+
+static inline bool rn_isRoot(const RNode& rn) noexcept {
+  return rn.driver_pb_pin_id < 0;
+}
+static inline bool rn_isLeaf(const RNode& rn) noexcept {
+  return rn.sink_pb_pin_ids.empty();
+}
+
+static int trace_up(const t_pb_routes& R, int start) noexcept {
+  VTR_ASSERT(!R.empty());
+  VTR_ASSERT(start >= 0);
+  VTR_ASSERT(R.count(start));
+
+  if (rn_isRoot(R[start]))
+    return start;
+
+  int nid = start;
+  int res = -1;
+  while (1) {
+    const auto fitr = R.find(nid);
+    if (fitr == R.end()) {
+      res = -1;
+      break;
+    }
+    const RNode& nd = fitr->second;
+    if (rn_isRoot(nd)) {
+      res = nid;
+      break;
+    }
+    // step-up:
+    nid = nd.driver_pb_pin_id;
+  }
+
+  return res;
+}
+
+static bool check_pb_route_for_block(ClusterBlockId clb_id,
+                                     const ClusteringContext& clCon,
+                                     const PlacementContext& plCon,
+                                     PB_route_error& err) {
+  err.reset();
+  err.clb_id_ = clb_id;
+  err.clbLoc_ = plCon.block_locs[clb_id];
+
+  const t_pb& clb = *clCon.clb_nlist.block_pb(clb_id);
+  VTR_ASSERT(clb.name);
+  VTR_ASSERT(clb.pb_graph_node);
+
+  err.clbInstName_ = clb.name;
+  const t_pb_graph_node& clbNode = *clb.pb_graph_node;
+
+  VTR_ASSERT(clbNode.pb_type);
+  VTR_ASSERT(clbNode.pb_type->name);
+
+  err.clbTypeName_ = clbNode.pb_type->name;
+
+  const t_pb_routes& R = clb.pb_route;
+
+  // check leaf-to-root chain for every leaf
+  for (auto I = R.cbegin(); I != R.cend(); ++I) {
+    int nodeId = I->first;
+    const RNode& node = I->second;
+    if (rn_isRoot(node))
+      continue;
+    if (not rn_isLeaf(node))
+      continue;
+
+    int root = trace_up(R, nodeId);
+    if (root < 0) {
+      err.badLeaves_.push_back(nodeId);
+    }
+  }
+
+  return err.num_errors() == 0;
+}
+
+static bool check_pb_routes(const std::string& msg, const Netlist<>& ntl,
+                            const ClusteringContext& clCon, const PlacementContext& plCon) {
+  PB_route_error err;
+  std::vector<PB_route_error> errors;
+
+  auto range_of_blocks = ntl.blocks();
+  for (ParentBlockId pblk_id : range_of_blocks) {
+    ClusterBlockId clb_id = convert_to_cluster_block_id(pblk_id);
+
+    bool clb_ok = check_pb_route_for_block(clb_id, clCon, plCon, err);
+    if (not clb_ok)
+      errors.push_back(err);
+  }
+
+  const char* cmsg = msg.c_str();
+  if (errors.empty()) {
+    VTR_LOG("OK: %s: pb_route connectivity is consistent in all %zu blocks\n",
+            cmsg, range_of_blocks.size());
+  } else {
+    VTR_LOG("CRITICAL WARNING: %s: found pb_route connectivity errors in %zu blocks\n",
+            cmsg, errors.size());
+    size_t total = 0;
+    for (const PB_route_error& e : errors)
+      total += e.num_errors();
+    VTR_LOG("CRITICAL WARNING: %s: total number of bad sinks is %zu\n", cmsg, total);
+    VTR_LOG("CRITICAL WARNING: %s: list of blocks with pb_route connectivity errors:\n", cmsg);
+    for (const PB_route_error& e : errors) {
+      const t_pl_loc& loc = e.clbLoc_.loc;
+      VTR_LOG("  block_id=%zu at (%i %i) type: '%s'  instance: %s  #errors= %zu\n",
+          size_t(e.clb_id_), loc.x, loc.y, e.clbTypeName_.c_str(), e.clbInstName_.c_str(),
+          e.num_errors());
+    }
+  }
+
+  return errors.empty();
+}
+
 /********************************************************************
  * Give a given pin index, find the side where this pin is located 
  * on the physical tile
@@ -161,48 +294,48 @@ static void update_cluster_pin_with_post_routing_results(const Netlist<>& net_li
         addToX = physical_tile->width;
         for (int ix = 0; ix < addToX; ix++) {
             for (int iy = 0; iy < addToY; iy++) {
-				for (const e_side& pin_side : pin_sides) {
-					/* Find the net mapped to this pin in routing results */
-					RRNodeId rr_node = node_lookup.find_node(coord_layer, coord_x + ix, coord_y + iy, rr_node_type, physical_pin, pin_side);
+                for (const e_side& pin_side : pin_sides) {
+                    /* Find the net mapped to this pin in routing results */
+                    RRNodeId rr_node = node_lookup.find_node(coord_layer, coord_x + ix, coord_y + iy, rr_node_type, physical_pin, pin_side);
 
-					/* Bypass invalid nodes, after that we must have a valid rr_node id */
-					if (!rr_node) {
-						continue;
-					}
-					VTR_ASSERT((size_t)rr_node < device_ctx.rr_graph.num_nodes());
+                    /* Bypass invalid nodes, after that we must have a valid rr_node id */
+                    if (!rr_node) {
+                        continue;
+                    }
+                    VTR_ASSERT((size_t)rr_node < device_ctx.rr_graph.num_nodes());
 
-					/* If the node has been visited on the other side, we just skip it */
-					if (visited_rr_nodes.end() != std::find(visited_rr_nodes.begin(), visited_rr_nodes.end(), RRNodeId(rr_node))) {
-						continue;
-					}
+                    /* If the node has been visited on the other side, we just skip it */
+                    if (visited_rr_nodes.end() != std::find(visited_rr_nodes.begin(), visited_rr_nodes.end(), RRNodeId(rr_node))) {
+                        continue;
+                    }
 
-					/* Get the cluster net id which has been mapped to this net
-					 * In general, there is only one valid rr_node among all the sides.
-					 * However, we have an exception in the Stratix-IV arch modeling,
-					 * where a pb_pin may exist in two different sides but
-					 * router will only map to 1 rr_node 
-					 * Therefore, it is better to compare the routing nets
-					 * for all the sides and pick
-					 * - The unique valid net id (others should be all invalid)
-					 *   assume that this pin is used by router
-					 * - A invalid net id (others should be all invalid as well)
-					 *   assume that this pin is not used by router
-					 */
-					if (rr_node_nets[rr_node]) {
-						if (routing_net_id) {
-							if (routing_net_id != rr_node_nets[rr_node]) {
-								VTR_LOG_ERROR("Pin '%s' is mapped to two nets: '%s' and '%s'\n",
-											  pb_graph_pin->to_string().c_str(),
-											  net_list.net_name(routing_net_id).c_str(),
-											  net_list.net_name(rr_node_nets[rr_node]).c_str());
-							}
-							VTR_ASSERT(routing_net_id == rr_node_nets[rr_node]);
-						}
-						routing_net_id = rr_node_nets[rr_node];
-						valid_routing_net_cnt++;
-						visited_rr_nodes.push_back(rr_node);
-					}
-				}
+                    /* Get the cluster net id which has been mapped to this net
+                     * In general, there is only one valid rr_node among all the sides.
+                     * However, we have an exception in the Stratix-IV arch modeling,
+                     * where a pb_pin may exist in two different sides but
+                     * router will only map to 1 rr_node 
+                     * Therefore, it is better to compare the routing nets
+                     * for all the sides and pick
+                     * - The unique valid net id (others should be all invalid)
+                     *   assume that this pin is used by router
+                     * - A invalid net id (others should be all invalid as well)
+                     *   assume that this pin is not used by router
+                     */
+                    if (rr_node_nets[rr_node]) {
+                        if (routing_net_id) {
+                            if (routing_net_id != rr_node_nets[rr_node]) {
+                                VTR_LOG_ERROR("Pin '%s' is mapped to two nets: '%s' and '%s'\n",
+                                              pb_graph_pin->to_string().c_str(),
+                                              net_list.net_name(routing_net_id).c_str(),
+                                              net_list.net_name(rr_node_nets[rr_node]).c_str());
+                            }
+                            VTR_ASSERT(routing_net_id == rr_node_nets[rr_node]);
+                        }
+                        routing_net_id = rr_node_nets[rr_node];
+                        valid_routing_net_cnt++;
+                        visited_rr_nodes.push_back(rr_node);
+                    }
+                }
             }
         }
         VTR_ASSERT((0 == valid_routing_net_cnt) || (1 == valid_routing_net_cnt));
@@ -1080,6 +1213,8 @@ void sync_netlists_to_routing(const Netlist<>& net_list,
                               bool is_flat) {
     vtr::ScopedStartFinishTimer timer("Synchronize the packed netlist to routing optimization");
 
+    check_pb_routes("before pb_pin_fixup", net_list, clustering_ctx, placement_ctx);
+
     /* Reset the database for post-routing clb net mapping */
     clustering_ctx.post_routing_clb_pin_nets.clear();
     clustering_ctx.pre_routing_net_pin_mapping.clear();
@@ -1139,4 +1274,6 @@ void sync_netlists_to_routing(const Netlist<>& net_list,
             num_mismatches);
     VTR_LOG("Fixed %lu routing traces due to mismatch between routing and packing results.\n",
             num_fixup);
+
+    check_pb_routes("after pb_pin_fixup", net_list, clustering_ctx, placement_ctx);
 }
