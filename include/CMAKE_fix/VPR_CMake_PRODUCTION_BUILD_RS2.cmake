@@ -7,19 +7,18 @@ if (PRODUCTION_BUILD)
 #                                ${FLEX_LM_SRC_DIR}
 #                                ${FLEX_LM_SRC_DIR}/machind)
     #Specify link-time dependancies
-#    target_link_libraries(libvpr
-#                            libvtrutil
-#                            libarchfpga
-#                            libsdcparse
-#                            libblifparse
-#                            libtatum
-#                            libargparse
-#                            libpugixml
-#                            librrgraph
-#                            libreadedif
-#                            rs_licenseManager
-#                            ${OPENSSL_LIBRARIES}
-#                            ${VERIFIC_LIBS})
+    target_link_libraries(libvpr
+                            libvtrutil
+                            libarchfpga
+                            libsdcparse
+                            libblifparse
+                            libtatum
+                            libargparse
+                            libpugixml
+                            librrgraph
+                            libreadedif
+                            ${OPENSSL_LIBRARIES}
+                            ${VERIFIC_LIBS})
 else()
     #Specify link-time dependancies
     target_link_libraries(libvpr
