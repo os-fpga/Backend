@@ -3,9 +3,9 @@
 #
 
 if (PRODUCTION_BUILD)
-    target_include_directories(libvpr PUBLIC
-                                ${FLEX_LM_SRC_DIR}
-                                ${FLEX_LM_SRC_DIR}/machind)
+#    target_include_directories(libvpr PUBLIC
+#                                ${FLEX_LM_SRC_DIR}
+#                                ${FLEX_LM_SRC_DIR}/machind)
     #Specify link-time dependancies
     target_link_libraries(libvpr
                             libvtrutil
@@ -17,7 +17,6 @@ if (PRODUCTION_BUILD)
                             libpugixml
                             librrgraph
                             libreadedif
-                            rs_licenseManager
                             ${OPENSSL_LIBRARIES}
                             ${VERIFIC_LIBS})
 else()

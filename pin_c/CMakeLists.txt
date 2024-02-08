@@ -13,18 +13,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #
 include(CheckCXXSymbolExists)
 
-if (PRODUCTION_BUILD)
-    if(NOT RAPTOR)
-        get_filename_component(FLEX_LM_SRC_DIR "../Raptor_Tools/Flex_LM"
-        REALPATH BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-    endif()
-    message("Production Build type set to ON")
-    set (PRODUCTION_BUILD_FLAG "-DPRODUCTION_BUILD=1")
-    add_definitions(-DPRODUCTION_BUILD)
-    set(CXX_OPTS "-fPIC;-O2;-pipe;-mavx")
-    message("FLEX: "  ${FLEX_LM_SRC_DIR})
-endif(PRODUCTION_BUILD)
-
 if (NOT RAPTOR)
     if(ENABLE_VERIFIC)
         get_filename_component(READ_VERILOG_SRC_DIR "../Raptor_Tools/gatelevel_readers/read_verilog"
