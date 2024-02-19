@@ -39,7 +39,12 @@ set(BASE_SRC_DIR ${PATCH_DIR}/base_fix)
 set(UTIL_SRC_DIR ${PATCH_DIR}/util_fix)
 set(TATUM_SRC_DIR ${PATCH_DIR}/tatum_fix)
 
-set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
+# use swap keys when on private fork
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../../projects/encryptionKeys/public_key.pem)
+	set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../projects/encryptionKeys)
+else
+	set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
+endif()
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
 set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
 set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libdecrypt/)
