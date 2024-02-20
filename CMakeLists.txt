@@ -40,8 +40,8 @@ set(UTIL_SRC_DIR ${PATCH_DIR}/util_fix)
 set(TATUM_SRC_DIR ${PATCH_DIR}/tatum_fix)
 
 # use swap keys when on private fork
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../../projects/encryptionKeys/public_key.pem)
-	set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../projects/encryptionKeys)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../projects/encryptionKeys/public_key.pem)
+	set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../projects/encryptionKeys)
 else
 	set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
 endif()
