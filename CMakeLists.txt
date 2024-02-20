@@ -42,12 +42,14 @@ set(TATUM_SRC_DIR ${PATCH_DIR}/tatum_fix)
 # use swap keys when on private fork
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../projects/encryptionKeys/public_key.pem)
 	set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../projects/encryptionKeys)
-else
+ 	set(ENCRYPTION_CONFIG_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../projects/encryptionKeys)
+else()
 	set(XML_DEC_KEY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/)
+ 	set(ENCRYPTION_CONFIG_PATH ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libdecrypt)
 endif()
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
 set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
-set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libdecrypt/)
+set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/)
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
 
 set(EBLIF_TRANSFORM_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/EXTERNAL/libblifparse/src)
@@ -215,8 +217,18 @@ apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-ro
 
 file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
-  ${XML_DEC_KEY_DEST}/
+  ${XML_DEC_KEY_DEST}/libdecrypt
  )
+
+file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
+  DESTINATION
+  ${XML_DEC_KEY_DEST}/libdecrypt
+)
+ 
+file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
+  DESTINATION
+  ${XML_DEC_KEY_DEST}/libencrypt
+)
 
 message(STATUS "NOTE: PATCHING rr_graph_builder")
 FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
