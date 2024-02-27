@@ -31,56 +31,56 @@ void set_ltrace(int t) noexcept {
 #define LPUT if (cs && cs[0]) cout << cs;
 #define LEND cout << endl; fflush(stdout);
 
-void lputs(const char* cs) noexcept {
+void lputs(CStr cs) noexcept {
   LPUT
   LEND
 }
-void err_puts(const char* cs) noexcept {
+void err_puts(CStr cs) noexcept {
   if (cs && cs[0]) cerr << cs;
   cerr << endl; fflush(stdout);
 }
 
-void lputs0(const char* cs) noexcept {
+void lputs0(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs1(const char* cs) noexcept {
+void lputs1(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs2(const char* cs) noexcept {
+void lputs2(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs3(const char* cs) noexcept {
+void lputs3(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs4(const char* cs) noexcept {
+void lputs4(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs5(const char* cs) noexcept {
+void lputs5(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs6(const char* cs) noexcept {
+void lputs6(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs7(const char* cs) noexcept {
+void lputs7(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs8(const char* cs) noexcept {
+void lputs8(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputs9(const char* cs) noexcept {
+void lputs9(CStr cs) noexcept {
   LPUT
   LEND
 }
-void lputsX(const char* cs) noexcept {
+void lputsX(CStr cs) noexcept {
   LPUT
   LEND
 }
@@ -99,17 +99,33 @@ void err_puts(const string& s) noexcept {
 }
 
 static constexpr char q = '\'';
-void bh1(const char* fn, int l, const char* s) noexcept {
+void bh1(CStr fn, int l, CStr s) noexcept {
   if (!s) return;
   cout << "\n bh1: " << fn << ':' << l << q << s << q << endl;
 }
-void bh2(const char* fn, int l, const char* s) noexcept {
+void bh2(CStr fn, int l, CStr s) noexcept {
   if (!s) return;
   cout << "\n bh2: " << fn << ':' << l << q << s << q << endl;
 }
-void bh3(const char* fn, int l, const char* s) noexcept {
+void bh3(CStr fn, int l, CStr s) noexcept {
   if (!s) return;
   cout << "\n bh3: " << fn << ':' << l << q << s << q << endl;
+}
+void bh4(CStr fn, int l, CStr s) noexcept {
+  if (!s) return;
+  cout << "\n bh4: " << fn << ':' << l << q << s << q << endl;
+}
+void bh5(CStr fn, int l, CStr s) noexcept {
+  if (!s) return;
+  cout << "\n bh5: " << fn << ':' << l << q << s << q << endl;
+}
+void bh6(CStr fn, int l, CStr s) noexcept {
+  if (!s) return;
+  cout << "\n bh6: " << fn << ':' << l << q << s << q << endl;
+}
+void bh7(CStr fn, int l, CStr s) noexcept {
+  if (!s) return;
+  cout << "\n bh7: " << fn << ':' << l << q << s << q << endl;
 }
 
 void flush_out(bool nl) noexcept {
@@ -119,7 +135,7 @@ void flush_out(bool nl) noexcept {
   fflush(stdout);
 }
 
-void lprintf(const char* format, ...) {
+void lprintf(CStr format, ...) {
   char buf[32768];
   va_list args;
   va_start(args, format);
@@ -146,11 +162,11 @@ string get_CWD() noexcept {
   return {};
 }
 
-bool s_readLink(const string& path, string& out) noexcept {
+static bool s_readLink(const string& path, string& out) noexcept {
   out.clear();
   if (path.empty()) return false;
 
-  const char* cs = path.c_str();
+  CStr cs = path.c_str();
   struct stat sb;
 
   if (::stat(cs, &sb))
@@ -183,7 +199,7 @@ bool s_readLink(const string& path, string& out) noexcept {
   return true;
 }
 
-void traceEnv(int argc, const char** argv) noexcept {
+void traceEnv(int argc, CStr* argv) noexcept {
   int pid  = ::getpid();
   int ppid = ::getppid();
   string selfPath, parentPath, exe_link;
@@ -209,25 +225,25 @@ void traceEnv(int argc, const char** argv) noexcept {
 
 namespace str {
 
-  string sToLower(const string& s) noexcept {
+  string s2lower(const string& s) noexcept {
     if (s.empty()) return {};
-    const char* cs = s.c_str();
+    CStr cs = s.c_str();
     if (!cs || !cs[0]) return {};
 
     string result;
     result.reserve(s.length() + 1);
-    for (const char* p = cs; *p; p++) result.push_back(std::tolower(*p));
+    for (CStr p = cs; *p; p++) result.push_back(std::tolower(*p));
     return result;
   }
 
-  string sToUpper(const string& s) noexcept {
+  string s2upper(const string& s) noexcept {
     if (s.empty()) return {};
-    const char* cs = s.c_str();
+    CStr cs = s.c_str();
     if (!cs || !cs[0]) return {};
 
     string result;
     result.reserve(s.length() + 1);
-    for (const char* p = cs; *p; p++) result.push_back(std::toupper(*p));
+    for (CStr p = cs; *p; p++) result.push_back(std::toupper(*p));
     return result;
   }
 

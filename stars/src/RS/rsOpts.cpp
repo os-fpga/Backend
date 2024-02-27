@@ -176,7 +176,7 @@ void rsOpts::setFunction(CStr fun) noexcept {
     "partition", // 2
     "pack", nullptr
   };
-  string f = str::sToLower(fun);
+  string f = str::s2lower(fun);
   if (f.empty())
     return;
   if (f == "pin" or f == "pinc" or f == "pin_c") {
