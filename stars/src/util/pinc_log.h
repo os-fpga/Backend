@@ -15,13 +15,14 @@
 //  "BH" stands for Break Here, inspired by purify_stop_here().
 //
 #pragma once
-#ifndef __rs_PINC_LOG_H_
-#define __rs_PINC_LOG_H_
+#ifndef __rsbe_PINC_LOG_H__29b9113eb678_
+#define __rsbe_PINC_LOG_H__29b9113eb678_
 
 #include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cfloat>
+#include <ctime>
 #include <cmath>
 #include <climits>
 #include <cstddef>
@@ -46,65 +47,71 @@
 
 namespace pinc {
 
+using CStr = const char*;
+
 // log-trace value (debug print verbosity)
 // can be set in main() by calling set_ltrace()
 uint16_t ltrace() noexcept;
 void set_ltrace(int t) noexcept;
 
-void lprintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
-void lputs(const char* cs = 0) noexcept;
+void lprintf(CStr format, ...) __attribute__((format(printf, 1, 2)));
+void lputs(CStr cs = 0) noexcept;
 void lputs(const std::string& s) noexcept;
-void err_puts(const char* cs = 0) noexcept;
+void err_puts(CStr cs = 0) noexcept;
 
-void lputs0(const char* cs = 0) noexcept;
-void lputs1(const char* cs = 0) noexcept;
-void lputs2(const char* cs = 0) noexcept;
-void lputs3(const char* cs = 0) noexcept;
-void lputs4(const char* cs = 0) noexcept;
-void lputs5(const char* cs = 0) noexcept;
-void lputs6(const char* cs = 0) noexcept;
-void lputs7(const char* cs = 0) noexcept;
-void lputs8(const char* cs = 0) noexcept;
-void lputs9(const char* cs = 0) noexcept;
-void lputsX(const char* cs = 0) noexcept;
+void lputs0(CStr cs = 0) noexcept;
+void lputs1(CStr cs = 0) noexcept;
+void lputs2(CStr cs = 0) noexcept;
+void lputs3(CStr cs = 0) noexcept;
+void lputs4(CStr cs = 0) noexcept;
+void lputs5(CStr cs = 0) noexcept;
+void lputs6(CStr cs = 0) noexcept;
+void lputs7(CStr cs = 0) noexcept;
+void lputs8(CStr cs = 0) noexcept;
+void lputs9(CStr cs = 0) noexcept;
+void lputsX(CStr cs = 0) noexcept;
 
 void err_puts(const std::string& s) noexcept;
 
-void bh1(const char* fn, int l, const char* s = 0) noexcept;
-void bh2(const char* fn, int l, const char* s = 0) noexcept;
-void bh3(const char* fn, int l, const char* s = 0) noexcept;
+void bh1(CStr fn, int l, CStr s = 0) noexcept;
+void bh2(CStr fn, int l, CStr s = 0) noexcept;
+void bh3(CStr fn, int l, CStr s = 0) noexcept;
+void bh4(CStr fn, int l, CStr s = 0) noexcept;
+void bh5(CStr fn, int l, CStr s = 0) noexcept;
+void bh6(CStr fn, int l, CStr s = 0) noexcept;
+void bh7(CStr fn, int l, CStr s = 0) noexcept;
 
 void flush_out(bool nl = false) noexcept;
 
 inline std::ostream& lout() noexcept { return std::cout; }
 
-inline char* p_strdup(const char* p) noexcept {
+inline char* p_strdup(CStr p) noexcept {
   if (!p) return nullptr;
   return ::strdup(p);
 }
-inline size_t p_strlen(const char* p) noexcept { return p ? ::strlen(p) : 0; }
+inline size_t p_strlen(CStr p) noexcept { return p ? ::strlen(p) : 0; }
 inline void p_free(void* p) noexcept {
   if (p) ::free(p);
 }
 
 int get_PID() noexcept;
 std::string get_CWD() noexcept;
-void traceEnv(int argc = 0, const char** argv = nullptr) noexcept;
+void traceEnv(int argc = 0, CStr* argv = nullptr) noexcept;
 
 namespace str {
 
 using std::string;
 
-string sToLower(const string& s) noexcept;
-string sToUpper(const string& s) noexcept;
+string s2lower(const string& s) noexcept;
+string s2upper(const string& s) noexcept;
 
-inline string sToLower(const char* cs) noexcept {
+inline string s2lower(CStr cs) noexcept {
   string e;
-  return (cs && *cs) ? sToLower(string(cs)) : e;
+  return (cs && *cs) ? s2lower(string(cs)) : e;
 }
-inline string sToUpper(const char* cs) noexcept {
+inline string s2upper(CStr cs) noexcept {
   string e;
-  return (cs && *cs) ? sToUpper(string(cs)) : e;
+  return (cs && *cs) ? s2upper(string(cs)) : e;
 }
 
 string sReplicate(char c, uint num) noexcept;
@@ -127,9 +134,9 @@ inline string concat(const string& a, const string& b, const string& c, const st
   z += d;
   return z;
 }
-inline string concat(const string& a, const char* b) noexcept { return b ? a + b : a; }
+inline string concat(const string& a, CStr b) noexcept { return b ? a + b : a; }
 
-inline string concat(const char* a, const string& b, const char* c = nullptr) noexcept {
+inline string concat(CStr a, const string& b, CStr c = nullptr) noexcept {
   size_t len = p_strlen(a) + p_strlen(c) + b.length();
   if (!len) return {};
   string z;
@@ -140,7 +147,7 @@ inline string concat(const char* a, const string& b, const char* c = nullptr) no
   return z;
 }
 
-inline string concat(const string& a, const char* b, const string& c) noexcept {
+inline string concat(const string& a, CStr b, const string& c) noexcept {
   size_t len = a.length() + c.length() + p_strlen(b);
   if (!len) return {};
   string z;
@@ -151,10 +158,10 @@ inline string concat(const string& a, const char* b, const string& c) noexcept {
   return z;
 }
 
-inline string concat(const char* a,
-                     const char* b,
-                     const char* c = nullptr,
-                     const char* d = nullptr) noexcept {
+inline string concat(CStr a,
+                     CStr b,
+                     CStr c = nullptr,
+                     CStr d = nullptr) noexcept {
   size_t len = p_strlen(a) + p_strlen(b) + p_strlen(c) + p_strlen(d);
   if (!len) return {};
   string z;
@@ -166,7 +173,7 @@ inline string concat(const char* a,
   return z;
 }
 
-inline string concat(const char* a, const char* b, const string& c, const string& d = "") noexcept {
+inline string concat(CStr a, CStr b, const string& c, const string& d = "") noexcept {
   size_t len = c.length() + d.length() + p_strlen(b) + p_strlen(b);
   if (!len) return {};
   string z;
@@ -178,7 +185,7 @@ inline string concat(const char* a, const char* b, const string& c, const string
   return z;
 }
 
-inline const char* trimFront(const char* z) noexcept {
+inline CStr trimFront(CStr z) noexcept {
   if (z && *z) {
     while (std::isspace(*z)) z++;
   }
@@ -188,7 +195,7 @@ inline const char* trimFront(const char* z) noexcept {
 }  // NS str
 
 template <typename T>
-inline void logArray(const T* A, size_t n, const char* pref) noexcept {
+inline void logArray(const T* A, size_t n, CStr pref) noexcept {
   auto& os = lout();
   if (pref) os << pref;
   if (!A || !n) {
@@ -200,7 +207,7 @@ inline void logArray(const T* A, size_t n, const char* pref) noexcept {
 }
 
 template <typename T>
-inline void prnArray(std::ostream& os, const T* A, size_t n, const char* pref) noexcept {
+inline void prnArray(std::ostream& os, const T* A, size_t n, CStr pref) noexcept {
   if (pref) os << pref;
   if (!A || !n) {
     os << " (empty)" << std::endl;
@@ -210,7 +217,7 @@ inline void prnArray(std::ostream& os, const T* A, size_t n, const char* pref) n
   os << std::endl;
 }
 
-inline void logVec(const std::vector<bool>& vec, const char* pref) noexcept {
+inline void logVec(const std::vector<bool>& vec, CStr pref) noexcept {
   auto& os = lout();
   if (pref) os << pref;
   if (vec.empty()) {
@@ -222,11 +229,16 @@ inline void logVec(const std::vector<bool>& vec, const char* pref) noexcept {
 }
 
 template <typename T>
-inline void logVec(const std::vector<T>& vec, const char* pref) noexcept {
+inline void logVec(const std::vector<T>& vec, CStr pref) noexcept {
   const T* A = (vec.empty() ? nullptr : vec.data());
   logArray(A, vec.size(), pref);
 }
 
+template <typename T>
+inline T* unconst(const T* p) noexcept { return const_cast<T*>(p); }
+
 }  // namespace pinc
+
+const char* rsbe_get_version();
 
 #endif

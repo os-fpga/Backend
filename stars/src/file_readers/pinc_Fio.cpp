@@ -18,19 +18,16 @@ using namespace std;
 
 static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
 
-Info::Info(const char* nm) noexcept {
-  if (!nm)
-    return;
+Info::Info(CStr nm) noexcept {
+  if (!nm) return;
   name_ = nm;
-  if (name_.empty())
-    return;
+  if (name_.empty()) return;
   init();
 }
 
 Info::Info(const string& nm) noexcept {
   name_ = nm;
-  if (name_.empty())
-    return;
+  if (name_.empty()) return;
   init();
 }
 
@@ -41,16 +38,13 @@ void Info::init() noexcept {
   exists_ = false;
   accessible_ = false;
   absolute_ = false;
-  if (name_.empty())
-    return;
+  if (name_.empty()) return;
 
   exists_ = regular_file_exists(name_);
-  if (not exists_)
-    return;
+  if (not exists_) return;
 
   accessible_ = file_accessible(name_);
-  if (not accessible_)
-    return;
+  if (not accessible_) return;
 
   try {
     fs::path p{name_};
@@ -59,8 +53,7 @@ void Info::init() noexcept {
     absolute_ = p.is_absolute();
     p = fs::absolute(p);
     absName_ = p.string();
-  }
-  catch (...) {
+  } catch (...) {
     // noexcept
   }
 }
@@ -77,7 +70,7 @@ void Fio::setTrace(int t) noexcept {
   trace_ = t;
 }
 
-bool Fio::fileAccessible(const char* fn) noexcept {
+bool Fio::fileAccessible(CStr fn) noexcept {
   if (!fn) return false;
   int status = ::access(fn, F_OK);
   if (status != 0) return false;
@@ -86,7 +79,7 @@ bool Fio::fileAccessible(const char* fn) noexcept {
   return true;
 }
 
-bool Fio::regularFileExists(const char* fn) noexcept {
+bool Fio::regularFileExists(CStr fn) noexcept {
   struct stat sb;
   if (::stat(fn, &sb)) return false;
 
@@ -95,7 +88,7 @@ bool Fio::regularFileExists(const char* fn) noexcept {
   return true;
 }
 
-void Fio::reset(const char* nm, uint16_t tr) noexcept {
+void Fio::reset(CStr nm, uint16_t tr) noexcept {
   sz_ = fsz_ = 0;
   num_lines_ = 0;
   max_llen_ = 0;
@@ -104,7 +97,7 @@ void Fio::reset(const char* nm, uint16_t tr) noexcept {
   if (nm) fnm_ = nm;
 }
 
-static inline const char* trim_front(const char* z) noexcept {
+static inline CStr trim_front(CStr z) noexcept {
   if (z && *z) {
     while (std::isspace(*z)) z++;
   }
@@ -113,10 +106,9 @@ static inline const char* trim_front(const char* z) noexcept {
 
 static inline void tokenize_A(char* A, size_t len, vector<string>& dat) {
   assert(A && len);
-  if (!A or !len)
-    return;
+  if (!A or !len) return;
 
-  const char* tk = A;
+  CStr tk = A;
   for (size_t i = 0; i <= len; i++) {
     if (A[i]) continue;
     dat.emplace_back(tk);
@@ -129,7 +121,7 @@ static inline void tokenize_A(char* A, size_t len, vector<string>& dat) {
   }
 }
 
-bool Fio::split_com(const char* src, vector<string>& dat) noexcept {
+bool Fio::split_com(CStr src, vector<string>& dat) noexcept {
   dat.clear();
   assert(src);
   if (!src || !src[0]) return false;
@@ -178,7 +170,7 @@ bool Fio::split_com(const char* src, vector<string>& dat) noexcept {
   return true;
 }
 
-bool Fio::split_spa(const char* src, vector<string>& dat) noexcept {
+bool Fio::split_spa(CStr src, vector<string>& dat) noexcept {
   dat.clear();
   assert(src);
   if (!src || !src[0]) return false;
@@ -216,7 +208,7 @@ bool Fio::split_spa(const char* src, vector<string>& dat) noexcept {
   return true;
 }
 
-bool Fio::split_pun(const char* src, vector<string>& dat) noexcept {
+bool Fio::split_pun(CStr src, vector<string>& dat) noexcept {
   dat.clear();
   assert(src);
   if (!src || !src[0]) return false;
@@ -254,21 +246,21 @@ bool Fio::split_pun(const char* src, vector<string>& dat) noexcept {
   return true;
 }
 
-const char* Fio::firstSpace(const char* src) noexcept {
+CStr Fio::firstSpace(CStr src) noexcept {
   if (!src || !src[0]) return nullptr;
-  for (const char* p = src; *p; p++)
+  for (CStr p = src; *p; p++)
     if (std::isspace(*p)) return p;
   return nullptr;
 }
 
-const char* Fio::firstNonSpace(const char* src) noexcept {
+CStr Fio::firstNonSpace(CStr src) noexcept {
   if (!src || !src[0]) return nullptr;
-  for (const char* p = src; *p; p++)
+  for (CStr p = src; *p; p++)
     if (!std::isspace(*p)) return p;
   return nullptr;
 }
 
-bool Fio::isEmptyLine(const char* src) noexcept {
+bool Fio::isEmptyLine(CStr src) noexcept {
   if (!src || !src[0]) return true;
   if (!firstNonSpace(src)) return true;
   size_t len = ::strnlen(src, 4);
@@ -277,14 +269,12 @@ bool Fio::isEmptyLine(const char* src) noexcept {
 
 void Fio::copyLines(vector<string>& out) const noexcept {
   out.clear();
-  if (!hasLines() || lines_.empty())
-    return;
+  if (!hasLines() || lines_.empty()) return;
 
   out.reserve(lines_.size());
   for (size_t li = 1; li < lines_.size(); li++) {
-    const char* line = lines_[li];
-    if (line)
-      out.emplace_back(line);
+    CStr line = lines_[li];
+    if (line) out.emplace_back(line);
   }
 }
 
@@ -292,7 +282,7 @@ void Fio::copyLines(vector<string>& out) const noexcept {
 
 MMapReader::~MMapReader() { reset(nullptr, 0); }
 
-void MMapReader::reset(const char* nm, uint16_t tr) noexcept {
+void MMapReader::reset(CStr nm, uint16_t tr) noexcept {
   string fnm = fnm_;
   Fio::reset(nm, tr);
 
@@ -419,10 +409,8 @@ int64_t MMapReader::countLines() const noexcept {
   return cnt;
 }
 
-static size_t count_words(const char* line) noexcept
-{
-  if (!line || !line[0])
-    return 0;
+static size_t count_words(CStr line) noexcept {
+  if (!line || !line[0]) return 0;
   size_t len = ::strlen(line);
 
   const size_t z = len + 1;
@@ -433,7 +421,7 @@ static size_t count_words(const char* line) noexcept
   for (size_t i = 0; i < z; i++) {
     if (!s[z]) s[z] = ' ';
   }
-  const char* delim = " \t\n";
+  CStr delim = " \t\n";
 
   size_t nw = 0;
   char* tk = strtok(s, delim);
@@ -469,7 +457,7 @@ int64_t MMapReader::countWC(int64_t& numWords) const noexcept {
   for (size_t i = 0; i < z; i++) {
     if (!s[z]) s[z] = ' ';
   }
-  const char* delim = " \t\n";
+  CStr delim = " \t\n";
 
   char* tk = strtok(s, delim);
   while (tk) {
@@ -496,19 +484,16 @@ int64_t MMapReader::printWC(std::ostream& os) const noexcept {
 }
 
 int64_t MMapReader::printLines(std::ostream& os) noexcept {
-  if (!fsz_ || !sz_ || !buf_ || fnm_.empty())
-    return 0;
+  if (!fsz_ || !sz_ || !buf_ || fnm_.empty()) return 0;
   bool hasl = hasLines();
   if (!hasl) {
-    if (makeLines(false, true))
-      hasl = hasLines();
+    if (makeLines(false, true)) hasl = hasLines();
   }
-  if (!hasl)
-    return 0;
+  if (!hasl) return 0;
 
   size_t cnt = 0, sz = lines_.size();
   for (size_t i = 0; i < sz; i++) {
-    const char* cs = lines_[i];
+    CStr cs = lines_[i];
     if (!cs || !cs[0]) continue;
     cnt++;
     os << i << ": " << cs << endl;
@@ -554,20 +539,16 @@ int MMapReader::dprint1() const noexcept {
 
 int MMapReader::dprint2() const noexcept {
   dprint1();
-  if (!sz_)
-    return 0;
-  if (!num_lines_ || lines_.empty())
-    return 0;
+  if (!sz_) return 0;
+  if (!num_lines_ || lines_.empty()) return 0;
 
   lout() << "  hashSum= " << hashSum() << endl;
-  lprintf("  num_lines_= %zu  lines_.size()= %zu  max_llen_= %zu\n",
-          num_lines_, lines_.size(), max_llen_);
+  lprintf("  num_lines_= %zu  lines_.size()= %zu  max_llen_= %zu\n", num_lines_, lines_.size(), max_llen_);
 
   int64_t numLines, numWords = 0;
   numLines = countWC(numWords);
 
-  lout() << "[WC]  L: " << numLines << "  W: " << numWords
-         << "  C: " << sz_ << "  " << fnm_ << endl;
+  lout() << "[WC]  L: " << numLines << "  W: " << numWords << "  C: " << sz_ << "  " << fnm_ << endl;
 
   return sz_;
 }
@@ -595,8 +576,7 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
     for (size_t i = 0; i < sz_; i++) {
       if (buf_[i] == '\n') buf_[i] = 0;
     }
-  }
-  else {
+  } else {
     if (!num_lines_) {
       if (trace() >= 4) {
         lputs("MReader::makeLines-2 not_OK: num_lines_ == 0");
@@ -617,8 +597,7 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
     lines_.push_back(curLine);
     numL++;
     size_t len = ::strlen(curLine);
-    if (len > max_llen_)
-      max_llen_ = len;
+    if (len > max_llen_) max_llen_ = len;
   } while (advanceLine(curLine));
 
   if (!numL) return false;
@@ -637,8 +616,7 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
   }
 
   if (trace() >= 4) {
-    lprintf("MReader::makeLines() OK:  lines_.size()= %zu  num_lines_= %zu\n",
-             lines_.size(), num_lines_);
+    lprintf("MReader::makeLines() OK:  lines_.size()= %zu  num_lines_= %zu\n", lines_.size(), num_lines_);
   }
 
   return true;
@@ -679,7 +657,7 @@ LineReader::LineReader(size_t iniCap) noexcept : cap_(lr_DEFAULT_CAP) {
   if (iniCap) cap_ = std::max(iniCap, lr_MINIMUM_CAP);
 }
 
-LineReader::LineReader(const char* nm, size_t iniCap) noexcept : Fio(nm), cap_(lr_DEFAULT_CAP) {
+LineReader::LineReader(CStr nm, size_t iniCap) noexcept : Fio(nm), cap_(lr_DEFAULT_CAP) {
   if (iniCap) cap_ = std::max(iniCap, lr_MINIMUM_CAP);
 }
 
@@ -687,7 +665,7 @@ LineReader::LineReader(const std::string& nm, size_t iniCap) noexcept : Fio(nm),
   if (iniCap) cap_ = std::max(iniCap, lr_MINIMUM_CAP);
 }
 
-void LineReader::reset(const char* nm, uint16_t tr) noexcept {
+void LineReader::reset(CStr nm, uint16_t tr) noexcept {
   Fio::reset(nm, tr);
 
   lines_.clear();
@@ -756,7 +734,6 @@ bool LineReader::readBuffer() noexcept {
 }
 
 bool LineReader::readStdin() noexcept {
-
   if (!buf_) {
     buf_ = (char*)::malloc(cap_ + 4);
     buf_[cap_] = 0;
@@ -774,6 +751,49 @@ bool LineReader::readStdin() noexcept {
   curLine_ = buf_;
   curLine2_ = buf_;
   return true;
+}
+
+bool LineReader::readPipe() noexcept {
+  assert(!fnm_.empty());
+  if (fnm_.empty())
+    return false;
+  if (!buf_) {
+    buf_ = (char*)::malloc(cap_ + 4);
+    buf_[cap_] = 0;
+  }
+
+  CStr cfnm = fnm_.c_str();
+  uint16_t tr = trace();
+  if (tr >= 3)
+    lprintf("::popen( %s )\n", cfnm);
+
+  FILE* f = ::popen(cfnm, "r");
+  if (!f) {
+    if (tr) {
+      ::perror("popen");
+      lprintf("\n [Error] popen() error for cmd: %s\n", cfnm);
+    }
+    return false;
+  }
+
+  while (!feof(f)) {
+    char* mem = getFreeMem();
+    char* line = ::fgets(mem, lr_MAX_LINE_LEN, f);
+    if (!line) break;
+    num_lines_++;
+    if (tr >= 4)
+      lprintf("pipe line #%zu : %s\n", num_lines_, line);
+    char* nextMem = skipLine(mem);
+    sz_ += (nextMem - mem);
+  }
+
+  int pclose_rc = ::pclose(f);
+  if (tr >= 3)
+    lprintf("\t pclose_rc:%i\n", pclose_rc);
+
+  curLine_ = buf_;
+
+  return num_lines_ > 0;
 }
 
 bool LineReader::makeLines(bool cutComments, bool cutNL) noexcept {
@@ -806,15 +826,19 @@ bool LineReader::makeLines(bool cutComments, bool cutNL) noexcept {
       if (cutComments) {
         len = ::strlen(line);
         for (size_t i = 0; i <= len; i++) {
-          if (line[i] == '#') line[i] = 0;
+          if (line[i] == '#') {
+            line[i] = 0;
+            break;
+          }
         }
       }
     }
     lines_.push_back(nullptr);
     reIterate();
 
-    if (trace() >= 2) {
-      lprintf("LReader::makeLines() OK:  lines_.size()= %zu  num_lines_= %zu\n", lines_.size(), num_lines_);
+    if (trace() >= 5) {
+      lprintf("LR::makeLines() OK:  lines_.size()= %zu  num_lines_= %zu\n",
+               lines_.size(), num_lines_);
     }
     return true;
   }
@@ -827,13 +851,13 @@ bool LineReader::makeLines(bool cutComments, bool cutNL) noexcept {
 
 static constexpr size_t MAX_BUF_sz = 67108860;  // 64 MB
 
-static inline const char* trim_left(const char* p) noexcept {
+static inline CStr trim_left(CStr p) noexcept {
   if (p && *p)
     while (std::isspace(*p)) p++;
   return p;
 }
 
-static void add_to_words(const char* cs, std::vector<std::string>& words, char* buf) noexcept {
+static void add_to_words(CStr cs, std::vector<std::string>& words, char* buf) noexcept {
   assert(buf);
   if (!cs || !cs[0]) return;
 
@@ -846,7 +870,7 @@ static void add_to_words(const char* cs, std::vector<std::string>& words, char* 
   for (char* p = buf; *p; p++)
     if (std::isspace(*p)) *p = 0;
 
-  const char* tk = buf;
+  CStr tk = buf;
   for (size_t i = 0; i <= len; i++) {
     if (buf[i]) continue;
     words.emplace_back(tk);
@@ -868,7 +892,7 @@ std::vector<std::string> LineReader::getWords() const noexcept {
                                                 // the buffer should be dynamic.
   assert(buf);
 
-  for (const char* cs : lines_) {
+  for (CStr cs : lines_) {
     if (!cs || !cs[0]) continue;
     add_to_words(cs, words, buf);
   }
@@ -950,7 +974,7 @@ size_t LineReader::printLines(std::ostream& os) const noexcept {
 
   size_t cnt = 0, sz = lines_.size();
   for (size_t i = 0; i < sz; i++) {
-    const char* cs = lines_[i];
+    CStr cs = lines_[i];
     if (!cs || !cs[0]) continue;
     cnt++;
     os << i << ": " << cs << endl;
@@ -1011,9 +1035,7 @@ XML_Reader::XML_Reader() noexcept {
   elems_.reserve(X_nodes_cap0);
 }
 
-XML_Reader::XML_Reader(const char* nm) noexcept
-  : MMapReader(nm)
-{
+XML_Reader::XML_Reader(CStr nm) noexcept : MMapReader(nm) {
   doc_ = new XMLDocument;
   elems_.reserve(X_nodes_cap0);
 }
@@ -1025,7 +1047,7 @@ XML_Reader::XML_Reader(const string& nm) noexcept : MMapReader(nm) {
 
 XML_Reader::~XML_Reader() { delete doc_; }
 
-void XML_Reader::reset(const char* nm, uint16_t tr) noexcept {
+void XML_Reader::reset(CStr nm, uint16_t tr) noexcept {
   elems_.clear();
   delete doc_;
   doc_ = new XMLDocument;
@@ -1046,12 +1068,10 @@ bool XML_Reader::readXml() noexcept {
   return ok;
 }
 
-struct XML_Reader::Visitor : public XMLVisitor
-{
+struct XML_Reader::Visitor : public XMLVisitor {
   XML_Reader& reader_;
 
-  Visitor(XML_Reader& rdr) noexcept
-    : reader_(rdr) {}
+  Visitor(XML_Reader& rdr) noexcept : reader_(rdr) {}
 
   uint16_t trace() const noexcept { return reader_.trace(); }
 
@@ -1122,7 +1142,7 @@ bool XML_Reader::parse() noexcept {
   string device_list_s = "device_list";
   for (const Element* nd : elems_) {
     assert(nd);
-    const char* nm = nd->Name();
+    CStr nm = nd->Name();
     if (nm && device_list_s == nm) {
       has_device_list_ = true;
       break;
@@ -1141,8 +1161,7 @@ bool XML_Reader::isValidXml() const noexcept {
 
 int XML_Reader::dprint1() const noexcept {
   lprintf("  fname: %s\n", fnm_.c_str());
-  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  nr_=%zu  nc_=%zu\n",
-          fsz_, sz_, num_lines_, nr_, nc_);
+  lprintf("    fsz_ %zu  sz_= %zu  num_lines_= %zu  nr_=%zu  nc_=%zu\n", fsz_, sz_, num_lines_, nr_, nc_);
 
   lprintf("        valid_xml_: %i\n", valid_xml_);
   lprintf("  has_device_list_: %i\n", has_device_list_);
@@ -1165,9 +1184,9 @@ int XML_Reader::printNodes() const noexcept {
   for (size_t i = 0; i < nsz; i++) {
     const Element* nd = elems_[i];
     assert(nd);
-    const char* nm = nd->Name();
+    CStr nm = nd->Name();
     if (!nm) nm = "";
-    const char* ts = nd->GetText();
+    CStr ts = nd->GetText();
     if (!ts) ts = "";
     bool is_leaf = not nd->FirstChildElement();
     lprintf("%zu:  name= %s  text= %s  %s\n", i, nm, ts, is_leaf ? "(leaf)" : "");
@@ -1177,15 +1196,15 @@ int XML_Reader::printNodes() const noexcept {
 }
 
 vector<XML_Reader::APair> XML_Reader::get_attrs(const Element& elem) noexcept {
-  static const char* nul = "(NULL)";
+  static CStr nul = "(NULL)";
   vector<APair> result;
 
   const XMLAttribute* a1 = elem.FirstAttribute();
 
   while (a1) {
-    const char* nam = a1->Name();
+    CStr nam = a1->Name();
     if (!nam) nam = nul;
-    const char* val = a1->Value();
+    CStr val = a1->Value();
     if (!val) val = nul;
     result.emplace_back(nam, val);
     a1 = a1->Next();
@@ -1209,14 +1228,12 @@ int XML_Reader::printLeaves() const noexcept {
   for (size_t i = 0; i < nsz; i++) {
     assert(elems_[i]);
     const Element& nd = *elems_[i];
-    if (nd.FirstChildElement())
-      continue; // not leaf
-    const char* nm = nd.Name();
+    if (nd.FirstChildElement()) continue;  // not leaf
+    CStr nm = nd.Name();
     if (!nm) nm = "";
-    const char* txt = nd.GetText();
+    CStr txt = nd.GetText();
     if (!txt) txt = "";
-    lprintf("Leaf-%zu:  name= %s  text= %s  line#%i\n",
-            i, nm, txt, nd.GetLineNum());
+    lprintf("Leaf-%zu:  name= %s  text= %s  line#%i\n", i, nm, txt, nd.GetLineNum());
     const XMLAttribute* a1 = nd.FirstAttribute();
     if (!a1) {
       lputs("    (no arrributes)");
@@ -1224,7 +1241,7 @@ int XML_Reader::printLeaves() const noexcept {
     }
     nm = a1->Name();
     if (!nm) nm = "";
-    const char* val = a1->Value();
+    CStr val = a1->Value();
     if (!val) val = "";
     lprintf("    1st attribute:  %s = %s\n", nm, val);
     A = get_attrs(nd);
@@ -1232,7 +1249,7 @@ int XML_Reader::printLeaves() const noexcept {
       lprintf("    (arrributes %zu):\n", A.size());
       for (size_t j = 0; j < A.size(); j++) {
         const APair& ap = A[j];
-        lprintf("      :%zu:  %s = %s\n", j+1, ap.first, ap.second);
+        lprintf("      :%zu:  %s = %s\n", j + 1, ap.first, ap.second);
       }
     }
   }
@@ -1249,12 +1266,10 @@ int64_t XML_Reader::countLeaves() const noexcept {
     const Element* nd = elems_[i];
     assert(nd);
     bool is_leaf = not nd->FirstChildElement();
-    if (is_leaf)
-      cnt++;
+    if (is_leaf) cnt++;
   }
 
   return cnt;
 }
 
 }  // NS fio
-

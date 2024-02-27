@@ -6,8 +6,8 @@
 // ======== 3. CSV_Reader ============
 // ======== 4. XML_Reader ============
 
-#ifndef __rs_file_readers_pinc_Fio_H_h_
-#define __rs_file_readers_pinc_Fio_H_h_
+#ifndef __rsbe_file_readers_pinc_Fio_H_h_
+#define __rsbe_file_readers_pinc_Fio_H_h_
 
 #include "pinc_log.h"
 #include <string_view>
@@ -25,17 +25,18 @@ class XMLPrinter;
 
 namespace fio {
 
+using std::string;
+using std::vector;
+using CStr = const char*;
+
 inline void p_free(void* p) noexcept {
   if (p) ::free(p);
 }
 
-inline char* p_strdup(const char* p) noexcept {
+inline char* p_strdup(CStr p) noexcept {
   if (!p) return nullptr;
   return ::strdup(p);
 }
-
-using std::string;
-using std::vector;
 
 struct Info
 {
@@ -49,7 +50,7 @@ struct Info
 public:
   Info() noexcept = default;
 
-  Info(const char* nm) noexcept;
+  Info(CStr nm) noexcept;
   Info(const string& nm) noexcept;
   void init() noexcept;
 };
@@ -70,19 +71,19 @@ public:
 
   const string& fileName() const noexcept { return fnm_; }
 
-  Fio(const char* nm) noexcept { if (nm) fnm_ = nm; }
+  Fio(CStr nm) noexcept { if (nm) fnm_ = nm; }
   Fio(const string& nm) noexcept { fnm_ = nm; }
 
   virtual ~Fio() {}
 
-  virtual void reset(const char* nm, uint16_t tr = 0) noexcept;
+  virtual void reset(CStr nm, uint16_t tr = 0) noexcept;
 
   virtual bool makeLines(bool cutComments, bool cutNL) noexcept { return false; }
 
   bool hasLines() const noexcept {
-    if (!sz_ || !fsz_ || !num_lines_)
+    if (!sz_ || !num_lines_)
       return false;
-    for (const char* z : lines_) {
+    for (CStr z : lines_) {
       if (z && z[0])
         return true;
     }
@@ -99,20 +100,20 @@ public:
   static constexpr size_t kilo2mega(size_t kb) noexcept { return (kb + 512) / 1024; }
   static constexpr size_t bytes2mega(size_t b) noexcept { return (b + 524288) / 1048576; }
 
-  static uint64_t getHash(const char* cs) noexcept {
+  static uint64_t getHash(CStr cs) noexcept {
     if (!cs) return 0;
     if (!cs[0]) return 1;
     std::hash<std::string_view> h;
     return h(std::string_view{cs});
   }
 
-  static bool fileAccessible(const char*) noexcept;
+  static bool fileAccessible(CStr) noexcept;
 
   static bool fileAccessible(const string& fn) noexcept {
     return fn.empty() ? false : fileAccessible(fn.c_str());
   }
 
-  static bool regularFileExists(const char*) noexcept;
+  static bool regularFileExists(CStr) noexcept;
 
   static bool regularFileExists(const string& fn) noexcept {
     return fn.empty() ? false : regularFileExists(fn.c_str());
@@ -125,13 +126,13 @@ public:
     return regularFileExists(fnm_.c_str()) and fileAccessible(fnm_.c_str());
   }
 
-  static bool split_com(const char* src, vector<string>& dat) noexcept; // comma
-  static bool split_spa(const char* src, vector<string>& dat) noexcept; // space
-  static bool split_pun(const char* src, vector<string>& dat) noexcept; // punctuation + space
+  static bool split_com(CStr src, vector<string>& dat) noexcept; // comma
+  static bool split_spa(CStr src, vector<string>& dat) noexcept; // space
+  static bool split_pun(CStr src, vector<string>& dat) noexcept; // punctuation + space
 
-  static const char* firstSpace(const char* src) noexcept;
-  static const char* firstNonSpace(const char* src) noexcept;
-  static bool isEmptyLine(const char* src) noexcept;
+  static CStr firstSpace(CStr src) noexcept;
+  static CStr firstNonSpace(CStr src) noexcept;
+  static bool isEmptyLine(CStr src) noexcept;
 
 public:
   static constexpr size_t lr_MAX_LINE_LEN = 4194304;  //  4 MiB
@@ -141,13 +142,13 @@ protected:
   uint16_t trace_ = 0;
 };  // Fio
 
-inline bool file_accessible(const char* fn) noexcept { return Fio::fileAccessible(fn); }
+inline bool file_accessible(CStr fn) noexcept { return Fio::fileAccessible(fn); }
 inline bool file_accessible(const string& fn) noexcept { return Fio::fileAccessible(fn); }
 
-inline bool regular_file_exists(const char* fn) noexcept { return Fio::regularFileExists(fn); }
+inline bool regular_file_exists(CStr fn) noexcept { return Fio::regularFileExists(fn); }
 inline bool regular_file_exists(const string& fn) noexcept { return Fio::regularFileExists(fn); }
 
-inline bool file_exists_accessible(const char* fn) noexcept {
+inline bool file_exists_accessible(CStr fn) noexcept {
   return Fio::regularFileExists(fn) && Fio::fileAccessible(fn);
 }
 inline bool file_exists_accessible(const string& fn) noexcept {
@@ -162,7 +163,7 @@ constexpr uint64_t hashCombine(uint64_t a, uint64_t b) noexcept {
 }
 
 // Fowler,Noll,Vo FNV-64 hash function
-inline size_t hf_FNV64(const char* z) noexcept
+inline size_t hf_FNV64(CStr z) noexcept
 {
   if (!z) return 0;
   if (!z[0]) return 1;
@@ -174,7 +175,7 @@ inline size_t hf_FNV64(const char* z) noexcept
   }
   return h;
 }
-inline size_t hf_FNV64(const char* z, size_t len) noexcept
+inline size_t hf_FNV64(CStr z, size_t len) noexcept
 {
   if (!z || !len) return 0;
   if (!z[0]) return 1;
@@ -187,7 +188,7 @@ inline size_t hf_FNV64(const char* z, size_t len) noexcept
   return h;
 }
 
-inline size_t hf_std(const char* z) noexcept
+inline size_t hf_std(CStr z) noexcept
 {
   if (!z) return 0;
   if (!z[0]) return 1;
@@ -211,13 +212,13 @@ public:
 public:
   MMapReader() noexcept = default;
 
-  MMapReader(const char* nm) noexcept : Fio(nm) {}
+  MMapReader(CStr nm) noexcept : Fio(nm) {}
 
   MMapReader(const string& nm) noexcept : Fio(nm) {}
 
   virtual ~MMapReader();
 
-  virtual void reset(const char* nm, uint16_t tr = 0) noexcept override;
+  virtual void reset(CStr nm, uint16_t tr = 0) noexcept override;
 
   bool isMapped() const noexcept { return mm_len_ > 0; }
 
@@ -261,18 +262,18 @@ struct LineReader : public Fio
 
 public:
   LineReader(size_t iniCap = 0) noexcept;
-  LineReader(const char* nm, size_t iniCap = 0) noexcept;
+  LineReader(CStr nm, size_t iniCap = 0) noexcept;
   LineReader(const string& nm, size_t iniCap = 0) noexcept;
 
   virtual ~LineReader() { p_free(buf_); }
 
-  virtual void reset(const char* nm, uint16_t tr = 0) noexcept override;
+  virtual void reset(CStr nm, uint16_t tr = 0) noexcept override;
 
   LineReader(const LineReader&) = delete;
   LineReader& operator=(const LineReader&) = delete;
 
   char* curLine() noexcept { return curLine_; }
-  const char* curLine() const noexcept { return curLine_; }
+  CStr curLine() const noexcept { return curLine_; }
 
   void reserve() noexcept;
 
@@ -295,6 +296,7 @@ public:
 
   bool readBuffer() noexcept;
   bool readStdin() noexcept;
+  bool readPipe() noexcept;
 
   bool read(bool mkLines, bool cutComments = false) noexcept;
 
@@ -317,7 +319,7 @@ public:
 class CSV_Reader : public MMapReader
 {
 public:
-  const char* headLine_ = nullptr;
+  CStr headLine_ = nullptr;
   size_t num_commas_ = 0;
   bool valid_csv_ = false;
 
@@ -330,13 +332,13 @@ public:
 public:
   CSV_Reader() noexcept = default;
 
-  CSV_Reader(const char* nm) noexcept : MMapReader(nm) {}
+  CSV_Reader(CStr nm) noexcept : MMapReader(nm) {}
 
   CSV_Reader(const string& nm) noexcept : MMapReader(nm) {}
 
   virtual ~CSV_Reader();
 
-  virtual void reset(const char* nm, uint16_t tr = 0) noexcept override;
+  virtual void reset(CStr nm, uint16_t tr = 0) noexcept override;
 
   bool parse(bool cutComments = false) noexcept;
 
@@ -344,16 +346,16 @@ public:
 
   bool readCsv(bool cutComments = false) noexcept;
 
-  uint findColumn(const char* colName) const noexcept;
+  uint findColumn(CStr colName) const noexcept;
 
-  vector<string> getColumn(const char* colName) const noexcept;
+  vector<string> getColumn(CStr colName) const noexcept;
 
   vector<string> getColumn(const string& colName) const noexcept {
     if (colName.empty()) return {};
     return getColumn(colName.c_str());
   }
 
-  vector<int> getColumnInt(const char* colName) const noexcept;
+  vector<int> getColumnInt(CStr colName) const noexcept;
 
   vector<int> getColumnInt(const string& colName) const noexcept {
     if (colName.empty()) return {};
@@ -379,7 +381,7 @@ public:
   bool writeCsv(const string& fn, uint minRow, uint maxRow) const noexcept;
   bool printCsv(std::ostream& os, uint minRow, uint maxRow) const noexcept;
 
-  static size_t countCommas(const char* src) noexcept;
+  static size_t countCommas(CStr src) noexcept;
 
 private:
   void alloc_num_matrix() noexcept;
@@ -403,7 +405,7 @@ public:
   using Text = ::tinxml2::XMLText;
 
   // attribute name=value pair
-  using APair = std::pair<const char*, const char*>;
+  using APair = std::pair<CStr, CStr>;
 
   struct Visitor;  // : public  tinxml2::XMLVisitor
 
@@ -411,7 +413,7 @@ public:
   vector<const Element*>  elems_;
   vector<const Text*>     texts_;
 
-  const char* headLine_ = nullptr;
+  CStr headLine_ = nullptr;
   bool valid_xml_ = false;
   bool has_device_list_ = false;
 
@@ -420,12 +422,12 @@ public:
 
 public:
   XML_Reader() noexcept;
-  XML_Reader(const char* nm) noexcept;
+  XML_Reader(CStr nm) noexcept;
   XML_Reader(const string& nm) noexcept;
 
   virtual ~XML_Reader();
 
-  virtual void reset(const char* nm, uint16_t tr = 0) noexcept override;
+  virtual void reset(CStr nm, uint16_t tr = 0) noexcept override;
 
   bool parse() noexcept;
 
@@ -446,7 +448,7 @@ private:
 
 bool addIncludeGuards(LineReader& lr) noexcept;
 
-inline bool has_digit(const char* z) noexcept {
+inline bool has_digit(CStr z) noexcept {
   if (!z || !z[0]) return false;
 
   for (; *z; z++) {
@@ -456,7 +458,7 @@ inline bool has_digit(const char* z) noexcept {
   return false;
 }
 
-inline size_t count_digits(const char* z) noexcept {
+inline size_t count_digits(CStr z) noexcept {
   if (!z || !z[0]) return 0;
 
   size_t cnt = 0;
@@ -468,7 +470,7 @@ inline size_t count_digits(const char* z) noexcept {
   return cnt;
 }
 
-inline bool is_integer(const char* z) noexcept {
+inline bool is_integer(CStr z) noexcept {
   if (!z || !z[0]) return false;
   if (*z == '-' || *z == '+') z++;
   if (not *z) return false;
@@ -480,7 +482,7 @@ inline bool is_integer(const char* z) noexcept {
   return true;
 }
 
-inline bool is_uint(const char* z) noexcept {
+inline bool is_uint(CStr z) noexcept {
   if (!z || !z[0]) return false;
   if (*z == '+') z++;
   if (not *z) return false;

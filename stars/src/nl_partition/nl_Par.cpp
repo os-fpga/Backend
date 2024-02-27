@@ -1,4 +1,5 @@
 #include "nl_Par.h"
+#include "pinc_Fio.h"
 #include "globals.h"
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -10,6 +11,8 @@
 namespace nlp {
 
 using namespace pinc;
+using namespace fio;
+
 using std::string;
 using std::vector;
 using std::cout;
@@ -143,6 +146,17 @@ static string get_MtKaHyPar_path() {
 
   string result{selfPath.begin(), selfPath.begin() + i + 1};
   result += "MtKaHyPar";
+
+  if (ltrace() >= 2)
+    lprintf("KHP_EXE: result= %s\n", result.c_str());
+
+  bool ok = Fio::regularFileExists(result);
+  if (not ok) {
+    lprintf("\n[Error] KHP_EXE=  %s  does not exist\n", result.c_str());
+    cerr << "\n[Error] no such file: " << result << endl;
+    result.clear();
+  }
+
   return result;
 }
 
@@ -247,6 +261,12 @@ bool Par::Bi_Partion(uint partition_index) {
 
   string MtKaHyPar_path = get_MtKaHyPar_path();
   VTR_LOG("MtKaHPar PATH: %s\n", MtKaHyPar_path.c_str());
+  if (MtKaHyPar_path.empty()) {
+    VTR_LOG("Bi-Partition with MtKaHPar FAILED: MtKaHyPar executable not found\n");
+    cerr << "[Error] Bi-Partition with MtKaHPar FAILED:  MtKaHyPar executable not found" << endl;
+    partitions_.clear();
+    return false;
+  }
 
   sprintf(
       commandToExecute,
@@ -255,7 +275,6 @@ bool Par::Bi_Partion(uint partition_index) {
   VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
 
   int code = system(commandToExecute);
-  //VTR_ASSERT_MSG(code == 0, "Running MtKaHyPar failed with non-zero code");
   if (code == 0) {
     VTR_LOG("MtKaHPar succeeded.\n");
   } else {
