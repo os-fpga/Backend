@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0122";
+static const char* _rsbe_VERSION_STR = "rsbe0123";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"

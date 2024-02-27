@@ -1,6 +1,6 @@
 #pragma once
-#ifndef __rsbe_staRS_Env_H_h_
-#define __rsbe_staRS_Env_H_h_
+#ifndef __rsbe_Env_H__a6315016bc0af3__
+#define __rsbe_Env_H__a6315016bc0af3__
 
 #include "rsOpts.h"
 
@@ -34,19 +34,19 @@ struct rsEnv {
   void parse(int argc, char** argv) noexcept;
 
   void init() noexcept;
-  void initVersions(const char* vs) noexcept;
+  void initVersions(CStr vs) noexcept;
   void listDevEnv() const noexcept;
 
   void reset() noexcept;
-  void dump(const char* prefix) const noexcept;
-  void print(std::ostream& os, const char* prefix) const noexcept;
-  void printPids(const char* prefix) const noexcept;
+  void dump(CStr prefix) const noexcept;
+  void print(std::ostream& os, CStr prefix) const noexcept;
+  void printPids(CStr prefix) const noexcept;
 
   double megaRss0() const noexcept { return kilo2mega(rss0_); }
 
-  const char* shortVerCS() const noexcept { return shortVer_.c_str(); }
-  const char* longVerCS() const noexcept { return longVer_.c_str(); }
-  const char* compTimeCS() const noexcept { return compTimeStr_.c_str(); }
+  CStr shortVerCS() const noexcept { return shortVer_.c_str(); }
+  CStr longVerCS() const noexcept { return longVer_.c_str(); }
+  CStr compTimeCS() const noexcept { return compTimeStr_.c_str(); }
 
   static double kilo2mega(int64_t k) noexcept {  // kilobytes to megabytes, with rounding
     if (k <= 0) return 0;

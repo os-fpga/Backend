@@ -1,6 +1,6 @@
 #pragma once
-#ifndef __rsbe_staRSTA_Opts_H___
-#define __rsbe_staRSTA_Opts_H___
+#ifndef __rsbe_Opts_H__e91c943c16c2d_
+#define __rsbe_Opts_H__e91c943c16c2d_
 
 #include "pinc_log.h"
 
@@ -8,17 +8,20 @@ namespace rsbe {
 
 using std::string;
 using std::vector;
+using CStr = const char*;
 
 struct rsOpts {
-  using CStr = const char*;
 
   CStr shortVer_ = nullptr;
 
   int argc_ = 0;
   const char** argv_ = nullptr;
 
-  CStr function_ = nullptr; // {pinc, stars, partition, pack}
+  CStr function_ = nullptr; // {cmd, pinc, stars, partition, pack, route}
   bool have_function() const noexcept { return function_; }
+  bool is_fun_cmd() const noexcept {
+    return function_ && !strcmp(function_, "cmd");
+  }
   bool is_fun_pinc() const noexcept {
     return function_ && !strcmp(function_, "pinc");
   }
@@ -30,6 +33,9 @@ struct rsOpts {
   }
   bool is_fun_pack() const noexcept {
     return function_ && !strcmp(function_, "pack");
+  }
+  bool is_fun_route() const noexcept {
+    return function_ && !strcmp(function_, "route");
   }
   static bool isFunctionArg(CStr arg) noexcept;
 
@@ -84,7 +90,6 @@ struct rsOpts {
   bool test_id_specified() const noexcept { return test_id_ > 0; }
 
   bool set_VPR_TC1() noexcept;  // and2_gemini
-
   bool set_STA_testCase(int TC_id) noexcept;
 
   bool createVprArgv(vector<string>& W) noexcept;

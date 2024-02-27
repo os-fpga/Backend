@@ -15,7 +15,7 @@ namespace alias {
 
 static CStr _ver_[] = {"V", "v", "ver", "vers", "version", nullptr};
 
-static CStr _det_ver_[] = {"VV", "vv", "VVV", "vvv", "det_ver", nullptr};
+static CStr _det_ver_[] = {"VV", "vv", "VVV", "vvv", "det_ver", "detailed_version", nullptr};
 
 static CStr _help_[] = {"H", "h", "help", "hel", "hlp", "he", nullptr};
 
@@ -37,8 +37,7 @@ static CStr _output_[] = {"O", "o", "ou", "OU", "out", "outp", "output", nullptr
 
 static CStr _trace_[] = {"TR", "trace", "tr", "tra", nullptr};
 
-static CStr _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst",
-                               "test_case", "test_c", nullptr};
+static CStr _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst", "test_case", "test_c", nullptr};
 
 #ifdef RSBE_UNIT_TEST_ON
 #endif  // RSBE_UNIT_TEST_ON
@@ -84,8 +83,7 @@ static bool op_match(CStr op, CStr* aliases) noexcept {
 }
 
 bool rsOpts::isFunctionArg(CStr arg) noexcept {
-  if (!arg or !arg[0])
-    return false;
+  if (!arg or !arg[0]) return false;
   return op_match(arg, alias::_fun_);
 }
 
@@ -150,7 +148,7 @@ void rsOpts::printHelp() const noexcept {
 #endif  // RSBE_UNIT_TEST_ON
 }
 
-static char* make_file_name(CStr arg) noexcept {
+static char* make_file_name(const char* arg) noexcept {
   if (!arg) return nullptr;
 
   char* fn = nullptr;
@@ -168,35 +166,44 @@ static char* make_file_name(CStr arg) noexcept {
 
 void rsOpts::setFunction(CStr fun) noexcept {
   function_ = nullptr;
-  if (!fun)
-    return;
-  static CStr s_funList[] = {
-    "pinc",      // 0
-    "stars",     // 1
-    "partition", // 2
-    "pack", nullptr
-  };
+  if (!fun) return;
+  static CStr s_funList[] = {"cmd",        // 0
+                             "pinc",       // 1
+                             "stars",      // 2
+                             "partition",  // 3
+                             "pack",       // 4
+                             "route",      // 5
+                             nullptr};
   string f = str::s2lower(fun);
-  if (f.empty())
-    return;
-  if (f == "pin" or f == "pinc" or f == "pin_c") {
+  if (f.empty()) return;
+  if (f == "cmd") {
     function_ = s_funList[0];
+    assert(is_fun_cmd());
+    return;
+  }
+  if (f == "pin" or f == "pinc" or f == "pin_c") {
+    function_ = s_funList[1];
     assert(is_fun_pinc());
     return;
   }
   if (f == "sta" or f == "star" or f == "stars") {
-    function_ = s_funList[1];
+    function_ = s_funList[2];
     assert(is_fun_stars());
     return;
   }
   if (f == "par" or f == "part" or f == "partition") {
-    function_ = s_funList[2];
+    function_ = s_funList[3];
     assert(is_fun_partition());
     return;
   }
   if (f == "pac" or f == "pack" or f == "packing") {
-    function_ = s_funList[3];
+    function_ = s_funList[4];
     assert(is_fun_pack());
+    return;
+  }
+  if (f == "rt" or f == "route" or f == "routing") {
+    function_ = s_funList[5];
+    assert(is_fun_route());
     return;
   }
 }
@@ -210,8 +217,7 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
 
   assert(argc_ > 0 and argv_);
 
-  CStr inp = 0, out = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0,
-       fun = 0;
+  CStr inp = 0, out = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0, fun = 0;
 
   for (int i = 1; i < argc_; i++) {
     CStr arg = argv_[i];
@@ -338,7 +344,10 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   blifFile_ = p_strdup(blif);
   jsonFile_ = p_strdup(jsnf);
 
-  setFunction(fun);
+  if (fun)
+    setFunction(fun);
+  else if (isCmdInput())
+    setFunction("cmd");
 
   if (trace_ < 0) trace_ = 0;
   if (test_id_ < 0) test_id_ = 0;
@@ -357,9 +366,7 @@ bool rsOpts::set_VPR_TC1() noexcept {
   return ok;
 }
 
-bool rsOpts::set_STA_testCase(int TC_id) noexcept {
-  return false;
-}
+bool rsOpts::set_STA_testCase(int TC_id) noexcept { return false; }
 
 bool rsOpts::set_VPR_TC_args(CStr raw_tc) noexcept {
   assert(raw_tc);
@@ -373,11 +380,9 @@ bool rsOpts::set_VPR_TC_args(CStr raw_tc) noexcept {
 }
 
 static inline bool starts_with_HOME(const char* z) noexcept {
-  if (!z or !z[0])
-    return false;
-  constexpr size_t LEN = 6; // len("$HOME/")
-  if (::strlen(z) < LEN)
-    return false;
+  if (!z or !z[0]) return false;
+  constexpr size_t LEN = 6;  // len("$HOME/")
+  if (::strlen(z) < LEN) return false;
   return z[0] == '$' && z[1] == 'H' && z[2] == 'O' && z[3] == 'M' && z[4] == 'E' && z[5] == '/';
 }
 
@@ -388,7 +393,7 @@ bool rsOpts::createVprArgv(vector<string>& W) noexcept {
 
   // -- expand $HOME:
   const char* home = ::getenv("HOME");
-  constexpr size_t H_LEN = 5; // len("$HOME")
+  constexpr size_t H_LEN = 5;  // len("$HOME")
   if (home) {
     size_t home_len = ::strlen(home);
     if (home_len && home_len < UNIX_Path_Max) {
@@ -427,22 +432,16 @@ bool rsOpts::createVprArgv(vector<string>& W) noexcept {
 static inline bool ends_with_dot_cmd(const char* z, size_t len) noexcept {
   assert(z);
   if (len < 5) return false;
-  return z[len - 1] == 'd' and z[len - 2] == 'm' and z[len - 3] == 'c' and
-         z[len - 4] == '.';
+  return z[len - 1] == 'd' and z[len - 2] == 'm' and z[len - 3] == 'c' and z[len - 4] == '.';
   // .cmd
   // dmc.
 }
 
 bool rsOpts::isCmdInput() const noexcept {
-
-  if (!input_ || !input_[0])
-    return false;
+  if (!input_ || !input_[0]) return false;
   size_t len = ::strlen(input_);
-  if (len < 5 || len > UNIX_Path_Max)
-    return false;
-
-  if (!ends_with_dot_cmd(input_, len))
-    return false;
+  if (len < 5 || len > UNIX_Path_Max) return false;
+  if (!ends_with_dot_cmd(input_, len)) return false;
 
   return input_file_exists(input_);
 }
