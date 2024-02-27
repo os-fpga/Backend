@@ -1,5 +1,6 @@
 #include "rsEnv.h"
 #include "pinc_log.h"
+#include "rsGlobal.h"
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -13,9 +14,10 @@ namespace rsbe {
 
 using std::cout;
 using std::endl;
+using namespace pinc;
 
 rsEnv::rsEnv() noexcept {
-  const char* ts = getenv("rsbe_trace_marker");
+  CStr ts = getenv("rsbe_trace_marker");
   if (ts) traceMarker_ = ts;
 
   init();
@@ -42,7 +44,7 @@ void rsEnv::init() noexcept {
   readLink(exe_link, parentPath_);
 }
 
-void rsEnv::initVersions(const char* vs) noexcept {
+void rsEnv::initVersions(CStr vs) noexcept {
   assert(vs);
   shortVer_ = vs ? vs : "(NULL)";
 
@@ -130,7 +132,7 @@ void rsEnv::parse(int argc, char** argv) noexcept {
   }
 }
 
-void rsEnv::dump(const char* prefix) const noexcept {
+void rsEnv::dump(CStr prefix) const noexcept {
   if (prefix) cout << prefix;
 
   cout.flush();
@@ -160,7 +162,7 @@ void rsEnv::dump(const char* prefix) const noexcept {
   cout << endl;
 }
 
-void rsEnv::print(std::ostream& os, const char* prefix) const noexcept {
+void rsEnv::print(std::ostream& os, CStr prefix) const noexcept {
   if (prefix) os << prefix;
 
   os << "#      longVer_  " << longVer_ << endl;
@@ -184,13 +186,12 @@ void rsEnv::print(std::ostream& os, const char* prefix) const noexcept {
 
   os << "# COMMAND LINE:\n" << endl;
   os << ' ' << abs_arg0_;
-  for (size_t i = 1; i < sz; i++)
-    os << ' ' << orig_argV_[i];
+  for (size_t i = 1; i < sz; i++) os << ' ' << orig_argV_[i];
 
   os << '\n' << endl;
 }
 
-void rsEnv::printPids(const char* prefix) const noexcept {
+void rsEnv::printPids(CStr prefix) const noexcept {
   if (!prefix) prefix = " ";
   printf("%s pid_: %i  ppid_: %i\n", prefix, pid_, ppid_);
 }
@@ -199,7 +200,7 @@ bool rsEnv::readLink(const std::string& path, std::string& out) noexcept {
   out.clear();
   if (path.empty()) return false;
 
-  const char* cs = path.c_str();
+  CStr cs = path.c_str();
 
   struct stat sb;
   memset(&sb, 0, sizeof(sb));
@@ -234,20 +235,77 @@ bool rsEnv::readLink(const std::string& path, std::string& out) noexcept {
 
 bool rsEnv::getPidExePath(int pid, std::string& out) noexcept { return true; }
 
-void rsEnv::listDevEnv() const noexcept {
-  printf("\n\t   RSBE ver.  %s\n", shortVer_.c_str());
-  printf("\t compiled:  %s\n\n", compTimeCS());
+#define LIST_DEC(ITzz)  { cout << std::setw(32) << #ITzz << " : " << (ITzz) << endl; }
 
-#ifdef NDEBUG
-  printf("\t  NDEBUG :  (defined)  => assert() is disabled\n");
+#define LIST_HEX(ITzz) { std::ios_base::fmtflags origF = cout.flags(); \
+    cout.setf(std::ios::showbase); cout << std::setw(32) << #ITzz << " : " << std::hex << (ITzz) << endl; \
+    cout.setf(origF); }
+
+void rsEnv::listDevEnv() const noexcept {
+  lprintf("\n\t   RSBE ver.  %s\n", shortVer_.c_str());
+  lprintf("\t compiled:  %s\n", compTimeCS());
+
+  size_t cxxstd = __cplusplus;
+  lprintf("\n(compiler) -- c++std= %zu\n", cxxstd);
+#ifdef __GNUC__
+  lprintf("\t  __GNUC__ \t\t %i\n", __GNUC__);
+#endif
+#ifdef __GNUC_MINOR__
+  lprintf("\t  __GNUC_MINOR__ \t %i\n", __GNUC_MINOR__);
+#endif
+#ifdef __VERSION__
+  lprintf("\t  __VERSION__ \t\t %s\n", __VERSION__);
+#endif
+#ifdef __OPTIMIZE__
+  lprintf("\t  __OPTIMIZE__ \t\t %i\n", __OPTIMIZE__);
 #else
-  printf("\t  NDEBUG :  NOT DEFINED  => assert() is enabled\n");
+  lprintf("\t  __OPTIMIZE__  :\t NOT DEFINED  => deb binary\n");
+#endif
+#ifdef __NO_INLINE__
+  lprintf("\t  __NO_INLINE__ :\t (defined)\n");
+#endif
+#ifdef NDEBUG
+  lprintf("\t  NDEBUG :  (defined)  => assert() is disabled\n");
+#else
+  lprintf("\t  NDEBUG :  NOT DEFINED  => assert() is enabled\n");
 #endif
 
-#ifdef RSBE_UNIT_TEST_ON
-  printf("\t  RSBE_UNIT_TEST :   ON  => unit tests are enabled\n");
+  lprintf("\n(modes)\n");
+#ifdef NO_GRAPHICS
+  lprintf("\t  NO_GRAPHICS :  \t (defined)\n");
+#endif
+#ifdef RS_PC_MODE
+  lprintf("\t  RS_PC_MODE :\t (defined)\n");
+#endif
+#ifdef PINC_DEVEL_MODE
+  lprintf("\t  PINC_DEVEL_MODE :\t (defined)\n");
+#endif
+#ifdef NN_FAST_BUILD
+  lprintf("\t  NN_FAST_BUILD :\t (defined)\n");
+#endif
+
+  lputs();
+
+#ifdef _RSBE_VEC_BOUNDS_CHECK
+  lprintf("\t  _RSBE_VEC_BOUNDS_CHECK :   ON  => stl_vector BC enabled\n");
 #else
-  printf("\t  RSBE_UNIT_TEST :   OFF => unit tests are disabled\n");
+  lprintf("\t  _RSBE_VEC_BOUNDS_CHECK :   OFF => std_vector BC disabled\n");
+#endif
+
+#ifdef RSBE_JEMALLOC
+    LIST_DEC(RSBE_JEMALLOC);
+#endif
+
+#ifdef RSBE_DEAL_PINC
+  lprintf("\t  RSBE_DEAL_PINC :   ON  => pin_c mode\n");
+#else
+  lprintf("\t  RSBE_DEAL_PINC :   OFF\n");
+#endif
+
+#ifdef RSBE_DEAL_VPR
+  lprintf("\t  RSBE_DEAL_VPR :   ON  => vpr mode\n");
+#else
+  lprintf("\t  RSBE_DEAL_VPR :   OFF\n");
 #endif
 
   pinc::flush_out(true);

@@ -10,6 +10,12 @@
 // VPR header: vpr/src/base/vpr_types.h
 #include "vpr_types.h"
 
+//#define RSBE_DEAL_PINC 1
+#undef RSBE_DEAL_PINC
+#define RSBE_DEAL_VPR  1
+// else: stars
+
+
 namespace rsbe {
 
 t_vpr_setup* get_vprSetup() noexcept;
