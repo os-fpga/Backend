@@ -1,0 +1,508 @@
+#include "cluster_util.h"
+#include "cluster_router.h"
+#include "cluster_placement.h"
+
+#include "vtr_math.h"
+#include "SetupGrid.h"
+
+#include "globals.h"
+#include "atom_netlist.h"
+#include "pack_types.h"
+#include "pb_type_graph.h"
+
+#include "read_xml_arch_file.h"
+#include "vpr_utils.h"
+#include "pack.h"
+
+#include "pugixml.hpp"
+
+namespace nlp {
+
+static const char* clust_xml_net_text(AtomNetId net_id) {
+
+    // This routine prints out the atom_ctx.nlist net name (or open).
+    // net_num is the index of the atom_ctx.nlist net to be printed
+    //
+
+    if (!net_id) {
+        return "open";
+    } else {
+        auto& atom_ctx = g_vpr_ctx.atom();
+        return atom_ctx.nlist.net_name(net_id).c_str();
+    }
+}
+
+static std::string clust_xml_intercon_text( t_logical_block_type_ptr type,
+                      const IntraLbPbPinLookup& pb_graph_pin_lookup_from_index_by_type,
+                      int inode, const t_pb_routes& pb_route )
+{
+    if (!pb_route.count(inode) || !pb_route[inode].atom_net_id) {
+        return "open";
+    }
+
+    int prev_node = pb_route[inode].driver_pb_pin_id;
+    int prev_edge;
+    if (prev_node == OPEN) {
+        /* No previous driver implies that this is either a top-level input pin or a primitive output pin */
+        const t_pb_graph_pin* cur_pin = pb_graph_pin_lookup_from_index_by_type.pb_gpin(type->index, inode);
+        VTR_ASSERT(cur_pin->parent_node->pb_type->parent_mode == nullptr || (cur_pin->is_primitive_pin() && cur_pin->port->type == OUT_PORT));
+        return clust_xml_net_text(pb_route[inode].atom_net_id);
+    } else {
+        const t_pb_graph_pin* cur_pin = pb_graph_pin_lookup_from_index_by_type.pb_gpin(type->index, inode);
+        const t_pb_graph_pin* prev_pin = pb_graph_pin_lookup_from_index_by_type.pb_gpin(type->index, prev_node);
+
+        for (prev_edge = 0; prev_edge < prev_pin->num_output_edges; prev_edge++) {
+            VTR_ASSERT(prev_pin->output_edges[prev_edge]->num_output_pins == 1);
+            if (prev_pin->output_edges[prev_edge]->output_pins[0]->pin_count_in_cluster == inode) {
+                break;
+            }
+        }
+        VTR_ASSERT(prev_edge < prev_pin->num_output_edges);
+
+        char* name = prev_pin->output_edges[prev_edge]->interconnect->name;
+        if (prev_pin->port->parent_pb_type->depth
+            >= cur_pin->port->parent_pb_type->depth) {
+            /* Connections from siblings or children should have an explicit index, connections from parent does not need an explicit index */
+            return vtr::string_fmt("%s[%d].%s[%d]->%s",
+                                   prev_pin->parent_node->pb_type->name,
+                                   prev_pin->parent_node->placement_index,
+                                   prev_pin->port->name,
+                                   prev_pin->pin_number, name);
+        } else {
+            return vtr::string_fmt("%s.%s[%d]->%s",
+                                   prev_pin->parent_node->pb_type->name,
+                                   prev_pin->port->name,
+                                   prev_pin->pin_number, name);
+        }
+    }
+}
+
+static bool check_clust_xml_open_block(pugi::xml_node parent_node, t_logical_block_type_ptr type,
+                                     const IntraLbPbPinLookup& pb_graph_pin_lookup_from_index_by_type,
+                                     t_pb_graph_node* pb_graph_node, int pb_index,
+                                     bool is_used, const t_pb_routes& pb_route)
+{
+    int i, j, k, m;
+    const t_pb_type *pb_type, *child_pb_type;
+    t_mode* mode = nullptr;
+    int prev_node;
+    int mode_of_edge, port_index, node_index;
+
+    mode_of_edge = UNDEFINED;
+
+    pb_type = pb_graph_node->pb_type;
+
+    pugi::xml_node block_node = parent_node.append_child("block");
+    block_node.append_attribute("name") = "open";
+    block_node.append_attribute("instance") = vtr::string_fmt("%s[%d]", pb_graph_node->pb_type->name, pb_index).c_str();
+    std::vector<std::string> block_modes;
+
+    if (is_used) {
+        /* Determine mode if applicable */
+        port_index = 0;
+        for (i = 0; i < pb_type->num_ports; i++) {
+
+            if (pb_type->ports[i].type == OUT_PORT) {
+                VTR_ASSERT(!pb_type->ports[i].is_clock);
+
+                for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                    const t_pb_graph_pin* pin = &pb_graph_node->output_pins[port_index][j];
+
+                    node_index = pin->pin_count_in_cluster;
+                    if (pb_type->num_modes > 0 && pb_route.count(node_index) && pb_route[node_index].atom_net_id) {
+                        prev_node = pb_route[node_index].driver_pb_pin_id;
+                        const t_pb_graph_pin* prev_pin = pb_graph_pin_lookup_from_index_by_type.pb_gpin(type->index, prev_node);
+                        const t_pb_graph_edge* edge = get_edge_between_pins(prev_pin, pin);
+
+                        VTR_ASSERT(edge != nullptr);
+                        mode_of_edge = edge->interconnect->parent_mode_index;
+
+                        if (mode != nullptr && &pb_type->modes[mode_of_edge] != mode) {
+
+                          // we return false because we do see a mode conflict in the final solution.
+                          // Ideally we would need to fix the root cause of this mode conflict. 
+                          // Will do it when more time (Rapid Silicon, T.Besson).
+                          //
+
+                          // Handle the error message at the caller level
+#if 0
+                          VTR_LOG("Info: modes conflict : pb mode = %s, edge mode = %s!\n", mode->name, 
+                                   pb_type->modes[mode_of_edge].name);
+#endif
+                          return false;
+                        }
+                        VTR_ASSERT(mode == nullptr || &pb_type->modes[mode_of_edge] == mode);
+                        mode = &pb_type->modes[mode_of_edge];
+
+                    } else {
+                    }
+                }
+                port_index++;
+            }
+        }
+
+        VTR_ASSERT(mode != nullptr && mode_of_edge != UNDEFINED);
+
+        block_node.append_attribute("mode") = mode->name;
+        block_node.append_attribute("pb_type_num_modes") = pb_type->num_modes;
+
+        pugi::xml_node inputs_node = block_node.append_child("inputs");
+
+        port_index = 0;
+        for (i = 0; i < pb_type->num_ports; i++) {
+            if (!pb_type->ports[i].is_clock && pb_type->ports[i].type == IN_PORT) {
+                pugi::xml_node port_node = inputs_node.append_child("port");
+                port_node.append_attribute("name") = pb_graph_node->pb_type->ports[i].name;
+
+                std::vector<std::string> pins;
+                for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                    node_index = pb_graph_node->input_pins[port_index][j].pin_count_in_cluster;
+
+                    if (pb_type->parent_mode == nullptr) {
+                        pins.push_back(clust_xml_net_text(pb_route[node_index].atom_net_id));
+                    } else {
+                        pins.push_back(clust_xml_intercon_text(type, pb_graph_pin_lookup_from_index_by_type, node_index, pb_route));
+                    }
+                }
+                port_node.text().set(vtr::join(pins.begin(), pins.end(), " ").c_str());
+                port_index++;
+            }
+        }
+
+        pugi::xml_node outputs_node = block_node.append_child("outputs");
+
+        port_index = 0;
+        for (i = 0; i < pb_type->num_ports; i++) {
+            if (pb_type->ports[i].type == OUT_PORT) {
+                VTR_ASSERT(!pb_type->ports[i].is_clock);
+
+                pugi::xml_node port_node = outputs_node.append_child("port");
+                port_node.append_attribute("name") = pb_graph_node->pb_type->ports[i].name;
+                std::vector<std::string> pins;
+                for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                    node_index = pb_graph_node->output_pins[port_index][j].pin_count_in_cluster;
+                    pins.push_back(clust_xml_intercon_text(type, pb_graph_pin_lookup_from_index_by_type, node_index, pb_route));
+                }
+                port_node.text().set(vtr::join(pins.begin(), pins.end(), " ").c_str());
+                port_index++;
+            }
+        }
+
+        pugi::xml_node clock_node = block_node.append_child("clocks");
+
+        port_index = 0;
+        for (i = 0; i < pb_type->num_ports; i++) {
+            if (pb_type->ports[i].is_clock && pb_type->ports[i].type == IN_PORT) {
+                pugi::xml_node port_node = clock_node.append_child("port");
+                port_node.append_attribute("name") = pb_graph_node->pb_type->ports[i].name;
+
+                std::vector<std::string> pins;
+                for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                    node_index = pb_graph_node->clock_pins[port_index][j].pin_count_in_cluster;
+                    if (pb_type->parent_mode == nullptr) {
+                        pins.push_back(clust_xml_net_text(pb_route[node_index].atom_net_id));
+                    } else {
+                        pins.push_back(clust_xml_intercon_text(type, pb_graph_pin_lookup_from_index_by_type, node_index, pb_route));
+                    }
+                }
+                port_node.text().set(vtr::join(pins.begin(), pins.end(), " ").c_str());
+                port_index++;
+            }
+        }
+
+        if (pb_type->num_modes > 0) {
+            for (i = 0; i < mode->num_pb_type_children; i++) {
+                child_pb_type = &mode->pb_type_children[i];
+                for (j = 0; j < mode->pb_type_children[i].num_pb; j++) {
+                    port_index = 0;
+                    is_used = false;
+                    for (k = 0; k < child_pb_type->num_ports && !is_used; k++) {
+                        if (child_pb_type->ports[k].type == OUT_PORT) {
+                            for (m = 0; m < child_pb_type->ports[k].num_pins; m++) {
+                                node_index = pb_graph_node->child_pb_graph_nodes[mode_of_edge][i][j].output_pins[port_index][m].pin_count_in_cluster;
+                                if (pb_route.count(node_index) && pb_route[node_index].atom_net_id) {
+                                    is_used = true;
+                                    break;
+                                }
+                            }
+                            port_index++;
+                        }
+                    }
+                    bool legal = check_clust_xml_open_block(block_node, type, pb_graph_pin_lookup_from_index_by_type,
+                                              &pb_graph_node->child_pb_graph_nodes[mode_of_edge][i][j],
+                                              j, is_used, pb_route);
+                    if (!legal) {
+                      return false;
+                    }
+                }
+            }
+        }
+    }
+
+    return true; // everything is fine
+}
+
+// outputs a block that is used (i.e. has configuration) and all of its child blocks
+static bool check_clust_xml_block( pugi::xml_node parent_node,
+                                   t_logical_block_type_ptr type,
+                                   const IntraLbPbPinLookup& pb_graph_pin_lookup_from_index_by_type,
+                                   t_pb* pb, int pb_index, const t_pb_routes& pb_route )
+{
+    int i, j, k, m;
+    const t_pb_type *pb_type, *child_pb_type;
+    t_pb_graph_node* pb_graph_node;
+    t_mode* mode;
+    int port_index, node_index;
+    bool is_used;
+
+    pb_type = pb->pb_graph_node->pb_type;
+    pb_graph_node = pb->pb_graph_node;
+    mode = &pb_type->modes[pb->mode];
+
+    pugi::xml_node block_node = parent_node.append_child("block");
+    block_node.append_attribute("name") = pb->name;
+    block_node.append_attribute("instance") = vtr::string_fmt("%s[%d]", pb_type->name, pb_index).c_str();
+
+    if (pb_type->num_modes > 0) {
+        block_node.append_attribute("mode") = mode->name;
+    } else {
+        const auto& atom_ctx = g_vpr_ctx.atom();
+        AtomBlockId atom_blk = atom_ctx.nlist.find_block(pb->name);
+        VTR_ASSERT(atom_blk);
+
+        pugi::xml_node attrs_node = block_node.append_child("attributes");
+        for (const auto& attr : atom_ctx.nlist.block_attrs(atom_blk)) {
+            pugi::xml_node attr_node = attrs_node.append_child("attribute");
+            attr_node.append_attribute("name") = attr.first.c_str();
+            attr_node.text().set(attr.second.c_str());
+        }
+
+        pugi::xml_node params_node = block_node.append_child("parameters");
+        for (const auto& param : atom_ctx.nlist.block_params(atom_blk)) {
+            pugi::xml_node param_node = params_node.append_child("parameter");
+            param_node.append_attribute("name") = param.first.c_str();
+            param_node.text().set(param.second.c_str());
+        }
+    }
+
+    pugi::xml_node inputs_node = block_node.append_child("inputs");
+
+    port_index = 0;
+    for (i = 0; i < pb_type->num_ports; i++) {
+        if (!pb_type->ports[i].is_clock && pb_type->ports[i].type == IN_PORT) {
+            pugi::xml_node port_node = inputs_node.append_child("port");
+            port_node.append_attribute("name") = pb_graph_node->pb_type->ports[i].name;
+
+            std::vector<std::string> pins;
+            for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                node_index = pb->pb_graph_node->input_pins[port_index][j].pin_count_in_cluster;
+
+                if (pb_type->parent_mode == nullptr) {
+                    if (pb_route.count(node_index)) {
+                        pins.push_back(clust_xml_net_text(pb_route[node_index].atom_net_id));
+                    } else {
+                        pins.push_back(clust_xml_net_text(AtomNetId::INVALID()));
+                    }
+                } else {
+                    pins.push_back(clust_xml_intercon_text(type, pb_graph_pin_lookup_from_index_by_type, node_index, pb_route));
+                }
+            }
+            port_node.text().set(vtr::join(pins.begin(), pins.end(), " ").c_str());
+
+            //The cluster router may have rotated equivalent pins (e.g. LUT inputs),
+            //record the resulting rotation here so it can be unambigously mapped
+            //back to the atom netlist
+            if (pb_type->ports[i].equivalent != PortEquivalence::NONE && pb_type->parent_mode != nullptr && pb_type->num_modes == 0) {
+                //This is a primitive with equivalent inputs
+
+                auto& atom_ctx = g_vpr_ctx.atom();
+                AtomBlockId atom_blk = atom_ctx.nlist.find_block(pb->name);
+                VTR_ASSERT(atom_blk);
+
+                AtomPortId atom_port = atom_ctx.nlist.find_atom_port(atom_blk, pb_type->ports[i].model_port);
+
+                if (atom_port) { //Port exists (some LUTs may have no input and hence no port in the atom netlist)
+
+                    pugi::xml_node port_rotation_node = inputs_node.append_child("port_rotation_map");
+                    port_rotation_node.append_attribute("name") = pb_graph_node->pb_type->ports[i].name;
+
+                    std::set<AtomPinId> recorded_pins;
+                    std::vector<std::string> pin_map_list;
+
+                    for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                        node_index = pb->pb_graph_node->input_pins[port_index][j].pin_count_in_cluster;
+
+                        if (pb_route.count(node_index)) {
+                            AtomNetId atom_net = pb_route[node_index].atom_net_id;
+
+                            VTR_ASSERT(atom_net);
+
+                            //This physical pin is in use, find the original pin in the atom netlist
+                            AtomPinId orig_pin;
+                            for (AtomPinId atom_pin : atom_ctx.nlist.port_pins(atom_port)) {
+                                if (recorded_pins.count(atom_pin)) continue; //Don't add pins twice
+
+                                AtomNetId atom_pin_net = atom_ctx.nlist.pin_net(atom_pin);
+
+                                if (atom_pin_net == atom_net) {
+                                    recorded_pins.insert(atom_pin);
+                                    orig_pin = atom_pin;
+                                    break;
+                                }
+                            }
+
+                            VTR_ASSERT(orig_pin);
+                            //The physical pin j, maps to a pin in the atom netlist
+                            pin_map_list.push_back(vtr::string_fmt("%d", atom_ctx.nlist.pin_port_bit(orig_pin)));
+                        } else {
+                            //The physical pin is disconnected
+                            pin_map_list.push_back("open");
+                        }
+                    }
+                    port_rotation_node.text().set(vtr::join(pin_map_list.begin(), pin_map_list.end(), " ").c_str());
+                }
+            }
+
+            port_index++;
+        }
+    }
+
+    pugi::xml_node outputs_node = block_node.append_child("outputs");
+
+    port_index = 0;
+    for (i = 0; i < pb_type->num_ports; i++) {
+        if (pb_type->ports[i].type == OUT_PORT) {
+            VTR_ASSERT(!pb_type->ports[i].is_clock);
+
+            pugi::xml_node port_node = outputs_node.append_child("port");
+            port_node.append_attribute("name") = pb_graph_node->pb_type->ports[i].name;
+            std::vector<std::string> pins;
+            for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                node_index = pb->pb_graph_node->output_pins[port_index][j].pin_count_in_cluster;
+                pins.push_back(clust_xml_intercon_text(type, pb_graph_pin_lookup_from_index_by_type, node_index, pb_route));
+            }
+            port_node.text().set(vtr::join(pins.begin(), pins.end(), " ").c_str());
+            port_index++;
+        }
+    }
+
+    pugi::xml_node clock_node = block_node.append_child("clocks");
+
+    port_index = 0;
+    for (i = 0; i < pb_type->num_ports; i++) {
+        if (pb_type->ports[i].is_clock && pb_type->ports[i].type == IN_PORT) {
+            pugi::xml_node port_node = clock_node.append_child("port");
+            port_node.append_attribute("name") = pb_graph_node->pb_type->ports[i].name;
+
+            std::vector<std::string> pins;
+            for (j = 0; j < pb_type->ports[i].num_pins; j++) {
+                node_index = pb->pb_graph_node->clock_pins[port_index][j].pin_count_in_cluster;
+                if (pb_type->parent_mode == nullptr) {
+                    if (pb_route.count(node_index)) {
+                        pins.push_back(clust_xml_net_text(pb_route[node_index].atom_net_id));
+                    } else {
+                        pins.push_back(clust_xml_net_text(AtomNetId::INVALID()));
+                    }
+                } else {
+                    pins.push_back(clust_xml_intercon_text(type, pb_graph_pin_lookup_from_index_by_type, node_index, pb_route));
+                }
+            }
+            port_node.text().set(vtr::join(pins.begin(), pins.end(), " ").c_str());
+            port_index++;
+        }
+    }
+
+    if (pb_type->num_modes > 0) {
+        for (i = 0; i < mode->num_pb_type_children; i++) {
+            for (j = 0; j < mode->pb_type_children[i].num_pb; j++) {
+                /* If child pb is not used but routing is used, I must print things differently */
+                if ((pb->child_pbs[i] != nullptr) && (pb->child_pbs[i][j].name != nullptr)) {
+                    bool legal = check_clust_xml_block(block_node, type, pb_graph_pin_lookup_from_index_by_type, &pb->child_pbs[i][j], j, pb_route);
+                    if (!legal) {
+                       return false;
+                    }
+                } else {
+                    is_used = false;
+                    child_pb_type = &mode->pb_type_children[i];
+                    port_index = 0;
+
+                    for (k = 0; k < child_pb_type->num_ports && !is_used; k++) {
+                        if (child_pb_type->ports[k].type == OUT_PORT) {
+                            for (m = 0; m < child_pb_type->ports[k].num_pins; m++) {
+                                node_index = pb_graph_node->child_pb_graph_nodes[pb->mode][i][j].output_pins[port_index][m].pin_count_in_cluster;
+                                if (pb_route.count(node_index) && pb_route[node_index].atom_net_id) {
+                                    is_used = true;
+                                    break;
+                                }
+                            }
+                            port_index++;
+                        }
+                    }
+                    bool legal = check_clust_xml_open_block(block_node, type, pb_graph_pin_lookup_from_index_by_type,
+                                              &pb_graph_node->child_pb_graph_nodes[pb->mode][i][j],
+                                              j, is_used, pb_route);
+                    if (!legal) {
+                      return false;
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool check_xml_clust(const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing,
+                             const std::string& architecture_id, const char* out_fname) {
+
+    auto& device_ctx = g_vpr_ctx.device();
+    auto& atom_ctx = g_vpr_ctx.atom();
+    auto& cluster_ctx = g_vpr_ctx.mutable_clustering();
+
+    // work around : pick up the last block ID to check only the last created block
+    //
+    ClusterBlockId last_id;
+    for (auto blk_id : cluster_ctx.clb_nlist.blocks()) {
+           last_id = blk_id;
+    }
+
+    if (!intra_lb_routing.empty()) {
+      cluster_ctx.clb_nlist.block_pb(last_id)->pb_route = alloc_and_load_pb_route(intra_lb_routing[last_id],
+                                                                         cluster_ctx.clb_nlist.block_pb(last_id)->pb_graph_node);
+    }
+
+    IntraLbPbPinLookup pb_graph_pin_lookup_from_index_by_type(device_ctx.logical_block_types);
+
+    pugi::xml_document out_xml;
+
+    pugi::xml_node block_node = out_xml.append_child("block");
+    block_node.append_attribute("name") = out_fname;
+    block_node.append_attribute("instance") = "FPGA_packed_netlist[0]";
+    block_node.append_attribute("architecture_id") = architecture_id.c_str();
+    block_node.append_attribute("atom_netlist_id") = atom_ctx.nlist.netlist_id().c_str();
+
+
+    // Check only the last_id block
+    //
+    if (!check_clust_xml_block(block_node, cluster_ctx.clb_nlist.block_type(last_id), pb_graph_pin_lookup_from_index_by_type,
+                             cluster_ctx.clb_nlist.block_pb(last_id), size_t(last_id), cluster_ctx.clb_nlist.block_pb(last_id)->pb_route)) {
+           return false;
+    }
+
+    if (!intra_lb_routing.empty()) {
+      cluster_ctx.clb_nlist.block_pb(last_id)->pb_route.clear();
+    }
+
+    return true; // check was legal
+}
+
+bool check_if_xml_mode_conflict(const t_packer_opts& packer_opts,
+                                const t_arch* arch,
+                                const vtr::vector<ClusterBlockId, std::vector<t_intra_lb_net>*>& intra_lb_routing) {
+
+    bool legal = check_xml_clust(intra_lb_routing, arch->architecture_id, packer_opts.output_file.c_str());
+    return legal;
+}
+
+} // namespace rsbe
+

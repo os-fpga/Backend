@@ -45,6 +45,8 @@
 #include <vector>
 #include <array>
 
+#define RSBE_PLANNER_MODE 1
+
 namespace pinc {
 
 using CStr = const char*;

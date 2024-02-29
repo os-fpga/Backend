@@ -1,4 +1,4 @@
-static const char* _rsbe_VERSION_STR = "rsbe0123";
+static const char* _rsbe_VERSION_STR = "rsbe0124";
 
 #include "RS/rsEnv.h"
 #include "util/pinc_log.h"
@@ -134,8 +134,11 @@ int main(int argc, char** argv) {
   s_env.initVersions(_rsbe_VERSION_STR);
 
   if (ltrace() >= 2) {
-    s_env.printPids(_rsbe_VERSION_STR);
-    printf("\t compiled:  %s\n", s_env.compTimeCS());
+    if (ltrace() >= 6)
+      s_env.printPids(_rsbe_VERSION_STR);
+    else
+      lout() << _rsbe_VERSION_STR << endl;
+    lprintf("\t compiled:  %s\n", s_env.compTimeCS());
   }
 
   s_env.parse(argc, argv);
