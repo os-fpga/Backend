@@ -277,6 +277,9 @@ void rsEnv::listDevEnv() const noexcept {
 #ifdef RS_PC_MODE
   lprintf("\t  RS_PC_MODE :\t (defined)\n");
 #endif
+#ifdef RSBE_PLANNER_MODE
+  lprintf("\t  RSBE_PLANNER_MODE :\t (defined)\n");
+#endif
 #ifdef PINC_DEVEL_MODE
   lprintf("\t  PINC_DEVEL_MODE :\t (defined)\n");
 #endif

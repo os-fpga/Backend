@@ -125,27 +125,36 @@ static bool read_exe_link(const string& path, string& out) {
 
 static string get_MtKaHyPar_path() {
   int pid = ::getpid();
-  string selfPath, exe_link;
+  string selfPath, exe_link, result;
 
-  exe_link.reserve(512);
-  exe_link = "/proc/";
-  exe_link += std::to_string(pid);
-  exe_link += "/exe";
-  if (!read_exe_link(exe_link, selfPath)) return {};
-
-  // replace 'vpr' by 'MtKaHyPar' in selfPath
-  if (selfPath == "vpr") return "MtKaHyPar";
-  size_t len = selfPath.length();
-  if (len < 4 || len > 10000) return {};
-  const char* cs = selfPath.c_str();
-  int i = len - 1;
-  for (; i >= 0; i--) {
-    if (cs[i] == '/') break;
+  const char* es = ::getenv("RSBE_KHP_EXE");
+  if (es && ::strlen(es) > 1) {
+    result = es;
+    if (ltrace() >= 2)
+      lprintf("got KHP_EXE=  %s  from env variable RSBE_KHP_EXE\n", es);
   }
-  if (i < 1 || i == int(len) - 1) return {};
+  else {
+    exe_link.reserve(512);
+    exe_link = "/proc/";
+    exe_link += std::to_string(pid);
+    exe_link += "/exe";
+    if (!read_exe_link(exe_link, selfPath)) return {};
 
-  string result{selfPath.begin(), selfPath.begin() + i + 1};
-  result += "MtKaHyPar";
+    // replace 'vpr' by 'MtKaHyPar' in selfPath
+    if (selfPath == "vpr") return "MtKaHyPar";
+    size_t len = selfPath.length();
+    if (len < 4 || len > 10000) return {};
+    const char* cs = selfPath.c_str();
+    int i = len - 1;
+    for (; i >= 0; i--) {
+      if (cs[i] == '/') break;
+    }
+    if (i < 1 || i == int(len) - 1) return {};
+
+    string sp{selfPath.begin(), selfPath.begin() + i + 1};
+    result += sp;
+    result += "MtKaHyPar";
+  }
 
   if (ltrace() >= 2)
     lprintf("KHP_EXE: result= %s\n", result.c_str());
@@ -160,10 +169,10 @@ static string get_MtKaHyPar_path() {
   return result;
 }
 
-bool Par::Bi_Partion(uint partition_index) {
+bool Par::split(uint partition_index) {
   auto tr = ltrace();
   if (tr >= 3)
-    lprintf("+Par::Bi_Partion( partition_index= %u )\n", partition_index);
+    lprintf("+Par::split( partition_index= %u )\n", partition_index);
 
   //making the intermediate nodes
   vector<int> MoleculesToIntermediate;
@@ -341,15 +350,15 @@ struct partition_position {
 
 }
 
-bool Par::recursive_partitioning(int molecule_per_partition) {
+bool Par::do_partitioning(int molecule_per_partition) {
   AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
   //// auto& device_ctx = g_vpr_ctx.device();
   //// auto& grid = device_ctx.grid;
   vector<int> partion_size;
   partion_size.push_back(-1);
   uint cnt = 1;
-  uint max_itration = 1;
-  while (cnt <= max_itration) {
+  uint max_iter = 1;
+  while (cnt <= max_iter) {
     int sum_partition = 0;
     for (uint j = 0; j < numMolecules_; j++) {
       if (partition_array_[j] == cnt) {
@@ -362,13 +371,13 @@ bool Par::recursive_partitioning(int molecule_per_partition) {
     partion_size.push_back(sum_partition);
     if (sum_partition > molecule_per_partition) {
       VTR_LOG("start Bipartitioning\n");
-      if (!Bi_Partion(cnt)) {
+      if (!split(cnt)) {
         VTR_LOG("Bipartitioning FAILED. cnt= %u\n", cnt);
         partitions_.clear();
         return false;
       }
       VTR_LOG("end Bipartitioning\n");
-      max_itration = 2 * cnt + 1;
+      max_iter = 2 * cnt + 1;
     } else {
       VTR_LOG("Bipartitioning NOP.  sum_partition= %i  molecule_per_partition= %i\n",
               sum_partition, molecule_per_partition);
@@ -389,7 +398,7 @@ bool Par::recursive_partitioning(int molecule_per_partition) {
   // VTR_LOG("\t\t<add_region x_low=\"%d\" y_low=\"%d\" x_high=\"%d\" y_high=\"%d\"/>\n",pp->x1,pp->y1,pp->x2,pp->y2);
   pp_array.push_back(nullptr);
   pp_array.push_back(pp);
-  for (uint i = 2; i <= max_itration; i++) {
+  for (uint i = 2; i <= max_iter; i++) {
     pp = new partition_position;
     pp_array.push_back(pp);
     if (partion_size[i] == 0) {
@@ -428,7 +437,7 @@ bool Par::recursive_partitioning(int molecule_per_partition) {
     }
   }
 
-  // for(int i=1;i<=max_itration;i++){
+  // for (int i=1; i<=max_iter; i++) {
   //     VTR_LOG("\t\t<add_region x_low=\"%d\" y_low=\"%d\" x_high=\"%d\" y_high=\"%d\"/>\n",
   //        pp_array[i]->x1,pp_array[i]->y1,pp_array[i]->x2,pp_array[i]->y2);
   // }
@@ -459,8 +468,8 @@ bool Par::recursive_partitioning(int molecule_per_partition) {
           if (size_t(abid) >= numAtoms_) {
             cout << '\n' << numAtoms_ << "\t" << size_t(abid) << endl;
             //// exit(0);
-            lout() << "internal [Error] in Par::recursive_partitioning()" << endl;
-            cerr   << "internal [Error] in Par::recursive_partitioning()" << endl;
+            lout() << "internal [Error] in Par::do_partitioning()" << endl;
+            cerr   << "internal [Error] in Par::do_partitioning()" << endl;
             return false;
           }
           fprintf(file, "\t\t<add_atom name_pattern=\"%s\"/>\n", myNetlist.block_name(abid).c_str());

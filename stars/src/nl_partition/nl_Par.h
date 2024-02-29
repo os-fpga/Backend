@@ -20,9 +20,9 @@ public:
 
   bool init(t_pack_molecule* molecule_head);
 
-  bool recursive_partitioning(int num_partitions);
+  bool do_partitioning(int num_partitions);
 
-  bool Bi_Partion(uint partion_index);
+  bool split(uint partion_index);
 
 // DATA:
   vector<t_pack_molecule*> molecules_;
