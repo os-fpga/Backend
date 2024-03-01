@@ -25,7 +25,7 @@ message(STATUS "NOTE: PATCH_DIR= ${PATCH_DIR}")
 
 set(VPR_SRC_DIR ${PATCH_DIR}/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${PATCH_DIR}/packer_fix)
-#set(PLACER_SRC_DIR ${PATCH_DIR}/placer_fix)
+set(PLACER_SRC_DIR ${PATCH_DIR}/placer_fix)
 
 # Enable Analytic Placer in VTR CMake
 set(VPR_ANALYTIC_PLACE ON CACHE BOOL "Enable Analytic Placer in VTR" FORCE)
@@ -205,15 +205,15 @@ message(STATUS "NOTE: PATCHING VPR CMakefile by GNU-patch..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
 apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
 
-#FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
-#          ${PLACER_SRC_DIR}/place.cpp
-#          ${PLACER_SRC_DIR}/place_util.cpp
-#          ${PLACER_SRC_DIR}/place_util.h
-#          # Analytical Placer
-#          ${PLACER_SRC_DIR}/analytic_placer.h
-#          ${PLACER_SRC_DIR}/analytic_placer.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/place/)
+FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
+          ${PLACER_SRC_DIR}/place.cpp
+          ${PLACER_SRC_DIR}/place_util.cpp
+          ${PLACER_SRC_DIR}/place_util.h
+          # Analytical Placer
+          ${PLACER_SRC_DIR}/analytic_placer.h
+          ${PLACER_SRC_DIR}/analytic_placer.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/place/)
 
 file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
@@ -224,7 +224,7 @@ file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
   DESTINATION
   ${XML_DEC_KEY_DEST}/libdecrypt
 )
- 
+
 file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
   DESTINATION
   ${XML_DEC_KEY_DEST}/libencrypt

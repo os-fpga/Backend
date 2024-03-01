@@ -962,6 +962,7 @@ void try_place(const Netlist<>& net_list,
         congestion_tradeoff = 0.1;
     }
 
+    double starting_tempreture = state.t;
     if (!placer_opts.move_stats_file.empty()) {
         f_move_stats_file = std::unique_ptr<FILE, decltype(&vtr::fclose)>(
             vtr::fopen(placer_opts.move_stats_file.c_str(), "w"),
