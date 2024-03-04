@@ -161,14 +161,14 @@ message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h read_blif_RS.
 
 message(STATUS "NOTE: PATCHING VPR: src/base\n")
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-file(COPY ${VPR_SRC_DIR}/src/base/netlist_writer.cpp
-  DESTINATION ${TARGET_DIR})
-message(STATUS "NOTE: COPIED ${VPR_SRC_DIR}/src/base/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: PATCHING VPR src/base/vpr_api.cpp by GNU-patch..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_api_cpp__ignore_space.diff)
-set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_api.cpp")
+message(STATUS "NOTE: OVERWRITING netlist_writer.cpp")
+file(COPY ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED  ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
+
+message(STATUS "NOTE: OVERWRITING vpr_api.cpp")
+file(COPY ${PATCH_DIR}/base_fix/PATCHED/vpr_api.cpp DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/vpr_api.cpp\n       to ${TARGET_DIR}/\n")
 
 message(STATUS "NOTE: PATCHING VPR src/base/vpr_context.h by GNU-patch..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_context_h__ignore_space.diff)
