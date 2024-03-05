@@ -152,12 +152,11 @@ file(COPY
   ${VPR_SRC_DIR}/src/base/vcs_enc_support.h
   ${PATCH_DIR}/base_fix/READ/read_blif_RS.cpp
   ${PATCH_DIR}/base_fix/READ/read_blif_RS.h
-  ${PATCH_DIR}/base_fix/READ/read_blif.cpp
   ${PATCH_DIR}/base_fix/READ/BlifAllocCallback.cpp
   ${PATCH_DIR}/base_fix/READ/BlifAllocCallback.h
   DESTINATION
   ${VPR_DEST_DIR}/src/base/)
-message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h read_blif_RS.cpp,h read_blif.cpp BlifAllocCallback.cpp,h")
+message(STATUS "NOTE: ADDED to VPR src/base: vcs_enc_support.cpp,h read_blif_RS.cpp,h BlifAllocCallback.cpp,h")
 
 message(STATUS "NOTE: PATCHING VPR: src/base\n")
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
@@ -170,23 +169,27 @@ message(STATUS "NOTE: OVERWRITING vpr_api.cpp")
 file(COPY ${PATCH_DIR}/base_fix/PATCHED/vpr_api.cpp DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/vpr_api.cpp\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: PATCHING VPR src/base/vpr_context.h by GNU-patch..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_context_h__ignore_space.diff)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_context.h")
+message(STATUS "NOTE: OVERWRITING base/read_.*")
+file(COPY
+    ${PATCH_DIR}/base_fix/PATCHED/read_blif.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
+    ${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/read_options.h
+    DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: PATCHING VPR src/base/vpr_types.h by GNU-patch..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/TYPES/vpr_types_h__ignore_space.diff)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/vpr_types.h")
+message(STATUS "NOTE: OVERWRITING SetupVPR.cpp")
+file(COPY ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: PATCHING VPR src/base READ by GNU-patch..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/READ/VPR_src_base_READ.diff)
-set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base READ")
+message(STATUS "NOTE: OVERWRITING base/vpr_context.h base/vpr_types.h")
+file(COPY
+    ${PATCH_DIR}/base_fix/PATCHED/vpr_context.h
+    ${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
+    DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/ vpr_context.h vpr_types.h\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: PATCHING VPR src/base/SetupVPR.cpp by GNU-patch..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/base_SetupVPR_cpp.diff)
-set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/base)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "VPR src/base/src/base/SetupVPR.cpp")
 
 # copy RS additions and patch CMakefiles
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by GNU-patch..")
