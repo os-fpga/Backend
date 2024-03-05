@@ -185,8 +185,8 @@ message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp\n       
 
 message(STATUS "NOTE: OVERWRITING base/vpr_context.h base/vpr_types.h")
 file(COPY
-    ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
-    ${PATCH_DIR}/base_fix/PATCHED/read_options.h
+    ${PATCH_DIR}/base_fix/PATCHED/vpr_context.h
+    ${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
     DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/ vpr_context.h vpr_types.h\n       to ${TARGET_DIR}/\n")
 
