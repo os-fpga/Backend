@@ -15,7 +15,7 @@ namespace pinc {
 int pinc_main(const pinc::cmd_line& cmd) {
   using namespace pinc;
   uint16_t tr = ltrace();
-  if (tr >= 2) lputs("pinc_main()");
+  if (tr >= 4) lputs("pinc_main()");
 
   PinPlacer pl(cmd);
 
@@ -131,23 +131,24 @@ bool PinPlacer::reader_and_writer() {
   num_warnings_ = 0;
   clear_err_code();
 
-  ////const cmd_line& cmd = cl_;
   string xml_name = cl_.get_param("--xml");
   string csv_name = cl_.get_param("--csv");
   string pcf_name = cl_.get_param("--pcf");
   string blif_name = cl_.get_param("--blif");
   string json_name = cl_.get_param("--port_info");
   string output_name = cl_.get_param("--output");
+  string edits_file = cl_.get_param("--edits");
 
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) {
-    lputs("\n  PinPlacer::reader_and_writer()");
+    lputs("\n  === pin_c options ===");
     ls << "        xml_name (--xml) : " << xml_name << endl;
     ls << "        csv_name (--csv) : " << csv_name << endl;
     ls << "        pcf_name (--pcf) : " << pcf_name << endl;
     ls << "      blif_name (--blif) : " << blif_name << endl;
     ls << " json_name (--port_info) : " << json_name << endl;
+    ls << "    edits_file (--edits) : " << edits_file << endl;
     ls << "    output_name (--output) : " << output_name << endl;
   }
 
