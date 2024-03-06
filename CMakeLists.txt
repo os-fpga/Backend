@@ -26,6 +26,7 @@ message(STATUS "NOTE: PATCH_DIR= ${PATCH_DIR}")
 set(VPR_SRC_DIR ${PATCH_DIR}/read_verilog/OpenFPGA/vpr)
 set(PACKER_SRC_DIR ${PATCH_DIR}/packer_fix)
 set(PLACER_SRC_DIR ${PATCH_DIR}/placer_fix)
+set(TIMING_SRC_DIR ${PATCH_DIR}/timing_fix)
 
 # Enable Analytic Placer in VTR CMake
 set(VPR_ANALYTIC_PLACE ON CACHE BOOL "Enable Analytic Placer in VTR" FORCE)
@@ -217,6 +218,10 @@ FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
           ${PLACER_SRC_DIR}/analytic_placer.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/place/)
+
+FILE(COPY ${TIMING_SRC_DIR}/read_sdc.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/place/timing)
 
 file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
