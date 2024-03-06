@@ -13,7 +13,7 @@ CSV_Reader::~CSV_Reader() {
   free_str_matrix();
 }
 
-void CSV_Reader::reset(const char* nm, uint16_t tr) noexcept {
+void CSV_Reader::reset(CStr nm, uint16_t tr) noexcept {
   MMapReader::reset(nm, tr);
 
   free_num_matrix();
@@ -190,7 +190,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     return false;
   lowHeader_.resize(nc_);
   for (size_t c = 0; c < nc_; c++)
-    lowHeader_[c] = str::sToLower(header_[c]);
+    lowHeader_[c] = str::s2lower(header_[c]);
 
   nr_ = nel - 1;
   if (nr_ < 1) return false;
@@ -266,7 +266,7 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
         row[i] = -1;
         continue;
       }
-      const char* cs = V[i].c_str();
+      CStr cs = V[i].c_str();
       if (!is_integer(cs)) {
         row[i] = -1;
         continue;
@@ -313,7 +313,8 @@ void CSV_Reader::free_num_matrix() noexcept {
     return;
   }
 
-  for (size_t r = 0; r < nr_ + 2; r++) delete[] nmat_[r];
+  for (size_t r = 0; r < nr_ + 2; r++)
+    delete[] nmat_[r];
 
   delete[] nmat_;
   nmat_ = nullptr;
@@ -329,7 +330,8 @@ void CSV_Reader::free_str_matrix() noexcept {
     return;
   }
 
-  for (size_t r = 0; r < nr_ + 2; r++) delete[] smat_[r];
+  for (size_t r = 0; r < nr_ + 2; r++)
+    delete[] smat_[r];
 
   delete[] smat_;
   smat_ = nullptr;
@@ -344,7 +346,7 @@ bool CSV_Reader::isValidCsv() const noexcept {
   return valid_csv_;
 }
 
-uint CSV_Reader::findColumn(const char* colName) const noexcept {
+uint CSV_Reader::findColumn(CStr colName) const noexcept {
   if (!colName || !colName[0]) return UINT_MAX;
   if (!isValidCsv()) return UINT_MAX;
   if (!smat_ || nr_ < 2 || nc_ < 2 || header_.empty()) return UINT_MAX;
@@ -362,7 +364,7 @@ uint CSV_Reader::findColumn(const char* colName) const noexcept {
   return idx;
 }
 
-vector<string> CSV_Reader::getColumn(const char* colName) const noexcept {
+vector<string> CSV_Reader::getColumn(CStr colName) const noexcept {
   assert(nmat_);
   uint idx = findColumn(colName);
   if (idx == UINT_MAX) {
@@ -380,7 +382,7 @@ vector<string> CSV_Reader::getColumn(const char* colName) const noexcept {
   return result;
 }
 
-vector<int> CSV_Reader::getColumnInt(const char* colName) const noexcept {
+vector<int> CSV_Reader::getColumnInt(CStr colName) const noexcept {
   assert(nmat_);
   uint idx = findColumn(colName);
   if (idx == UINT_MAX) {
@@ -419,10 +421,10 @@ int CSV_Reader::dprint1() const noexcept {
   return sz_;
 }
 
-size_t CSV_Reader::countCommas(const char* src) noexcept {
+size_t CSV_Reader::countCommas(CStr src) noexcept {
   if (!src || !src[0]) return 0;
   size_t cnt = 0;
-  for (const char* p = src; *p; p++) {
+  for (CStr p = src; *p; p++) {
     if (*p == ',') cnt++;
   }
   return cnt;

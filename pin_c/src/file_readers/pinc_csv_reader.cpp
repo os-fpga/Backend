@@ -327,7 +327,7 @@ bool RapidCsvReader::initCols(const fio::CSV_Reader& crd) {
 
   col_headers_lc_ = col_headers_;
   for (auto& h : col_headers_lc_)
-    h = str::sToLower(h);
+    h = str::s2lower(h);
 
   uint nc = numCols();
 
@@ -1220,7 +1220,7 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
 uint RapidCsvReader::getModeCol(const string& mode) const noexcept {
   if (mode.length() <= 1)
     return 0;
-  string mode_lc = str::sToLower(mode);
+  string mode_lc = str::s2lower(mode);
   uint modeCol = 0, nc = numCols();
   assert(nc > 2);
   for (uint c = start_MODE_col_; c < nc; c++) {
