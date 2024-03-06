@@ -19,6 +19,17 @@ using StringPair = std::pair<std::string, std::string>;
 
 class PinPlacer {
 
+  struct EditItem {
+    string name_;      // "$iopadmap$flop2flop.dout"
+    string module_;    // "O_BUF"
+    string location_;  // "HR_5_0_0P"
+    string mode_;      // "Mode_BP_SDR_A_TX"
+    string oldPin_;    // "dout"
+    string newPin_;    // "$iopadmap$dout"
+
+    EditItem() noexcept = default;
+  };
+
   cmd_line cl_;
 
   string temp_csv_file_name_;
@@ -27,6 +38,10 @@ class PinPlacer {
 
   vector<string> user_design_inputs_;
   vector<string> user_design_outputs_;
+
+  vector<EditItem>  all_edits_;
+  vector<const EditItem*> input_edits_;
+  vector<const EditItem*> output_edits_;
 
   vector<vector<string>> pcf_pin_cmds_;
 
@@ -45,9 +60,6 @@ class PinPlacer {
   bool pin_assign_def_order_ = true;
 
   bool auto_pcf_created_ = false;
-
-  // bool uniq_by_xy_ = true; // new mode of device pin uniqueness check
-  //                         // for old mode: getenv("pinc_old_uniqueness_by_bump_name")
 
 public:
   enum class PortDir : uint8_t {
@@ -68,7 +80,7 @@ public:
     Order order_ = Order::Undefined;
     Iv range_;
 
-    PortInfo() = default;
+    PortInfo() noexcept = default;
 
     bool isInput() const noexcept { return dir_ == PortDir::Input; }
     bool isOutput() const noexcept { return dir_ == PortDir::Output; }
@@ -87,9 +99,7 @@ public:
   PinPlacer(const cmd_line& cl);
   ~PinPlacer();
 
-  // const cmd_line& get_cmd() const noexcept { return cl_; }
-
-  bool reader_and_writer();
+  bool read_and_write();
 
   void print_stats(const RapidCsvReader& csv) const;
   void printTileUsage(const RapidCsvReader& csv) const;
@@ -100,6 +110,7 @@ public:
 
   bool read_csv_file(RapidCsvReader&);
   bool read_design_ports();
+  bool read_edits();
 
   bool read_pcf(const RapidCsvReader&);
 
@@ -127,6 +138,8 @@ public:
 
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);
+
+  bool read_edit_info(std::ifstream& ifs);
 
   // map logical clocks to physical clocks. status = 0 if NOP, -1 if error
   int map_clocks();

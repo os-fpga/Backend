@@ -15,7 +15,7 @@ using fio::Fio;
 
 bool PinPlacer::read_design_ports() {
   uint16_t tr = ltrace();
-  if (tr >= 2) {
+  if (tr >= 4) {
     lputs("\nread_design_ports() __ getting port info .json");
   }
 
@@ -87,14 +87,66 @@ bool PinPlacer::read_design_ports() {
     }
   }
 
-  if (tr >= 2) {
+  if (tr >= 4) {
     lprintf(
-        "DONE read_design_ports()  user_design_inputs_.size()= %zu  "
-        "user_design_outputs_.size()= %zu\n",
-        user_design_inputs_.size(), user_design_outputs_.size());
+      "DONE read_design_ports()  #udes_inputs= %zu  #udes_outputs= %zu\n",
+      user_design_inputs_.size(), user_design_outputs_.size());
   }
 
   return true;
+}
+
+bool PinPlacer::read_edits() {
+  uint16_t tr = ltrace();
+  if (tr >= 4) lputs("\nread_edits() __ getting io_config .json");
+
+  all_edits_.clear();
+  input_edits_.clear();
+  output_edits_.clear();
+
+  string edits_fn = cl_.get_param("--edits");
+  if (edits_fn.empty()) {
+    if (tr >= 4) lputs("[Info] edits cmd option is not specified");
+    return false;
+  }
+
+  if (! Fio::regularFileExists(edits_fn)) {
+    lprintf("\n[Error] specified <io edits>.json file %s does not exist\n", edits_fn.c_str());
+    CERROR << "specified <io edits>.json file does not exist: " << edits_fn << endl;
+    lputs();
+    return false;
+  }
+  if (! Fio::nonEmptyFileExists(edits_fn)) {
+    lprintf("\n[Error] specified <io edits>.json file %s is empty or not accessible\n",
+            edits_fn.c_str());
+    CERROR << "specified <io edits>.json file is empty or not accessible: " << edits_fn << endl;
+    lputs();
+    return false;
+  }
+
+  ifstream edits_ifs(edits_fn);
+
+  if (edits_ifs.is_open()) {
+    if (tr >= 4) lprintf("... reading %s\n", edits_fn.c_str());
+    if (not read_edit_info(edits_ifs)) {
+      CERROR    << " failed reading " << edits_fn << endl;
+      OUT_ERROR << " failed reading " << edits_fn << endl;
+      return false;
+    }
+  }
+  else {
+    OUT_ERROR << "  could not open <io edits>.json file : " << edits_fn << endl;
+    CERROR    << "  could not open <io edits>.json file : " << edits_fn << endl;
+    lputs();
+    return false;
+  }
+
+  if (tr >= 4) {
+    lprintf("DONE read_edits()  #input_edits= %zu  #output_edits= %zu\n",
+            input_edits_.size(), output_edits_.size());
+  }
+
+  return bool(input_edits_.size()) or bool(output_edits_.size());
 }
 
 static bool read_json_ports(const nlohmann::ordered_json& from,
@@ -210,7 +262,8 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
     ifs >> rootObj;
   } catch (...) {
     ls << "[Error] pin_c: Failed json input stream reading" << endl;
-    CERROR << "[Error] pin_c: Failed json input stream reading" << endl;
+    CERROR << "pin_c: Failed json input stream reading" << endl;
+    lputs();
     return false;
   }
 
@@ -233,7 +286,7 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
   else
     read_json_ports(rootObj, ports);
 
-  if (tr >= 2) ls << "json: got ports.size()= " << ports.size() << endl;
+  if (tr >= 3) ls << "json: got ports.size()= " << ports.size() << endl;
 
   if (ports.empty()) return false;
 
@@ -261,10 +314,10 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
     }
   }
 
-  if (tr >= 2) {
+  if (tr >= 4) {
     ls << " got " << inputs.size() << " inputs and " << outputs.size()
        << " outputs" << endl;
-    if (tr >= 4) {
+    if (tr >= 5) {
       lprintf("\n ---- inputs(%zu): ---- \n", inputs.size());
       for (size_t i = 0; i < inputs.size(); i++)
         lprintf("     in  %s\n", inputs[i].c_str());
@@ -276,6 +329,37 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
   }
 
   return true;
+}
+
+bool PinPlacer::read_edit_info(std::ifstream& ifs) {
+  all_edits_.clear();
+  input_edits_.clear();
+  output_edits_.clear();
+
+  if (!ifs.is_open()) return false;
+
+  uint16_t tr = ltrace();
+  auto& ls = lout();
+
+  nlohmann::ordered_json rootObj;
+
+  try {
+    ifs >> rootObj;
+  } catch (...) {
+    ls << "[Error] pin_c: read_edits: Failed json input stream reading" << endl;
+    CERROR << "pin_c: read_edits: Failed json input stream reading" << endl;
+    lputs();
+    return false;
+  }
+
+  size_t root_sz = rootObj.size();
+  if (tr >= 4) {
+    ls << "json: rootObj.size() = " << root_sz
+       << "  rootObj.is_array() : " << std::boolalpha << rootObj.is_array()
+       << endl;
+  }
+
+  return false;
 }
 
 }
