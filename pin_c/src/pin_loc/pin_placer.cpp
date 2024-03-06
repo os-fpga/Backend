@@ -21,7 +21,7 @@ int pinc_main(const pinc::cmd_line& cmd) {
 
   // pl.get_cmd().print_options();
 
-  if (!pl.reader_and_writer()) {
+  if (!pl.read_and_write()) {
     return 1;
   }
   return 0;
@@ -127,7 +127,7 @@ PinPlacer::~PinPlacer() {
   }
 }
 
-bool PinPlacer::reader_and_writer() {
+bool PinPlacer::read_and_write() {
   num_warnings_ = 0;
   clear_err_code();
 
@@ -240,6 +240,11 @@ bool PinPlacer::reader_and_writer() {
     return false;
   }
 
+  // --2.5 optionally, read netlist edits (--edits option)
+  bool has_edits = read_edits();
+  if (tr >= 3)
+    lprintf("\t  has_edits : %i\n", has_edits);
+
   // --3. read port info from user design (from port_info.json)
   if (!read_design_ports()) {
     if (tr >= 2)
@@ -297,7 +302,7 @@ bool PinPlacer::reader_and_writer() {
   // -- done successfully
   if (tr >= 2) {
     ls << endl;
-    lprintf("pin_c done:  reader_and_writer() succeeded.  map_clk_status= %i\n",
+    lprintf("pin_c done:  read_and_write() succeeded.  map_clk_status= %i\n",
             map_clk_status);
     print_stats(csv_rd);
   }

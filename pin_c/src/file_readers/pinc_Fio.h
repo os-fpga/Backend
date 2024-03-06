@@ -114,9 +114,13 @@ public:
   }
 
   static bool regularFileExists(CStr) noexcept;
+  static bool nonEmptyFileExists(CStr) noexcept;
 
   static bool regularFileExists(const string& fn) noexcept {
     return fn.empty() ? false : regularFileExists(fn.c_str());
+  }
+  static bool nonEmptyFileExists(const string& fn) noexcept {
+    return fn.empty() ? false : nonEmptyFileExists(fn.c_str());
   }
 
   bool fileAccessible() const noexcept { return fnm_.empty() ? false : fileAccessible(fnm_.c_str()); }
