@@ -17,7 +17,7 @@ using std::string;
 using std::vector;
 using StringPair = std::pair<std::string, std::string>;
 
-class PinPlacer {
+struct PinPlacer {
 
   struct EditItem {
     string name_;      // "$iopadmap$flop2flop.dout"
@@ -28,7 +28,14 @@ class PinPlacer {
     string newPin_;    // "$iopadmap$dout"
 
     EditItem() noexcept = default;
+
+    CStr cname() const noexcept { return name_.c_str(); }
+
+    bool isInput()  const noexcept { return module_ == "I_BUF"; }
+    bool isOutput() const noexcept { return module_ == "O_BUF"; }
   };
+
+private:
 
   cmd_line cl_;
 
