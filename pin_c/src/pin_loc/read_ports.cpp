@@ -110,6 +110,9 @@ bool PinPlacer::read_edits() {
     return false;
   }
 
+  if (tr >= 4)
+    lprintf("--edits file name : %s\n", edits_fn.c_str());
+
   if (! Fio::regularFileExists(edits_fn)) {
     lprintf("\n[Error] specified <io edits>.json file %s does not exist\n", edits_fn.c_str());
     CERROR << "specified <io edits>.json file does not exist: " << edits_fn << endl;
@@ -159,7 +162,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
   uint16_t tr = ltrace();
   auto& ls = lout();
 
-  if (tr >= 3) ls << " .... portsObj.size() = " << portsObj.size() << endl;
+  if (tr >= 4) ls << " .... portsObj.size() = " << portsObj.size() << endl;
 
   string s;
   for (auto I = portsObj.cbegin(); I != portsObj.cend(); ++I) {
@@ -170,7 +173,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
     }
 
     // 1. check size and presence of 'name'
-    if (tr >= 7) ls << " ...... obj.size() " << obj.size() << endl;
+    if (tr >= 8) ls << " ...... obj.size() " << obj.size() << endl;
     if (obj.size() == 0) {
       ls << " [Warning] unexpected json object size..." << endl;
       continue;
@@ -189,7 +192,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
     // 2. read 'name'
     PinPlacer::PortInfo& last = ports.back();
     last.name_ = obj["name"];
-    if (tr >= 7) ls << " ........ last.name_ " << last.name_ << endl;
+    if (tr >= 8) ls << " ........ last.name_ " << last.name_ << endl;
 
     // 3. read 'direction'
     if (obj.contains("direction")) {
@@ -214,14 +217,14 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
       const auto& rangeObj = obj["range"];
       if (rangeObj.size() == 2 && rangeObj.contains("lsb") &&
           rangeObj.contains("msb")) {
-        if (tr >= 8) ls << " ........ has range..." << endl;
+        if (tr >= 9) ls << " ........ has range..." << endl;
         const auto& lsb = rangeObj["lsb"];
         const auto& msb = rangeObj["msb"];
         if (lsb.is_number_integer() && msb.is_number_integer()) {
           int l = lsb.get<int>();
           int m = msb.get<int>();
           if (l >= 0 && m >= 0) {
-            if (tr >= 7)
+            if (tr >= 8)
               ls << " ........ has valid range  l= " << l << "  m= " << m
                  << endl;
             last.range_.set(l, m);
@@ -237,7 +240,7 @@ static bool read_json_ports(const nlohmann::ordered_json& from,
         last.order_ = PinPlacer::Order::LSB_to_MSB;
       else if (s == "msb_to_lsb")
         last.order_ = PinPlacer::Order::MSB_to_LSB;
-      if (tr >= 7 && last.hasOrder())
+      if (tr >= 8 && last.hasOrder())
         ls << " ........ has define_order: " << s << endl;
     }
   }
@@ -276,7 +279,7 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
 
   if (root_sz == 0) {
     ls << "[Error] pin_c: json: rootObj.size() == 0" << endl;
-    CERROR << "[Error] pin_c: json: rootObj.size() == 0" << endl;
+    CERROR << "pin_c: json: rootObj.size() == 0" << endl;
     return false;
   }
 
@@ -286,7 +289,7 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
   else
     read_json_ports(rootObj, ports);
 
-  if (tr >= 3) ls << "json: got ports.size()= " << ports.size() << endl;
+  if (tr >= 3) ls << "pin_c json: got ports.size()= " << ports.size() << endl;
 
   if (ports.empty()) return false;
 
@@ -331,6 +334,85 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
   return true;
 }
 
+static bool s_read_json_items(const nlohmann::ordered_json& from,
+                              vector<PinPlacer::EditItem>& items) {
+  items.clear();
+
+  nlohmann::ordered_json itemsObj = from["instances"];
+
+  if (!itemsObj.is_array()) {
+    lputs("[Error] pin_c: read_edits: json schema error");
+    CERROR << "pin_c: read_edits: json schema error" << endl;
+    lputs();
+    return false;
+  }
+
+  uint16_t tr = ltrace();
+  auto& ls = lout();
+
+  if (tr >= 4) ls << " .... itemsObj.size() = " << itemsObj.size() << endl;
+
+  for (auto I = itemsObj.cbegin(); I != itemsObj.cend(); ++I) {
+    const nlohmann::ordered_json& obj = *I;
+    if (obj.is_array()) {
+      ls << " [Warning] unexpected json array..." << endl;
+      continue;
+    }
+
+    // 1. check size and presence of 'name'
+    if (tr >= 8) ls << " ...... obj.size() " << obj.size() << endl;
+    if (obj.size() == 0) {
+      ls << " [Warning] unexpected json object size..." << endl;
+      continue;
+    }
+    if (not obj.contains("name")) {
+      ls << " [Warning] expected obj.name string..." << endl;
+      continue;
+    }
+    if (not obj["name"].is_string()) {
+      ls << " [Warning] expected obj.name string..." << endl;
+      continue;
+    }
+
+    items.emplace_back();
+
+    // 2. read 'name'
+    PinPlacer::EditItem& last = items.back();
+    last.name_ = obj["name"];
+    if (tr >= 8) ls << " ........ last.name_ " << last.name_ << endl;
+
+    // 3. read 'module'
+    if (obj.contains("module")) {
+      last.module_ = obj["module"];
+    }
+
+    // 3. read 'location'
+    if (obj.contains("location")) {
+      last.location_ = obj["location"];
+    }
+
+    // 4. read 'mode'
+    if (obj.contains("properties")) {
+      const auto& propObj = obj["properties"];
+      if (propObj.contains("mode"))
+        last.mode_ = propObj["mode"];
+    }
+
+    // 5. read oldPin_/newPin_
+    if (obj.contains("connectivity")) {
+      const auto& propObj = obj["connectivity"];
+      if (propObj.contains("I"))
+        last.newPin_ = propObj["I"];
+      if (propObj.contains("O"))
+        last.oldPin_ = propObj["O"];
+      if (last.isInput()) // swap pins if I_BUF
+        std::swap(last.newPin_, last.oldPin_);
+    }
+  }
+
+  return not items.empty();
+}
+
 bool PinPlacer::read_edit_info(std::ifstream& ifs) {
   all_edits_.clear();
   input_edits_.clear();
@@ -359,7 +441,79 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
        << endl;
   }
 
-  return false;
+  if (root_sz == 0) {
+    ls << "[Error] pin_c: json: rootObj.size() == 0" << endl;
+    CERROR << "pin_c: json: rootObj.size() == 0" << endl;
+    return false;
+  }
+  if (rootObj.is_array()) {
+    ls << "[Error] pin_c: read_edits: json schema error" << endl;
+    CERROR << "pin_c: read_edits: json schema error" << endl;
+    lputs();
+    return false;
+  }
+
+  bool ok = false;
+  try {
+
+    ok = s_read_json_items(rootObj, all_edits_);
+
+  } catch (...) {
+    ls << "[Error] pin_c: read_edits: json schema exception" << endl;
+    CERROR << "pin_c: read_edits: json schema exception" << endl;
+    lputs();
+    all_edits_.clear();
+    input_edits_.clear();
+    output_edits_.clear();
+    return false;
+  }
+
+  if (tr >= 4) {
+    lprintf("pin_c json: got all_edits_.size()= %zu  ok:%i\n",
+             all_edits_.size(), ok);
+  }
+
+  if (ok) {
+    size_t sz = all_edits_.size();
+    input_edits_.reserve(sz);
+    output_edits_.reserve(sz);
+    for (size_t i = 0; i < sz; i++) {
+      const EditItem& item = all_edits_[i];
+      if (item.isInput())
+        input_edits_.push_back(&item);
+      else if (item.isOutput())
+        output_edits_.push_back(&item);
+    }
+  } else {
+    all_edits_.clear();
+    input_edits_.clear();
+    output_edits_.clear();
+  }
+
+  size_t num_inp_out = input_edits_.size() + output_edits_.size();
+  if (num_inp_out == 0) {
+    all_edits_.clear();
+    return false;
+  }
+
+  if (tr >= 5) {
+    uint esz = all_edits_.size();
+    lprintf("  all_edits_.size()= %u   #input= %zu   #output= %zu\n",
+            esz, input_edits_.size(), output_edits_.size());
+    if (tr >= 6) {
+      lprintf("  ==== dumping all_edits ====\n");
+      for (uint i = 0; i < esz; i++) {
+        const EditItem& ed = all_edits_[i];
+        lprintf(
+            "    |%u|  name_:%s  loc_:%s  mode_:%s  input:%i  output:%i  oldPin:%s  newPin:%s\n",
+            i+1, ed.cname(), ed.location_.c_str(), ed.mode_.c_str(),
+            ed.isInput(), ed.isOutput(), ed.oldPin_.c_str(), ed.newPin_.c_str());
+      }
+      lputs("  ====");
+    }
+  }
+
+  return true;
 }
 
 }
