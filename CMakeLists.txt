@@ -221,7 +221,7 @@ FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 
 FILE(COPY ${TIMING_SRC_DIR}/read_sdc.cpp
           DESTINATION
-          ${VPR_DEST_DIR}/src/place/timing)
+          ${VPR_DEST_DIR}/src/timing)
 
 file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
