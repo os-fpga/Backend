@@ -980,7 +980,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     BCD& bcd = *bcd_[i];
     bcd.bump_ = bump_pin_name[i];
     if (bcd.bump_.empty()) {
-      if (bcd.customerInternal().empty() && tr >= 3) {
+      if (bcd.customerInternal().empty() && tr >= 4) {
         ls << " (WW) both bcd.bump_ and bcd.customerInternal_ are empty"
            << " on row# " << i << endl;
         // assert(0);

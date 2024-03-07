@@ -24,8 +24,21 @@ struct PinPlacer {
     string module_;    // "O_BUF"
     string location_;  // "HR_5_0_0P"
     string mode_;      // "Mode_BP_SDR_A_TX"
-    string oldPin_;    // "dout"
+    string oldPin_;    // "dout",
     string newPin_;    // "$iopadmap$dout"
+                       // newPin_ is always inside fabric, for both ibuf and obuf
+
+    // use root if there is a chain of buffers
+    EditItem* parent_ = nullptr;
+    bool isRoot() const noexcept { return ! parent_; }
+
+    EditItem* getRoot() noexcept {
+      EditItem* node = this;
+      while (not node->isRoot()) {
+        node = node->parent_;
+      }
+      return node;
+    }
 
     EditItem() noexcept = default;
 
@@ -33,6 +46,17 @@ struct PinPlacer {
 
     bool isInput()  const noexcept { return module_ == "I_BUF"; }
     bool isOutput() const noexcept { return module_ == "O_BUF"; }
+
+    struct CmpOldPin {
+      bool operator()(const EditItem* a, const EditItem* b) const noexcept {
+        return a->oldPin_ < b->oldPin_;
+      }
+    };
+    struct CmpNewPin {
+      bool operator()(const EditItem* a, const EditItem* b) const noexcept {
+        return a->newPin_ < b->newPin_;
+      }
+    };
   };
 
 private:
@@ -47,8 +71,10 @@ private:
   vector<string> user_design_outputs_;
 
   vector<EditItem>  all_edits_;
-  vector<const EditItem*> input_edits_;
-  vector<const EditItem*> output_edits_;
+  vector<EditItem*> ibufs_;
+  vector<EditItem*> obufs_;
+  vector<EditItem*> ibufs_SortedByOld_;
+  vector<EditItem*> obufs_SortedByOld_;
 
   vector<vector<string>> pcf_pin_cmds_;
 
@@ -159,6 +185,11 @@ public:
 private:
 
   static const Pin* find_udes_pin(const vector<Pin>& P, const string& nm) noexcept;
+
+  EditItem* findObufByOldPin(const string& old_pin) const noexcept;
+  EditItem* findIbufByOldPin(const string& old_pin) const noexcept;
+
+  string translatePinName(const string& pinName, bool is_input) const noexcept;
 };
 
 }
