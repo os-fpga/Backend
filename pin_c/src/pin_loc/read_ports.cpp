@@ -101,8 +101,8 @@ bool PinPlacer::read_edits() {
   if (tr >= 4) lputs("\nread_edits() __ getting io_config .json");
 
   all_edits_.clear();
-  input_edits_.clear();
-  output_edits_.clear();
+  ibufs_.clear();
+  obufs_.clear();
 
   string edits_fn = cl_.get_param("--edits");
   if (edits_fn.empty()) {
@@ -145,11 +145,11 @@ bool PinPlacer::read_edits() {
   }
 
   if (tr >= 4) {
-    lprintf("DONE read_edits()  #input_edits= %zu  #output_edits= %zu\n",
-            input_edits_.size(), output_edits_.size());
+    lprintf("DONE read_edits()  #ibufs= %zu  #obufs= %zu\n",
+            ibufs_.size(), obufs_.size());
   }
 
-  return bool(input_edits_.size()) or bool(output_edits_.size());
+  return bool(ibufs_.size()) or bool(obufs_.size());
 }
 
 static bool read_json_ports(const nlohmann::ordered_json& from,
@@ -415,8 +415,8 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
 
 bool PinPlacer::read_edit_info(std::ifstream& ifs) {
   all_edits_.clear();
-  input_edits_.clear();
-  output_edits_.clear();
+  ibufs_.clear();
+  obufs_.clear();
 
   if (!ifs.is_open()) return false;
 
@@ -463,8 +463,8 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
     CERROR << "pin_c: read_edits: json schema exception" << endl;
     lputs();
     all_edits_.clear();
-    input_edits_.clear();
-    output_edits_.clear();
+    ibufs_.clear();
+    obufs_.clear();
     return false;
   }
 
@@ -475,31 +475,48 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
 
   if (ok) {
     size_t sz = all_edits_.size();
-    input_edits_.reserve(sz);
-    output_edits_.reserve(sz);
+    ibufs_.reserve(sz);
+    obufs_.reserve(sz);
     for (size_t i = 0; i < sz; i++) {
-      const EditItem& item = all_edits_[i];
+      EditItem& item = all_edits_[i];
       if (item.isInput())
-        input_edits_.push_back(&item);
+        ibufs_.push_back(&item);
       else if (item.isOutput())
-        output_edits_.push_back(&item);
+        obufs_.push_back(&item);
     }
   } else {
     all_edits_.clear();
-    input_edits_.clear();
-    output_edits_.clear();
+    ibufs_.clear();
+    obufs_.clear();
   }
 
-  size_t num_inp_out = input_edits_.size() + output_edits_.size();
+  size_t num_inp_out = ibufs_.size() + obufs_.size();
   if (num_inp_out == 0) {
     all_edits_.clear();
     return false;
   }
 
+  // sort for binary search
+  ibufs_SortedByOld_ = ibufs_;
+  obufs_SortedByOld_ = obufs_;
+  std::sort(ibufs_SortedByOld_.begin(), ibufs_SortedByOld_.end(), EditItem::CmpOldPin());
+  std::sort(obufs_SortedByOld_.begin(), obufs_SortedByOld_.end(), EditItem::CmpOldPin());
+
+  // link obuf chains:
+  for (EditItem* e : obufs_) {
+    EditItem& ed = *e;
+    ed.parent_ = findObufByOldPin(ed.newPin_);
+  }
+  // link ibuf chains:
+  for (EditItem* e : ibufs_) {
+    EditItem& ed = *e;
+    ed.parent_ = findIbufByOldPin(ed.newPin_);
+  }
+
   if (tr >= 5) {
     uint esz = all_edits_.size();
     lprintf("  all_edits_.size()= %u   #input= %zu   #output= %zu\n",
-            esz, input_edits_.size(), output_edits_.size());
+            esz, ibufs_.size(), obufs_.size());
     if (tr >= 6) {
       lprintf("  ==== dumping all_edits ====\n");
       for (uint i = 0; i < esz; i++) {
@@ -509,11 +526,79 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
             i+1, ed.cname(), ed.location_.c_str(), ed.mode_.c_str(),
             ed.isInput(), ed.isOutput(), ed.oldPin_.c_str(), ed.newPin_.c_str());
       }
+      lprintf("  ---- obufs (%zu) ----\n", obufs_.size());
+      for (const EditItem* e : obufs_SortedByOld_) {
+        const EditItem& ed = *e;
+        lprintf("   name_:%s  loc_:%s  input:%i  output:%i  oldPin:%s  newPin:%s  isRoot:%i\n",
+                ed.cname(), ed.location_.c_str(), ed.isInput(), ed.isOutput(),
+                ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
+      }
+      lprintf("  ---- ibufs (%zu) ----\n", ibufs_.size());
+      for (const EditItem* e : ibufs_SortedByOld_) {
+        const EditItem& ed = *e;
+        lprintf("   name_:%s  loc_:%s  input:%i  output:%i  oldPin:%s  newPin:%s  isRoot:%i\n",
+                ed.cname(), ed.location_.c_str(), ed.isInput(), ed.isOutput(),
+                ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
+      }
       lputs("  ====");
     }
   }
 
   return true;
+}
+
+PinPlacer::EditItem* PinPlacer::findObufByOldPin(const string& old_pin) const noexcept {
+  if (old_pin.empty())
+    return nullptr;
+  EditItem x;
+  x.oldPin_ = old_pin;
+  auto I = std::lower_bound(obufs_SortedByOld_.begin(), obufs_SortedByOld_.end(), &x, EditItem::CmpOldPin());
+  if (I == obufs_SortedByOld_.end())
+    return nullptr;
+  if ((*I)->oldPin_ == old_pin)
+    return *I;
+  return nullptr;
+}
+
+PinPlacer::EditItem* PinPlacer::findIbufByOldPin(const string& old_pin) const noexcept {
+  if (old_pin.empty())
+    return nullptr;
+  EditItem x;
+  x.oldPin_ = old_pin;
+  auto I = std::lower_bound(ibufs_SortedByOld_.begin(), ibufs_SortedByOld_.end(), &x, EditItem::CmpOldPin());
+  if (I == ibufs_SortedByOld_.end())
+    return nullptr;
+  if ((*I)->oldPin_ == old_pin)
+    return *I;
+  return nullptr;
+}
+
+string PinPlacer::translatePinName(const string& pinName, bool is_input) const noexcept {
+  assert(not pinName.empty());
+  if (is_input) {
+    EditItem* buf = findIbufByOldPin(pinName);
+    if (buf) {
+      assert(not buf->newPin_.empty());
+      EditItem* root = buf->getRoot();
+      assert(root);
+      assert(not root->newPin_.empty());
+      return root->newPin_;
+    } else {
+      return pinName;
+    }
+  }
+  else {
+    EditItem* buf = findObufByOldPin(pinName);
+    if (buf) {
+      assert(not buf->newPin_.empty());
+      EditItem* root = buf->getRoot();
+      assert(root);
+      assert(not root->newPin_.empty());
+      return root->newPin_;
+    } else {
+      return pinName;
+    }
+  }
 }
 
 }

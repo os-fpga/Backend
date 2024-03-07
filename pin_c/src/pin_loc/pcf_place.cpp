@@ -281,13 +281,14 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
   out_file << "#------------ --  --  -" << endl;
   out_file << std::flush;
 
-  if (tr >= 3) {
+  if (tr >= 4) {
     ls << "#Block Name   x   y   z\n";
     ls << "#------------ --  --  -" << endl;
     flush_out();
   }
 
   string gbox_pin_name;
+  string udes_pn2; // translated according to --edits <config.json>
 
   string row_str;
   int row_num = -1;
@@ -303,7 +304,22 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 
     gbox_pin_name.clear();
 
-    const string& udes_pin_name = pcf_cmd[1];
+    const string& udes_pn1 = pcf_cmd[1];
+
+    bool is_in_pin = vec_contains(user_design_inputs_, udes_pn1);
+
+    bool is_out_pin =
+        is_in_pin ? false : vec_contains(user_design_outputs_, udes_pn1);
+
+    udes_pn2 = translatePinName(udes_pn1, is_in_pin);
+    if (udes_pn2 != udes_pn1) {
+      if (tr >= 3) {
+        lprintf("  %s pin TRANSLATED: %s --> %s\n",
+                is_in_pin ? "input" : "output", udes_pn1.c_str(), udes_pn2.c_str());
+      }
+    }
+
+    const string& udes_pin_name = udes_pn2;
     const string& device_pin_name = pcf_cmd[2];  // bump or ball
 
     if (tr >= 4) {
@@ -331,12 +347,6 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     if (!row_str.empty()) {
       row_num = ::atoi(row_str.c_str());
     }
-
-    bool is_in_pin = vec_contains(user_design_inputs_, udes_pin_name);
-
-    bool is_out_pin =
-        is_in_pin ? false
-                  : vec_contains(user_design_outputs_, udes_pin_name);
 
     if (!is_in_pin && !is_out_pin) {
       // sanity check
