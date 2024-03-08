@@ -166,9 +166,9 @@ message(STATUS "NOTE: OVERWRITING netlist_writer.cpp")
 file(COPY ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED  ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: OVERWRITING vpr_api.cpp")
-file(COPY ${PATCH_DIR}/base_fix/PATCHED/vpr_api.cpp DESTINATION ${TARGET_DIR})
-message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/vpr_api.cpp\n       to ${TARGET_DIR}/\n")
+message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
 
 message(STATUS "NOTE: OVERWRITING base/read_.*")
 file(COPY
@@ -184,12 +184,13 @@ message(STATUS "NOTE: PATCHING base/SetupVPR.cpp ..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/SetupVPR_cpp.diff)
 apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/SetupVPR.cpp")
 
-message(STATUS "NOTE: OVERWRITING base/vpr_context.h base/vpr_types.h")
-file(COPY
-    ${PATCH_DIR}/base_fix/PATCHED/vpr_context.h
-    ${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
-    DESTINATION ${TARGET_DIR})
-message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/ vpr_context.h vpr_types.h\n       to ${TARGET_DIR}/\n")
+message(STATUS "NOTE: PATCHING base/vpr_context.h ..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_context_h.diff)
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_context.h")
+
+message(STATUS "NOTE: PATCHING base/vpr_types.h ..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_types_h.diff)
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_types.h")
 
 
 # copy RS additions and patch CMakefiles
