@@ -41,7 +41,7 @@ cd OpenFPGA/vtr-verilog-to-routing/vpr/src/base; <your_editor> SetupVPR.cpp
 6. Copy or move the new diff to include/base_fix/DIFF/SetupVPR_cpp.diff
 
 7. Re-enable patch application in CMakeLists.txt.
-This can be done by revering this file by 'git checkout CMakeLists.txt'
+This can be done by reverting this file by 'git checkout CMakeLists.txt'
 
 8. Check in the updated SetupVPR_cpp.diff
 git add include/base_fix/DIFF/SetupVPR_cpp.diff
