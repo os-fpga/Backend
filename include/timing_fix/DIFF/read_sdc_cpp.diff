@@ -1,0 +1,77 @@
+diff --git a/vpr/src/timing/read_sdc.cpp b/vpr/src/timing/read_sdc.cpp
+index 202a3cfe6..484a18b6c 100644
+--- a/vpr/src/timing/read_sdc.cpp
++++ b/vpr/src/timing/read_sdc.cpp
+@@ -114,7 +114,7 @@ class SdcParseCallback : public sdcparse::Callback {
+                     auto net_aliases = netlist_.net_aliases(clock_name);
+ 
+                     for (const auto& alias : net_aliases) {
+-                        if (std::regex_match(alias, clock_name_regex)) {
++                        if (std::regex_match(alias, clock_name_regex) || (alias == clock_name_glob_pattern)) {
+                             found = true;
+                             //Create netlist clock
+                             tatum::DomainId netlist_clk = tc_.create_clock_domain(clock_name);
+@@ -876,7 +876,7 @@ class SdcParseCallback : public sdcparse::Callback {
+             bool found = false;
+             for (const auto& kv : netlist_primary_ios_) {
+                 const std::string& io_name = kv.first;
+-                if (std::regex_match(io_name, port_regex)) {
++                if (std::regex_match(io_name, port_regex) || (io_name == port_pattern)) {
+                     found = true;
+ 
+                     AtomPinId pin = kv.second;
+@@ -909,7 +909,6 @@ class SdcParseCallback : public sdcparse::Callback {
+ 
+         for (const auto& clock_glob_pattern : clock_group.strings) {
+             std::regex clock_regex = glob_pattern_to_regex(clock_glob_pattern);
+-
+             bool found = false;
+             for (tatum::DomainId domain : tc_.clock_domains()) {
+                 const auto& clock_name = tc_.clock_domain_name(domain);
+@@ -926,7 +925,7 @@ class SdcParseCallback : public sdcparse::Callback {
+                 // is no net associated with that when getting the net aliases from
+                 // the netlist.
+                 if (tc_.is_virtual_clock(domain)) {
+-                    if (std::regex_match(clock_name, clock_regex)) {
++                    if (std::regex_match(clock_name, clock_regex) || (clock_name == clock_glob_pattern)) {
+                         found = true;
+ 
+                         domains.insert(domain);
+@@ -935,21 +934,20 @@ class SdcParseCallback : public sdcparse::Callback {
+                     auto net_aliases = netlist_.net_aliases(clock_name);
+ 
+                     for (const auto& alias : net_aliases) {
+-                        if (std::regex_match(alias, clock_regex)) {
++                        if (std::regex_match(alias, clock_regex) || (alias == clock_glob_pattern)) {
+                             found = true;
+-
+                             domains.insert(domain);
+                             // Exit the inner loop as the net is already being constrained
+                             break;
+                         }
+                     }
+                 }
+-
+-                if (!found) {
+-                    VTR_LOGF_WARN(fname_.c_str(), lineno_,
+-                                  "get_clocks target name or pattern '%s' matched no clocks\n",
+-                                  clock_glob_pattern.c_str());
+-                }
++            }
++            if (!found)
++            {
++                VTR_LOGF_WARN(fname_.c_str(), lineno_,
++                              "get_clocks target name or pattern '%s' matched no clocks\n",
++                              clock_glob_pattern.c_str());
+             }
+         }
+ 
+@@ -975,7 +973,7 @@ class SdcParseCallback : public sdcparse::Callback {
+             for (AtomPinId pin : netlist_.pins()) {
+                 const std::string& pin_name = netlist_.pin_name(pin);
+ 
+-                if (std::regex_match(pin_name, pin_regex)) {
++                if (std::regex_match(pin_name, pin_regex) || (pin_name == pin_pattern)) {
+                     found = true;
+ 
+                     pins.insert(pin);
