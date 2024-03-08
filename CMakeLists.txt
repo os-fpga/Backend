@@ -192,6 +192,9 @@ message(STATUS "NOTE: PATCHING base/vpr_types.h ..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_types_h.diff)
 apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_types.h")
 
+message(STATUS "NOTE: PATCHING timing/read_sdc.cpp ..")
+set(DIFF_FILE ${TIMING_SRC_DIR}/DIFF/read_sdc_cpp.diff)
+apply_patch(${DIFF_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/timing  "timing/read_sdc.cpp")
 
 # copy RS additions and patch CMakefiles
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile..")
@@ -219,10 +222,6 @@ FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
           ${PLACER_SRC_DIR}/analytic_placer.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/place/)
-
-FILE(COPY ${TIMING_SRC_DIR}/read_sdc.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/timing)
 
 file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
