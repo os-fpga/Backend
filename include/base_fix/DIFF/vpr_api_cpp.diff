@@ -1,0 +1,13 @@
+diff --git a/vpr/src/base/vpr_api.cpp b/vpr/src/base/vpr_api.cpp
+index 5b7a45b85..f53b36ce8 100644
+--- a/vpr/src/base/vpr_api.cpp
++++ b/vpr/src/base/vpr_api.cpp
+@@ -378,6 +378,8 @@ bool vpr_flow(t_vpr_setup& vpr_setup, t_arch& arch) {
+     tbb::global_control c(tbb::global_control::max_allowed_parallelism, vpr_setup.num_workers);
+ #endif
+ 
++    g_vpr_ctx.mutable_logic_levels().levelize();
++
+     { //Pack
+         bool pack_success = vpr_pack_flow(vpr_setup, arch);
+ 
