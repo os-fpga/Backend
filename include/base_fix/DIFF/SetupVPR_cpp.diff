@@ -1,0 +1,51 @@
+diff --git a/vpr/src/base/SetupVPR.cpp b/vpr/src/base/SetupVPR.cpp
+index cff7179b7..6d883f394 100644
+--- a/vpr/src/base/SetupVPR.cpp
++++ b/vpr/src/base/SetupVPR.cpp
+@@ -596,10 +596,13 @@ void SetupPackerOpts(const t_options& Options,
+     PackerOpts->packer_algorithm = PACK_GREEDY; /* DEFAULT */
+ 
+     PackerOpts->device_layout = Options.device_layout;
++    PackerOpts->top_mod = Options.top_mod;
+ 
+     PackerOpts->timing_update_type = Options.timing_update_type;
+     PackerOpts->pack_num_moves = Options.pack_num_moves;
+     PackerOpts->pack_move_type = Options.pack_move_type;
++    PackerOpts->use_partitioning_in_pack = Options.use_partitioning_in_pack;
++    PackerOpts->number_of_molecules_in_partition = Options.number_of_molecules_in_partition;
+ }
+ 
+ static void SetupNetlistOpts(const t_options& Options, t_netlist_opts& NetlistOpts) {
+@@ -626,6 +629,7 @@ static void SetupPlacerOpts(const t_options& Options, t_placer_opts* PlacerOpts)
+     PlacerOpts->inner_loop_recompute_divider = Options.inner_loop_recompute_divider;
+     PlacerOpts->quench_recompute_divider = Options.quench_recompute_divider;
+ 
++    //TODO: document?
+     PlacerOpts->place_cost_exp = 1;
+ 
+     PlacerOpts->td_place_exp_first = Options.place_exp_first;
+@@ -646,6 +650,7 @@ static void SetupPlacerOpts(const t_options& Options, t_placer_opts* PlacerOpts)
+     PlacerOpts->recompute_crit_iter = Options.RecomputeCritIter;
+ 
+     PlacerOpts->timing_tradeoff = Options.PlaceTimingTradeoff;
++    PlacerOpts->congestion_tradeoff = Options.CongestionTradeoff;
+ 
+     /* Depends on PlacerOpts->place_algorithm */
+     PlacerOpts->delay_offset = Options.place_delay_offset;
+@@ -656,6 +661,7 @@ static void SetupPlacerOpts(const t_options& Options, t_placer_opts* PlacerOpts)
+     PlacerOpts->delay_model_type = Options.place_delay_model;
+     PlacerOpts->delay_model_reducer = Options.place_delay_model_reducer;
+ 
++    //TODO: document?
+     PlacerOpts->place_freq = PLACE_ONCE; /* DEFAULT */
+ 
+     PlacerOpts->post_place_timing_report_file = Options.post_place_timing_report_file;
+@@ -675,6 +681,8 @@ static void SetupPlacerOpts(const t_options& Options, t_placer_opts* PlacerOpts)
+     PlacerOpts->effort_scaling = Options.place_effort_scaling;
+     PlacerOpts->timing_update_type = Options.timing_update_type;
+     PlacerOpts->enable_analytic_placer = Options.enable_analytic_placer;
++    // Cascade Placer
++    PlacerOpts->enable_cascade_placer = Options.enable_cascade_placer;
+     PlacerOpts->place_static_move_prob = Options.place_static_move_prob;
+     PlacerOpts->place_static_notiming_move_prob = Options.place_static_notiming_move_prob;
+     PlacerOpts->place_high_fanout_net = Options.place_high_fanout_net;

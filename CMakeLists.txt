@@ -180,9 +180,9 @@ file(COPY
     DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: OVERWRITING SetupVPR.cpp")
-file(COPY ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp DESTINATION ${TARGET_DIR})
-message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp\n       to ${TARGET_DIR}/\n")
+message(STATUS "NOTE: PATCHING base/SetupVPR.cpp ..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/SetupVPR_cpp.diff)
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/SetupVPR.cpp")
 
 message(STATUS "NOTE: OVERWRITING base/vpr_context.h base/vpr_types.h")
 file(COPY
@@ -193,7 +193,7 @@ message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/ vpr_context.h vpr_ty
 
 
 # copy RS additions and patch CMakefiles
-message(STATUS "NOTE: PATCHING OpenFPGA CMakefile by GNU-patch..")
+message(STATUS "NOTE: PATCHING OpenFPGA CMakefile..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
 apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
 
@@ -205,7 +205,7 @@ file(COPY
 message(STATUS "NOTE: ADDED to VPR-root: VPR_CMake_RS1.cmake")
 message(STATUS "NOTE: VPR-root= ${VPR_DEST_DIR}\n")
 
-message(STATUS "NOTE: PATCHING VPR CMakefile by GNU-patch..")
+message(STATUS "NOTE: PATCHING VPR CMakefile..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
 apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
 
