@@ -194,7 +194,7 @@ apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_types.h")
 
 message(STATUS "NOTE: PATCHING timing/read_sdc.cpp ..")
 set(DIFF_FILE ${TIMING_SRC_DIR}/DIFF/read_sdc_cpp.diff)
-apply_patch(${DIFF_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/timing  "timing/read_sdc.cpp")
+apply_patch(${DIFF_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/timing "read_sdc.cpp")
 
 # copy RS additions and patch CMakefiles
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile..")
