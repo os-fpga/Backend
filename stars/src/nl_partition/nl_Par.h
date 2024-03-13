@@ -29,6 +29,7 @@ public:
   uint numMolecules_ = 0;
   uint numNets_ = 0;
   uint numAtoms_ = 0;
+  uint splitCnt_ = 0;
   int* atomBlockIdToMolId_ = nullptr;
   string* molIdToName_ = nullptr;
   uint* partition_array_ = nullptr;

@@ -170,9 +170,10 @@ static string get_MtKaHyPar_path() {
 }
 
 bool Par::split(uint partition_index) {
+  splitCnt_++;
   auto tr = ltrace();
   if (tr >= 3)
-    lprintf("+Par::split( partition_index= %u )\n", partition_index);
+    lprintf("+Par::split( partition_index= %u ) #%u\n", partition_index, splitCnt_);
 
   //making the intermediate nodes
   vector<int> MoleculesToIntermediate;
@@ -212,8 +213,6 @@ bool Par::split(uint partition_index) {
       auto port_id = myNetlist.pin_port(pin_id);
       auto blk_id = myNetlist.port_block(port_id);
       if (blk_id == driverBlockId) continue;
-      //VTR_LOG("%d ", size_t(blk_id));
-      //hmetisFile << size_t(blk_id)+1 << " ";
       moleculeId = atomBlockIdToMolId_[size_t(blk_id)];
       if (partition_array_[moleculeId] != partition_index) {
         continue;
@@ -244,26 +243,35 @@ bool Par::split(uint partition_index) {
     }
   }
 
-  std::ofstream hmetisFile;
-  hmetisFile.open("hmetis.txt", std::ofstream::out);
-  hmetisFile << uniqueLines.size() << " " << num_intermediate << " " << 11 << endl;
-  {
-    int i = 0;
-    for (auto line : uniqueLines) {
-      hmetisFile << lineCounts[i] << " " << line << endl;
-      i++;
-    }
-    for (uint j = 0; j < IntermediateToMolecules.size(); j++) {
-      // for (auto molecule : molecules_) {
-      hmetisFile << molecules_[IntermediateToMolecules[j]]->atom_block_ids.size() << endl;
-      // }
-    }
+  string hmetis_fn = str::concat("hmetis_", std::to_string(splitCnt_), ".txt");
+  if (tr >= 3)
+    lprintf("hmetis_file_name= %s\n", hmetis_fn.c_str());
+  std::ofstream hmetisFile(hmetis_fn);
+  if (!hmetisFile) {
+    const char* fn = hmetis_fn.c_str();
+    VTR_LOG("Bi-Partition with MtKaHPar FAILED: could not open file for writing: %s\n", fn);
+    fprintf(stderr,
+        "[Error] Bi-Partition with MtKaHPar FAILED: could not open file for writing: %s\n", fn);
+    partitions_.clear();
+    return false;
+  }
+  if (tr >= 3) {
+    lprintf("hmetis header: %zu %i 11\n", uniqueLines.size(), num_intermediate);
+  }
+  hmetisFile << uniqueLines.size() << ' ' << num_intermediate << ' ' << 11 << endl;
+  for (size_t i = 0; i < uniqueLines.size(); i++) {
+    const string& line = uniqueLines[i];
+    hmetisFile << lineCounts[i] << " " << line << endl;
+  }
+  for (uint j = 0; j < IntermediateToMolecules.size(); j++) {
+    // for (auto molecule : molecules_) {
+    hmetisFile << molecules_[IntermediateToMolecules[j]]->atom_block_ids.size() << endl;
+    // }
   }
   hmetisFile.close();
-  int numberOfClusters = 2;
-  if (numberOfClusters == 1) numberOfClusters = 2;
 
-  //numberOfClusters = 3;
+  int K = 2;
+
   char commandToExecute[6000] = {};  // unix PATH_MAX is 4096
   uint num_cpus = std::thread::hardware_concurrency();
   int num_threads = (int)(num_cpus / 2) > 1 ? (int)(num_cpus / 2) : 1;
@@ -279,8 +287,8 @@ bool Par::split(uint partition_index) {
 
   sprintf(
       commandToExecute,
-      "%s -h hmetis.txt --preset-type=quality -t %d -k %d -e 0.01 -o soed --enable-progress-bar=true --show-detailed-timings=true --verbose=true --write-partition-file=true",
-      MtKaHyPar_path.c_str(), num_threads, numberOfClusters);
+      "%s -h %s --preset-type=quality -t %d -k %d -e 0.01 -o soed --enable-progress-bar=true --show-detailed-timings=false --verbose=true --write-partition-file=true",
+      MtKaHyPar_path.c_str(), hmetis_fn.c_str(), num_threads, K);
   VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
 
   int code = system(commandToExecute);
@@ -293,18 +301,15 @@ bool Par::split(uint partition_index) {
     return false;
   }
 
-  char newFilename[1024] = {};
-  // sprintf(newFilename, "hmetis.txt.part.%d", numberOfClusters);
-  sprintf(newFilename, "hmetis.txt.part%d.epsilon0.01.seed0.KaHyPar", numberOfClusters);
-  // char* commandToExecute = new char[1000];
-  // sprintf(commandToExecute, "~/hmetis hmetis.txt %d 1 20 4 1 3 0 0 ", numberOfClusters);
+  char newFilename[4100] = {};
+  sprintf(newFilename, "%s.part%d.epsilon0.01.seed0.KaHyPar", hmetis_fn.c_str(), K);
 
   // VTR_LOG("HMETIS COMMAND: %s\n", commandToExecute);
   // system(commandToExecute);
   //exit(0);
   // char* newFilename = new char[100];
-  // sprintf(newFilename, "hmetis.txt.part.%d", numberOfClusters);
-  // sprintf(newFilename, "hmetis_96_1.txt", numberOfClusters);
+  // sprintf(newFilename, "hmetis.txt.part.%d", K);
+  // sprintf(newFilename, "hmetis_96_1.txt", K);
   std::ifstream hmetisOutFile;
   hmetisOutFile.open(newFilename);
 
