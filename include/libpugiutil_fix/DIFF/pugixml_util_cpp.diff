@@ -1,0 +1,88 @@
+diff --git a/libs/libpugiutil/src/pugixml_util.cpp b/libs/libpugiutil/src/pugixml_util.cpp
+index b1597d349..4979fa411 100644
+--- a/libs/libpugiutil/src/pugixml_util.cpp
++++ b/libs/libpugiutil/src/pugixml_util.cpp
+@@ -15,38 +15,55 @@ loc_data load_xml(pugi::xml_document& doc,      //Document object to be loaded w
+         //store the characters after the '.' from the file_name string
+         result = filename.substr(position);
+     }
++    std::string fn_file;
+     if (result == ".xmle") {
+-        Decryption E1(filename);
+-        std::string fn_file = E1.getDecryptedContent();
+-        size_t buffersize = fn_file.size();
+-        char* final = new char[buffersize];
+-        strcpy(final, fn_file.c_str());
+-        auto location_data = loc_data(final, buffersize);
+-        auto load_result = doc.load_buffer(final, buffersize);
+-        if (!load_result) {
+-            std::string msg = load_result.description();
+-            auto line = location_data.line(load_result.offset);
+-            auto col = location_data.col(load_result.offset);
+-            throw XmlError("Unable to load XML file '" + filename + "', " + msg
+-                               + " (line: " + std::to_string(line) + " col: " + std::to_string(col) + ")",
+-                           filename.c_str(), line);
+-        }
+-        delete (final);
+-        return location_data;
++      // Encrypted xml
++      Decryption E1(filename);
++      fn_file = E1.getDecryptedContent();
+     } else {
+-        //auto location_data = loc_data(end_result_fname);
+-        auto location_data = loc_data(filename);
+-        auto load_result = doc.load_file(filename.c_str());
+-        if (!load_result) {
+-            std::string msg = load_result.description();
+-            auto line = location_data.line(load_result.offset);
+-            auto col = location_data.col(load_result.offset);
+-            throw XmlError("Unable to load XML file '" + filename + "', " + msg
+-                               + " (line: " + std::to_string(line) + " col: " + std::to_string(col) + ")",
+-                           filename.c_str(), line);
++      // Clear text xml
++      std::ifstream stream(filename);
++      if (stream.good()) {
++        std::stringstream buffer;
++        buffer << stream.rdbuf();
++        stream.close();
++        fn_file = buffer.str();
++      } else {
++            throw XmlError("Unable to open XML file '" + filename ,
++                               filename.c_str(), 0);
++      }
++    }
++
++    // Custom layout insertion
++    {
++        std::ifstream insert("../custom_layout.txt");
++        if (insert.good()) {
++            std::string insert_data((std::istreambuf_iterator<char>(insert)),
++                                    std::istreambuf_iterator<char>());
++            insert.close();
++            size_t start_pos = 0;
++            std::string from = "<!-- CUSTOM_LAYOUTS_INSERT_POINT -->";
++            if ((start_pos = fn_file.find(from, start_pos)) != std::string::npos) {
++                fn_file.replace(start_pos, from.length(), insert_data);
++            }
+         }
+-        return location_data;
+     }
++
++    size_t buffersize = fn_file.size();
++    char* final = new char[buffersize];
++    strcpy(final, fn_file.c_str());
++    auto location_data = loc_data(final, buffersize);
++    auto load_result = doc.load_buffer(final, buffersize);
++    if (!load_result) {
++        std::string msg = load_result.description();
++        auto line = location_data.line(load_result.offset);
++        auto col = location_data.col(load_result.offset);
++        throw XmlError("Unable to load XML file '" + filename + "', " + msg
++                           + " (line: " + std::to_string(line) + " col: " + std::to_string(col) + ")",
++                       filename.c_str(), line);
++    }
++    delete (final);
++    return location_data;
+ }
+ //Gets the first child element of the given name and returns it.
+ //
