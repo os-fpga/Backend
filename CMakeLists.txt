@@ -196,6 +196,10 @@ message(STATUS "NOTE: PATCHING timing/read_sdc.cpp ..")
 set(DIFF_FILE ${TIMING_SRC_DIR}/DIFF/read_sdc_cpp.diff)
 apply_patch(${DIFF_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr/src/timing "read_sdc.cpp")
 
+message(STATUS "NOTE: PATCHING libs/libpugiutil/src/pugixml_util.cpp ..")
+set(DIFF_FILE ${PATCH_DIR}/libpugiutil_fix/DIFF/pugixml_util_cpp.diff)
+apply_patch(${DIFF_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil/src "pugixml_util.cpp")
+
 # copy RS additions and patch CMakefiles
 message(STATUS "NOTE: PATCHING OpenFPGA CMakefile..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
