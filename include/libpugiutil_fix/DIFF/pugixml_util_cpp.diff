@@ -1,5 +1,5 @@
 diff --git a/libs/libpugiutil/src/pugixml_util.cpp b/libs/libpugiutil/src/pugixml_util.cpp
-index b1597d349..4979fa411 100644
+index b1597d349..dcef27f34 100644
 --- a/libs/libpugiutil/src/pugixml_util.cpp
 +++ b/libs/libpugiutil/src/pugixml_util.cpp
 @@ -15,38 +15,55 @@ loc_data load_xml(pugi::xml_document& doc,      //Document object to be loaded w
@@ -69,7 +69,7 @@ index b1597d349..4979fa411 100644
      }
 +
 +    size_t buffersize = fn_file.size();
-+    char* final = new char[buffersize];
++    char* final = new char[buffersize+1];
 +    strcpy(final, fn_file.c_str());
 +    auto location_data = loc_data(final, buffersize);
 +    auto load_result = doc.load_buffer(final, buffersize);
