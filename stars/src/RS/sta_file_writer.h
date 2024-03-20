@@ -1,6 +1,6 @@
 #pragma once
-#ifndef __rsbe__sta_file_writer_H_h_
-#define __rsbe__sta_file_writer_H_h_
+#ifndef __pln__sta_file_writer_H_h_
+#define __pln__sta_file_writer_H_h_
 
 #include "globals.h"
 #include "netlist_walker.h"
@@ -43,7 +43,7 @@ public:
 using sequential_port_delay_pair = std::pair<double, std::string>;
 
 inline string join_identifier(const string& lhs, const string& rhs) noexcept {
-  return pinc::str::concat(lhs, "_", rhs);
+  return pln::str::concat(lhs, "_", rhs);
 }
 
 ///@brief Returns a blank string for indenting the given depth

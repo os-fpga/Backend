@@ -1,6 +1,5 @@
-#include "rsEnv.h"
-#include "pinc_log.h"
-#include "rsGlobal.h"
+#include "RS/rsEnv.h"
+#include "RS/rsGlobal.h"
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -14,7 +13,7 @@ namespace rsbe {
 
 using std::cout;
 using std::endl;
-using namespace pinc;
+using namespace pln;
 
 rsEnv::rsEnv() noexcept {
   CStr ts = getenv("rsbe_trace_marker");
@@ -311,7 +310,7 @@ void rsEnv::listDevEnv() const noexcept {
   lprintf("\t  RSBE_DEAL_VPR :   OFF\n");
 #endif
 
-  pinc::flush_out(true);
+  pln::flush_out(true);
 }
 
 }

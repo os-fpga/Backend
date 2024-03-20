@@ -11,12 +11,13 @@ message(STATUS "Building with IPO: off")
 set(OPENFPGA_IPO_BUILD "off" CACHE STRING "Should be compiled with LTO?")
 set_property(CACHE OPENFPGA_IPO_BUILD PROPERTY STRINGS auto off off)
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -mavx")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -mavx")
 
 file(GLOB_RECURSE EXEC_SOURCE src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
 file(GLOB_RECURSE LIB_HEADERS src/*/*.h)
-files_to_dirs(LIB_HEADERS LIB_INCLUDE_DIRS)
+
+set(LIB_INCLUDE_DIRS src)
 
 #Remove test executable from library
 list(REMOVE_ITEM LIB_SOURCES ${EXEC_SOURCE})
@@ -29,11 +30,11 @@ target_include_directories(libstars PUBLIC ${LIB_INCLUDE_DIRS})
 set_target_properties(libstars PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
 ##Create .so library
-#add_library(libstars_dll SHARED
+#add_library(libPlanner_dll SHARED
 #            ${LIB_HEADERS}
 #            ${LIB_SOURCES})
-#target_include_directories(libstars_dll PUBLIC ${LIB_INCLUDE_DIRS})
-#set_target_properties(libstars_dll PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
+#target_include_directories(libPlanner_dll PUBLIC ${LIB_INCLUDE_DIRS})
+#set_target_properties(libPlanner_dll PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
 #Specify link-time dependancies
 target_link_libraries(libstars

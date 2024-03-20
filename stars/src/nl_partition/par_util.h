@@ -2,7 +2,8 @@
 #ifndef _pln_parCLUSTER_UTIL_H__259961046e_
 #define _pln_parCLUSTER_UTIL_H__259961046e_
 
-#include "pinc_log.h"
+#include "util/pln_log.h"
+
 #include "globals.h"
 #include "atom_netlist.h"
 #include "pack_types.h"

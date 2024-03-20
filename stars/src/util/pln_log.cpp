@@ -1,4 +1,4 @@
-#include "pinc_log.h"
+#include "util/pln_log.h"
 
 #include <stdarg.h>
 #include <alloca.h>
@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace pinc {
+namespace pln {
 
 using namespace std;
 
@@ -261,5 +261,5 @@ namespace str {
 
 }  // NS str
 
-}  // NS pinc
+}  // NS pln
 

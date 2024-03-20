@@ -1,8 +1,8 @@
 #pragma once
-#ifndef __rsbe_stars_VPR_H_h_
-#define __rsbe_stars_VPR_H_h_
+#ifndef __pln_stars_VPR_H_h_
+#define __pln_stars_VPR_H_h_
 
-#include "rsOpts.h"
+#include "RS/rsOpts.h"
 
 namespace rsbe {
 

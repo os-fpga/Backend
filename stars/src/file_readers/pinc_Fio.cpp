@@ -1,6 +1,6 @@
 // File IO - namespace fio
-#include "pinc_Fio.h"
-#include "pinc_tinyxml2.h"
+#include "file_readers/pinc_Fio.h"
+#include "file_readers/pinc_tinyxml2.h"
 
 #include <alloca.h>
 #include <errno.h>
@@ -13,7 +13,7 @@
 
 namespace fio {
 
-using namespace pinc;
+using namespace pln;
 using namespace std;
 
 static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
