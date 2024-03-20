@@ -1,4 +1,4 @@
-#include "pinc_log.h"
+#include "util/pln_log.h"
 
 // vpr/src/base
 #include "atom_netlist.h"
@@ -26,7 +26,7 @@ using std::string;
 using std::stringstream;
 using std::ostream;
 using std::vector;
-using namespace pinc;
+using namespace pln;
 
 WriterVisitor::WriterVisitor(
                  ostream& verilog_os,

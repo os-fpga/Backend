@@ -1,9 +1,9 @@
 #pragma once
 // nl::Par -- Netlist Partitioning
-#ifndef __pln__nl_Par_H_2f7c7a4b0bdd_
-#define __pln__nl_Par_H_2f7c7a4b0bdd_
+#ifndef _pln__nl_Par_H__2f7c7a4b0bdd_
+#define _pln__nl_Par_H__2f7c7a4b0bdd_
 
-#include "pinc_log.h"
+#include "util/pln_log.h"
 #include "vpr_types.h"
 
 namespace pln {

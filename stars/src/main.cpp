@@ -1,7 +1,7 @@
-static const char* _pln_VERSION_STR = "pln0125";
+static const char* _pln_VERSION_STR = "pln0126";
 
 #include "RS/rsEnv.h"
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 #include "util/cmd_line.h"
 #include "file_readers/pinc_Fio.h"
 #include "pin_loc/pinc_main.h"
@@ -18,7 +18,7 @@ static const char* _pln_VERSION_STR = "pln0125";
 
 namespace rsbe {
 
-using namespace pinc;
+using namespace pln;
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -364,7 +364,7 @@ static void deal_help(const rsOpts& opts) {
 }  // NS rsbe
 
 int main(int argc, char** argv) {
-  using namespace pinc;
+  using namespace pln;
   using namespace rsbe;
   using std::cout;
   using std::endl;
@@ -398,7 +398,7 @@ int main(int argc, char** argv) {
 
   if (opts.ver_or_help()) {
     deal_help(opts);
-    pinc::flush_out();
+    pln::flush_out();
     std::quick_exit(0);
   }
 
@@ -456,6 +456,6 @@ int main(int argc, char** argv) {
 ret:
   if (ltrace() >= 4)
     lprintf("(planner main status) %i\n", status);
-  pinc::flush_out(true);
+  pln::flush_out(true);
   return status;
 }

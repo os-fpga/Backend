@@ -1,5 +1,5 @@
-#include "rsOpts.h"
-#include "pinc_Fio.h"
+#include "RS/rsOpts.h"
+#include "file_readers/pinc_Fio.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -8,7 +8,7 @@
 namespace rsbe {
 
 using namespace std;
-using namespace pinc;
+using namespace pln;
 using CStr = const char*;
 
 namespace alias {

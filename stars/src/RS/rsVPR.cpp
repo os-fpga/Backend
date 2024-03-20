@@ -15,7 +15,7 @@
  * 4.  Clean up
  */
 
-#include "pinc_log.h"
+#include "util/pln_log.h"
 
 #include "vtr_error.h"
 #include "vtr_log.h"

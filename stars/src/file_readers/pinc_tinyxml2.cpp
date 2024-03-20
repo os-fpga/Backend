@@ -22,8 +22,8 @@ distribution.
 */
 // Modified by serge-rs.
 
-#include "pinc_tinyxml2.h"
-#include "pinc_Fio.h"
+#include "file_readers/pinc_tinyxml2.h"
+#include "file_readers/pinc_Fio.h"
 
 #include <new>
 #include <cstddef>

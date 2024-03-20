@@ -15,8 +15,8 @@
 //  "BH" stands for Break Here, inspired by purify_stop_here().
 //
 #pragma once
-#ifndef __rsbe_PINC_LOG_H__29b9113eb678_
-#define __rsbe_PINC_LOG_H__29b9113eb678_
+#ifndef __pln_PINC_LOG_H__5b74600299d7_
+#define __pln_PINC_LOG_H__5b74600299d7_
 
 #include <algorithm>
 #include <cassert>
@@ -47,7 +47,7 @@
 
 #define RSBE_PLANNER_MODE 1
 
-namespace pinc {
+namespace pln {
 
 using CStr = const char*;
 
@@ -239,7 +239,7 @@ inline void logVec(const std::vector<T>& vec, CStr pref) noexcept {
 template <typename T>
 inline T* unconst(const T* p) noexcept { return const_cast<T*>(p); }
 
-}  // namespace pinc
+}  // namespace pln
 
 const char* rsbe_get_version();
 

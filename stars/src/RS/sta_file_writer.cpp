@@ -1,5 +1,5 @@
 
-#include "pinc_log.h"
+#include "util/pln_log.h"
 
 // vpr/src/base
 #include "atom_netlist.h"
@@ -23,7 +23,7 @@
 #include "rsDB.h"
 #include "WriterVisitor.h"
 
-#include "pinc_Fio.h"
+#include "file_readers/pinc_Fio.h"
 #include <filesystem>
 
 namespace rsbe {
@@ -33,7 +33,7 @@ using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
-using namespace pinc;
+using namespace pln;
 
 bool FileWriter::do_files(int argc, const char** argv) {
   uint16_t tr = ltrace();

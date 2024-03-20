@@ -1,5 +1,5 @@
-#include "pinc_log.h"
-#include "sta_lib_writer.h"
+#include "util/pln_log.h"
+#include "RS/sta_lib_writer.h"
 
 #include <fstream>
 #include <map>
@@ -17,7 +17,7 @@ namespace rsbe {
 
 using std::endl;
 using std::string;
-using namespace pinc;
+using namespace pln;
 
 static const char* str_Pin_type(Pin_t t) noexcept {
   // enum Pin_t                {  DATA,   CLOCK,   RESET,   SET,   ENABLE,   INVALID_PIN_TYPE  };

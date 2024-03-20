@@ -1,5 +1,5 @@
-#include "nl_Par.h"
-#include "pinc_Fio.h"
+#include "nl_partition/nl_Par.h"
+#include "file_readers/pinc_Fio.h"
 #include "globals.h"
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -10,7 +10,7 @@
 
 namespace pln {
 
-using namespace pinc;
+using namespace pln;
 using namespace fio;
 
 using std::string;

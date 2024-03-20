@@ -1,8 +1,8 @@
 #pragma once
-#ifndef __rsbe__stars__rsDB_H_h_
-#define __rsbe__stars__rsDB_H_h_
+#ifndef __pln__stars__rsDB_H_h_
+#define __pln__stars__rsDB_H_h_
 
-#include "pinc_log.h"
+#include "util/pln_log.h"
 
 // vpr/src/base
 #include "atom_netlist.h"
@@ -33,7 +33,7 @@ using std::string;
 using std::stringstream;
 using std::ostream;
 using std::vector;
-using namespace pinc;
+using namespace pln;
 using CStr = const char*;
 
 // A combinational timing arc

@@ -1,8 +1,8 @@
 #pragma once
-#ifndef __rsbe__stars__WriterVisitor_H_h_
-#define __rsbe__stars__WriterVisitor_H_h_
+#ifndef __pln__stars__WriterVisitor_H_h_
+#define __pln__stars__WriterVisitor_H_h_
 
-#include "pinc_log.h"
+#include "util/pln_log.h"
 
 // vpr/src/base
 #include "atom_netlist.h"
@@ -29,7 +29,7 @@ using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
-using namespace pinc;
+using namespace pln;
 
 /**
  * @brief A class which writes post-synthesis netlists (Verilog and BLIF) and
