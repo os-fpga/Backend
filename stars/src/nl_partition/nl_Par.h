@@ -1,12 +1,12 @@
 #pragma once
 // nl::Par -- Netlist Partitioning
-#ifndef __rsbe__nl_Par_H_41abdef2db313ec_
-#define __rsbe__nl_Par_H_41abdef2db313ec_
+#ifndef __pln__nl_Par_H_2f7c7a4b0bdd_
+#define __pln__nl_Par_H_2f7c7a4b0bdd_
 
 #include "pinc_log.h"
 #include "vpr_types.h"
 
-namespace nlp {
+namespace pln {
 
 using std::string;
 using std::vector;

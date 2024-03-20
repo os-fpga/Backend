@@ -16,7 +16,7 @@
 
 #include "pugixml.hpp"
 
-namespace nlp {
+namespace pln {
 
 static const char* clust_xml_net_text(AtomNetId net_id) {
 

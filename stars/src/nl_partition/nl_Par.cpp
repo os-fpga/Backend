@@ -8,7 +8,7 @@
 #include <fstream>
 #include <thread>
 
-namespace nlp {
+namespace pln {
 
 using namespace pinc;
 using namespace fio;
@@ -51,7 +51,7 @@ bool Par::init(t_pack_molecule* molecule_head) {
   }
 
   if (tr >= 2) {
-    lprintf("nlp::Par::init  numMolecules_= %u  numNets_= %u  numAtoms_= %u\n",
+    lprintf("pln::Par::init  numMolecules_= %u  numNets_= %u  numAtoms_= %u\n",
               numMolecules_, numNets_, numAtoms_);
   }
 
