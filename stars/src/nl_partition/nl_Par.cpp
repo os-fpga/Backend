@@ -10,7 +10,6 @@
 
 namespace pln {
 
-using namespace pln;
 using namespace fio;
 
 using std::string;

@@ -77,6 +77,8 @@
 #include "constraints_report.h"
 #include "nl_Par.h"
 
+#include <dlfcn.h>
+
 /*
  * When attraction groups are created, the purpose is to pack more densely by adding more molecules
  * from the cluster's attraction group to the cluster. In a normal flow, (when attraction groups are
@@ -89,6 +91,9 @@
 
 static bool s_partitioning_status_NOP = false;
 bool partitioning_status_NOP() { return s_partitioning_status_NOP; }
+
+// function pointer types:
+using MolPtr_to_uint_F = uint (*) (t_pack_molecule*);
 
 std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& packer_opts,
                                                          const t_analysis_opts& analysis_opts,
@@ -254,7 +259,42 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
         int npart = packer_opts.number_of_molecules_in_partition;
         // auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
 
-        int mol_count = nlp::Par::countMolecules(molecule_head);
+        int mol_count = 0;
+        MolPtr_to_uint_F countMol_func = nullptr;
+
+        if (::getenv("PLN_TEST_libPlanner")) {
+          VTR_LOG("\n\t  PLN_TEST_libPlanner\n");
+          const char* libPlanner_DLL_fn = "/home/serge/bes/DLL/Backend/build/stars/libPlanner_dll.so";
+          const char* ers = nullptr;
+          void* planner_dll = ::dlopen(libPlanner_DLL_fn, RTLD_NOW );
+          if (planner_dll) {
+            VTR_LOG("dlopen() OK\n");
+            void* symp = ::dlsym(planner_dll, "nlp_count_molecules");
+            if (symp) {
+              VTR_LOG("  OK sym nlp_count_molecules\n");
+              countMol_func = reinterpret_cast<MolPtr_to_uint_F>(symp);
+            }
+            else {
+              VTR_LOG("  !sym nlp_count_molecules\n");
+              ers = ::dlerror();
+              if (ers)
+                VTR_LOG("  dlerror: %s\n", ers);
+            }
+          }
+          else {
+            VTR_LOG("dlopen() FAILED\n");
+            ers = ::dlerror();
+            if (ers)
+              VTR_LOG("  dlerror: %s\n", ers);
+          }
+        }
+
+        if (countMol_func) {
+          mol_count = countMol_func(molecule_head);
+          VTR_LOG("countMol_func returned %i\n", mol_count);
+        } else {
+          mol_count = nlp::Par::countMolecules(molecule_head);
+        }
 
         VTR_LOG("(in packer_opts.use_partitioning_in_pack)  mol_count= %i  #molecules_in_partition= %i\n",
                        mol_count, npart);
