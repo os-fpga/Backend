@@ -18,7 +18,7 @@ if (PRODUCTION_BUILD)
                             librrgraph
                             libreadedif
                             ${OPENSSL_LIBRARIES}
-                            ${VERIFIC_LIBS})
+                            ${VERIFIC_LIBS} dl)
 else()
     #Specify link-time dependancies
     target_link_libraries(libvpr
@@ -32,6 +32,6 @@ else()
                             librrgraph
                             libreadedif
                             ${OPENSSL_LIBRARIES}
-                            ${VERIFIC_LIBS})
+                            ${VERIFIC_LIBS} dl)
 endif(PRODUCTION_BUILD)
 

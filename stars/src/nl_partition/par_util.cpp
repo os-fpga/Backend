@@ -504,5 +504,5 @@ bool check_if_xml_mode_conflict(const t_packer_opts& packer_opts,
     return legal;
 }
 
-} // namespace rsbe
+} // namespace pln
 
