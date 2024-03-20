@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _parCLUSTER_UTIL_H__d7a6211e247104_
-#define _parCLUSTER_UTIL_H__d7a6211e247104_
+#ifndef _pln_parCLUSTER_UTIL_H__259961046e_
+#define _pln_parCLUSTER_UTIL_H__259961046e_
 
 #include "pinc_log.h"
 #include "globals.h"
@@ -10,7 +10,7 @@
 #include "vpr_utils.h"
 #include "constraints_report.h"
 
-namespace nlp {
+namespace pln {
 
 bool check_if_xml_mode_conflict(const t_packer_opts& packer_opts,
                              const t_arch* arch,
