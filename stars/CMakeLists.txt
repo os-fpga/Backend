@@ -32,17 +32,18 @@ target_include_directories(libPlanner PUBLIC ${LIB_INCLUDE_DIRS})
 set_target_properties(libPlanner PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
 #Create .so library
-add_library(libPlanner_dll SHARED
-            ${LIB_HEADERS}
-            ${LIB_SOURCES})
-target_include_directories(libPlanner_dll PUBLIC ${LIB_INCLUDE_DIRS})
-set_target_properties(libPlanner_dll PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
+#add_library(libPlanner_dll SHARED
+#            ${LIB_HEADERS}
+#            ${LIB_SOURCES})
+#target_include_directories(libPlanner_dll PUBLIC ${LIB_INCLUDE_DIRS})
+#set_target_properties(libPlanner_dll PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
 #Specify link-time dependancies
 target_link_libraries(libPlanner
                       libvpr)
-target_link_libraries(libPlanner_dll
-                      libvpr)
+
+#target_link_libraries(libPlanner_dll
+#                      libvpr)
 
 #Create the executable
 add_executable(stars ${EXEC_SOURCE})
