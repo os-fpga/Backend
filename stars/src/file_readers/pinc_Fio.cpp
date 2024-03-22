@@ -80,12 +80,35 @@ bool Fio::fileAccessible(CStr fn) noexcept {
 }
 
 bool Fio::regularFileExists(CStr fn) noexcept {
+  if (!fn or !fn[0])
+    return false;
   struct stat sb;
   if (::stat(fn, &sb)) return false;
 
   if (not(S_IFREG & sb.st_mode)) return false;
 
   return true;
+}
+
+bool Fio::nonEmptyFileExists(CStr fn) noexcept {
+  if (!fn or !fn[0])
+    return false;
+  struct stat sb;
+  if (::stat(fn, &sb)) return false;
+
+  if (not(S_IFREG & sb.st_mode)) return false;
+
+  FILE* f = ::fopen(fn, "r");
+  if (!f)
+    return false;
+
+  int64_t sz = 0;
+  int err = ::fseek(f, 0, SEEK_END);
+  if (not err)
+    sz = ::ftell(f);
+
+  ::fclose(f);
+  return sz > 1;
 }
 
 void Fio::reset(CStr nm, uint16_t tr) noexcept {
