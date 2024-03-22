@@ -6,8 +6,8 @@ namespace pln {
 
 class cmd_line;
 
-// entry point for libpinconst.a
-inline int pinc_main(const cmd_line& cmd) { return 0; }
+// entry point for pin_c
+int pinc_main(const cmd_line& cmd);
 
 }
 
