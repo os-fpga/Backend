@@ -4,7 +4,7 @@
 
 #include "util/pln_log.h"
 
-namespace rsbe {
+namespace pln {
 
 using std::string;
 using std::vector;

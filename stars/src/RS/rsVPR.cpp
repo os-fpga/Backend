@@ -38,13 +38,13 @@
 #include "rsGlobal.h"
 #include "rsVPR.h"
 
-namespace rsbe {
+namespace pln {
 
 static t_vpr_setup s_vpr_setup;
 
 t_vpr_setup* get_vprSetup() noexcept { return &s_vpr_setup; }
 
-int vpr4stars(int argc, char** argv) {
+int vpr4pln(int argc, char** argv) {
   assert(argc);
   assert(argv);
 
@@ -55,13 +55,13 @@ int vpr4stars(int argc, char** argv) {
   t_arch* ar = new t_arch;
 
   try {
-    vpr_init(argc, (const char**)argv, &opa, rsbe::get_vprSetup(), ar);
+    vpr_init(argc, (const char**)argv, &opa, pln::get_vprSetup(), ar);
 
     if (opa.show_version) {
       return 0;
     }
 
-    bool flow_succeeded = vpr_flow(rsbe::s_vpr_setup, *ar);
+    bool flow_succeeded = vpr_flow(pln::s_vpr_setup, *ar);
     if (!flow_succeeded) {
       VTR_LOG("VPR failed to implement circuit\n");
       return UNIMPLEMENTABLE_EXIT_CODE;
@@ -174,4 +174,4 @@ int do_vpr(const rsOpts& opts) {
   return SUCCESS_EXIT_CODE;
 }
 
-}  // NS rsbe
+}  // NS pln

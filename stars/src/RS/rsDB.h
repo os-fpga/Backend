@@ -26,7 +26,7 @@
 #include <map>
 #include <set>
 
-namespace rsbe {
+namespace pln {
 
 using std::endl;
 using std::string;

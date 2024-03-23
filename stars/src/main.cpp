@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0127";
+static const char* _pln_VERSION_STR = "pln0128";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -16,15 +16,28 @@ static const char* _pln_VERSION_STR = "pln0127";
 #include "RS/rsVPR.h"
 #include "RS/sta_file_writer.h"
 
-namespace rsbe {
+namespace pln {
 
-using namespace pln;
 using std::cout;
 using std::cerr;
 using std::endl;
 using std::string;
 
 static rsEnv s_env;
+
+static bool deal_pinc(const rsOpts& opts, bool orig_args);
+
+static inline bool ends_with_pin_c(const char* z) noexcept {
+  if (!z or !z[0])
+    return false;
+  size_t len = ::strlen(z);
+  if (len < 5)
+    return false;
+  return z[len - 1] == 'c' and z[len - 2] == '_' and z[len - 3] == 'n' and
+         z[len - 4] == 'i' and z[len - 5] == 'p';
+  // pin_c
+  // c_nip
+}
 
 static bool deal_stars(const rsOpts& opts, bool orig_args) {
   bool status = false;
@@ -46,18 +59,18 @@ static bool deal_stars(const rsOpts& opts, bool orig_args) {
     return false;
   }
 
-  if (ltrace() >= 9 || getenv("pln_trace_env")) {
-    string cmd_fn = str::concat("00_do_stars.", std::to_string(s_env.pid_), ".stars.sh");
+  if (tr >= 9 || getenv("pln_trace_env")) {
+    string cmd_fn = str::concat("02_deal_stars.", std::to_string(s_env.pid_), ".stars.sh");
     std::ofstream cmd_os(cmd_fn);
     if (cmd_os.is_open()) {
-      s_env.print(cmd_os, "# stars\n#----env----\n");
+      s_env.print(cmd_os, "# deal_stars\n#----env----\n");
       cmd_os << "#-----------" << endl;
-      lout() << "WRITTEN COMMAND FILE: " << cmd_fn << endl;
+      ls << "WRITTEN COMMAND FILE: " << cmd_fn << endl;
     }
   }
 
   // call vpr to build design context
-  ls << "\nSTARS: Preparing design data ... " << endl;
+  ls << "\nPLN-stars: Preparing design data ... " << endl;
 
   // add --analysis if it's missing, and remove --function
   char** vprArgv = (char**)calloc(argc + 4, sizeof(char*));
@@ -70,31 +83,31 @@ static bool deal_stars(const rsOpts& opts, bool orig_args) {
     vprArgv[vprArgc++] = ::strdup(a);
   }
   if (not found_analysis) {
-    ls << "STARS: added --analysis to vpr options" << endl;
+    ls << "PLN: added --analysis to vpr options" << endl;
     vprArgv[argc] = ::strdup("--analysis");
     vprArgc++;
   }
 
   status = true;
-  ls << "STARS: Initializing VPR data ... " << endl;
+  ls << "PLN-stars: Initializing VPR data ... " << endl;
 
-  int vpr_code = vpr4stars(vprArgc, vprArgv);
+  int vpr_code = vpr4pln(vprArgc, vprArgv);
   if (tr >= 3)
-    lprintf("vpr4stars returned: %i\n", vpr_code);
+    lprintf("vpr4pln returned: %i\n", vpr_code);
   if (vpr_code != 0) {
-    lputs("\n[Error] STARS: VPR init failed.");
-    cerr << "[Error] STARS: VPR init failed." << endl;
+    lputs("\n[Error] PLN: VPR init failed.");
+    cerr << "[Error] PLN: VPR init failed." << endl;
     status = false;
   }
 
   if (status) {
-    ls << "STARS: Creating sta files ... " << endl;
+    ls << "PLN-stars: Creating sta files ... " << endl;
     if (!FileWriter::create_files(argc, argv)) {
-      lputs("\n[Error] STARS: Creating sta files failed.");
-      cerr << "[Error] STARS: Creating sta files failed." << endl;
+      lputs("\n[Error] PLN: Creating sta files failed.");
+      cerr << "[Error] PLN: Creating sta files failed." << endl;
       status = false;
     } else {
-      lputs("STARS: Creating sta files succeeded.");
+      lputs("PLN-stars: Creating sta files succeeded.");
       status = true;
     }
   }
@@ -178,7 +191,7 @@ static bool deal_vpr(const rsOpts& opts, bool orig_args) {
       ls << "WRITTEN COMMAND FILE: " << cmd_fn << endl;
     }
   }
-  if (tr >= 8 || getenv("rsbe_trace_env")) {
+  if (tr >= 8 || getenv("pln_trace_env")) {
     lputs("-------- traceEnv from deal_vpr");
     traceEnv(argc, argv);
     lputs("--------");
@@ -190,9 +203,9 @@ static bool deal_vpr(const rsOpts& opts, bool orig_args) {
   status = true;
   ls << "PLN-VPR: Initializing VPR data ... " << endl;
 
-  int vpr_code = vpr4stars(argc, (char**)argv);
+  int vpr_code = vpr4pln(argc, (char**)argv);
   if (tr >= 3)
-    lprintf("vpr4stars returned: %i\n", vpr_code);
+    lprintf("vpr4pln returned: %i\n", vpr_code);
   if (vpr_code != 0) {
     lputs("\n[Error] PLN-VPR: VPR failed.");
     cerr << "[Error] PLN-VPR: VPR failed." << endl;
@@ -217,6 +230,7 @@ static bool deal_cmd(rsOpts& opts) {
 
   opts.vprArgc_ = 0;
   opts.vprArgv_ = nullptr;
+  string arg0;
 
   if (tr >= 5)
     ls << "\n\t  opts.isCmdInput()" << endl;
@@ -228,14 +242,20 @@ static bool deal_cmd(rsOpts& opts) {
     if (tr >= 2)
       lprintf("  setting argv from cmd-input: %s\n", opts.input_);
     vector<string> W = lr.getWords();
+    if (W.empty()) {
+      ls << "\n [Error] no args - W.empty()" << endl;
+      err_puts(" [Error] no args - W.empty()");
+      return false;
+    }
+    arg0 = W[0];
     if (tr >= 6) {
-      lprintf("  W.size()= %zu\n", W.size());
+      lprintf("  W.size()= %zu  W[0]= %s\n", W.size(), arg0.c_str());
       lputs();
     }
     if (W.size() > 1 && W.size() < 4000) {
       char** cmdArgv = (char**)calloc(W.size() + 4, sizeof(char*));
       int cmdArgc = 0;
-      cmdArgv[cmdArgc++] = ::strdup("cmd_rsbe");
+      cmdArgv[cmdArgc++] = ::strdup("cmd_pln");
       for (uint j = 1; j < W.size(); j++) {
         cmdArgv[cmdArgc++] = ::strdup(W[j].c_str());
       }
@@ -251,6 +271,20 @@ static bool deal_cmd(rsOpts& opts) {
     ls << "\n [Error] no args" << endl;
     err_puts(" [Error] no args");
     return false;
+  }
+
+  if (arg0 == "pin_c" or ends_with_pin_c(arg0.c_str())) {
+
+    status = deal_pinc(opts, false);
+    if (status) {
+      if (tr >= 3)
+        lputs("  (from deal_cmd)  deal_pinc() succeeded.");
+    } else {
+      if (tr >= 3)
+        lputs("  (from deal_cmd)  deal_pinc() failed.");
+    }
+
+    return status;
   }
 
   status = deal_vpr(opts, false);
@@ -352,8 +386,10 @@ static void deal_help(const rsOpts& opts) {
 
   if (opts.det_ver_) {
     s_env.listDevEnv();
+    return;
   }
-  if (opts.det_ver_ || opts.version_) {
+  if (opts.version_) {
+    lputs();
     return;
   }
   if (opts.help_) {
@@ -361,11 +397,23 @@ static void deal_help(const rsOpts& opts) {
   }
 }
 
-}  // NS rsbe
+static void deal_units(const rsOpts& opts) {
+#ifdef PLN_UNIT_TEST_ON
+  using namespace tes;
+  if (opts.unit1_) tes::run_U1();
+  if (opts.unit2_) tes::run_U2();
+  if (opts.unit3_) tes::run_U3();
+  if (opts.unit4_) tes::run_U4();
+  if (opts.unit5_) tes::run_U5();
+  if (opts.unit6_) tes::run_U6();
+  if (opts.unit7_) tes::run_U7();
+#endif
+}
+
+}  // NS pln
 
 int main(int argc, char** argv) {
   using namespace pln;
-  using namespace rsbe;
   using std::cout;
   using std::endl;
   using std::string;
@@ -409,9 +457,6 @@ int main(int argc, char** argv) {
   int status = 1;
   bool ok = false;
 
-#ifdef PLN_UNIT_TEST_ON
-#endif  // PLN_UNIT_TEST_ON
-
   if (opts.is_fun_cmd()) {
     ok = deal_cmd(opts);
     if (ok) {
@@ -444,6 +489,17 @@ int main(int argc, char** argv) {
     }
   }
 
+  if (opts.is_fun_partition() or opts.is_fun_pack()) {
+    ok = deal_vpr(opts, true);
+    if (ok) {
+      if (ltrace() >= 2) lputs("deal_vpr() succeeded.");
+      status = 0;
+    } else {
+      if (ltrace() >= 2) lputs("deal_vpr() failed.");
+    }
+    goto ret;
+  }
+
   // default function is stars
   ok = deal_stars(opts, true);
   if (ok) {
@@ -459,3 +515,9 @@ ret:
   pln::flush_out(true);
   return status;
 }
+
+const char* pln_get_version() {
+  const char* v = pln::s_env.shortVerCS();
+  return v ? v : "";
+}
+

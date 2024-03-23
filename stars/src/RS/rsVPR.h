@@ -4,9 +4,9 @@
 
 #include "RS/rsOpts.h"
 
-namespace rsbe {
+namespace pln {
 
-int vpr4stars(int argc, char** argv);
+int vpr4pln(int argc, char** argv);
 
 int do_vpr(const rsOpts& opts);
 

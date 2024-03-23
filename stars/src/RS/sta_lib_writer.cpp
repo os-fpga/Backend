@@ -13,11 +13,10 @@ static const char* INDENT5    = "\t\t\t\t\t";
 static const char* SEPARATOR  = "\t:\t";
 static const char* TRAILER    = ";\n";
 
-namespace rsbe {
+namespace pln {
 
 using std::endl;
 using std::string;
-using namespace pln;
 
 static const char* str_Pin_type(Pin_t t) noexcept {
   // enum Pin_t                {  DATA,   CLOCK,   RESET,   SET,   ENABLE,   INVALID_PIN_TYPE  };
@@ -392,4 +391,4 @@ void LibWriter::write_footer(std::ostream& os) const {
   return;
 }
 
-}  // NS rsbe
+}  // NS pln

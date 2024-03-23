@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace rsbe {
+namespace pln {
 
 using namespace std;
 using namespace pln;
@@ -209,7 +209,7 @@ void rsOpts::setFunction(CStr fun) noexcept {
 }
 
 void rsOpts::parse(int argc, const char** argv) noexcept {
-  using namespace ::rsbe::alias;
+  using namespace ::pln::alias;
 
   reset();
   argc_ = argc;

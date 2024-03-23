@@ -9,14 +9,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace rsbe {
+namespace pln {
 
 using std::cout;
 using std::endl;
 using namespace pln;
 
 rsEnv::rsEnv() noexcept {
-  CStr ts = getenv("rsbe_trace_marker");
+  CStr ts = getenv("pln_trace_marker");
   if (ts) traceMarker_ = ts;
 
   init();
