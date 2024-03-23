@@ -26,14 +26,13 @@
 #include "file_readers/pinc_Fio.h"
 #include <filesystem>
 
-namespace rsbe {
+namespace pln {
 
 using std::cout;
 using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
-using namespace pln;
 
 bool FileWriter::do_files(int argc, const char** argv) {
   uint16_t tr = ltrace();
@@ -214,4 +213,4 @@ bool FileWriter::create_files(int argc, const char** argv) {
   return wr_ok;
 }
 
-}  // NS rsbe
+}  // NS pln

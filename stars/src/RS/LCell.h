@@ -29,7 +29,7 @@
 #undef DSP
 #undef BLACKBOX
 
-namespace rsbe {
+namespace pln {
 
 using std::string;
 using std::vector;

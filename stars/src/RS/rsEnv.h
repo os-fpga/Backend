@@ -4,7 +4,7 @@
 
 #include "RS/rsOpts.h"
 
-namespace rsbe {
+namespace pln {
 
 struct rsEnv {
   rsOpts opts_;

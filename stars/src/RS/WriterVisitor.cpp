@@ -19,14 +19,13 @@
 #include "sta_lib_writer.h"
 #include "WriterVisitor.h"
 
-namespace rsbe {
+namespace pln {
 
 using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
 using std::vector;
-using namespace pln;
 
 WriterVisitor::WriterVisitor(
                  ostream& verilog_os,

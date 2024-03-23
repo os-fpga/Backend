@@ -2,7 +2,7 @@
 #include <map>
 #include <set>
 
-namespace rsbe {
+namespace pln {
 
 using std::endl;
 using std::string;
@@ -158,7 +158,7 @@ LutCell::LutCell(uint lut_size,
 
 LutCell::~LutCell() { }
 
-void LutCell::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
+void LutCell::printLib(pln::LibWriter& lib_writer, ostream& os) const {
   // lut only contains "in" and "out"
   assert(port_conns_.count("in"));
   assert(port_conns_.count("out"));
@@ -332,7 +332,7 @@ void LatchInst::printVerilog(ostream& os, size_t& /*unconn_count*/, int depth) c
 }
 
 // virtual
-void BlackBoxInst::printLib(rsbe::LibWriter& lib_writer, ostream& os) const {
+void BlackBoxInst::printLib(pln::LibWriter& lib_writer, ostream& os) const {
   // create cell info
   LCell cell;
   cell.setName(type_name_);

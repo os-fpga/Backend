@@ -23,13 +23,12 @@
 #include "sta_lib_writer.h"
 #include "rsDB.h"
 
-namespace rsbe {
+namespace pln {
 
 using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
-using namespace pln;
 
 /**
  * @brief A class which writes post-synthesis netlists (Verilog and BLIF) and
@@ -204,7 +203,7 @@ private:
 
     double delay_sec = delay_calc_->max_edge_delay(*timing_ctx.graph, edge);
 
-    return rsbe::get_delay_ps(delay_sec);  // Class overload hides file-scope by default
+    return pln::get_delay_ps(delay_sec);  // Class overload hides file-scope by default
   }
 
 private:                    // Data

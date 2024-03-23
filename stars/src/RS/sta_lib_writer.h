@@ -6,11 +6,10 @@
 
 #include "RS/LCell.h"
 
-namespace rsbe {
+namespace pln {
 
 using std::string;
 using std::vector;
-using namespace pln;
 
 class LibWriter {
   std::map<string, string>  lib_header;
@@ -41,6 +40,6 @@ public:
   void write_footer(std::ostream& os) const;
 };
 
-}  // NS rsbe
+}  // NS pln
 
 #endif
