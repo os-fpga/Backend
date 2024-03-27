@@ -64,9 +64,9 @@ checkout:
 # 
 # - SUBMODULE: Specify the submodule to checkout. For example, SUBMODULE=OpenFPGA
 	git submodule update --init Raptor_Tools OpenFPGA
-	cd OpenFPGA && git submodule update --init
-	cd OpenFPGA/vtr-verilog-to-routing && git submodule update --init
-	cd Raptor_Tools && git submodule update --init --recursive
+	cd OpenFPGA && git -c submodule.yosys.update=none  -c  submodule.yosys-plugins.update=none  submodule update --init
+	cd OpenFPGA/vtr-verilog-to-routing && git submodule update --init 
+	cd Raptor_Tools && git submodule update --init graph_partition
 
 compile:
 # This command will compile the codebase
