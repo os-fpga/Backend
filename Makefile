@@ -67,6 +67,7 @@ checkout:
 	cd OpenFPGA && git -c submodule.yosys.update=none  -c  submodule.yosys-plugins.update=none  submodule update --init
 	cd OpenFPGA/vtr-verilog-to-routing && git submodule update --init 
 	cd Raptor_Tools && git submodule update --init graph_partition
+	cd Raptor_Tools/graph_partition/mt-kahypar && git submodule update --init --recursive
 
 compile:
 # This command will compile the codebase
