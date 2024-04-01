@@ -1,13 +1,7 @@
 diff --git a/vpr/CMakeLists.txt b/vpr/CMakeLists.txt
-index 371d11f39..b9fe13934 100644
+index 371d11f39..bf82a4e3a 100644
 --- a/vpr/CMakeLists.txt
 +++ b/vpr/CMakeLists.txt
-@@ -1,4 +1,4 @@
--cmake_minimum_required(VERSION 3.16)
-+cmake_minimum_required(VERSION 3.9)
- 
- project("vpr")
- 
 @@ -32,6 +32,10 @@ else()
      message(STATUS "EZGL: graphics disabled")
  endif()
@@ -52,7 +46,7 @@ index 371d11f39..b9fe13934 100644
  
  #VPR_ANALYTIC_PLACE is inisitalized in the root CMakeLists
  #Check Eigen dependency
-@@ -80,16 +103,9 @@ endif()
+@@ -80,17 +103,21 @@ endif()
  set_target_properties(libvpr PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
  
  #Specify link-time dependancies
@@ -65,14 +59,25 @@ index 371d11f39..b9fe13934 100644
 -                        libargparse
 -                        libpugixml
 -                        librrgraph
--)
-+# 2nd RS patch - PRODUCTION_BUILD
-+include("${CMAKE_CURRENT_LIST_DIR}/VPR_CMake_PRODUCTION_BUILD_RS2.cmake")
-+message(STATUS "NOTE: INCLUDED VPR_CMake_PRODUCTION_BUILD_RS2.cmake\n")
++    target_link_libraries(libvpr
++                            libvtrutil
++                            libarchfpga
++                            libsdcparse
++                            libblifparse
++                            libtatum
++                            libargparse
++                            libpugixml
++                            librrgraph
++                            libreadedif
++                            ${OPENSSL_LIBRARIES}
++                            ${VERIFIC_LIBS} dl
+ )
  
++
  #link graphics library only when graphics set to on
  if (VPR_USE_EZGL STREQUAL "on")
-@@ -236,7 +252,7 @@ endif()
+     target_link_libraries(libvpr
+@@ -236,7 +263,7 @@ endif()
  #Configure the build to use the selected engine
  if (VPR_USE_EXECUTION_ENGINE STREQUAL "tbb")
      target_compile_definitions(libvpr PRIVATE VPR_USE_TBB)
@@ -81,7 +86,7 @@ index 371d11f39..b9fe13934 100644
      target_link_libraries(libvpr ${TBB_tbbmalloc_proxy_LIBRARY}) #Use the scalable memory allocator
      message(STATUS "VPR: will support parallel execution using '${VPR_USE_EXECUTION_ENGINE}'")
  elseif(VPR_USE_EXECUTION_ENGINE STREQUAL "serial")
-@@ -257,7 +273,6 @@ if (VPR_USE_SIGNAL_HANDLER)
+@@ -257,7 +284,6 @@ if (VPR_USE_SIGNAL_HANDLER)
  endif()
  
  install(TARGETS vpr libvpr DESTINATION bin)

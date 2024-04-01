@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.16)
 
 project("vpr")
 
@@ -103,9 +103,20 @@ endif()
 set_target_properties(libvpr PROPERTIES PREFIX "") #Avoid extra 'lib' prefix
 
 #Specify link-time dependancies
-# 2nd RS patch - PRODUCTION_BUILD #TODO disable
-#include("${CMAKE_CURRENT_LIST_DIR}/VPR_CMake_PRODUCTION_BUILD_RS2.cmake")
-#message(STATUS "NOTE: INCLUDED VPR_CMake_PRODUCTION_BUILD_RS2.cmake\n")
+    target_link_libraries(libvpr
+                            libvtrutil
+                            libarchfpga
+                            libsdcparse
+                            libblifparse
+                            libtatum
+                            libargparse
+                            libpugixml
+                            librrgraph
+                            libreadedif
+                            ${OPENSSL_LIBRARIES}
+                            ${VERIFIC_LIBS} dl
+)
+
 
 #link graphics library only when graphics set to on
 if (VPR_USE_EZGL STREQUAL "on")
