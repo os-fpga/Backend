@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0128";
+static const char* _pln_VERSION_STR = "pln0130";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -27,18 +27,6 @@ static rsEnv s_env;
 
 static bool deal_pinc(const rsOpts& opts, bool orig_args);
 
-static inline bool ends_with_pin_c(const char* z) noexcept {
-  if (!z or !z[0])
-    return false;
-  size_t len = ::strlen(z);
-  if (len < 5)
-    return false;
-  return z[len - 1] == 'c' and z[len - 2] == '_' and z[len - 3] == 'n' and
-         z[len - 4] == 'i' and z[len - 5] == 'p';
-  // pin_c
-  // c_nip
-}
-
 static bool deal_stars(const rsOpts& opts, bool orig_args) {
   bool status = false;
 
@@ -59,7 +47,7 @@ static bool deal_stars(const rsOpts& opts, bool orig_args) {
     return false;
   }
 
-  if (tr >= 9 || getenv("pln_trace_env")) {
+  if (tr >= 10 || getenv("pln_trace_env")) {
     string cmd_fn = str::concat("02_deal_stars.", std::to_string(s_env.pid_), ".stars.sh");
     std::ofstream cmd_os(cmd_fn);
     if (cmd_os.is_open()) {
@@ -273,7 +261,7 @@ static bool deal_cmd(rsOpts& opts) {
     return false;
   }
 
-  if (arg0 == "pin_c" or ends_with_pin_c(arg0.c_str())) {
+  if (arg0 == "pin_c" or rsOpts::ends_with_pin_c(arg0.c_str())) {
 
     status = deal_pinc(opts, false);
     if (status) {
@@ -357,24 +345,31 @@ static bool deal_pinc(const rsOpts& opts, bool orig_args) {
     lputs();
   }
 
-  // ===== Backend/pin_c/src/main.cpp: =====
+  // ======= pin_c/src/main.cpp: =====
   const char* trace = getenv("pinc_trace");
-  if (trace)
-    set_ltrace(atoi(trace));
-  else
-    set_ltrace(3);
+  if (trace) {
+    int t = atoi(trace);
+    if (t > 0 and t > int(tr))
+      set_ltrace(t);
+  }
+
+  if (! rsOpts::validate_pinc_args(argc, argv)) {
+    ls << "\n [Error] bad pin_c args" << endl;
+    err_puts(" [Error] bad pin_c args");
+    return false;
+  }
 
   cmd_line cmd(argc, argv);
 
   if (ltrace() >= 3) {
     lputs("\n    pin_c");
-    if (ltrace() >= 5)
+    if (ltrace() >= 7)
       traceEnv(argc, argv);
     cmd.print_options();
   }
 
   int pc_main_ret = pinc_main(cmd);
-  // ===== Backend/pin_c/src/main.cpp^ =====
+  // ======= pin_c/src/main.cpp^ =====
 
   status = (pc_main_ret == 0);
 
@@ -450,6 +445,11 @@ int main(int argc, char** argv) {
     std::quick_exit(0);
   }
 
+  if (opts.unit_specified()) {
+    deal_units(opts);
+    ::exit(0);
+  }
+
   if (ltrace() >= 3) {
     lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
   }
@@ -468,7 +468,7 @@ int main(int argc, char** argv) {
     goto ret;
   }
 
-  if (opts.is_fun_pinc()) {
+  if (opts.is_fun_pinc() or opts.is_arg0_pinc()) {
     ok = deal_pinc(opts, true);
     if (ok) {
       if (ltrace() >= 2) lputs("deal_pinc() succeeded.");

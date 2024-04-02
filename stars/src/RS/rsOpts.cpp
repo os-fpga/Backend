@@ -103,7 +103,7 @@ void rsOpts::reset() noexcept {
   shortVer_ = keepSV;
 }
 
-void rsOpts::print(const char* label) const noexcept {
+void rsOpts::print(CStr label) const noexcept {
 #ifdef RSBE_UNIT_TEST_ON
   if (label)
     cout << label;
@@ -148,7 +148,7 @@ void rsOpts::printHelp() const noexcept {
 #endif  // RSBE_UNIT_TEST_ON
 }
 
-static char* make_file_name(const char* arg) noexcept {
+static char* make_file_name(CStr arg) noexcept {
   if (!arg) return nullptr;
 
   char* fn = nullptr;
@@ -206,6 +206,18 @@ void rsOpts::setFunction(CStr fun) noexcept {
     assert(is_fun_route());
     return;
   }
+}
+
+bool rsOpts::is_arg0_pinc() const noexcept
+{
+  assert(argv_);
+  assert(argv_[0]);
+  assert(argc_ > 0);
+  if (!argv_ or !argv_[0])
+    return false;
+  if (! ::strcmp(argv_[0], "pin_c"))  
+    return true;
+  return ends_with_pin_c(argv_[0]);
 }
 
 void rsOpts::parse(int argc, const char** argv) noexcept {
@@ -379,7 +391,7 @@ bool rsOpts::set_VPR_TC_args(CStr raw_tc) noexcept {
   return createVprArgv(W);
 }
 
-static inline bool starts_with_HOME(const char* z) noexcept {
+static inline bool starts_with_HOME(CStr z) noexcept {
   if (!z or !z[0]) return false;
   constexpr size_t LEN = 6;  // len("$HOME/")
   if (::strlen(z) < LEN) return false;
@@ -392,7 +404,7 @@ bool rsOpts::createVprArgv(vector<string>& W) noexcept {
   if (sz < 3) return false;
 
   // -- expand $HOME:
-  const char* home = ::getenv("HOME");
+  CStr home = ::getenv("HOME");
   constexpr size_t H_LEN = 5;  // len("$HOME")
   if (home) {
     size_t home_len = ::strlen(home);
@@ -429,7 +441,7 @@ bool rsOpts::createVprArgv(vector<string>& W) noexcept {
   return true;
 }
 
-static inline bool ends_with_dot_cmd(const char* z, size_t len) noexcept {
+static inline bool ends_with_dot_cmd(CStr z, size_t len) noexcept {
   assert(z);
   if (len < 5) return false;
   return z[len - 1] == 'd' and z[len - 2] == 'm' and z[len - 3] == 'c' and z[len - 4] == '.';
@@ -444,6 +456,23 @@ bool rsOpts::isCmdInput() const noexcept {
   if (!ends_with_dot_cmd(input_, len)) return false;
 
   return input_file_exists(input_);
+}
+
+bool rsOpts::ends_with_pin_c(CStr z) noexcept {
+  if (!z or !z[0])
+    return false;
+  size_t len = ::strlen(z);
+  if (len < 5)
+    return false;
+  return z[len - 1] == 'c' and z[len - 2] == '_' and z[len - 3] == 'n' and
+         z[len - 4] == 'i' and z[len - 5] == 'p';
+  // pin_c
+  // c_nip
+}
+
+// static 
+bool rsOpts::validate_pinc_args(int argc, const char** argv) noexcept {
+  return true;
 }
 
 }  // NS
