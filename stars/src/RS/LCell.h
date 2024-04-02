@@ -5,8 +5,8 @@
 // Enums:    Port_direction_t, Port_direction_t, Pin_t, Timing_arc_t, LCell_t
 // Classes:
 
-#ifndef __pln__sta_lib_data_H_h_
-#define __pln__sta_lib_data_H_h_
+#ifndef _pln__stars_LCell_H_h_
+#define _pln__stars_LCell_H_h_
 
 #include "util/pln_log.h"
 #include <map>
@@ -33,8 +33,6 @@ namespace pln {
 
 using std::string;
 using std::vector;
-using namespace pln;
-
 
 enum Port_direction_t { INPUT = 0, OUTPUT, INVALID_DIR };
 

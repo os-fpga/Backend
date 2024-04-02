@@ -17,11 +17,11 @@
 #include "AnalysisDelayCalculator.h"
 #include "net_delay.h"
 
-#include "rsGlobal.h"
-#include "rsVPR.h"
-#include "sta_file_writer.h"
-#include "sta_lib_writer.h"
-#include "rsDB.h"
+#include "RS/rsGlobal.h"
+#include "RS/rsVPR.h"
+#include "RS/sta_file_writer.h"
+#include "RS/sta_lib_writer.h"
+#include "RS/rsDB.h"
 
 namespace pln {
 
