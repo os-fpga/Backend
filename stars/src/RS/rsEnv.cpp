@@ -13,7 +13,6 @@ namespace pln {
 
 using std::cout;
 using std::endl;
-using namespace pln;
 
 rsEnv::rsEnv() noexcept {
   CStr ts = getenv("pln_trace_marker");
@@ -241,7 +240,7 @@ bool rsEnv::getPidExePath(int pid, std::string& out) noexcept { return true; }
     cout.setf(origF); }
 
 void rsEnv::listDevEnv() const noexcept {
-  lprintf("\n\t   RSBE ver.  %s\n", shortVer_.c_str());
+  lprintf("\n\t   PLN ver.  %s\n", shortVer_.c_str());
   lprintf("\t compiled:  %s\n", compTimeCS());
 
   size_t cxxstd = __cplusplus;
@@ -276,38 +275,29 @@ void rsEnv::listDevEnv() const noexcept {
 #ifdef RS_PC_MODE
   lprintf("\t  RS_PC_MODE :\t (defined)\n");
 #endif
-#ifdef RSBE_PLANNER_MODE
-  lprintf("\t  RSBE_PLANNER_MODE :\t (defined)\n");
-#endif
 #ifdef PINC_DEVEL_MODE
   lprintf("\t  PINC_DEVEL_MODE :\t (defined)\n");
+#endif
+#ifdef RSBE_PLANNER_MODE
+  lprintf("\t  RSBE_PLANNER_MODE :\t (defined)\n");
 #endif
 #ifdef NN_FAST_BUILD
   lprintf("\t  NN_FAST_BUILD :\t (defined)\n");
 #endif
+#ifdef ENABLE_ANALYTIC_PLACE
+  lprintf("\t  ENABLE_ANALYTIC_PLACE :\t (defined)\n");
+#endif
 
   lputs();
 
-#ifdef _RSBE_VEC_BOUNDS_CHECK
-  lprintf("\t  _RSBE_VEC_BOUNDS_CHECK :   ON  => stl_vector BC enabled\n");
+#ifdef _PLN_VEC_BOUNDS_CHECK
+  lprintf("\t  _PLN_VEC_BOUNDS_CHECK :   ON  => stl_vector BC enabled\n");
 #else
-  lprintf("\t  _RSBE_VEC_BOUNDS_CHECK :   OFF => std_vector BC disabled\n");
+  lprintf("\t  _PLN_VEC_BOUNDS_CHECK :   OFF => std_vector BC disabled\n");
 #endif
 
-#ifdef RSBE_JEMALLOC
-    LIST_DEC(RSBE_JEMALLOC);
-#endif
-
-#ifdef RSBE_DEAL_PINC
-  lprintf("\t  RSBE_DEAL_PINC :   ON  => pin_c mode\n");
-#else
-  lprintf("\t  RSBE_DEAL_PINC :   OFF\n");
-#endif
-
-#ifdef RSBE_DEAL_VPR
-  lprintf("\t  RSBE_DEAL_VPR :   ON  => vpr mode\n");
-#else
-  lprintf("\t  RSBE_DEAL_VPR :   OFF\n");
+#ifdef PLN_JEMALLOC
+    LIST_DEC(PLN_JEMALLOC);
 #endif
 
   pln::flush_out(true);

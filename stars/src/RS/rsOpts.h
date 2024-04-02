@@ -37,7 +37,11 @@ struct rsOpts {
   bool is_fun_route() const noexcept {
     return function_ && !strcmp(function_, "route");
   }
+  bool is_arg0_pinc() const noexcept;
+
   static bool isFunctionArg(CStr arg) noexcept;
+  static bool ends_with_pin_c(CStr z) noexcept;
+  static bool validate_pinc_args(int argc, const char** argv) noexcept;
 
   int vprArgc_ = 0;
   char** vprArgv_ = nullptr;
