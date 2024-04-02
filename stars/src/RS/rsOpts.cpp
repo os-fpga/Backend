@@ -8,7 +8,7 @@
 namespace pln {
 
 using namespace std;
-using namespace pln;
+using namespace fio;
 using CStr = const char*;
 
 namespace alias {
@@ -27,7 +27,7 @@ static CStr _csv_[] = {"CS", "cs", "csv", nullptr};
 
 static CStr _xml_[] = {"XM", "xm", "xml", "XML", nullptr};
 
-static CStr _pcf_[] = {"PC", "pc", "pcf", nullptr};
+static CStr _pcf_[] = {"PCF", "pcf", nullptr};
 
 static CStr _blif_[] = {"BL", "blif", nullptr};
 
@@ -386,7 +386,7 @@ bool rsOpts::set_VPR_TC_args(CStr raw_tc) noexcept {
   assert(::strlen(raw_tc) > 3);
 
   vector<string> W;
-  fio::Fio::split_spa(raw_tc, W);
+  Fio::split_spa(raw_tc, W);
 
   return createVprArgv(W);
 }
@@ -472,7 +472,49 @@ bool rsOpts::ends_with_pin_c(CStr z) noexcept {
 
 // static 
 bool rsOpts::validate_pinc_args(int argc, const char** argv) noexcept {
+  using std::cerr;
+  if (argc < 1 or !argv)
+    return false;
+  if (!argv[0])
+    return false;
+
+  if (ltrace() >= 5) {
+    lprintf("=== pin_c args (%i):\n", argc - 1);
+    for (int i = 1; i < argc; i++)
+      lprintf("    |%i|  %s\n", i, argv[i]);
+  }
+
+  rsOpts tmpO(argc, argv);
+
+  CStr csv = tmpO.csvFile_;
+  if (!csv or !csv[0]) {
+    lputs("\n[Error] required CSV file is not specified");
+    cerr << "[Error] required CSV file is not specified" << endl;
+    return false;
+  }
+
+  if (not Fio::regularFileExists(csv)) {
+    lprintf("\n[Error] specified CSV file %s does not exist\n", csv);
+    cerr << "[Error] specified CSV file does not exist: " << csv << endl;
+    return false;
+  }
+  if (not Fio::nonEmptyFileExists(csv)) {
+    lprintf("\n[Error] specified CSV file %s is empty\n", csv);
+    cerr << "[Error] specified CSV file is empty: " << csv << endl;
+    return false;
+  }
+
+  CStr pcf = tmpO.pcfFile_;
+  if (pcf) {
+    if (not Fio::regularFileExists(pcf)) {
+      lprintf("\n[Error] specified PCF file %s does not exist\n", pcf);
+      cerr << "[Error] specified PCF file does not exist" << endl; 
+      return false;
+    }
+  }
+
   return true;
 }
 
 }  // NS
+

@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0130";
+static const char* _pln_VERSION_STR = "pln0131";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -355,7 +355,7 @@ static bool deal_pinc(const rsOpts& opts, bool orig_args) {
 
   if (! rsOpts::validate_pinc_args(argc, argv)) {
     ls << "\n [Error] bad pin_c args" << endl;
-    err_puts(" [Error] bad pin_c args");
+    err_puts(" [Error] bad pin_c args\n");
     return false;
   }
 

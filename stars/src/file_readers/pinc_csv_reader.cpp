@@ -514,9 +514,12 @@ bool RapidCsvReader::createTiles() {
   uint sz_bcd_good = bcd_good_.size();
   if (tr >= 5)
     lprintf("createTiles:  num_rows= %u  sz_bcd_good= %u\n", num_rows, sz_bcd_good);
-  if (sz_bcd_good < 2 && tr >= 2)
-    lputs("createTiles:  NO GOOD BCDs");
-  if (sz_bcd_good < 2) return false;
+  if (sz_bcd_good < 2 && tr >= 1)
+    lputs("\n[Error] pin_c:  NO GOOD ROWs in .csv");
+  if (sz_bcd_good < 2) {
+    cerr << "[Error] pin_c:  NO GOOD ROWs in .csv\n" << endl;
+    return false;
+  }
 
   tiles_.reserve(sz_bcd_good);
 
@@ -1031,7 +1034,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   bool status_ok = setDirections(crd);
   if (not status_ok) {
     ls << '\n' << "[Error] directions are not OK" << endl;
-    std::cerr << "[Error] directions are not OK" << endl;
+    cerr << "[Error] directions are not OK" << endl;
     return false;
   }
 
@@ -1043,7 +1046,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   status_ok = createTiles();
   if (not status_ok) {
     ls << '\n' << "[Error] createTiles() status not OK" << endl;
-    std::cerr << "[Error] createTiles() status not OK" << endl;
+    cerr << "[Error] createTiles() status not OK" << endl;
     return false;
   }
 
@@ -1127,7 +1130,7 @@ uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
     out_colm_cnt += int(bcd.isF2A());
   }
 
-  os << "bcd_stats( numRows= " << nr << " )\n";
+  os << "ROW-RECORD stats ( numRows= " << nr << " )\n";
   for (uint i = 0; i < N_dirs; i++) {
     os << std::setw(20) << str_Mode_dir(BCD::ModeDir(i)) << " : "
        << dir_counters[i] << '\n';
