@@ -2,7 +2,7 @@
 #ifndef __rs_fileRd__XML_READER_H
 #define __rs_fileRd__XML_READER_H
 
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 
 #include "pugixml.hpp"
 

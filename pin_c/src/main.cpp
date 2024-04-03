@@ -1,5 +1,5 @@
 #include "util/cmd_line.h"
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 
 #include "pin_loc/pinc_main.h"
 
@@ -17,7 +17,7 @@
 //                [--edits netlist_edits_log.json]
 
 int main(int argc, const char* argv[]) {
-  using namespace pinc;
+  using namespace pln;
   const char* trace = getenv("pinc_trace");
   if (trace)
     set_ltrace(atoi(trace));

@@ -1,4 +1,4 @@
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 
 #include <stdarg.h>
 #include <alloca.h>
@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace pinc {
+namespace pln {
 
 using namespace std;
 
@@ -153,6 +153,24 @@ void lprintf(CStr format, ...) {
   }
 }
 
+// lprintfl : log-printf with file:line
+void lprintfl(CStr fn, uint l, CStr format, ...) {
+  char buf[32768];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(buf, 32766, format, args);
+  buf[32767] = 0;
+  va_end(args);
+
+  size_t len = strlen(buf);
+  if (!len) return;
+
+  if (!fn)
+    fn = "";
+  cout << ' ' << fn << " : " << l << "  " << buf << endl;
+  fflush(stdout);
+}
+
 int get_PID() noexcept { return ::getpid(); }
 
 string get_CWD() noexcept {
@@ -261,5 +279,5 @@ namespace str {
 
 }  // NS str
 
-}  // NS pinc
+}  // NS pln
 
