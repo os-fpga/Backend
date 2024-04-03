@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-namespace pinc {
+namespace pln {
 
 inline constexpr int64_t add64(int a, int b) noexcept {
   return int64_t(a) + int64_t(b);
@@ -91,4 +91,4 @@ inline std::ostream& operator<<(std::ostream& os, Iv iv) {
   return os;
 }
 
-}  // namespace pinc
+}  // namespace pln

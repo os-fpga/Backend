@@ -1,7 +1,7 @@
 #include "file_readers/pcf_reader.h"
 #include "file_readers/pinc_Fio.h"
 
-namespace pinc {
+namespace pln {
 
 using namespace std;
 
@@ -139,5 +139,5 @@ bool PcfReader::read_os_pcf(const string& f) {
   return true;
 }
 
-} // namespace pinc
+} // namespace pln
 

@@ -23,24 +23,10 @@ distribution.
 */
 // Modified by serge-rs.
 
-#ifndef __pinc__TINYXML2_INCLUDED
-#define __pinc__TINYXML2_INCLUDED
+#ifndef __pln__TINYXML2_INCLUDED_389d92da3824_
+#define __pln__TINYXML2_INCLUDED_389d92da3824_
 
-#include <cctype>
-#include <climits>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <string>
-#include <algorithm>
-#include <utility>
-#include <vector>
-#include <array>
-#include <cfloat>
-#include <cstddef>
-#include <cstdint>
-#include <cassert>
+#include "util/pln_log.h"
 
 //   g++ -Wall  -DTINYXML2_DEBUG tinyxml2.cpp xmltest.cpp -o gccxmltest.exe
 #define TINYXML2_DEBUG

@@ -18,7 +18,7 @@
 #include <filesystem>
 #include <unistd.h>
 
-namespace pinc {
+namespace pln {
 
 using namespace std;
 using fio::Fio;
@@ -297,5 +297,5 @@ int PinPlacer::write_clocks_logical_to_physical() {
   return 1;
 }
 
-} // namespace pinc
+} // namespace pln
 

@@ -5,13 +5,13 @@
 #include <bitset>
 
 #include "util/geo/xyz.h"
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 
 namespace fio {
 class CSV_Reader;
 }
 
-namespace pinc {
+namespace pln {
 
 using std::string;
 using std::vector;
@@ -140,16 +140,18 @@ public:
 
     // (loc_, colB_) - determines Tile uniqueness
     XY loc_;
+    string colA_; // column A: Group
     string colB_; // column B: Bump/Pin Name
 
     uint beg_row_ = 0;    // row at which this Tile is 1st encountered
-    uint id_ = UINT_MAX;  // index in tiles_
+    uint id_ = UINT_MAX;  // index in tilePool_
     uint num_used_ = 0;
     vector<BCD*> a2f_sites_;
     vector<BCD*> f2a_sites_;
 
-    Tile(XY loc, const string& colb, uint beg_r) noexcept
-      : loc_(loc), colB_(colb), beg_row_(beg_r)
+    Tile(XY loc, const string& cola, const string& colb, uint beg_r) noexcept
+      : loc_(loc), colA_(cola), colB_(colb),
+        beg_row_(beg_r)
     {}
 
     bool operator==(const Tile& t) const noexcept { return loc_ == t.loc_ && colB_ == t.colB_; }
@@ -166,6 +168,29 @@ public:
     string key1() const noexcept;
     string key2() const noexcept;
 
+    uint countModes() const noexcept {
+      uint cnt = 0;
+      for (const BCD* bcd : a2f_sites_)
+        cnt += bcd->numModes();
+      for (const BCD* bcd : f2a_sites_)
+        cnt += bcd->numModes();
+      return cnt;
+    }
+
+    struct Cmp {
+      bool operator()(const Tile* a, const Tile* b) const noexcept {
+        uint a_modes = std::max(a->countModes(), 8u);
+        uint b_modes = std::max(b->countModes(), 8u);
+        if (b_modes < a_modes)
+          return true;
+        if (a_modes < b_modes)
+          return false;
+        uint64_t a_cost = uint64_t(a->beg_row_) + 100000u * (a->colA_ != "GBOX GPIO");
+        uint64_t b_cost = uint64_t(b->beg_row_) + 100000u * (b->colA_ != "GBOX GPIO");
+        return a_cost < b_cost;
+      }
+    };
+
     void dump() const;
   }; // Tile
 
@@ -174,7 +199,7 @@ public:
 
   void reset() noexcept;
 
-  bool read_csv(const string& fn, bool check);
+  bool read_csv(const string& fn, uint num_udes_pins);
 
   bool write_csv(const string& fn, uint minRow, uint maxRow) const;
 
@@ -276,7 +301,7 @@ private:
   bool initCols(const fio::CSV_Reader& crd);
   bool initRows(const fio::CSV_Reader& crd);
   bool setDirections(const fio::CSV_Reader& crd);
-  bool createTiles();
+  bool createTiles(bool uniq_XY);
 
   static bool prepare_mode_header(string& hdr) noexcept;
 
@@ -300,7 +325,10 @@ private:
   vector<BCD*> bcd_good_;    // BCDs with valid non-negative XYs and with at least one mode
 
   int max_x_ = 0, max_y_ = 0;
-  vector<Tile> tiles_;
+  vector<Tile> tilePool_[2]; // indexed by uniq_XY
+  vector<Tile*> tiles2_[2]; // sorted, indexed by uniq_XY
+  uint16_t uni_XY_ = 0; // 1 - use XY-uniq tiles, 0 - non-uniq
+                        // tile search uses tiles2_[uni_XY_]
 
   uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start-row in PT
 
@@ -326,4 +354,4 @@ inline const char* RapidCsvReader::BCD::str_colM_dir() const noexcept {
   return RapidCsvReader::str_Mode_dir(colM_dir_);
 }
 
-}  // namespace pinc
+}  // namespace pln

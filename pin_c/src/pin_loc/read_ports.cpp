@@ -5,7 +5,7 @@
 #include "util/cmd_line.h"
 #include <filesystem>
 
-namespace pinc {
+namespace pln {
 
 using namespace std;
 using fio::Fio;

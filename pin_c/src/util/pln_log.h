@@ -1,9 +1,10 @@
 //
 // logging and debug tracing
 //
-//   lprintf : log-printf
-//     lputs : log-puts
-//      lout : replaces cout, will print to both stdout and logfile
+//   lprintf  : log-printf
+//   lprintfl : log-printf with file:line
+//     lputs  : log-puts
+//      lout  : replaces cout, will print to both stdout and logfile
 //
 //  currently, log- functions just print on stdout, real logfile can be added later
 //
@@ -15,8 +16,8 @@
 //  "BH" stands for Break Here, inspired by purify_stop_here().
 //
 #pragma once
-#ifndef __rsbe_PINC_LOG_H__29b9113eb678_
-#define __rsbe_PINC_LOG_H__29b9113eb678_
+#ifndef __pln_PINC_LOG_H__5b74600299d7_
+#define __pln_PINC_LOG_H__5b74600299d7_
 
 #include <algorithm>
 #include <cassert>
@@ -47,7 +48,7 @@
 
 #define RSBE_PLANNER_MODE 1
 
-namespace pinc {
+namespace pln {
 
 using CStr = const char*;
 
@@ -57,6 +58,10 @@ uint16_t ltrace() noexcept;
 void set_ltrace(int t) noexcept;
 
 void lprintf(CStr format, ...) __attribute__((format(printf, 1, 2)));
+
+// lprintfl : log-printf with file:line
+void lprintfl(CStr fn, uint l, CStr format, ...);
+
 void lputs(CStr cs = 0) noexcept;
 void lputs(const std::string& s) noexcept;
 void err_puts(CStr cs = 0) noexcept;
@@ -239,8 +244,8 @@ inline void logVec(const std::vector<T>& vec, CStr pref) noexcept {
 template <typename T>
 inline T* unconst(const T* p) noexcept { return const_cast<T*>(p); }
 
-}  // namespace pinc
+}  // namespace pln
 
-const char* rsbe_get_version();
+const char* pln_get_version();
 
 #endif

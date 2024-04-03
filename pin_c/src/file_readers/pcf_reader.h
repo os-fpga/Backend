@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <map>
 
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 
 /*
 Supported PCF commands:
@@ -16,7 +16,7 @@ eFPGA pinout.
 clock.
 */
 
-namespace pinc {
+namespace pln {
 
 using std::string;
 using std::vector;
@@ -38,5 +38,5 @@ struct PcfReader {
   // }
 };
 
-} // NS pinc
+} // NS pln
 

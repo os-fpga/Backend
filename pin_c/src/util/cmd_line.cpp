@@ -1,6 +1,6 @@
 #include "util/cmd_line.h"
 
-namespace pinc {
+namespace pln {
 
 using namespace std;
 
@@ -59,4 +59,4 @@ void cmd_line::print_options() const {
   for (const auto& p : V) cout << '\t' << p.first << '\t' << p.second << endl;
 }
 
-}  // namespace pinc
+}  // namespace pln

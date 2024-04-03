@@ -1,13 +1,13 @@
 #pragma once
-#ifndef __rs_pinc_CMD_LINE_H_
-#define __rs_pinc_CMD_LINE_H_
+#ifndef __rs_pln_CMD_LINE_H_3837317b793_
+#define __rs_pln_CMD_LINE_H_3837317b793_
 
 #include <unordered_map>
 #include <unordered_set>
 
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 
-namespace pinc {
+namespace pln {
 
 using std::string;
 using std::unordered_map;
@@ -35,6 +35,6 @@ struct cmd_line {
   void print_options() const;
 };
 
-}  // namespace pinc
+}  // namespace pln
 
 #endif

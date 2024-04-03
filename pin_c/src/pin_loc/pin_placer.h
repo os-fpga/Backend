@@ -9,7 +9,7 @@
 #include "pin_loc/pinc_main.h"
 #include "pin_loc/pin.h"
 
-namespace pinc {
+namespace pln {
 
 class RapidCsvReader;
 

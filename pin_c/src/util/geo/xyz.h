@@ -3,7 +3,7 @@
 #pragma once
 #include "util/geo/iv.h"
 
-namespace pinc {
+namespace pln {
 
 struct XY {
   int x_ = INT_MIN, y_ = INT_MIN;
@@ -174,4 +174,4 @@ inline int abc_ori(XY a, XY b, XY c) noexcept {
   return 0;
 }
 
-}  // namespace pinc
+}  // namespace pln

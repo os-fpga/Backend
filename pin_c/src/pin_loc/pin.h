@@ -3,10 +3,10 @@
 #define __rs_PIN_e9683bb04466931_H_
 
 #include "util/geo/xyz.h"
-#include "util/pinc_log.h"
+#include "util/pln_log.h"
 #include <bitset>
 
-namespace pinc {
+namespace pln {
 
 using std::string;
 using std::vector;
