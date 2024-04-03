@@ -186,11 +186,13 @@ void RapidCsvReader::BCD::dump() const { lout() << *this << endl; }
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t) {
   os << "(tile-" << t.id_ << ' '
      << "  loc: " << t.loc_
+     << "  colA: " << t.colA_
      << "  colB: " << t.colB_
      << "  beg_row:" << t.beg_row_
      << "  #used=" << t.num_used_
      << "  #a2f=" << t.a2f_sites_.size()
      << "  #f2a=" << t.f2a_sites_.size()
+     << "  #modes=" << t.countModes()
      << ')';
   return os;
 }
@@ -513,7 +515,7 @@ bool RapidCsvReader::createTiles() {
 
   uint sz_bcd_good = bcd_good_.size();
   if (tr >= 5)
-    lprintf("createTiles:  num_rows= %u  sz_bcd_good= %u\n", num_rows, sz_bcd_good);
+    lprintf("createTiles:  num_rows= %u  num_good_ROWs= %u\n", num_rows, sz_bcd_good);
   if (sz_bcd_good < 2 && tr >= 1)
     lputs("\n[Error] pin_c:  NO GOOD ROWs in .csv");
   if (sz_bcd_good < 2) {
@@ -552,13 +554,15 @@ bool RapidCsvReader::createTiles() {
 
   // 2. add tiles_ avoiding duplicates if possible
   tiles_.emplace_back(bcd_good_[first_valid_k]->xyz_,
-                      bcd_good_[first_valid_k]->bump_, first_valid_k);
+                      bcd_good_[first_valid_k]->groupA_,
+                      bcd_good_[first_valid_k]->bump_,
+                      first_valid_k);
   for (uint k = first_valid_k + 1; k < sz_bcd_good; k++) {
     const BCD& bcd = *bcd_good_[k];
     const XY& loc = bcd.xyz_;
     if (tiles_.back().eq(loc, bcd.bump_))
       continue;
-    tiles_.emplace_back(loc, bcd.bump_, k);
+    tiles_.emplace_back(loc, bcd.groupA_, bcd.bump_, k);
   }
 
   uint sz = tiles_.size();
@@ -630,13 +634,14 @@ bool RapidCsvReader::createTiles() {
   }
 
   if (tr >= 6) {
+    lprintf("pin_c csv-reader: dumping Tiles (%u)\n", sz);
     for (uint i = 0; i < sz; i++) {
       const Tile& ti = tiles_[i];
       ls << ti << endl;
     }
   }
   if (tr >= 4)
-    lprintf("created Tiles:  tiles_.size()= %u\n", sz);
+    lprintf("pin_c csv-reader: created Tiles:  number of tiles = %u\n", sz);
 
   return true;
 }
@@ -1039,14 +1044,14 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
   }
 
   if (tr >= 6) {
-    ls << "___ original BCD order ___" << endl;
+    ls << "___ original ROW-RECORD order ___" << endl;
     print_bcd(ls);
   }
 
   status_ok = createTiles();
   if (not status_ok) {
-    ls << '\n' << "[Error] createTiles() status not OK" << endl;
-    cerr << "[Error] createTiles() status not OK" << endl;
+    ls << '\n' << "[Error] pin_c csv-reader: createTiles() status not OK" << endl;
+    cerr << "[Error] pin_c csv-reader: createTiles() status not OK" << endl;
     return false;
   }
 
@@ -1064,7 +1069,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
       std::stable_partition(bcd_.begin(), bcd_.end(),
                             [](BCD* p) { return p->isNotBidiRxTx(); });
       if (tr >= 6) {
-        ls << "___ new BCD order ___" << endl;
+        ls << "___ new ROW-RECORD order ___" << endl;
         print_bcd(ls);
       }
       lputs();

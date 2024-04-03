@@ -33,7 +33,6 @@ using std::string;
 using std::stringstream;
 using std::ostream;
 using std::vector;
-using namespace pln;
 using CStr = const char*;
 
 // A combinational timing arc

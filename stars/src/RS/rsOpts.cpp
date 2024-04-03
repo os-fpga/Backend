@@ -33,7 +33,9 @@ static CStr _blif_[] = {"BL", "blif", nullptr};
 
 static CStr _json_[] = {"JS", "js", "jsf", "json", "port_info", "port_i", "PI", nullptr};
 
-static CStr _output_[] = {"O", "o", "ou", "OU", "out", "outp", "output", nullptr};
+static CStr _output_[] = {"OU", "ou", "out", "outp", "output", nullptr};
+
+static CStr _assOrd_[] = {"ASS", "ass", "assign", "assign_unconstrained", "assign_unconstrained_pins", nullptr};
 
 static CStr _trace_[] = {"TR", "trace", "tr", "tra", nullptr};
 
@@ -95,6 +97,7 @@ void rsOpts::reset() noexcept {
   p_free(jsonFile_);
   p_free(input_);
   p_free(output_);
+  p_free(assignOrder_);
 
   CStr keepSV = shortVer_;
 
@@ -127,6 +130,8 @@ void rsOpts::print(CStr label) const noexcept {
   printf("  blifFile_: %s\n", nns(blifFile_));
   printf("  jsonFile_: %s\n", nns(jsonFile_));
   printf("  output_: %s\n", nns(output_));
+  printf("  assignOrder_: %s\n", nns(assignOrder_));
+
   printf("  input_: %s\n", nns(input_));
 
   printf("  test_id_ = %i\n", test_id_);
@@ -208,8 +213,7 @@ void rsOpts::setFunction(CStr fun) noexcept {
   }
 }
 
-bool rsOpts::is_arg0_pinc() const noexcept
-{
+bool rsOpts::is_arg0_pinc() const noexcept {
   assert(argv_);
   assert(argv_[0]);
   assert(argc_ > 0);
@@ -218,6 +222,25 @@ bool rsOpts::is_arg0_pinc() const noexcept
   if (! ::strcmp(argv_[0], "pin_c"))  
     return true;
   return ends_with_pin_c(argv_[0]);
+}
+
+bool rsOpts::is_implicit_pinc() const noexcept {
+  assert(argv_);
+  assert(argv_[0]);
+  assert(argc_ > 0);
+  if (!argv_ or !argv_[0])
+    return false;
+
+  if (!csvFile_ or !csvFile_[0])
+    return false;
+
+  if (!output_ or !output_[0])
+    return false;
+
+  if (!assignOrder_ or !assignOrder_[0])
+    return false;
+
+  return true;
 }
 
 void rsOpts::parse(int argc, const char** argv) noexcept {
@@ -229,7 +252,8 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
 
   assert(argc_ > 0 and argv_);
 
-  CStr inp = 0, out = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0, fun = 0;
+  CStr inp = 0, out = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0,
+       fun = 0, assignOrd = 0;
 
   for (int i = 1; i < argc_; i++) {
     CStr arg = argv_[i];
@@ -319,6 +343,14 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
         out = nullptr;
       continue;
     }
+    if (op_match(arg, _assOrd_)) {
+      i++;
+      if (i < argc_)
+        assignOrd = argv_[i];
+      else
+        assignOrd = nullptr;
+      continue;
+    }
     if (op_match(arg, _test_)) {
       i++;
       if (i < argc_)
@@ -349,6 +381,8 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
     p_free(output_);
     output_ = make_file_name(out);
   }
+
+  assignOrder_ = p_strdup(assignOrd);
 
   deviceXML_ = p_strdup(xml);
   csvFile_ = p_strdup(csv);

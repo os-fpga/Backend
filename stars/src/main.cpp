@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0131";
+static const char* _pln_VERSION_STR = "pln0135";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -468,7 +468,7 @@ int main(int argc, char** argv) {
     goto ret;
   }
 
-  if (opts.is_fun_pinc() or opts.is_arg0_pinc()) {
+  if (opts.is_fun_pinc() or opts.is_arg0_pinc() or opts.is_implicit_pinc()) {
     ok = deal_pinc(opts, true);
     if (ok) {
       if (ltrace() >= 2) lputs("deal_pinc() succeeded.");

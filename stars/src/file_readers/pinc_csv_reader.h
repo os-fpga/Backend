@@ -140,6 +140,7 @@ public:
 
     // (loc_, colB_) - determines Tile uniqueness
     XY loc_;
+    string colA_; // column A: Group
     string colB_; // column B: Bump/Pin Name
 
     uint beg_row_ = 0;    // row at which this Tile is 1st encountered
@@ -148,8 +149,9 @@ public:
     vector<BCD*> a2f_sites_;
     vector<BCD*> f2a_sites_;
 
-    Tile(XY loc, const string& colb, uint beg_r) noexcept
-      : loc_(loc), colB_(colb), beg_row_(beg_r)
+    Tile(XY loc, const string& cola, const string& colb, uint beg_r) noexcept
+      : loc_(loc), colA_(cola), colB_(colb),
+        beg_row_(beg_r)
     {}
 
     bool operator==(const Tile& t) const noexcept { return loc_ == t.loc_ && colB_ == t.colB_; }
@@ -165,6 +167,15 @@ public:
 
     string key1() const noexcept;
     string key2() const noexcept;
+
+    uint countModes() const noexcept {
+      uint cnt = 0;
+      for (const BCD* bcd : a2f_sites_)
+        cnt += bcd->numModes();
+      for (const BCD* bcd : f2a_sites_)
+        cnt += bcd->numModes();
+      return cnt;
+    }
 
     void dump() const;
   }; // Tile

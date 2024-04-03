@@ -38,6 +38,7 @@ struct rsOpts {
     return function_ && !strcmp(function_, "route");
   }
   bool is_arg0_pinc() const noexcept;
+  bool is_implicit_pinc() const noexcept;
 
   static bool isFunctionArg(CStr arg) noexcept;
   static bool ends_with_pin_c(CStr z) noexcept;
@@ -55,6 +56,7 @@ struct rsOpts {
 
   char* input_ = nullptr;
   char* output_ = nullptr;
+  char* assignOrder_ = nullptr;
 
   int test_id_ = 0;  // TestCase ID
 
