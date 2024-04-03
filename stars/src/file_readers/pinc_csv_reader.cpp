@@ -486,7 +486,7 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
   return true;
 }
 
-bool RapidCsvReader::createTiles() {
+bool RapidCsvReader::createTiles(bool uniq_XY) {
   uint16_t tr = ltrace();
   auto& ls = lout();
 
@@ -523,7 +523,7 @@ bool RapidCsvReader::createTiles() {
     return false;
   }
 
-  tiles_.reserve(sz_bcd_good);
+  tiles_.reserve(sz_bcd_good + 1);
 
   // 1. determine first_valid_k, max_x_, max_y_
   int first_valid_k = -1;
@@ -574,20 +574,43 @@ bool RapidCsvReader::createTiles() {
 
   // 3. uniquefy tiles
   uint num_invalidated = 0;
-  for (uint i = 0; i < sz; i++) {
-    const Tile& ti = tiles_[i];
-    if (!ti.loc_.valid())
-      continue;
-    for (uint j = i + 1; j < sz; j++) {
-      Tile& tj = tiles_[j];
-      if (!tj.loc_.valid())
+  if (uniq_XY) {
+    if (tr >= 4)
+      lputs("createTiles: in uniq_XY mode, uniq_XY = TRUE");
+    for (uint i = 0; i < sz; i++) {
+      const Tile& ti = tiles_[i];
+      if (!ti.loc_.valid())
         continue;
-      if (ti == tj) {
-        tj.loc_.inval();
-        num_invalidated++;
+      for (uint j = i + 1; j < sz; j++) {
+        Tile& tj = tiles_[j];
+        if (!tj.loc_.valid())
+          continue;
+        if (ti.loc_ == tj.loc_) {
+          tj.loc_.inval();
+          num_invalidated++;
+        }
       }
     }
   }
+  else {
+    if (tr >= 4)
+      lputs("createTiles: in NON-uniq_XY mode, uniq_XY = FALSE");
+    for (uint i = 0; i < sz; i++) {
+      const Tile& ti = tiles_[i];
+      if (!ti.loc_.valid())
+        continue;
+      for (uint j = i + 1; j < sz; j++) {
+        Tile& tj = tiles_[j];
+        if (!tj.loc_.valid())
+          continue;
+        if (ti == tj) {
+          tj.loc_.inval();
+          num_invalidated++;
+        }
+      }
+    }
+  }
+
   if (tr >= 6) {
     ls << "  num_invalidated= " << num_invalidated << "  sz= " << sz << endl;
   }
@@ -1048,7 +1071,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     print_bcd(ls);
   }
 
-  status_ok = createTiles();
+  status_ok = createTiles(false);
   if (not status_ok) {
     ls << '\n' << "[Error] pin_c csv-reader: createTiles() status not OK" << endl;
     cerr << "[Error] pin_c csv-reader: createTiles() status not OK" << endl;

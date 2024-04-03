@@ -1,105 +1,139 @@
-#include "vtr_path.h"
 #include "read_blif.h"
+#include "vtr_path.h"
 
 #include "blifparse.hpp"
 
 #include "file_readers/blif_reader.h"
+#include "file_readers/pinc_Fio.h"
 
 namespace pln {
 
+using std::vector;
+using std::string;
+using std::cerr;
+using std::endl;
+
 // blif parser callback
- using namespace blifparse;
- class BlifParserCallback : public blifparse::Callback {
-    int lineno_ = -1;
-    e_circuit_format circuit_format = e_circuit_format::BLIF;
-     public:
-         BlifParserCallback(e_circuit_format circuit_format_) : circuit_format(circuit_format_) {}
-         void start_parse() override {}
+using namespace blifparse;
 
-         void filename(std::string /*fname*/) override {}
-         void lineno(int /*line_num*/) override {}
+struct PlnBlifParserCB : public blifparse::Callback {
+  int lineno_ = -1;
+  e_circuit_format circuit_format = e_circuit_format::BLIF;
 
-         void begin_model(std::string /*model_name*/) override {}
-         void inputs(std::vector<std::string> input_ports) override {
-             for (auto input_port : input_ports) {
-                 inputs_.push_back(input_port);
-             }
-         }
-         void outputs(std::vector<std::string> output_ports) override {
-             for (auto output_port : output_ports) {
-                 outputs_.push_back(output_port);
-             }
-         }
+public:
+  PlnBlifParserCB(e_circuit_format circuit_format_) : circuit_format(circuit_format_) {}
+  void start_parse() override {}
 
-         void names(std::vector<std::string> /*nets*/, std::vector<std::               vector<LogicValue>> /*so_cover*/) override {}
-         void latch(std::string /*input*/, std::string /*output*/, LatchType /*        type*/, std::string /*control*/,            LogicValue /*init*/) override {}
-         void subckt(std::string /*model*/, std::vector<std::string> /*ports*/, std::  vector<std::string> /*nets*/)         override {}
-         void blackbox() override {}
+  void filename(string /*fname*/) override {}
+  void lineno(int /*line_num*/) override {}
 
-         //BLIF Extensions
-    void conn(std::string src, std::string dst) override {
-        if (circuit_format != e_circuit_format::EBLIF) {
-            parse_error(lineno_, ".conn", "Supported only in extended BLIF format");
-        }
+  void begin_model(string /*model_name*/) override {}
+  void inputs(vector<string> input_ports) override {
+    for (auto input_port : input_ports) {
+      inputs_.push_back(input_port);
     }
-
-    void cname(std::string cell_name) override {
-        if (circuit_format != e_circuit_format::EBLIF) {
-            parse_error(lineno_, ".cname", "Supported only in extended BLIF format");
-        }
+  }
+  void outputs(vector<string> output_ports) override {
+    for (auto output_port : output_ports) {
+      outputs_.push_back(output_port);
     }
+  }
 
-    void attr(std::string name, std::string value) override {
-        if (circuit_format != e_circuit_format::EBLIF) {
-            parse_error(lineno_, ".attr", "Supported only in extended BLIF format");
-        }
+  void names(vector<string> /*nets*/, vector<vector<LogicValue>> /*so_cover*/) override {}
+  void latch(string /*input*/,
+             string /*output*/,
+             LatchType /*        type*/,
+             string /*control*/,
+             LogicValue /*init*/) override {}
+  void subckt(string /*model*/,
+              vector<string> /*ports*/,
+              vector<string> /*nets*/) override {}
+  void blackbox() override {}
+
+  //BLIF Extensions
+  void conn(string src, string dst) override {
+    if (circuit_format != e_circuit_format::EBLIF) {
+      parse_error(lineno_, ".conn", "Supported only in extended BLIF format");
     }
+  }
 
-    void param(std::string name, std::string value) override {
-        if (circuit_format != e_circuit_format::EBLIF) {
-            parse_error(lineno_, ".param", "Supported only in extended BLIF format");
-        }
+  void cname(string cell_name) override {
+    if (circuit_format != e_circuit_format::EBLIF) {
+      parse_error(lineno_, ".cname", "Supported only in extended BLIF format");
     }
+  }
 
-         void end_model() override {}
+  void attr(string name, string value) override {
+    if (circuit_format != e_circuit_format::EBLIF) {
+      parse_error(lineno_, ".attr", "Supported only in extended BLIF format");
+    }
+  }
 
-         void finish_parse() override {}
+  void param(string name, string value) override {
+    if (circuit_format != e_circuit_format::EBLIF) {
+      parse_error(lineno_, ".param", "Supported only in extended BLIF format");
+    }
+  }
 
-         void parse_error(const int curr_lineno, const std::string& near_text, const   std::string& msg) override {
-              fprintf(stderr, "Custom Error at line %d near '%s': %s\n", curr_lineno,  near_text.c_str(), msg.c_str());
-              had_error_ = true;
-         }
+  void end_model() override {}
 
-         bool had_error() { return had_error_ == true; }
-         std::vector<std::string> get_inputs() { return inputs_;}
-         std::vector<std::string> get_outputs() { return outputs_;}
-     private:
-         bool had_error_ = false;
-         std::vector<std::string> inputs_;
-         std::vector<std::string> outputs_;
+  void finish_parse() override {}
+
+  void parse_error(const int curr_lineno, const string& near_text, const string& msg) override {
+    fprintf(stderr, "pin_c read_blif: Error at line %d near '%s': %s\n", curr_lineno,
+            near_text.c_str(), msg.c_str());
+    lprintf("pin_c read_blif: Error at line %d near '%s': %s\n", curr_lineno,
+            near_text.c_str(), msg.c_str());
+    had_error_ = true;
+  }
+
+public:
+  bool had_error_ = false;
+  vector<string> inputs_;
+  vector<string> outputs_;
 };
 
 // read port info from blif file
-bool BlifReader::read_blif(const std::string& blif_file_name)
-{
-    e_circuit_format circuit_format;
-    auto name_ext = vtr::split_ext(blif_file_name);
-    if (name_ext[1] == ".blif") {
-        circuit_format = e_circuit_format::BLIF;
-    } else if (name_ext[1] == ".eblif") {
-        circuit_format = e_circuit_format::EBLIF;
-    } else {
-        return false;
-    }
-    BlifParserCallback callback(circuit_format);
-    blif_parse_filename(blif_file_name, callback);
-    if (callback.had_error()) {
-        return false;
-    }
-    inputs = callback.get_inputs();
-    outputs = callback.get_outputs();
-    return true;
+bool BlifReader::read_blif(const string& blif_fn) {
+  using namespace fio;
+  e_circuit_format circuit_format;
+  auto name_ext = vtr::split_ext(blif_fn);
+  if (name_ext[1] == ".blif") {
+    circuit_format = e_circuit_format::BLIF;
+  } else if (name_ext[1] == ".eblif") {
+    circuit_format = e_circuit_format::EBLIF;
+  } else {
+    lputs("\n[Error] pin_c read_blif: blif-file must have either .blif or .eblif extension");
+    lprintf("    pin_c read_blif file_name= %s\n", blif_fn.c_str());
+    cerr << "[Error] pin_c read_blif: blif-file must have either .blif or .eblif extension" << endl;
+    return false;
+  }
+
+  const char* fn = blif_fn.c_str();
+  if (not Fio::regularFileExists(fn)) {
+    lprintf("\n[Error] specified BLIF file %s does not exist\n", fn);
+    cerr << "[Error] specified BLIF file does not exist: " << fn << endl;
+    return false;
+  }
+  if (not Fio::nonEmptyFileExists(fn)) {
+    lprintf("\n[Error] specified BLIF file %s is empty\n", fn);
+    cerr << "[Error] specified BLIF file is empty: " << fn << endl;
+    return false;
+  }
+
+  PlnBlifParserCB callback(circuit_format);
+  blif_parse_filename(blif_fn, callback);
+  if (callback.had_error_) {
+    return false;
+  }
+
+  std::swap(inputs_, callback.inputs_);
+  std::swap(outputs_, callback.outputs_);
+  if (ltrace() >= 4) {
+    lprintf("pin_c: finished read_blif().  #inputs= %zu  #outputs= %zu\n",
+             inputs_.size(), outputs_.size());
+  }
+  return true;
 }
 
-} // namespace pln
-
+}  // namespace pln

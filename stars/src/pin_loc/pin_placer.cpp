@@ -230,7 +230,15 @@ bool PinPlacer::read_and_write() {
     return false;
   }
 
-  // --2. read PT from csv file
+  // --2. read port info from user design (from port_info.json)
+  if (!read_design_ports()) {
+    if (tr >= 2)
+      lputs("\n[Error] pin_c: !read_design_ports()\n");
+    CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
+    return false;
+  }
+
+  // --3. read PT from csv file
   RapidCsvReader csv_rd;
   if (!read_csv_file(csv_rd)) {
     if (tr >= 2)
@@ -239,18 +247,11 @@ bool PinPlacer::read_and_write() {
     return false;
   }
 
-  // --2.5 optionally, read netlist edits (--edits option)
+  // --4 optionally, read netlist edits (--edits option)
   bool has_edits = read_edits();
   if (tr >= 3)
     lprintf("\t  has_edits : %i\n", has_edits);
 
-  // --3. read port info from user design (from port_info.json)
-  if (!read_design_ports()) {
-    if (tr >= 2)
-      lputs("\n[Error] pin_c: !read_design_ports()\n");
-    CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
-    return false;
-  }
 
   // usage 2: if no user pcf is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
@@ -270,13 +271,13 @@ bool PinPlacer::read_and_write() {
     }
   }
 
-  // --4. read user pcf (or our temprary pcf).
+  // --5. read user pcf (or our temprary pcf).
   if (!read_pcf(csv_rd)) {
     CERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
     return false;
   }
 
-  // --5. create .place file
+  // --6. create .place file
   if (!write_dot_place(csv_rd)) {
     // error messages will be issued in callee
     if (tr) {
@@ -286,7 +287,7 @@ bool PinPlacer::read_and_write() {
     return false;
   }
 
-  // --6. optionally, map logical clocks to physical clocks
+  // --7. optionally, map logical clocks to physical clocks
   //      status = 0 if NOP, -1 if error
   int map_clk_status = map_clocks();
   if (map_clk_status < 0) {
