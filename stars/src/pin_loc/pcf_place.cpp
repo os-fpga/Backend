@@ -521,15 +521,22 @@ bool PinPlacer::read_csv_file(RapidCsvReader& csv) {
     return false;
   }
 
-  string check_csv = cl_.get_param("--check_csv");
-  bool check = false;
-  if (check_csv == "true") {
-    check = true;
-    if (tr >= 2) lputs("NOTE: check_csv == True");
-  }
-  if (!csv.read_csv(csv_name, check)) {
+  //string check_csv = cl_.get_param("--check_csv");
+  //bool check = false;
+  //if (check_csv == "true") {
+  //  check = true;
+  //  if (tr >= 2) lputs("NOTE: check_csv == True");
+  //}
+
+  uint num_udes_pins = user_design_inputs_.size() + user_design_outputs_.size();
+  if (!csv.read_csv(csv_name, num_udes_pins)) {
     CERROR << err_lookup("PIN_MAP_CSV_PARSE_ERROR") << endl;
+    CERROR << "pin_c CsvReader::read_csv() FAILED\n" << endl;
     return false;
+  }
+
+  if (tr >= 2) {
+    lputs("\n\t  ***  pin_c  read_csv_file  SUCCEEDED  ***\n");
   }
 
   return true;

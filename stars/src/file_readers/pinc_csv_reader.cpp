@@ -32,6 +32,12 @@ void RapidCsvReader::reset() noexcept {
 
   bcd_good_.clear();
 
+  tilePool_[0].clear();
+  tilePool_[1].clear();
+  tiles2_[0].clear();
+  tiles2_[1].clear();
+  //tiles_.clear();
+
   delete crd_;
   crd_ = nullptr;
 }
@@ -487,15 +493,22 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
 }
 
 bool RapidCsvReader::createTiles(bool uniq_XY) {
+  static uint cr_tiles_cnt = 0;
+  cr_tiles_cnt++;
   uint16_t tr = ltrace();
   auto& ls = lout();
 
   max_x_ = 0;
   max_y_ = 0;
-  tilePool_.clear();
-  tiles_.clear();
+  uint16_t uni = uniq_XY;
+  tilePool_[uni].clear();
+  tiles2_[uni].clear();
 
   uint num_rows = numRows();
+  if (tr >= 5) {
+    lprintf("pin_c createTiles()# %u  uniq_XY:%i  num_rows= %u\n",
+            cr_tiles_cnt, uniq_XY, num_rows);
+  }
   assert(num_rows >= 3);
   if (num_rows < 3) return false;
 
@@ -524,7 +537,8 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     return false;
   }
 
-  tilePool_.reserve(sz_bcd_good + 1);
+  vector<Tile>& tPool = tilePool_[uni];
+  tPool.reserve(sz_bcd_good + 1);
 
   // 1. determine first_valid_k, max_x_, max_y_
   int first_valid_k = -1;
@@ -554,19 +568,19 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     return false;
 
   // 2. add tiles_ avoiding duplicates if possible
-  tilePool_.emplace_back(bcd_good_[first_valid_k]->xyz_,
+  tPool.emplace_back(bcd_good_[first_valid_k]->xyz_,
                       bcd_good_[first_valid_k]->groupA_,
                       bcd_good_[first_valid_k]->bump_,
                       first_valid_k);
   for (uint k = first_valid_k + 1; k < sz_bcd_good; k++) {
     const BCD& bcd = *bcd_good_[k];
     const XY& loc = bcd.xyz_;
-    if (tilePool_.back().eq(loc, bcd.bump_))
+    if (tPool.back().eq(loc, bcd.bump_))
       continue;
-    tilePool_.emplace_back(loc, bcd.groupA_, bcd.bump_, k);
+    tPool.emplace_back(loc, bcd.groupA_, bcd.bump_, k);
   }
 
-  uint sz = tilePool_.size();
+  uint sz = tPool.size();
   if (tr >= 6) {
     ls << "  sz= " << sz << endl;
   }
@@ -579,11 +593,11 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     if (tr >= 4)
       lputs("createTiles: in uniq_XY mode, uniq_XY = TRUE");
     for (uint i = 0; i < sz; i++) {
-      const Tile& ti = tilePool_[i];
+      const Tile& ti = tPool[i];
       if (!ti.loc_.valid())
         continue;
       for (uint j = i + 1; j < sz; j++) {
-        Tile& tj = tilePool_[j];
+        Tile& tj = tPool[j];
         if (!tj.loc_.valid())
           continue;
         if (ti.loc_ == tj.loc_) {
@@ -597,11 +611,11 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     if (tr >= 4)
       lputs("createTiles: in NON-uniq_XY mode, uniq_XY = FALSE");
     for (uint i = 0; i < sz; i++) {
-      const Tile& ti = tilePool_[i];
+      const Tile& ti = tPool[i];
       if (!ti.loc_.valid())
         continue;
       for (uint j = i + 1; j < sz; j++) {
-        Tile& tj = tilePool_[j];
+        Tile& tj = tPool[j];
         if (!tj.loc_.valid())
           continue;
         if (ti == tj) {
@@ -617,21 +631,21 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
   }
   if (num_invalidated) {
     for (int i = int(sz) - 1; i >= 0; i--) {
-      XY xy = tilePool_[i].loc_;
+      XY xy = tPool[i].loc_;
       if (!xy.valid())
-        tilePool_.erase(tilePool_.begin() + i);
+        tPool.erase(tPool.begin() + i);
     }
   }
 
-  sz = tilePool_.size();
+  sz = tPool.size();
   if (tr >= 5)
-    lprintf("createTiles:  tilePool_.size()= %u\n", sz);
+    lprintf("createTiles:  tPool.size()= %u\n", sz);
 
   // 4. index and populate tiles
   if (sz < 2)
     return false;
   for (uint i = 0; i < sz; i++) {
-    Tile& ti = tilePool_[i];
+    Tile& ti = tPool[i];
     assert(ti.loc_.valid());
     ti.id_ = i;
     assert(ti.beg_row_ < sz_bcd_good);
@@ -648,7 +662,7 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
 
   // 5. rewrite Tile::beg_row_ as real row instead of k
   for (uint i = 0; i < sz; i++) {
-    Tile& ti = tilePool_[i];
+    Tile& ti = tPool[i];
     assert(ti.loc_.valid());
     assert(ti.loc_.x_ >= 0);
     assert(ti.loc_.y_ >= 0);
@@ -658,33 +672,34 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
   }
 
   if (tr >= 6) {
-    lprintf("pin_c csv-reader: dumping Unsorted Tiles (%u)\n", sz);
+    lprintf("pin_c csv-reader: dumping Unsorted Tiles (%u)  uni:%u\n", sz, uni);
     for (uint i = 0; i < sz; i++) {
-      const Tile& ti = tilePool_[i];
+      const Tile& ti = tPool[i];
       ls << ti << endl;
     }
     lputs("--------");
   }
 
   // 6. sort tiles_ by Tile::Cmp
-  assert(!tilePool_.empty());
-  tiles_.clear();
-  tiles_.reserve(tilePool_.size());
-  for (Tile& t : tilePool_)
-    tiles_.push_back(&t);
-  std::sort(tiles_.begin(), tiles_.end(), Tile::Cmp());
+  assert(!tPool.empty());
+  vector<Tile*>& tls = tiles2_[uni];
+  tls.clear();
+  tls.reserve(tPool.size());
+  for (Tile& t : tPool)
+    tls.push_back(&t);
+  std::sort(tls.begin(), tls.end(), Tile::Cmp());
 
   if (tr >= 6) {
-    lprintf("pin_c csv-reader: dumping Sorted Tiles (%u)\n", sz);
+    lprintf("pin_c csv-reader: dumping Sorted Tiles (%u)  uni:%u\n", sz, uni);
     for (uint i = 0; i < sz; i++) {
-      const Tile& ti = *tiles_[i];
+      const Tile& ti = *tls[i];
       ls << ti << endl;
     }
     lputs("--------");
   }
 
   if (tr >= 4)
-    lprintf("pin_c csv-reader: created Tiles:  number of tiles = %u\n", sz);
+    lprintf("pin_c csv-reader: created Tiles:  number of tiles = %u   uni:%u\n", sz, uni);
 
   return true;
 }
@@ -692,14 +707,16 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
 Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
                            const std::unordered_set<uint>& except,
                            uint overlap_level) noexcept {
-  assert(tiles_.size() == tilePool_.size());
-  if (tiles_.empty())
+  assert(uni_XY_ == 0 or uni_XY_ == 1);
+  uint16_t uni = uni_XY_;
+  assert(tiles2_[uni].size() == tilePool_[uni].size());
+  if (tiles2_[uni].empty())
     return nullptr;
 
   Tile* result = nullptr;
-  uint sz = tiles_.size();
+  uint sz = tiles2_[uni].size();
   for (uint i = 0; i < sz; i++) {
-    Tile& ti = *tiles_[i];
+    Tile& ti = *tiles2_[uni][i];
     assert(ti.loc_.valid());
     assert(ti.loc_.x_ >= 0);
     assert(ti.loc_.y_ >= 0);
@@ -788,11 +805,11 @@ BCD_p RapidCsvReader::Tile::bestOutputSite() noexcept {
   return nullptr;
 }
 
-bool RapidCsvReader::read_csv(const string& fn, bool check) {
+bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 2)
-    ls << "RapidCsvReader::read_csv( " << fn << " )  check:" << int(check) << endl;
+  if (tr >= 3)
+    lprintf("pin_c CsvReader::read_csv( %s )  num_udes_pins= %u\n", fn.c_str(), num_udes_pins);
 
   reset();
 
@@ -813,7 +830,7 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     crd_ = nullptr;
     return false;
   }
-  if (tr >= 4) crd.dprint1();
+  if (tr >= 5) crd.dprint1();
 
   if (!initCols(crd)) {
     ls << "\nERROR initCols() failed\n" << endl;
@@ -872,10 +889,10 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     }
   }
 
-  if (tr >= 2) {
-    if (tr >= 4) ls << endl;
+  if (tr >= 4) {
+    if (tr >= 5) ls << endl;
     ls << "  mode_names_.size()= " << mode_names_.size() << endl;
-    if (tr >= 3) {
+    if (tr >= 5) {
       logVec(mode_names_, "  mode_names_ ");
       ls << endl;
     }
@@ -1091,11 +1108,22 @@ bool RapidCsvReader::read_csv(const string& fn, bool check) {
     print_bcd(ls);
   }
 
-  status_ok = createTiles(false);
+  status_ok = createTiles(false); // non-uniq XY
   if (not status_ok) {
-    ls << '\n' << "[Error] pin_c csv-reader: createTiles() status not OK" << endl;
-    cerr << "[Error] pin_c csv-reader: createTiles() status not OK" << endl;
+    ls << '\n' << "[Error] pin_c csv-reader: createTiles(false) status not OK" << endl;
+    cerr << "[Error] pin_c csv-reader: createTiles(false) status not OK" << endl;
     return false;
+  }
+  status_ok = createTiles(true); // uniq XY
+  if (not status_ok) {
+    ls << '\n' << "[Warning] pin_c csv-reader: createTiles(true) status not OK" << endl;
+    cerr << "[Warning] pin_c csv-reader: createTiles(true) status not OK" << endl;
+  }
+  uni_XY_ = 0;
+  if (status_ok and num_udes_pins < tiles2_[1].size() / 2) {
+    uni_XY_ = 1;
+    if (tr >= 3)
+      lprintf("pin_c: using XY-unique tiles (%zu)\n", tiles2_[1].size());
   }
 
   uint num_bidi = countBidiRows();

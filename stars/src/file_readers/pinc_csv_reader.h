@@ -199,7 +199,7 @@ public:
 
   void reset() noexcept;
 
-  bool read_csv(const string& fn, bool check);
+  bool read_csv(const string& fn, uint num_udes_pins);
 
   bool write_csv(const string& fn, uint minRow, uint maxRow) const;
 
@@ -325,8 +325,10 @@ private:
   vector<BCD*> bcd_good_;    // BCDs with valid non-negative XYs and with at least one mode
 
   int max_x_ = 0, max_y_ = 0;
-  vector<Tile> tilePool_;
-  vector<Tile*> tiles_; // sorted
+  vector<Tile> tilePool_[2]; // indexed by uniq_XY
+  vector<Tile*> tiles2_[2]; // sorted, indexed by uniq_XY
+  uint16_t uni_XY_ = 0; // 1 - use XY-uniq tiles, 0 - non-uniq
+                        // tile search uses tiles2_[uni_XY_]
 
   uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start-row in PT
 
