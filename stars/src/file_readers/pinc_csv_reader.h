@@ -144,7 +144,7 @@ public:
     string colB_; // column B: Bump/Pin Name
 
     uint beg_row_ = 0;    // row at which this Tile is 1st encountered
-    uint id_ = UINT_MAX;  // index in tiles_
+    uint id_ = UINT_MAX;  // index in tilePool_
     uint num_used_ = 0;
     vector<BCD*> a2f_sites_;
     vector<BCD*> f2a_sites_;
@@ -176,6 +176,20 @@ public:
         cnt += bcd->numModes();
       return cnt;
     }
+
+    struct Cmp {
+      bool operator()(const Tile* a, const Tile* b) const noexcept {
+        uint a_modes = std::max(a->countModes(), 8u);
+        uint b_modes = std::max(b->countModes(), 8u);
+        if (b_modes < a_modes)
+          return true;
+        if (a_modes < b_modes)
+          return false;
+        uint64_t a_cost = uint64_t(a->beg_row_) + 100000u * (a->colA_ != "GBOX GPIO");
+        uint64_t b_cost = uint64_t(b->beg_row_) + 100000u * (b->colA_ != "GBOX GPIO");
+        return a_cost < b_cost;
+      }
+    };
 
     void dump() const;
   }; // Tile
@@ -311,7 +325,8 @@ private:
   vector<BCD*> bcd_good_;    // BCDs with valid non-negative XYs and with at least one mode
 
   int max_x_ = 0, max_y_ = 0;
-  vector<Tile> tiles_;
+  vector<Tile> tilePool_;
+  vector<Tile*> tiles_; // sorted
 
   uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start-row in PT
 
