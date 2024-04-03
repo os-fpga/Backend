@@ -287,7 +287,7 @@ private:
   bool initCols(const fio::CSV_Reader& crd);
   bool initRows(const fio::CSV_Reader& crd);
   bool setDirections(const fio::CSV_Reader& crd);
-  bool createTiles();
+  bool createTiles(bool uniq_XY);
 
   static bool prepare_mode_header(string& hdr) noexcept;
 
