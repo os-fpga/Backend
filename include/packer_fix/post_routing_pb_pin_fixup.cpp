@@ -116,6 +116,7 @@ static bool check_pb_route_for_block(ClusterBlockId clb_id,
 
 static bool check_pb_routes(const std::string& msg, const Netlist<>& ntl,
                             const ClusteringContext& clCon, const PlacementContext& plCon) {
+  using std::endl;
   PB_route_error err;
   std::vector<PB_route_error> errors;
 
@@ -132,23 +133,42 @@ static bool check_pb_routes(const std::string& msg, const Netlist<>& ntl,
   if (errors.empty()) {
     VTR_LOG("OK: %s: pb_route connectivity is consistent in all %zu blocks\n",
             cmsg, range_of_blocks.size());
-  } else {
-    VTR_LOG("CRITICAL WARNING: %s: found pb_route connectivity errors in %zu blocks\n",
-            cmsg, errors.size());
-    size_t total = 0;
-    for (const PB_route_error& e : errors)
-      total += e.num_errors();
-    VTR_LOG("CRITICAL WARNING: %s: total number of bad sinks is %zu\n", cmsg, total);
-    VTR_LOG("CRITICAL WARNING: %s: list of blocks with pb_route connectivity errors:\n", cmsg);
-    for (const PB_route_error& e : errors) {
-      const t_pl_loc& loc = e.clbLoc_.loc;
-      VTR_LOG("  block_id=%zu at (%i %i) type: '%s'  instance: %s  #errors= %zu\n",
-          size_t(e.clb_id_), loc.x, loc.y, e.clbTypeName_.c_str(), e.clbInstName_.c_str(),
-          e.num_errors());
-    }
+    return true;
   }
 
-  return errors.empty();
+  std::cout << endl;
+  std::cerr << endl;
+  fflush(stdout);
+  fflush(stderr);
+  VTR_LOG("[Error] CRITICAL WARNING: %s: found pb_route connectivity errors in %zu blocks\n",
+          cmsg, errors.size());
+  fprintf(stderr, "[Error] CRITICAL WARNING: %s: found pb_route connectivity errors in %zu blocks\n",
+          cmsg, errors.size());
+  std::cout << endl;
+  fflush(stdout);
+  fflush(stderr);
+  size_t total = 0;
+  for (const PB_route_error& e : errors)
+    total += e.num_errors();
+  VTR_LOG("CRITICAL WARNING: %s: total number of bad sinks is %zu\n", cmsg, total);
+  VTR_LOG("CRITICAL WARNING: %s: list of blocks with pb_route connectivity errors:\n", cmsg);
+  for (const PB_route_error& e : errors) {
+    const t_pl_loc& loc = e.clbLoc_.loc;
+    VTR_LOG("  block_id=%zu at (%i %i) type: '%s'  instance: %s  #errors= %zu\n",
+        size_t(e.clb_id_), loc.x, loc.y, e.clbTypeName_.c_str(), e.clbInstName_.c_str(),
+        e.num_errors());
+  }
+  std::cout << endl;
+  fflush(stdout);
+  VTR_LOG("[Error] CRITICAL WARNING: %s: found pb_route connectivity errors in %zu blocks\n",
+          cmsg, errors.size());
+  fprintf(stderr, "[Error] CRITICAL WARNING: %s: found pb_route connectivity errors in %zu blocks\n",
+          cmsg, errors.size());
+  std::cout << endl;
+  fflush(stderr);
+  fflush(stdout);
+
+  return false;
 }
 
 /********************************************************************
