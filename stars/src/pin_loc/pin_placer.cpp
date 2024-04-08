@@ -21,6 +21,14 @@ int pinc_main(const pln::cmd_line& cmd) {
   // pl.get_cmd().print_options();
 
   if (!pl.read_and_write()) {
+    flush_out(true);
+    string last_err = PinPlacer::last_err_lookup();
+    if (last_err.empty())
+      lprintf2("pinc_main: pin_c PinPlacer failed\n");
+    else
+      lprintf2("pinc_main: pin_c PinPlacer failed, last error: %s\n",
+               last_err.c_str());
+    flush_out(true);
     return 1;
   }
   return 0;
@@ -45,10 +53,10 @@ void PinPlacer::set_err_code(const char* cs) noexcept {
 static std::map<string, string> s_err_map = {
 
   { "MISSING_IN_OUT_FILES",          "Missing input or output file arguments" },
-  { "PIN_LOC_XML_PARSE_ERROR",       "Pin location file parse error" },
-  { "PIN_MAP_CSV_PARSE_ERROR",       "Pin map file parse error" },
-  { "PIN_CONSTRAINT_PARSE_ERROR",    "Pin constraint file parse error" },
-  { "PORT_INFO_PARSE_ERROR",         "Port info parse error" },
+  { "PIN_LOC_XML_PARSE_ERROR",       "Pin location XML file parse error" },
+  { "PIN_MAP_CSV_PARSE_ERROR",       "Pin Table CSV file parse error\n" },
+  { "PIN_CONSTRAINT_PARSE_ERROR",    "Pin constraint file (.pcf) parse error\n" },
+  { "PORT_INFO_PARSE_ERROR",         "Port info parse error (.eblif or .json)\n" },
   { "CONSTRAINED_PORT_NOT_FOUND",    "Constrained port not found in design" },
   { "CONSTRAINED_PIN_NOT_FOUND",     "Constrained pin not found in device" },
   { "RE_CONSTRAINED_PORT",           "Re-constrained port" },
@@ -67,6 +75,7 @@ static std::map<string, string> s_err_map = {
 
 };
 
+static string s_last_err_string;
 string PinPlacer::err_lookup(const string& key) noexcept {
   assert(!key.empty());
   if (key.empty()) return "Internal error";
@@ -76,8 +85,10 @@ string PinPlacer::err_lookup(const string& key) noexcept {
     assert(0);
     return "Internal error";
   }
-  return fitr->second;
+  s_last_err_string = fitr->second;
+  return s_last_err_string;
 }
+string PinPlacer::last_err_lookup() noexcept { return s_last_err_string; }
 
 //static string USAGE_MSG_0 =
 //    "usage options: --xml PINMAP_XML --pcf PCF --blif BLIF --csv CSV_FILE "

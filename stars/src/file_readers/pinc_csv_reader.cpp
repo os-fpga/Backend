@@ -979,7 +979,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
         }
       }
     }
-    if (tr >= 3) {
+    if (tr >= 4) {
       const auto& firs_bcd = *bcd_[firs_ri];
       const auto& last_bcd = *bcd_[last_ri];
       ls << " ==        first row with Customer Internal Name : "
@@ -998,7 +998,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     if (bcd->is_GBOX_GPIO_) bcd_GBGPIO_.push_back(bcd);
   }
 
-  if (tr >= 2) {
+  if (tr >= 3) {
     ls << "  num_rows= " << num_rows << "  num_cols= " << col_headers_.size()
        << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_
        << "  start_CustomerInternal_row_= " << start_CustomerInternal_row_

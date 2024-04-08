@@ -178,7 +178,9 @@ public:
   int map_clocks();
   int write_clocks_logical_to_physical();
 
-  static string err_lookup(const string& key) noexcept; // err_map lookup
+  static string err_lookup(const string& key) noexcept;
+  static string last_err_lookup() noexcept;
+
   static void clear_err_code() noexcept;
   static void set_err_code(const char* cs) noexcept;
 

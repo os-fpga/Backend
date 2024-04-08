@@ -16,7 +16,10 @@ using fio::Fio;
 bool PinPlacer::read_design_ports() {
   uint16_t tr = ltrace();
   if (tr >= 4) {
-    lputs("\nread_design_ports() __ getting port info .json");
+    flush_out(true);
+    lputs("read_design_ports() __ getting port info");
+  } else if (tr >= 2) {
+    flush_out(true);
   }
 
   string port_info_fn = cl_.get_param("--port_info");

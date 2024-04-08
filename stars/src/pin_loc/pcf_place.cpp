@@ -349,9 +349,13 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     }
 
     if (!is_in_pin && !is_out_pin) {
-      // sanity check
+
+      flush_out(true);
+      flush_out(true);
       CERROR << err_lookup("CONSTRAINED_PORT_NOT_FOUND") << ": <"
              << udes_pin_name << ">" << endl;
+      flush_out(true);
+
       out_file << "\n=== Error happened, .place file is incomplete\n"
                << "=== ERROR:" << err_lookup("CONSTRAINED_PORT_NOT_FOUND")
                << ": <" << udes_pin_name
@@ -360,10 +364,16 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     }
 
     if (!csv.has_io_pin(device_pin_name)) {
-      CERROR << err_lookup("CONSTRAINED_PIN_NOT_FOUND") << ": <"
-             << device_pin_name << ">" << endl;
+
+      flush_out(true);
+      flush_out(true);
+      string ers = err_lookup("CONSTRAINED_PIN_NOT_FOUND");
+      CERROR << ers << ": <" << device_pin_name << ">" << endl;
+      OUT_ERROR << ers << ": <" << device_pin_name << ">" << endl;
+      flush_out(true);
+
       out_file << "\n=== Error happened, .place file is incomplete\n"
-               << "=== ERROR:" << err_lookup("CONSTRAINED_PORT_NOT_FOUND")
+               << "=== ERROR:" << ers
                << ": <" << udes_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       return false;
@@ -530,8 +540,11 @@ bool PinPlacer::read_csv_file(RapidCsvReader& csv) {
 
   uint num_udes_pins = user_design_inputs_.size() + user_design_outputs_.size();
   if (!csv.read_csv(csv_name, num_udes_pins)) {
+    flush_out(true);
     CERROR << err_lookup("PIN_MAP_CSV_PARSE_ERROR") << endl;
+    OUT_ERROR << err_lookup("PIN_MAP_CSV_PARSE_ERROR") << endl;
     CERROR << "pin_c CsvReader::read_csv() FAILED\n" << endl;
+    flush_out(true);
     return false;
   }
 
@@ -1008,7 +1021,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      lprintf("\n[Error] pin_c: failed getting device pin for input pin: %s\n", pinName.c_str());
+      lputs();
+      lprintf2("[CRITICAL_WARNING] pin_c: failed getting device pin for input pin: %s\n", pinName.c_str());
       set_err_code("TOO_MANY_INPUTS");
       num_warnings_++;
       // if (not continue_on_errors)
@@ -1017,7 +1031,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         // increase overlap level and re-try this pin
         itile_overlap_level_++;
         if (tr >= 3) {
-          lprintf("NOTE: increased itile_overlap_level_ to %u on i=%u\n",
+          lprintf("NOTE: increased input-tile overlap_level to %u on i=%u\n",
                   itile_overlap_level_, i);
         }
         i--;
@@ -1072,7 +1086,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      lprintf("[Error] pin_c: failed getting device pin for output pin: %s\n", pinName.c_str());
+      lputs();
+      lprintf2("[CRITICAL_WARNING] pin_c: failed getting device pin for output pin: %s\n", pinName.c_str());
       set_err_code("TOO_MANY_OUTPUTS");
       num_warnings_++;
       // if (not continue_on_errors)
@@ -1081,7 +1096,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         // increase overlap level and re-try this pin
         otile_overlap_level_++;
         if (tr >= 3) {
-          lprintf("NOTE: increased otile_overlap_level_ to %u on i=%u\n",
+          lprintf("NOTE: increased output-tile overlap_level to %u on i=%u\n",
                   otile_overlap_level_, i);
         }
         i--;
