@@ -3,6 +3,8 @@
 //
 //   lprintf  : log-printf
 //   lprintfl : log-printf with file:line
+//   lprintf2 : log-printf with CC to stderr
+//
 //     lputs  : log-puts
 //      lout  : replaces cout, will print to both stdout and logfile
 //
@@ -58,6 +60,9 @@ uint16_t ltrace() noexcept;
 void set_ltrace(int t) noexcept;
 
 void lprintf(CStr format, ...) __attribute__((format(printf, 1, 2)));
+
+// lprintf2 : log-printf with CC to stderr
+void lprintf2(CStr format, ...) __attribute__((format(printf, 1, 2)));
 
 // lprintfl : log-printf with file:line
 void lprintfl(CStr fn, uint l, CStr format, ...);
