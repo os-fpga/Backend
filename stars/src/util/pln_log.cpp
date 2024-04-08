@@ -133,6 +133,8 @@ void flush_out(bool nl) noexcept {
     cout << endl;
   cout.flush();
   fflush(stdout);
+  cerr.flush();
+  fflush(stderr);
 }
 
 void lprintf(CStr format, ...) {
@@ -151,6 +153,27 @@ void lprintf(CStr format, ...) {
     cout.flush();
     fflush(stdout);
   }
+}
+
+// lprintf2 : log-printf with CC to stderr
+void lprintf2(CStr format, ...) {
+  char buf[32768];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(buf, 32766, format, args);
+  buf[32767] = 0;
+  va_end(args);
+
+  size_t len = strlen(buf);
+  if (!len) return;
+
+  cout << buf;
+  cout.flush();
+  fflush(stdout);
+
+  cerr << buf;
+  cerr.flush();
+  fflush(stderr);
 }
 
 // lprintfl : log-printf with file:line
