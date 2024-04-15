@@ -327,8 +327,9 @@ private:
   int max_x_ = 0, max_y_ = 0;
   vector<Tile> tilePool_[2]; // indexed by uniq_XY
   vector<Tile*> tiles2_[2]; // sorted, indexed by uniq_XY
-  uint16_t uni_XY_ = 0; // 1 - use XY-uniq tiles, 0 - non-uniq
-                        // tile search uses tiles2_[uni_XY_]
+  //uint16_t uni_XY_ = 0; // 1 - use XY-uniq tiles, 0 - non-uniq
+  //                      // tile search uses tiles2_[uni_XY_]
+  constexpr static uint16_t uni_XY_ = 0;
 
   uint start_GBOX_GPIO_row_ = 0;   // "GBOX GPIO" group start-row in PT
 
