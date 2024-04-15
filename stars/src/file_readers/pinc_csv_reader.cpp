@@ -493,6 +493,7 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
 }
 
 bool RapidCsvReader::createTiles(bool uniq_XY) {
+  uniq_XY = false;
   static uint cr_tiles_cnt = 0;
   cr_tiles_cnt++;
   uint16_t tr = ltrace();
@@ -687,9 +688,10 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
   tls.reserve(tPool.size());
   for (Tile& t : tPool)
     tls.push_back(&t);
-  std::sort(tls.begin(), tls.end(), Tile::Cmp());
 
-  if (tr >= 6) {
+  //std::sort(tls.begin(), tls.end(), Tile::Cmp());
+
+  if (0&& tr >= 6) {
     lprintf("pin_c csv-reader: dumping Sorted Tiles (%u)  uni:%u\n", sz, uni);
     for (uint i = 0; i < sz; i++) {
       const Tile& ti = *tls[i];
@@ -709,9 +711,11 @@ Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
                            uint overlap_level) noexcept {
   assert(uni_XY_ == 0 or uni_XY_ == 1);
   uint16_t uni = uni_XY_;
-  assert(tiles2_[uni].size() == tilePool_[uni].size());
-  if (tiles2_[uni].empty())
-    return nullptr;
+  //assert(tiles2_[uni].size() == tilePool_[uni].size());
+  //if (tiles2_[uni].empty())
+  //  return nullptr;
+  assert(uni == 0);
+  assert(not tiles2_[uni].empty());
 
   Tile* result = nullptr;
   uint sz = tiles2_[uni].size();
@@ -1114,17 +1118,17 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     cerr << "[Error] pin_c csv-reader: createTiles(false) status not OK" << endl;
     return false;
   }
-  status_ok = createTiles(true); // uniq XY
-  if (not status_ok) {
-    ls << '\n' << "[Warning] pin_c csv-reader: createTiles(true) status not OK" << endl;
-    cerr << "[Warning] pin_c csv-reader: createTiles(true) status not OK" << endl;
-  }
-  uni_XY_ = 0;
-  if (status_ok and num_udes_pins < tiles2_[1].size() / 2) {
-    uni_XY_ = 1;
-    if (tr >= 3)
-      lprintf("pin_c: using XY-unique tiles (%zu)\n", tiles2_[1].size());
-  }
+  //status_ok = createTiles(true); // uniq XY
+  //if (not status_ok) {
+  //  ls << '\n' << "[Warning] pin_c csv-reader: createTiles(true) status not OK" << endl;
+  //  cerr << "[Warning] pin_c csv-reader: createTiles(true) status not OK" << endl;
+  //}
+  //uni_XY_ = 0;
+  //if (status_ok and num_udes_pins < tiles2_[1].size() / 2) {
+  //  uni_XY_ = 1;
+  //  if (tr >= 3)
+  //    lprintf("pin_c: using XY-unique tiles (%zu)\n", tiles2_[1].size());
+  //}
 
   uint num_bidi = countBidiRows();
   if (tr >= 4) lprintf("num_bidi= %u\n", num_bidi);
