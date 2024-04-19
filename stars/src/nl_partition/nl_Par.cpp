@@ -20,7 +20,6 @@ using std::endl;
 
 uint Par::countMolecules(t_pack_molecule* molecule_head) {
   uint cnt = 0;
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
   for (auto cur_mol = molecule_head; cur_mol; cur_mol = cur_mol->next) {
     cnt++;
   }
@@ -30,29 +29,48 @@ uint Par::countMolecules(t_pack_molecule* molecule_head) {
 bool Par::init(t_pack_molecule* molecule_head) {
   assert(molecule_head);
   numMolecules_ = numNets_ = numAtoms_ = 0;
-  set_ltrace(3);
-  auto tr = ltrace();
 
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+  saved_ltrace_ = ltrace();
+  {
+  const char* ts = ::getenv("nl_par_trace");
+  if (ts)
+    set_ltrace(::atoi(ts));
+  else
+    set_ltrace(3);
+  }
+  uint16_t tr = ltrace();
+
+  if (tr >= 4)
+    lprintf("\n pln::Par::init()   trace= %u\n", tr);
+
+  const AtomNetlist& aNtl = g_vpr_ctx.atom().nlist;
   for (auto cur_mol = molecule_head; cur_mol; cur_mol = cur_mol->next) {
     molecules_.push_back(cur_mol);
     numMolecules_++;
   }
-  for (auto netId : myNetlist.nets()) {
+
+  if (tr >= 9)
+    lputs("==== nets:");
+  for (auto netId : aNtl.nets()) {
     if (tr >= 9)
       lprintf("\t    netId= %zu\n", size_t(netId));
     numNets_++;
   }
-  for (auto blockId : myNetlist.blocks()) {
+
+  if (tr >= 9)
+    lputs("\n==== atom-blocks:");
+  for (auto blockId : aNtl.blocks()) {
     if (tr >= 9)
       lprintf("\t    blockId= %zu\n", size_t(blockId));
     numAtoms_++;
   }
+  if (tr >= 9) lputs();
 
-  if (tr >= 2) {
-    lprintf("pln::Par::init  numMolecules_= %u  numNets_= %u  numAtoms_= %u\n",
+  if (tr >= 3) {
+    lprintf("pln::Par::init  numMolecules_= %u  numNets_= %u   numBlocks === numAtoms_= %u\n",
               numMolecules_, numNets_, numAtoms_);
   }
+  if (tr >= 9) lputs();
 
   atomBlockIdToMolId_ = new int[numAtoms_];
   molIdToName_ = new string[numMolecules_ + 1];
@@ -70,7 +88,7 @@ bool Par::init(t_pack_molecule* molecule_head) {
     for (auto molecule : molecules_) {
       string name_block = "";
       for (auto abid : molecule->atom_block_ids) {
-        name_block += myNetlist.block_name(abid);
+        name_block += aNtl.block_name(abid);
         uint bid = size_t(abid);
         if (bid >= numAtoms_) continue;
         VTR_ASSERT(atomBlockIdToMolId_[bid] == -1);
@@ -89,6 +107,8 @@ bool Par::init(t_pack_molecule* molecule_head) {
 
 Par::~Par() {
   // p_free(partition_array_);
+  if (saved_ltrace_)
+    set_ltrace(saved_ltrace_);
 }
 
 static bool read_exe_link(const string& path, string& out) {
@@ -126,11 +146,11 @@ static string get_MtKaHyPar_path() {
   int pid = ::getpid();
   string selfPath, exe_link, result;
 
-  const char* es = ::getenv("RSBE_KHP_EXE");
+  const char* es = ::getenv("PLN_KHP_EXE");
   if (es && ::strlen(es) > 1) {
     result = es;
     if (ltrace() >= 2)
-      lprintf("got KHP_EXE=  %s  from env variable RSBE_KHP_EXE\n", es);
+      lprintf("got KHP_EXE=  %s  from env variable PLN_KHP_EXE\n", es);
   }
   else {
     exe_link.reserve(512);
@@ -156,12 +176,12 @@ static string get_MtKaHyPar_path() {
   }
 
   if (ltrace() >= 2)
-    lprintf("KHP_EXE: result= %s\n", result.c_str());
+    lprintf("\nKHP_EXE: result= %s\n", result.c_str());
 
   bool ok = Fio::regularFileExists(result);
   if (not ok) {
-    lprintf("\n[Error] KHP_EXE=  %s  does not exist\n", result.c_str());
-    cerr << "\n[Error] no such file: " << result << endl;
+    lprintf2("\n[Error] KHP_EXE=  %s  does not exist\n", result.c_str());
+    cerr <<  "\n[Error] no such file: " << result << endl << endl;
     result.clear();
   }
 
@@ -186,7 +206,7 @@ bool Par::split(uint partition_index) {
       MoleculesToIntermediate.push_back(-1);
     }
   }
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+  const AtomNetlist& aNtl = g_vpr_ctx.atom().nlist;
   vector<string> uniqueLines;
   vector<int> lineCounts;
 
@@ -195,22 +215,22 @@ bool Par::split(uint partition_index) {
 
   vector<int> molecule_size;
   int sum_malecule_size = 0;
-  for (auto netId : myNetlist.nets()) {
+  for (auto netId : aNtl.nets()) {
     //VTR_LOG("NET ID: %d\n", size_t(netId));
     vector<int> newLine;
     vector<int> criticality;
     //// int sum_criticality = 0;
-    AtomBlockId driverBlockId = myNetlist.net_driver_block(netId);
+    AtomBlockId driverBlockId = aNtl.net_driver_block(netId);
     int moleculeId = atomBlockIdToMolId_[size_t(driverBlockId)];
     if (partition_array_[moleculeId] == partition_index) {
       newLine.push_back(MoleculesToIntermediate[moleculeId] + 1);
     }
     //// double maxCriticality = 0;
-    for (auto pin_id : myNetlist.net_pins(netId)) {
+    for (auto pin_id : aNtl.net_pins(netId)) {
       //VTR_LOG("pin criticality: %f\n", pinCriticality);
 
-      auto port_id = myNetlist.pin_port(pin_id);
-      auto blk_id = myNetlist.port_block(port_id);
+      auto port_id = aNtl.pin_port(pin_id);
+      auto blk_id = aNtl.port_block(port_id);
       if (blk_id == driverBlockId) continue;
       moleculeId = atomBlockIdToMolId_[size_t(blk_id)];
       if (partition_array_[moleculeId] != partition_index) {
@@ -279,7 +299,7 @@ bool Par::split(uint partition_index) {
   VTR_LOG("MtKaHPar PATH: %s\n", MtKaHyPar_path.c_str());
   if (MtKaHyPar_path.empty()) {
     VTR_LOG("Bi-Partition with MtKaHPar FAILED: MtKaHyPar executable not found\n");
-    cerr << "[Error] Bi-Partition with MtKaHPar FAILED:  MtKaHyPar executable not found" << endl;
+    cerr << "[Error] Bi-Partition with MtKaHPar FAILED:  MtKaHyPar executable not found\n" << endl;
     partitions_.clear();
     return false;
   }
@@ -354,8 +374,8 @@ struct partition_position {
 
 }
 
-bool Par::do_partitioning(int molecule_per_partition) {
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+bool Par::do_part(int molecule_per_partition) {
+  const AtomNetlist& aNtl = g_vpr_ctx.atom().nlist;
   //// auto& device_ctx = g_vpr_ctx.device();
   //// auto& grid = device_ctx.grid;
   vector<int> partion_size;
@@ -466,17 +486,15 @@ bool Par::do_partitioning(int molecule_per_partition) {
     for (uint j = 0; j < numMolecules_; j++) {
       if (partition_array_[j] == partitions_[i]) {
         for (AtomBlockId abid : molecules_[j]->atom_block_ids) {
-          if (size_t(abid) >= numAtoms_ or myNetlist.block_type(abid) != AtomBlockType::BLOCK)
+          if (size_t(abid) >= numAtoms_ or aNtl.block_type(abid) != AtomBlockType::BLOCK)
             continue;
           //atgs[clusterId].group_atoms.push_back(abid);
           if (size_t(abid) >= numAtoms_) {
             cout << '\n' << numAtoms_ << "\t" << size_t(abid) << endl;
-            //// exit(0);
-            lout() << "internal [Error] in Par::do_partitioning()" << endl;
-            cerr   << "internal [Error] in Par::do_partitioning()" << endl;
+            lprintf2("internal [Error] in Par::do_part()\n");
             return false;
           }
-          fprintf(file, "\t\t<add_atom name_pattern=\"%s\"/>\n", myNetlist.block_name(abid).c_str());
+          fprintf(file, "\t\t<add_atom name_pattern=\"%s\"/>\n", aNtl.block_name(abid).c_str());
         }
       }
     }
@@ -489,10 +507,7 @@ bool Par::do_partitioning(int molecule_per_partition) {
   fprintf(file, "\t</partition_list>\n");
   fprintf(file, "</vpr_constraints>\n");
 
-  // Write some text to the file
-
-  // Close the file
-  fclose(file);
+  ::fclose(file);
   return true;
 }
 

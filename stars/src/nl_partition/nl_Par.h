@@ -20,7 +20,7 @@ public:
 
   bool init(t_pack_molecule* molecule_head);
 
-  bool do_partitioning(int num_partitions);
+  bool do_part(int num_partitions);
 
   bool split(uint partion_index);
 
@@ -34,6 +34,8 @@ public:
   string* molIdToName_ = nullptr;
   uint* partition_array_ = nullptr;
   vector<uint> partitions_;
+
+  uint16_t saved_ltrace_ = 0;
 
 // No copy, No move
   Par(Par&) = delete;
