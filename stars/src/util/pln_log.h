@@ -197,6 +197,21 @@ inline string concat(CStr a, CStr b, const string& c, const string& d = "") noex
   return z;
 }
 
+inline string concat(const string& a, const string& b, const string& c,
+                     CStr d, CStr e, CStr f, CStr g = nullptr) noexcept {
+  size_t len = a.length() + b.length() + c.length();
+  len += p_strlen(d) + p_strlen(e) + p_strlen(f) + p_strlen(g);
+  if (!len) return {};
+  string z;
+  z.reserve(len + 1);
+  z.append(a); z.append(b); z.append(c);
+  if (d) z.append(d);
+  if (e) z.append(e);
+  if (f) z.append(f);
+  if (g) z.append(g);
+  return z;
+}
+
 inline CStr trimFront(CStr z) noexcept {
   if (z && *z) {
     while (std::isspace(*z)) z++;

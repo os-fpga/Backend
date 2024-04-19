@@ -18,17 +18,23 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-uint Par::countMolecules(t_pack_molecule* molecule_head) {
+uint Par::countMolecules(t_pack_molecule* mol_head) {
+  assert(mol_head);
   uint cnt = 0;
-  for (auto cur_mol = molecule_head; cur_mol; cur_mol = cur_mol->next) {
+  for (const t_pack_molecule* mol = mol_head; mol; mol = mol->next) {
     cnt++;
   }
   return cnt;
 }
 
-bool Par::init(t_pack_molecule* molecule_head) {
-  assert(molecule_head);
+bool Par::init(t_pack_molecule* mol_head) {
+  assert(mol_head);
   numMolecules_ = numNets_ = numAtoms_ = 0;
+  molecules_.clear();
+  molNames_.clear();
+  solverInputs_.clear();
+  if (!mol_head)
+    return false;
 
   saved_ltrace_ = ltrace();
   {
@@ -40,20 +46,26 @@ bool Par::init(t_pack_molecule* molecule_head) {
   }
   uint16_t tr = ltrace();
 
+  numMolecules_ = countMolecules(mol_head);
+
   if (tr >= 4)
-    lprintf("\n pln::Par::init()   trace= %u\n", tr);
+    lprintf("\n pln::Par::init()   trace= %u   numMolecules_= %u\n", tr, numMolecules_);
+
+  if (!numMolecules_)
+    return false;
+
+  molecules_.reserve(numMolecules_);
+  for (t_pack_molecule* mol = mol_head; mol; mol = mol->next) {
+    molecules_.push_back(mol);
+  }
 
   const AtomNetlist& aNtl = g_vpr_ctx.atom().nlist;
-  for (auto cur_mol = molecule_head; cur_mol; cur_mol = cur_mol->next) {
-    molecules_.push_back(cur_mol);
-    numMolecules_++;
-  }
 
   if (tr >= 9)
     lputs("==== nets:");
   for (auto netId : aNtl.nets()) {
     if (tr >= 9)
-      lprintf("\t    netId= %zu\n", size_t(netId));
+      lprintf("\t  netId= %zu\n", size_t(netId));
     numNets_++;
   }
 
@@ -61,19 +73,21 @@ bool Par::init(t_pack_molecule* molecule_head) {
     lputs("\n==== atom-blocks:");
   for (auto blockId : aNtl.blocks()) {
     if (tr >= 9)
-      lprintf("\t    blockId= %zu\n", size_t(blockId));
+      lprintf("\t  blockId= %zu\n", size_t(blockId));
     numAtoms_++;
   }
   if (tr >= 9) lputs();
 
   if (tr >= 3) {
-    lprintf("pln::Par::init  numMolecules_= %u  numNets_= %u   numBlocks === numAtoms_= %u\n",
+    lprintf(" pln::Par::init   numMolecules_= %u  numNets_= %u   numBlocks === numAtoms_= %u\n",
               numMolecules_, numNets_, numAtoms_);
   }
   if (tr >= 9) lputs();
 
   atomBlockIdToMolId_ = new int[numAtoms_];
-  molIdToName_ = new string[numMolecules_ + 1];
+  molNames_.clear();
+  molNames_.resize(numMolecules_);
+
   partition_array_ = (uint*) ::calloc(numMolecules_ + 1, sizeof(uint));
   for (uint i = 0; i < numMolecules_; i++) {
     partition_array_[i] = 1;
@@ -83,24 +97,35 @@ bool Par::init(t_pack_molecule* molecule_head) {
     atomBlockIdToMolId_[i] = -1;
   }
 
-  {
-    int i = 0;
-    for (auto molecule : molecules_) {
-      string name_block = "";
-      for (auto abid : molecule->atom_block_ids) {
-        name_block += aNtl.block_name(abid);
-        uint bid = size_t(abid);
-        if (bid >= numAtoms_) continue;
-        VTR_ASSERT(atomBlockIdToMolId_[bid] == -1);
-        atomBlockIdToMolId_[bid] = i;
-      }
-      molIdToName_[i] = name_block;
-      i++;
+  assert(molecules_.size() == numMolecules_);
+  assert(molNames_.size() == numMolecules_);
+
+  for (uint i = 0; i < numMolecules_; i++) {
+    const t_pack_molecule& mol = *molecules_[i];
+    string& molName = molNames_[i];
+    molName.clear();
+    for (auto abid : mol.atom_block_ids) {
+      molName += aNtl.block_name(abid);
+      uint bid = size_t(abid);
+      if (bid >= numAtoms_)
+        continue;
+      assert(atomBlockIdToMolId_[bid] == -1);
+      atomBlockIdToMolId_[bid] = i;
+    }
+  }
+
+  if (tr >= 9) {
+    lputs("\n==== molNames_:");
+    for (uint i = 0; i < molNames_.size(); i++) {
+      const t_pack_molecule& mol = *molecules_[i];
+      uint deg = mol.atom_block_ids.size();
+      const string& nm = molNames_[i];
+      lprintf("    |%u|  %s   #atoms= %u\n", i, nm.c_str(), deg);
     }
   }
 
   for (uint i = 0; i < numAtoms_; i++) {
-    VTR_ASSERT(atomBlockIdToMolId_[i] != -1);
+    assert(atomBlockIdToMolId_[i] != -1);
   }
   return true;
 }
@@ -190,7 +215,7 @@ static string get_MtKaHyPar_path() {
 
 bool Par::split(uint partition_index) {
   splitCnt_++;
-  auto tr = ltrace();
+  uint16_t tr = ltrace();
   if (tr >= 3)
     lprintf("+Par::split( partition_index= %u ) #%u\n", partition_index, splitCnt_);
 
@@ -262,9 +287,13 @@ bool Par::split(uint partition_index) {
     }
   }
 
-  string hmetis_fn = str::concat("hmetis_", std::to_string(splitCnt_), ".txt");
-  if (tr >= 3)
-    lprintf("hmetis_file_name= %s\n", hmetis_fn.c_str());
+  string hmetis_fn = str::concat("hmetis_inp_", std::to_string(splitCnt_), ".txt");
+  solverInputs_.push_back(hmetis_fn);
+  if (tr >= 3) {
+    lprintf("hmetis_file_name= %s  solver-input# %u\n",
+      hmetis_fn.c_str(), splitCnt_);
+  }
+
   std::ofstream hmetisFile(hmetis_fn);
   if (!hmetisFile) {
     const char* fn = hmetis_fn.c_str();
@@ -289,11 +318,12 @@ bool Par::split(uint partition_index) {
   }
   hmetisFile.close();
 
-  int K = 2;
+  constexpr int K = 2;
+  CStr Kstr = "2";
 
-  char commandToExecute[6000] = {};  // unix PATH_MAX is 4096
-  uint num_cpus = std::thread::hardware_concurrency();
-  int num_threads = (int)(num_cpus / 2) > 1 ? (int)(num_cpus / 2) : 1;
+  // uint num_cpus = std::thread::hardware_concurrency();
+  // int num_threads = 1; // (int)(num_cpus / 2) > 1 ? (int)(num_cpus / 2) : 1;
+  CStr Tstr = "1";
 
   string MtKaHyPar_path = get_MtKaHyPar_path();
   VTR_LOG("MtKaHPar PATH: %s\n", MtKaHyPar_path.c_str());
@@ -304,13 +334,18 @@ bool Par::split(uint partition_index) {
     return false;
   }
 
-  sprintf(
-      commandToExecute,
-      "%s -h %s --preset-type=quality -t %d -k %d -e 0.01 -o soed --enable-progress-bar=true --show-detailed-timings=false --verbose=true --write-partition-file=true",
-      MtKaHyPar_path.c_str(), hmetis_fn.c_str(), num_threads, K);
-  VTR_LOG("MtKaHPar COMMAND: %s\n", commandToExecute);
+  string cmd = str::concat(MtKaHyPar_path,
+                      string(" -h "), hmetis_fn,
+                      " --preset-type=quality -t ", Tstr,
+                      " -k ", Kstr);
 
-  int code = system(commandToExecute);
+  //string cmd = MtKaHyPar_path;
+  //cmd += buf;
+  cmd += " -e 0.01 -o soed --enable-progress-bar=true --show-detailed-timings=false --verbose=true --write-partition-file=true";
+
+  VTR_LOG("MtKaHPar COMMAND: %s\n", cmd.c_str());
+
+  int code = ::system(cmd.c_str());
   if (code == 0) {
     VTR_LOG("MtKaHPar succeeded.\n");
   } else {
@@ -320,17 +355,20 @@ bool Par::split(uint partition_index) {
     return false;
   }
 
-  char newFilename[4100] = {};
-  sprintf(newFilename, "%s.part%d.epsilon0.01.seed0.KaHyPar", hmetis_fn.c_str(), K);
+  char buf[5000] = {};
+  //sprintf(buf, "hmetis_out_%u_part%i.epsilon0.01.seed0.KaHyPar", splitCnt_, K);
+  ::sprintf(buf, "%s.part%d.epsilon0.01.seed0.KaHyPar", hmetis_fn.c_str(), K);
 
-  // VTR_LOG("HMETIS COMMAND: %s\n", commandToExecute);
-  // system(commandToExecute);
-  //exit(0);
-  // char* newFilename = new char[100];
-  // sprintf(newFilename, "hmetis.txt.part.%d", K);
-  // sprintf(newFilename, "hmetis_96_1.txt", K);
+  bool ok = Fio::regularFileExists(buf);
+  if (not ok) {
+    lprintf2("\n[Error] expected KHP output =  %s  does not exist\n", buf);
+    cerr <<  "\n[Error] expected KHP output: no such file: " << buf << endl << endl;
+    partitions_.clear();
+    return false;
+  }
+
   std::ifstream hmetisOutFile;
-  hmetisOutFile.open(newFilename);
+  hmetisOutFile.open(buf);
 
   // int* clusterOfMolecule = new int[numMolecules_];
 
@@ -394,7 +432,7 @@ bool Par::do_part(int molecule_per_partition) {
     // }
     partion_size.push_back(sum_partition);
     if (sum_partition > molecule_per_partition) {
-      VTR_LOG("start Bipartitioning\n");
+      VTR_LOG("\nstart Bipartitioning\n");
       if (!split(cnt)) {
         VTR_LOG("Bipartitioning FAILED. cnt= %u\n", cnt);
         partitions_.clear();
