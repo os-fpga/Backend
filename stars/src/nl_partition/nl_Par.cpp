@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <thread>
 
@@ -33,6 +33,10 @@ bool Par::init(t_pack_molecule* mol_head) {
   molecules_.clear();
   molNames_.clear();
   solverInputs_.clear();
+  solverOutputs_.clear();
+  partitions_.clear();
+  pp_array_.clear();
+  MtKaHyPar_path_.clear();
   if (!mol_head)
     return false;
 
@@ -53,6 +57,16 @@ bool Par::init(t_pack_molecule* mol_head) {
 
   if (!numMolecules_)
     return false;
+
+  MtKaHyPar_path_ = get_MtKaHyPar_path();
+  if (tr >= 3)
+    lprintf("MtKaHPar PATH: %s\n", MtKaHyPar_path_.c_str());
+  if (MtKaHyPar_path_.empty()) {
+    VTR_LOG("Bi-Partition init FAILED: MtKaHyPar executable not found\n");
+    cerr << "[Error] Bi-Partition init FAILED:  MtKaHyPar executable not found\n" << endl;
+    partitions_.clear();
+    return false;
+  }
 
   molecules_.reserve(numMolecules_);
   for (t_pack_molecule* mol = mol_head; mol; mol = mol->next) {
@@ -167,7 +181,7 @@ static bool read_exe_link(const string& path, string& out) {
   return true;
 }
 
-static string get_MtKaHyPar_path() {
+string Par::get_MtKaHyPar_path() {
   int pid = ::getpid();
   string selfPath, exe_link, result;
 
@@ -215,6 +229,7 @@ static string get_MtKaHyPar_path() {
 
 bool Par::split(uint partition_index) {
   splitCnt_++;
+  string splitS = std::to_string(splitCnt_);
   uint16_t tr = ltrace();
   if (tr >= 3)
     lprintf("+Par::split( partition_index= %u ) #%u\n", partition_index, splitCnt_);
@@ -287,16 +302,16 @@ bool Par::split(uint partition_index) {
     }
   }
 
-  string hmetis_fn = str::concat("hmetis_inp_", std::to_string(splitCnt_), ".txt");
-  solverInputs_.push_back(hmetis_fn);
+  string hmetis_inp_fn = str::concat("hmetis_inp_", splitS, "_.txt");
+  solverInputs_.push_back(hmetis_inp_fn);
   if (tr >= 3) {
     lprintf("hmetis_file_name= %s  solver-input# %u\n",
-      hmetis_fn.c_str(), splitCnt_);
+             hmetis_inp_fn.c_str(), splitCnt_);
   }
 
-  std::ofstream hmetisFile(hmetis_fn);
+  std::ofstream hmetisFile(hmetis_inp_fn);
   if (!hmetisFile) {
-    const char* fn = hmetis_fn.c_str();
+    const char* fn = hmetis_inp_fn.c_str();
     VTR_LOG("Bi-Partition with MtKaHPar FAILED: could not open file for writing: %s\n", fn);
     fprintf(stderr,
         "[Error] Bi-Partition with MtKaHPar FAILED: could not open file for writing: %s\n", fn);
@@ -318,32 +333,32 @@ bool Par::split(uint partition_index) {
   }
   hmetisFile.close();
 
-  constexpr int K = 2;
+  //constexpr int K = 2;
   CStr Kstr = "2";
 
   // uint num_cpus = std::thread::hardware_concurrency();
   // int num_threads = 1; // (int)(num_cpus / 2) > 1 ? (int)(num_cpus / 2) : 1;
   CStr Tstr = "1";
 
-  string MtKaHyPar_path = get_MtKaHyPar_path();
-  VTR_LOG("MtKaHPar PATH: %s\n", MtKaHyPar_path.c_str());
-  if (MtKaHyPar_path.empty()) {
+  if (tr >= 3)
+    lprintf("MtKaHPar PATH: %s\n", MtKaHyPar_path_.c_str());
+  if (MtKaHyPar_path_.empty()) {
     VTR_LOG("Bi-Partition with MtKaHPar FAILED: MtKaHyPar executable not found\n");
     cerr << "[Error] Bi-Partition with MtKaHPar FAILED:  MtKaHyPar executable not found\n" << endl;
     partitions_.clear();
     return false;
   }
 
-  string cmd = str::concat(MtKaHyPar_path,
-                      string(" -h "), hmetis_fn,
+  string cmd = str::concat(MtKaHyPar_path_,
+                      string(" -h "), hmetis_inp_fn,
                       " --preset-type=quality -t ", Tstr,
                       " -k ", Kstr);
 
-  //string cmd = MtKaHyPar_path;
-  //cmd += buf;
   cmd += " -e 0.01 -o soed --enable-progress-bar=true --show-detailed-timings=false --verbose=true --write-partition-file=true";
 
-  VTR_LOG("MtKaHPar COMMAND: %s\n", cmd.c_str());
+  if (tr >= 3) {
+    VTR_LOG("MtKaHPar COMMAND: %s\n", cmd.c_str());
+  }
 
   int code = ::system(cmd.c_str());
   if (code == 0) {
@@ -351,24 +366,49 @@ bool Par::split(uint partition_index) {
   } else {
     VTR_LOG("MtKaHPar FAILED: exit code = %i\n", code);
     cerr << "[Error] MtKaHPar FAILED: exit code = " << code << endl;
-    partitions_.clear(); // empty partitions_ mean failure for the caller
+    partitions_.clear();
     return false;
   }
 
-  char buf[5000] = {};
-  //sprintf(buf, "hmetis_out_%u_part%i.epsilon0.01.seed0.KaHyPar", splitCnt_, K);
-  ::sprintf(buf, "%s.part%d.epsilon0.01.seed0.KaHyPar", hmetis_fn.c_str(), K);
+  string raw_out = str::concat(hmetis_inp_fn, ".part", Kstr, ".epsilon0.01.seed0.KaHyPar");
 
-  bool ok = Fio::regularFileExists(buf);
+  bool ok = Fio::regularFileExists(raw_out);
   if (not ok) {
-    lprintf2("\n[Error] expected KHP output =  %s  does not exist\n", buf);
-    cerr <<  "\n[Error] expected KHP output: no such file: " << buf << endl << endl;
+    lprintf2("\n[Error] expected KHP output =  %s  does not exist\n", raw_out.c_str());
+    cerr <<  "\n[Error] expected KHP output: no such file: " << raw_out << endl << endl;
+    partitions_.clear();
+    return false;
+  }
+
+  string hmetis_out_fn = str::concat(string("hmetis_out_"), splitS, "_K", Kstr, "_.txt");
+  try {
+    std::error_code ec;
+    std::filesystem::rename(raw_out, hmetis_out_fn, ec);
+    if (ec)
+      hmetis_out_fn = raw_out;
+  } catch (...) {
+    hmetis_out_fn = raw_out;
+  }
+  solverOutputs_.push_back(hmetis_out_fn);
+
+  CStr hmetis_out_cs = hmetis_out_fn.c_str();
+  if (tr >= 4)
+    lprintf("reading KHP output from file %s\n", hmetis_out_cs);
+
+  ok = Fio::regularFileExists(hmetis_out_cs);
+  if (not ok) {
+    lprintf2("\n[Error] expected KHP output =  %s  does not exist\n", hmetis_out_cs);
+    cerr <<  "\n[Error] expected KHP output: no such file: " << hmetis_out_cs << endl << endl;
     partitions_.clear();
     return false;
   }
 
   std::ifstream hmetisOutFile;
-  hmetisOutFile.open(buf);
+  hmetisOutFile.open(hmetis_out_cs);
+  if (!hmetisOutFile.is_open()) {
+    partitions_.clear();
+    return false;
+  }
 
   // int* clusterOfMolecule = new int[numMolecules_];
 
@@ -398,28 +438,19 @@ bool Par::split(uint partition_index) {
   return true;
 }
 
-namespace {
+bool Par::do_part(int mol_per_partition) {
+  uint16_t tr = ltrace();
+  if (tr >= 3) {
+    lprintf("+Par::do_part( Cpart === mol_per_partition= %i )\n", mol_per_partition);
+    lprintf(" numMolecules_= %u\n", numMolecules_);
+  }
+  //const AtomNetlist& aNtl = g_vpr_ctx.atom().nlist;
 
-struct partition_position {
-  int x1 = 0;
-  int x2 = 0;
-  int y1 = 0;
-  int y2 = 0;
-  bool direction = true;  //false means from left to right and true means from top to bottom
-
-  partition_position() noexcept = default;
-};
-
-}
-
-bool Par::do_part(int molecule_per_partition) {
-  const AtomNetlist& aNtl = g_vpr_ctx.atom().nlist;
-  //// auto& device_ctx = g_vpr_ctx.device();
-  //// auto& grid = device_ctx.grid;
   vector<int> partion_size;
   partion_size.push_back(-1);
   uint cnt = 1;
   uint max_iter = 1;
+
   while (cnt <= max_iter) {
     int sum_partition = 0;
     for (uint j = 0; j < numMolecules_; j++) {
@@ -431,7 +462,7 @@ bool Par::do_part(int molecule_per_partition) {
     //     break;
     // }
     partion_size.push_back(sum_partition);
-    if (sum_partition > molecule_per_partition) {
+    if (sum_partition > mol_per_partition) {
       VTR_LOG("\nstart Bipartitioning\n");
       if (!split(cnt)) {
         VTR_LOG("Bipartitioning FAILED. cnt= %u\n", cnt);
@@ -441,15 +472,15 @@ bool Par::do_part(int molecule_per_partition) {
       VTR_LOG("end Bipartitioning\n");
       max_iter = 2 * cnt + 1;
     } else {
-      VTR_LOG("Bipartitioning NOP.  sum_partition= %i  molecule_per_partition= %i\n",
-              sum_partition, molecule_per_partition);
+      VTR_LOG("Bipartitioning NOP.  sum_partition= %i  mol_per_partition= %i\n",
+              sum_partition, mol_per_partition);
       partitions_.push_back(cnt);
       //partitions_.clear(); // NOP handling is the same as error handling for the caller
       //return false;
     }
     cnt++;
   }
-  vector<partition_position*> pp_array;
+
   partition_position* pp = new partition_position;
   pp->x1 = 2;
   pp->x2 = 103;
@@ -458,11 +489,11 @@ bool Par::do_part(int molecule_per_partition) {
   // VTR_LOG("FPGA sized to %zu x %zu (%s)\n", grid.width(), grid.height(), grid.name().c_str());
   // exit(0);
   // VTR_LOG("\t\t<add_region x_low=\"%d\" y_low=\"%d\" x_high=\"%d\" y_high=\"%d\"/>\n",pp->x1,pp->y1,pp->x2,pp->y2);
-  pp_array.push_back(nullptr);
-  pp_array.push_back(pp);
+  pp_array_.push_back(nullptr);
+  pp_array_.push_back(pp);
   for (uint i = 2; i <= max_iter; i++) {
     pp = new partition_position;
-    pp_array.push_back(pp);
+    pp_array_.push_back(pp);
     if (partion_size[i] == 0) {
       continue;
     }
@@ -471,10 +502,10 @@ bool Par::do_part(int molecule_per_partition) {
     float division = float(partion_size[parent]) / float(partion_size[2 * parent]);
     // float division = 2.0;
     // VTR_LOG("before parent %d %d\n",i,parent);
-    partition_position* pp_parent = pp_array[parent];
+    partition_position* pp_parent = pp_array_[parent];
     // VTR_LOG("after parent\n");
-    if (pp_parent->direction == false) {
-      pp->direction = true;
+    if (pp_parent->isHorizontal()) {
+      pp->is_vert_ = true;
       pp->x1 = pp_parent->x1;
       pp->x2 = pp_parent->x2;
       if (i == parent * 2) {
@@ -486,7 +517,7 @@ bool Par::do_part(int molecule_per_partition) {
       }
 
     } else {
-      pp->direction = false;
+      pp->is_vert_ = false;
       pp->y1 = pp_parent->y1;
       pp->y2 = pp_parent->y2;
       if (i == parent * 2) {
@@ -499,9 +530,25 @@ bool Par::do_part(int molecule_per_partition) {
     }
   }
 
+  bool wr_ok = write_constraints_xml();
+  if (!wr_ok) {
+    lprintf2("\n    Par::write_constraints_xml() FAILED\n");
+    partitions_.clear();
+    return false;
+  }
+
+  cleanup_tmp_files();
+
+  return true;
+}
+
+bool Par::write_constraints_xml() const {
+
+  const AtomNetlist& aNtl = g_vpr_ctx.atom().nlist;
+
   // for (int i=1; i<=max_iter; i++) {
   //     VTR_LOG("\t\t<add_region x_low=\"%d\" y_low=\"%d\" x_high=\"%d\" y_high=\"%d\"/>\n",
-  //        pp_array[i]->x1,pp_array[i]->y1,pp_array[i]->x2,pp_array[i]->y2);
+  //        pp_array_[i]->x1,pp_array_[i]->y1,pp_array_[i]->x2,pp_array_[i]->y2);
   // }
 
   const char* vpr_constr_fn = "vpr_constraints.xml";
@@ -537,8 +584,8 @@ bool Par::do_part(int molecule_per_partition) {
       }
     }
     fprintf(file, "\t\t<add_region x_low=\"%d\" y_low=\"%d\" x_high=\"%d\" y_high=\"%d\"/>\n",
-            pp_array[partitions_[i]]->x1 - 1, pp_array[partitions_[i]]->y1, pp_array[partitions_[i]]->x2 + 1,
-            pp_array[partitions_[i]]->y2);
+            pp_array_[partitions_[i]]->x1 - 1, pp_array_[partitions_[i]]->y1, pp_array_[partitions_[i]]->x2 + 1,
+            pp_array_[partitions_[i]]->y2);
     fprintf(file, "\t</partition>\n");
   }
 
@@ -547,6 +594,43 @@ bool Par::do_part(int molecule_per_partition) {
 
   ::fclose(file);
   return true;
+}
+
+void Par::cleanup_tmp_files() const {
+  uint16_t tr = ltrace();
+  if (tr >= 4) {
+    lprintf("    solverInputs_.size()= %zu  solverOutputs_.size()= %zu\n",
+            solverInputs_.size(), solverOutputs_.size());
+  }
+  if (tr >= 7) {
+    lprintf("  Par:: keeping tmp hmetis files for debugging\n");
+    return;
+  }
+
+  if (tr >= 3)
+    lprintf("  Par:: removing tmp hmetis inputs..\n");
+
+  std::error_code ec;
+  if (solverInputs_.size() > 3) {
+    uint max_i = solverInputs_.size() - 2;
+    for (uint i = 1; i <= max_i; i++) {
+      const string& fn = solverInputs_[i];
+      ec.clear();
+      std::filesystem::remove(fn, ec);
+    }
+  }
+
+  if (tr >= 3)
+    lprintf("  Par:: removing tmp hmetis outputs..\n");
+
+  if (solverOutputs_.size() > 3) {
+    uint max_i = solverOutputs_.size() - 2;
+    for (uint i = 1; i <= max_i; i++) {
+      const string& fn = solverOutputs_[i];
+      ec.clear();
+      std::filesystem::remove(fn, ec);
+    }
+  }
 }
 
 }
