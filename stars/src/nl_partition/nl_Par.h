@@ -11,18 +11,36 @@ namespace pln {
 using std::string;
 using std::vector;
 
-class Par {
-public:
+struct Par {
+
+  struct partition_position {
+    int x1 = 0;
+    int x2 = 0;
+    int y1 = 0;
+    int y2 = 0;
+    bool is_vert_ = true;  // false means from left to right and true means from top to bottom
+
+    partition_position() noexcept = default;
+
+    bool isVertical() const noexcept { return is_vert_; }
+    bool isHorizontal() const noexcept { return ! is_vert_; }
+  };
+
   Par() noexcept = default;
   ~Par();
 
   static uint countMolecules(t_pack_molecule* mol_head);
+  static string get_MtKaHyPar_path();
 
   bool init(t_pack_molecule* mol_head);
 
-  bool do_part(int num_partitions);
+  bool do_part(int mol_per_partition);
 
   bool split(uint partion_index);
+
+  bool write_constraints_xml() const;
+
+  void cleanup_tmp_files() const;
 
 // DATA:
   vector<t_pack_molecule*>  molecules_;
@@ -44,7 +62,10 @@ public:
 
   vector<uint> partitions_;
 
+  vector<partition_position*> pp_array_;
+
   uint16_t saved_ltrace_ = 0;
+  string MtKaHyPar_path_;
 
 // No copy, No move
   Par(Par&) = delete;
