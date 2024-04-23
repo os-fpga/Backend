@@ -1,6 +1,6 @@
 #pragma once
-#ifndef __rs_PIN_e9683bb04466931_H_
-#define __rs_PIN_e9683bb04466931_H_
+#ifndef _pln_PIN_e9683bb04466931_H_
+#define _pln_PIN_e9683bb04466931_H_
 
 #include "util/geo/xyz.h"
 #include "util/pln_log.h"
@@ -17,7 +17,10 @@ struct Pin {
   static constexpr uint MAX_PT_COLS = 128;
 
   string udes_pin_name_;
+  string trans_pin_name_; // translated due to netlist edits
+
   string device_pin_name_;
+
   XYZ xyz_;
 
   uint pt_row_   = 0; // row in pin table
