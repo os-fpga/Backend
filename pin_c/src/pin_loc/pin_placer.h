@@ -134,6 +134,11 @@ public:
 
   bool read_and_write();
 
+  bool check_xyz_overlap(const vector<string>& inputs,
+                         const vector<string>& outputs,
+                         vector<const Pin*>& inp_ov,
+                         vector<const Pin*>& out_ov) const noexcept;
+
   void print_stats(const RapidCsvReader& csv) const;
   void printTileUsage(const RapidCsvReader& csv) const;
 
@@ -173,6 +178,7 @@ public:
                              vector<string>& outputs);
 
   bool read_edit_info(std::ifstream& ifs);
+  bool check_edit_info() const;
 
   // map logical clocks to physical clocks. status = 0 if NOP, -1 if error
   int map_clocks();

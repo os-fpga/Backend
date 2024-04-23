@@ -14,23 +14,43 @@ namespace pln {
 
 int pinc_main(const pln::cmd_line& cmd) {
   uint16_t tr = ltrace();
-  if (tr >= 4) lputs("pinc_main()");
+  CStr separator = "********************************";
+  if (tr >= 3) {
+    flush_out(true);
+    err_puts();
+    lputs(separator);
+    flush_out(true);
+  }
+  if (tr >= 4) {
+    lputs("pinc_main()");
+  }
 
   PinPlacer pl(cmd);
+
+  if (tr >= 3) {
+    flush_out(true);
+    err_puts();
+    lputs(separator);
+    flush_out(true);
+  }
 
   // pl.get_cmd().print_options();
 
   if (!pl.read_and_write()) {
     flush_out(true);
+    err_puts();
     string last_err = PinPlacer::last_err_lookup();
     if (last_err.empty())
       lprintf2("pinc_main: pin_c PinPlacer failed\n");
     else
       lprintf2("pinc_main: pin_c PinPlacer failed, last error: %s\n",
                last_err.c_str());
+    err_puts();
     flush_out(true);
     return 1;
   }
+
+  flush_out(false);
   return 0;
 }
 
@@ -138,6 +158,7 @@ PinPlacer::~PinPlacer() {
 }
 
 bool PinPlacer::read_and_write() {
+  flush_out(false);
   num_warnings_ = 0;
   clear_err_code();
 
@@ -161,6 +182,7 @@ bool PinPlacer::read_and_write() {
     ls << "    edits_file (--edits) : " << edits_file << endl;
     ls << "    output_name (--output) : " << output_name << endl;
   }
+  flush_out(false);
 
   bool no_b_json = false; // json_name.empty();
 
@@ -233,33 +255,42 @@ bool PinPlacer::read_and_write() {
     }
     */
   } else if (!usage_requirement_1 && !usage_requirement_2) {
+    flush_out(true);
     if (tr >= 2)
-      lputs("\n[Error] pin_c: !usage_requirement_1 && !usage_requirement_2\n");
+      lputs("[Error] pin_c: !usage_requirement_1 && !usage_requirement_2\n");
     CERROR << err_lookup("MISSING_IN_OUT_FILES") << '\n' << endl
            << USAGE_MSG_1 << ", or" << endl
            << USAGE_MSG_2 << endl;
+    flush_out(true);
     return false;
   }
 
   // --2. read port info from user design (from port_info.json)
   if (!read_design_ports()) {
+    flush_out(true);
     if (tr >= 2)
-      lputs("\n[Error] pin_c: !read_design_ports()\n");
+      lputs("[Error] pin_c: !read_design_ports()\n");
     CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
+    flush_out(true);
     return false;
   }
 
   // --3. read PT from csv file
   RapidCsvReader csv_rd;
   if (!read_csv_file(csv_rd)) {
-    if (tr >= 2)
-      lputs("\n[Error] pin_c: !read_csv_file()\n");
+    flush_out(true);
+    if (tr >= 2) {
+      lputs("[Error] pin_c: !read_csv_file()");
+      flush_out(true);
+    }
     CERROR << err_lookup("PIN_MAP_CSV_PARSE_ERROR") << endl;
+    flush_out(true);
     return false;
   }
 
   // --4 optionally, read netlist edits (--edits option)
   bool has_edits = read_edits();
+  flush_out(false);
   if (tr >= 3)
     lprintf("\t  has_edits : %i\n", has_edits);
 
@@ -267,24 +298,30 @@ bool PinPlacer::read_and_write() {
   // usage 2: if no user pcf is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
     if (!create_temp_pcf(csv_rd)) {
+      flush_out(true);
       string ec = s_err_code.empty() ? "FAIL_TO_CREATE_TEMP_PCF" : s_err_code;
       CERROR << err_lookup(ec) << endl;
       ls << "[Error] " << err_lookup(ec) << endl;
       ls << "  design has " << user_design_inputs_.size() << " input pins" << endl;
       ls << "  design has " << user_design_outputs_.size() << " output pins" << endl;
+      flush_out(true);
       return false;
     }
     if (num_warnings_) {
+      flush_out(true);
       if (tr >= 2)
-        lprintf("\nafter create_temp_pcf() #errors: %u\n", num_warnings_);
+        lprintf("after create_temp_pcf() #errors: %u\n", num_warnings_);
       lprintf("\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
-      lputs2();
+      flush_out(true);
     }
   }
 
   // --5. read user pcf (or our temprary pcf).
   if (!read_pcf(csv_rd)) {
+    flush_out(true);
     CERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
+    OUT_ERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
+    flush_out(true);
     return false;
   }
 
@@ -292,8 +329,10 @@ bool PinPlacer::read_and_write() {
   if (!write_dot_place(csv_rd)) {
     // error messages will be issued in callee
     if (tr) {
+      flush_out(true);
       ls << "[Error] pin_c: !write_dot_place(csv_rd)" << endl;
       CERROR << "write_dot_place() failed" << endl;
+      flush_out(true);
     }
     return false;
   }
@@ -302,17 +341,19 @@ bool PinPlacer::read_and_write() {
   //      status = 0 if NOP, -1 if error
   int map_clk_status = map_clocks();
   if (map_clk_status < 0) {
+    flush_out(true);
     if (tr) {
       ls << "[Error] pin_c: map_clocks() failed" << endl;
       CERROR << "map_clocks() failed" << endl;
     }
     CERROR << err_lookup("FAIL_TO_CREATE_CLKS_CONSTRAINT_XML") << endl;
+    flush_out(true);
     return false;
   }
 
   // -- done successfully
   if (tr >= 2) {
-    ls << endl;
+    flush_out(true);
     lprintf("pin_c done:  read_and_write() succeeded.  map_clk_status= %i\n",
             map_clk_status);
     print_stats(csv_rd);
