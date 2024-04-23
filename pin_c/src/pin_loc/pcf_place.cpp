@@ -30,14 +30,79 @@ const Pin* PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noex
   return nullptr;
 }
 
+bool PinPlacer::check_xyz_overlap(const vector<string>& inputs,
+                                  const vector<string>& outputs,
+                                  vector<const Pin*>& inp_ov,
+                                  vector<const Pin*>& out_ov) const noexcept {
+  inp_ov.clear();
+  out_ov.clear();
+  if (inputs.empty() and outputs.empty())
+    return false;
+
+  string trans_nm;
+  const Pin* pp = nullptr;
+  vector<const Pin*> P;
+
+  P.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); i++) {
+    const string& nm = inputs[i];
+    trans_nm = translatePinName(nm, true);
+    pp = trans_nm.empty() ? find_udes_pin(placed_inputs_, nm) : find_udes_pin(placed_inputs_, trans_nm);
+    if (pp)
+      P.push_back(pp);
+  }
+  for (uint i = 0; i < P.size(); i++) {
+    const Pin& a = *P[i];
+    if (!a.xyz_.valid())
+      continue;
+    for (uint j = i + 1; j < P.size(); j++) {
+      const Pin& b = *P[j];
+      if (!b.xyz_.valid())
+        continue;
+      if (a.xyz_ == b.xyz_) {
+        inp_ov.push_back(&a);
+        inp_ov.push_back(&b);
+      }
+    }
+  }
+
+  P.clear();
+  P.reserve(outputs.size());
+  for (size_t i = 0; i < outputs.size(); i++) {
+    const string& nm = outputs[i];
+    trans_nm = translatePinName(nm, false);
+    pp = trans_nm.empty() ? find_udes_pin(placed_outputs_, nm) : find_udes_pin(placed_outputs_, trans_nm);
+    if (pp)
+      P.push_back(pp);
+  }
+  for (uint i = 0; i < P.size(); i++) {
+    const Pin& a = *P[i];
+    if (!a.xyz_.valid())
+      continue;
+    for (uint j = i + 1; j < P.size(); j++) {
+      const Pin& b = *P[j];
+      if (!b.xyz_.valid())
+        continue;
+      if (a.xyz_ == b.xyz_) {
+        out_ov.push_back(&a);
+        out_ov.push_back(&b);
+      }
+    }
+  }
+
+  return !inp_ov.empty() or !out_ov.empty();
+}
+
 void PinPlacer::print_stats(const RapidCsvReader& csv) const {
+  flush_out(false);
   uint16_t tr = ltrace();
   auto& ls = lout();
   const vector<string>& inputs = user_design_inputs_;
   const vector<string>& outputs = user_design_outputs_;
 
   if (num_warnings_) {
-    lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
+    flush_out(true);
+    lprintf("\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
     lprintf("\t itile_overlap_level_= %u  otile_overlap_level_= %u\n",
             itile_overlap_level_, otile_overlap_level_);
     lprintf("\t pin_c: number of inputs = %zu  number of outputs = %zu\n",
@@ -54,19 +119,37 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     }
   }
 
-  if (tr < 3)
+  if (tr >= 2) {
+    ls << "======== stats:" << endl;
+    ls << " --> got " << inputs.size() << " inputs and "
+       << outputs.size() << " outputs" << endl;
+  }
+
+  vector<const Pin*> inp_ov, out_ov;
+  bool ov = check_xyz_overlap(inputs, outputs, inp_ov, out_ov);
+  if (ov) {
+    flush_out(true);
+    err_puts();
+    lprintf2("  [CRITICAL_WARNING] pin_c: detected XYZ overlap in placed pins\n");
+    err_puts();
+    flush_out(true);
+  }
+
+  if (tr < 3 and !ov)
     return;
 
-  ls << "======== stats:" << endl;
-  ls << " --> got " << inputs.size() << " inputs and "
-     << outputs.size() << " outputs" << endl;
-  if (tr >= 4) {
+  {
+    string trans_nm;
+    const Pin* pp = nullptr;
     lprintf("\n ---- inputs(%zu): ---- \n", inputs.size());
     for (size_t i = 0; i < inputs.size(); i++) {
       const string& nm = inputs[i];
-      ls << "     in  " << nm;
-      const Pin* pp = find_udes_pin(placed_inputs_, nm);
-      if (pp) {
+      trans_nm = translatePinName(nm, true);
+      ls << "   in  " << nm << "   ";
+      if (!trans_nm.empty())
+        ls << "trans-->  " << trans_nm << "  ";
+      pp = trans_nm.empty() ? find_udes_pin(placed_inputs_, nm) : find_udes_pin(placed_inputs_, trans_nm);
+      if (pp and (tr >= 4 or ov)) {
         ls << "  placed at " << pp->xyz_
            << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
         const auto& bcd = csv.getBCD(pp->pt_row_);
@@ -78,9 +161,12 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     lprintf("\n ---- outputs(%zu): ---- \n", outputs.size());
     for (size_t i = 0; i < outputs.size(); i++) {
       const string& nm = outputs[i];
-      ls << "    out  " << nm;
-      const Pin* pp = find_udes_pin(placed_outputs_, nm);
-      if (pp) {
+      trans_nm = translatePinName(nm, false);
+      ls << "  out  " << nm << "   ";
+      if (!trans_nm.empty())
+        ls << "trans-->  " << trans_nm << "  ";
+      pp = trans_nm.empty() ? find_udes_pin(placed_outputs_, nm) : find_udes_pin(placed_outputs_, trans_nm);
+      if (pp and (tr >= 4 or ov)) {
         ls << "  placed at " << pp->xyz_
            << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
         const auto& bcd = csv.getBCD(pp->pt_row_);
@@ -96,9 +182,11 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
        << placed_outputs_.size() << " outputs" << endl;
   }
 
-  ls << "  min_pt_row= " << min_pt_row_+2 << "  max_pt_row= " << max_pt_row_+2 << '\n';
-  ls << "  row0_GBOX_GPIO()= " << csv.row0_GBOX_GPIO()
-     << "  row0_CustomerInternal()= " << csv.row0_CustomerInternal() << endl;
+  ls << "  min_pt_row= " << min_pt_row_+2 << "  max_pt_row= " << max_pt_row_+2 << endl;
+  if (tr >= 4) {
+    ls << "  row0_GBOX_GPIO()= " << csv.row0_GBOX_GPIO()
+       << "  row0_CustomerInternal()= " << csv.row0_CustomerInternal() << endl;
+  }
 
   ls << endl;
   csv.print_bcd_stats(ls);
@@ -118,7 +206,8 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   }
 
   if (num_warnings_) {
-    lprintf("\n\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
+    flush_out(true);
+    lprintf("\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
     lprintf("\t itile_overlap_level_= %u  otile_overlap_level_= %u\n",
             itile_overlap_level_, otile_overlap_level_);
     lprintf("\t pin_c: number of inputs = %zu   number of outputs = %zu\n",
@@ -135,9 +224,32 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     }
   }
 
+  if (ov) {
+    flush_out(true);
+    err_puts();
+    lprintf2("  [CRITICAL_WARNING] pin_c: detected XYZ overlap in placed pins\n");
+    err_puts();
+    flush_out(true);
+    if (inp_ov.size()) {
+      lprintf2("  [CRITICAL_WARNING] pin_c: ovelapping inpput pins (%zu):\n", inp_ov.size());
+      for (const Pin* p : inp_ov) {
+        ls << "     [CRITICAL_WARNING]  overlapping input pin  " << p->udes_pin_name_ << "  placed at " << p->xyz_ << endl;
+      }
+    }
+    if (out_ov.size()) {
+      err_puts();
+      lprintf2("  [CRITICAL_WARNING] pin_c: ovelapping output pins (%zu):\n", out_ov.size());
+      err_puts();
+      for (const Pin* p : out_ov) {
+        ls << "     [CRITICAL_WARNING]  overlapping output pin  " << p->udes_pin_name_ << "  placed at " << p->xyz_ << endl;
+      }
+    }
+    flush_out(true);
+  }
+
   // verify
 #ifndef NDEBUG
-  if (tr >= 4 && placed_inputs_.size()) {
+  if (tr >= 14 && placed_inputs_.size()) {
     // 1. placed_inputs_ XYZ don't intersect
     const Pin* A = placed_inputs_.data();
     uint A_sz = placed_inputs_.size();
@@ -156,9 +268,15 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     A = placed_outputs_.data();
     A_sz = placed_outputs_.size();
     for (uint i = 0; i < A_sz; i++) {
+      const Pin& a = A[i];
+      lprintf("  |%u| __ %s\n", i, a.xyz_.toString().c_str());
+    }
+    for (uint i = 0; i < A_sz; i++) {
       const Pin& pin_i = A[i];
+      ls << "\t  i= " << i << "  pin_i @ " << pin_i.xyz_ << endl;
       for (uint j = i + 1; j < A_sz; j++) {
         const Pin& pin_j = A[j];
+        ls << "\t\t  j= " << j << "  pin_j @ " << pin_j.xyz_ << endl;
         if (pin_i.xyz_ == pin_j.xyz_) {
           ls << '\n' << "placed_outputs_ VERIFICATION FAILED:  pin_i.xyz_ == pin_j.xyz_ : "
              << pin_i.xyz_ << '\n' << endl;
@@ -184,10 +302,11 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
   uint16_t tr = ltrace();
   auto& ls = lout();
   string cur_dir = get_CWD();
-  if (tr >= 2) {
+  if (tr >= 3) {
     lputs();
     lputs("pin_c:  PinPlacer::read_pcf()");
-    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
+    if (tr >= 4)
+      lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
 
   pcf_pin_cmds_.clear();
@@ -202,7 +321,10 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
 
   PcfReader rd_pcf;
   if (!rd_pcf.read_pcf(pcf_name)) {
+    flush_out(true);
+    OUT_ERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
     CERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
+    flush_out(true);
     return false;
   }
 
@@ -514,6 +636,7 @@ static bool try_open_csv_file(const string& csv_name) {
 }
 
 bool PinPlacer::read_csv_file(RapidCsvReader& csv) {
+  flush_out(false);
   uint16_t tr = ltrace();
   if (tr >= 2) lputs("\nread_csv_file() __ Reading csv");
 
@@ -549,9 +672,11 @@ bool PinPlacer::read_csv_file(RapidCsvReader& csv) {
   }
 
   if (tr >= 2) {
-    lputs("\n\t  ***  pin_c  read_csv_file  SUCCEEDED  ***\n");
+    flush_out(true);
+    lputs("\t  ***  pin_c  read_csv_file  SUCCEEDED  ***\n");
   }
 
+  flush_out(false);
   return true;
 }
 
@@ -569,8 +694,10 @@ DevPin PinPlacer::get_available_device_pin(RapidCsvReader& csv,
   if (is_inp) {
     if (no_more_inp_bumps_) {
       result = get_available_axi_ipin(s_axi_inpQ);
-      if (tr >= 4)
+      if (tr >= 4) {
         lprintf("  no_more_inp_bumps_ => got axi_ipin: %s\n", result.first().c_str());
+        flush_out(false);
+      }
       return result;
     }
     result = get_available_bump_ipin(csv, udesName, ann_pin);
@@ -581,8 +708,10 @@ DevPin PinPlacer::get_available_device_pin(RapidCsvReader& csv,
   } else { // out
     if (no_more_out_bumps_) {
       result = get_available_axi_opin(s_axi_outQ);
-      if (tr >= 4)
+      if (tr >= 4) {
         lprintf("  no_more_out_bumps_ => got axi_opin: %s\n", result.first().c_str());
+        flush_out(false);
+      }
       return result;
     }
     result = get_available_bump_opin(csv, udesName, ann_pin);
@@ -600,6 +729,7 @@ DevPin PinPlacer::get_available_axi_ipin(vector<string>& Q) {
   cnt++;
   if (ltrace() >= 4) {
     lprintf("get_available_axi_ipin()# %u Q.size()= %u\n", cnt, uint(Q.size()));
+    flush_out(false);
   }
 
   DevPin result; // pin_and_mode
@@ -620,6 +750,7 @@ DevPin PinPlacer::get_available_axi_opin(vector<string>& Q) {
   cnt++;
   if (ltrace() >= 4) {
     lprintf("get_available_axi_opin()# %u Q.size()= %u\n", cnt, uint(Q.size()));
+    flush_out(false);
   }
 
   DevPin result; // pin_and_mode
@@ -645,7 +776,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
   auto& ls = lout();
   if (tr >= 4) {
     lprintf("get_available_bump_ipin()# %u  for udes-pin %s", icnt, udesName.c_str());
-    ls << endl;
+    flush_out(true);
   }
 
   bool found = false;
@@ -657,8 +788,10 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
 
   uint iteration = 1;
   for (; iteration <= 100; iteration++) {
-    if (tr >= 4)
+    if (tr >= 4) {
       lprintf("  start iteration %u\n", iteration);
+      flush_out(false);
+    }
     RapidCsvReader::Tile* tile = csv.getUnusedTile(true, except, itile_overlap_level_);
     if (!tile) {
       if (tr >= 3) {
@@ -695,6 +828,7 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
         if (tr >= 6) {
           lprintf("\t\t ==1==RX GABI used_bump_pins_.insert( %s )  row_= %u\n",
               site->bump_.c_str(), site->row_);
+          flush_out(false);
         }
         found = true;
         goto ret;
@@ -720,22 +854,25 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
       }
     }
     // not found => try another tile
-    if (tr >= 4)
+    if (tr >= 4) {
       lprintf("  not found => disabling tile %s\n", tile->key2().c_str());
+      flush_out(false);
+    }
     except.insert(tile->id_);
   } // iteration
 
 ret:
-  if (tr >= 3) {
+  if (tr >= 4) {
+    flush_out(false);
     lprintf("  did #iterations: %u\n", iteration);
-    if (found && tr >= 4) {
+    if (found && tr >= 5) {
       const string& bump_pn = result.first();
       const string& mode_nm = result.mode_;
       lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
               mode_nm.c_str());
     } else if (tr >= 7) {
       lprintf("\t (EERR) get_available_bump_ipin()#%u returns NOT_FOUND\n", icnt);
-      lputs2();
+      flush_out(true);
       lprintf("\t vvv used_bump_pins_.size()= %zu\n", used_bump_pins_.size());
       if (tr >= 8) {
         if (tr >= 9) {
@@ -745,7 +882,7 @@ ret:
         lprintf("\t ^^^ used_bump_pins_.size()= %zu\n", used_bump_pins_.size());
         lprintf("\t (EERR) get_available_bump_ipin()#%u returns NOT_FOUND\n", icnt);
       }
-      lputs2();
+      flush_out(true);
     }
   }
 
@@ -768,8 +905,9 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 4) {
+    flush_out(false);
     lprintf("get_available_bump_opin()# %u  for udes-pin %s", ocnt, udesName.c_str());
-    ls << endl;
+    flush_out(true);
   }
 
   bool found = false;
@@ -850,15 +988,16 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
   } // iteration
 
 ret:
-  if (tr >= 2) {
-    if (found && tr >= 4) {
+  if (tr >= 4) {
+    flush_out(false);
+    if (found && tr >= 5) {
       const string& bump_pn = result.first();
       const string& mode_nm = result.mode_;
       lprintf("\t  ret  bump_pin_name= %s  mode_name= %s\n", bump_pn.c_str(),
               mode_nm.c_str());
     } else if (tr >= 7) {
       lprintf("\t (EERR) get_available_bump_opin()#%u returns NOT_FOUND\n", ocnt);
-      lputs2();
+      flush_out(true);
       lprintf("\t vvv used_bump_pins_.size()= %zu\n", used_bump_pins_.size());
       if (tr >= 8) {
         if (tr >= 9) {
@@ -868,7 +1007,7 @@ ret:
         lprintf("\t ^^^ used_bump_pins_.size()= %zu\n", used_bump_pins_.size());
         lprintf("\t (EERR) get_available_bump_opin()#%u returns NOT_FOUND\n", ocnt);
       }
-      lputs2();
+      flush_out(true);
     }
   }
 
@@ -884,6 +1023,7 @@ ret:
 
 // create a temporary pcf file and internally pass it to params
 bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
+  flush_out(false);
   auto_pcf_created_ = false;
   clear_err_code();
   string key = "--pcf";
@@ -894,7 +1034,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
 
   uint16_t tr = ltrace();
   if (tr >= 3) {
-    lprintf("\ncreate_temp_pcf() : %s\n", temp_pcf_name_.c_str());
+    flush_out(true);
+    lprintf("create_temp_pcf() : %s\n", temp_pcf_name_.c_str());
   }
 
   used_bump_pins_.clear();
@@ -915,6 +1056,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
                s_axi_inpQ.size(), s_axi_outQ.size());
   }
 
+  flush_out(false);
+
   vector<int> input_idx, output_idx;
   uint input_sz = user_design_inputs_.size();
   uint output_sz = user_design_outputs_.size();
@@ -931,7 +1074,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     shuffle_candidates(output_idx);
     if (tr >= 3)
       lputs("  create_temp_pcf() randomized input_idx, output_idx");
-  } else if (tr >= 3) {
+  } else if (tr >= 4) {
     lputs(
         "  input_idx, output_idx are indexing user_design_inputs_, "
         "user_design_outputs_");
@@ -943,9 +1086,9 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
   ofstream temp_out;
   temp_out.open(temp_pcf_name_, ifstream::out | ifstream::binary);
   if (temp_out.fail()) {
+    flush_out(true);
     lprintf(
-        "\n  !!! (ERROR) create_temp_pcf(): could not open %s for "
-        "writing\n",
+        "  !!! (ERROR) create_temp_pcf(): could not open %s for writing\n",
         temp_pcf_name_.c_str());
     CERROR << "(EE) could not open " << temp_pcf_name_ << " for writing\n" << endl;
     return false;
@@ -958,9 +1101,9 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     if (user_pcf_name.size()) {
       user_out.open(user_pcf_name, ifstream::out | ifstream::binary);
       if (user_out.fail()) {
+        flush_out(true);
         lprintf(
-            "\n  !!! (ERROR) create_temp_pcf(): failed to open user_out "
-            "%s\n",
+            "  !!! (ERROR) create_temp_pcf(): failed to open user_out %s\n",
             user_pcf_name.c_str());
         return false;
       }
@@ -972,11 +1115,13 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
   Pin* ann_pin = nullptr; // annotated pin
 
   if (tr >= 2) {
+    flush_out(true);
     lprintf("--- writing pcf inputs (%u)\n", input_sz);
   }
   for (uint i = 0; i < input_sz; i++) {
     const string& inpName = user_design_inputs_[i];
     if (tr >= 4) {
+      flush_out(false);
       lprintf("assigning user_design_input #%u %s\n", i, inpName.c_str());
       if (csv.hasCustomerInternalName(inpName)) {
         lprintf("\t (CustIntName) hasCustomerInternalName( %s )\n", inpName.c_str());
@@ -998,6 +1143,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         set_io_str += std::to_string(dpin.pt_row_+2);
       }
 
+      flush_out(false);
+
       if (tr >= 5 && ann_pin) {
         // debug annotation
         set_io_str += "  #  device: ";
@@ -1015,14 +1162,17 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         lprintf(" ... writing Input to pcf for  bump_pin= %s  pinName= %s\n",
                 dpin.first().c_str(), pinName.c_str());
         lprintf("        set_io %s\n", set_io_str.c_str());
+        flush_out(false);
       }
       temp_out << "set_io " << set_io_str << endl;
       if (user_out.is_open()) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      lputs();
-      lprintf2("[CRITICAL_WARNING] pin_c: failed getting device pin for input pin: %s\n", pinName.c_str());
+      flush_out(true);
+      err_puts();
+      lprintf2("  [CRITICAL_WARNING] pin_c: failed getting device pin for input pin: %s\n", pinName.c_str());
+      err_puts();
       set_err_code("TOO_MANY_INPUTS");
       num_warnings_++;
       // if (not continue_on_errors)
@@ -1036,12 +1186,13 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         }
         i--;
       }
-      lputs3();
+      flush_out(true);
       continue;
     }
   }
 
   if (tr >= 2) {
+    flush_out(true);
     lprintf("--- writing pcf outputs (%u)\n", output_sz);
   }
   for (uint i = 0; i < output_sz; i++) {
@@ -1068,6 +1219,8 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         set_io_str += std::to_string(dpin.pt_row_+2);
       }
 
+      flush_out(false);
+
       if (tr >= 5 && ann_pin) {
         // debug annotation
         set_io_str += "  #  device: ";
@@ -1086,8 +1239,10 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         user_out << "set_io " << set_io_str << endl;
       }
     } else {
-      lputs();
-      lprintf2("[CRITICAL_WARNING] pin_c: failed getting device pin for output pin: %s\n", pinName.c_str());
+      flush_out(true);
+      err_puts();
+      lprintf2("  [CRITICAL_WARNING] pin_c: failed getting device pin for output pin: %s\n", pinName.c_str());
+      err_puts();
       set_err_code("TOO_MANY_OUTPUTS");
       num_warnings_++;
       // if (not continue_on_errors)
@@ -1101,10 +1256,12 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         }
         i--;
       }
-      lputs3();
+      flush_out(true);
       continue;
     }
   }
+
+  flush_out(false);
 
   auto_pcf_created_ = true;
   return true;

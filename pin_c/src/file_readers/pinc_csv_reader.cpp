@@ -493,6 +493,7 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
 }
 
 bool RapidCsvReader::createTiles(bool uniq_XY) {
+  flush_out(false);
   uniq_XY = false;
   static uint cr_tiles_cnt = 0;
   cr_tiles_cnt++;
@@ -559,6 +560,8 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     if (loc.y_ > max_y_)
       max_y_ = loc.y_;
   }
+
+  flush_out(false);
 
   if (tr >= 5) {
     lprintf("createTiles:  first_valid_k= %i  max_x_= %i  max_y_= %i\n",
@@ -627,6 +630,8 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     }
   }
 
+  flush_out(false);
+
   if (tr >= 6) {
     ls << "  num_invalidated= " << num_invalidated << "  sz= " << sz << endl;
   }
@@ -661,6 +666,8 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     }
   }
 
+  flush_out(false);
+
   // 5. rewrite Tile::beg_row_ as real row instead of k
   for (uint i = 0; i < sz; i++) {
     Tile& ti = tPool[i];
@@ -680,6 +687,8 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     }
     lputs("--------");
   }
+
+  flush_out(false);
 
   // 6. sort tiles_ by Tile::Cmp
   assert(!tPool.empty());
@@ -703,6 +712,7 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
   if (tr >= 4)
     lprintf("pin_c csv-reader: created Tiles:  number of tiles = %u   uni:%u\n", sz, uni);
 
+  flush_out(false);
   return true;
 }
 
@@ -810,6 +820,7 @@ BCD_p RapidCsvReader::Tile::bestOutputSite() noexcept {
 }
 
 bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
+  flush_out(false);
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 3)
@@ -820,16 +831,20 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   crd_ = new fio::CSV_Reader(fn);
   fio::CSV_Reader& crd = *crd_;
 
+  flush_out(false);
+
   // check file accessability and format:
   crd.setTrace(tr);
   if (!crd.fileExistsAccessible()) {
-    ls << "\nERROR reading csv: file is not accessible: " << fn << '\n' << endl;
+    flush_out(true);
+    ls << "ERROR reading csv: file is not accessible: " << fn << '\n' << endl;
     delete crd_;
     crd_ = nullptr;
     return false;
   }
   if (!crd.readCsv(false)) {
-    ls << "\nERROR reading csv: wrong format: " << fn << '\n' << endl;
+    flush_out(true);
+    ls << "ERROR reading csv: wrong format: " << fn << '\n' << endl;
     delete crd_;
     crd_ = nullptr;
     return false;
@@ -837,14 +852,18 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   if (tr >= 5) crd.dprint1();
 
   if (!initCols(crd)) {
-    ls << "\nERROR initCols() failed\n" << endl;
+    flush_out(true);
+    ls << "ERROR initCols() failed\n" << endl;
     return false;
   }
 
   if (!initRows(crd)) {
-    ls << "\nERROR initRows() failed\n" << endl;
+    flush_out(true);
+    ls << "ERROR initRows() failed\n" << endl;
     return false;
   }
+  flush_out(false);
+
   uint num_rows = numRows();
   assert(num_rows >= 10);
 
@@ -893,6 +912,8 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     }
   }
 
+  flush_out(false);
+
   if (tr >= 4) {
     if (tr >= 5) ls << endl;
     ls << "  mode_names_.size()= " << mode_names_.size() << endl;
@@ -902,8 +923,14 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     }
   }
 
+  flush_out(false);
+
   if (!has_Fullchip_name) {
-    lputs("\nRapidCsvReader::read_csv(): column Fullchip_NAME not found\n");
+    flush_out(true);
+    err_puts();
+    lprintf2("  pin_c CsvReader::read_csv(): column Fullchip_NAME not found\n");
+    err_puts();
+    flush_out(true);
     return false;
   }
 
@@ -918,6 +945,8 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     bcd_[i]->col_M_ = std::move(S_tmp[i]);
   }
 
+  flush_out(false);
+
   S_tmp = crd.getColumn("Fullchip_NAME");
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
@@ -925,6 +954,8 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   for (uint i = 0; i < num_rows; i++) {
     bcd_[i]->fullchipName_ = std::move(S_tmp[i]);
   }
+
+  flush_out(false);
 
   ok = get_column(crd, "Customer Name", S_tmp);
   if (!ok) return false;
@@ -935,11 +966,17 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     bcd_[i]->customer_ = std::move(S_tmp[i]);
   }
 
+  flush_out(false);
+
   ok = get_column(crd, "Customer Internal Name", S_tmp);
   if (!ok) {
-    lputs("\n pin_c WARNING: could not read Customer Internal Name column\n");
+    flush_out(true);
+    lputs("pin_c WARNING: could not read Customer Internal Name column");
+    flush_out(true);
     return false;
   }
+
+  flush_out(false);
 
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
@@ -984,6 +1021,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
       }
     }
     if (tr >= 4) {
+      flush_out(false);
       const auto& firs_bcd = *bcd_[firs_ri];
       const auto& last_bcd = *bcd_[last_ri];
       ls << " ==        first row with Customer Internal Name : "
@@ -997,12 +1035,14 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     }
   }
 
+  flush_out(false);
+
   bcd_GBGPIO_.reserve(bcd_.size());
   for (BCD* bcd : bcd_) {
     if (bcd->is_GBOX_GPIO_) bcd_GBGPIO_.push_back(bcd);
   }
 
-  if (tr >= 3) {
+  if (tr >= 4) {
     ls << "  num_rows= " << num_rows << "  num_cols= " << col_headers_.size()
        << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_
        << "  start_CustomerInternal_row_= " << start_CustomerInternal_row_
@@ -1020,6 +1060,8 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   S_tmp.resize(num_rows);
   for (uint i = 0; i < num_rows; i++) bcd_[i]->ball_ID_ = S_tmp[i];
 
+  flush_out(false);
+
   ok = get_column(crd, "Bump/Pin Name", S_tmp);
   if (!ok) return false;
   assert(S_tmp.size() > 1);
@@ -1028,7 +1070,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   const vector<string>& bump_pin_name = S_tmp;
 
   if (tr >= 9) {
-    ls << endl;
+    flush_out(true);
     if (num_rows > 3000) {
       const string* A = bump_pin_name.data();
       logArray(A, 80u, "  bump_pin_name ");
@@ -1048,6 +1090,8 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     ls << "num_rows= " << num_rows << '\n' << endl;
   }
 
+  flush_out(false);
+
   for (uint i = 0; i < num_rows; i++) {
     BCD& bcd = *bcd_[i];
     bcd.bump_ = bump_pin_name[i];
@@ -1061,6 +1105,8 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     bcd.normalize();
     // assert(!bcd.bump_.empty()); // no-assert, could be clock: colM = F2CLK
   }
+
+  flush_out(false);
 
   vector<string> io_tile_pins = crd.getColumn("IO_tile_pin");
   io_tile_pins.resize(num_rows);
@@ -1100,14 +1146,21 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     bcd_[i]->xyz_.z_ = z;
   }
 
+  flush_out(false);
+
   bool status_ok = setDirections(crd);
   if (not status_ok) {
-    ls << '\n' << "[Error] directions are not OK" << endl;
-    cerr << "[Error] directions are not OK" << endl;
+    flush_out(true);
+    err_puts();
+    lprintf2("  [Error] directions are not OK\n");
+    err_puts();
+    flush_out(true);
     return false;
   }
 
-  if (tr >= 6) {
+  flush_out(false);
+
+  if (tr >= 7) {
     ls << "___ original ROW-RECORD order ___" << endl;
     print_bcd(ls);
   }
@@ -1151,18 +1204,22 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     }
   }
 
-  if (tr >= 5) {
+  if (tr >= 6) {
+    flush_out(false);
     print_bcd_stats(ls);
-    lputs();
+    flush_out(true);
     print_axi_bcd(ls);
+    flush_out(false);
+    print_csv();
   }
-  if (tr >= 5) print_csv();
 
+  flush_out(false);
   return true;
 }
 
 bool RapidCsvReader::write_csv(const string& fn, uint minRow,
                                uint maxRow) const {
+  flush_out(false);
   uint16_t tr = ltrace();
   if (tr >= 2) {
     lprintf("RapidCsvReader::write_csv( %s )  minRow= %u  maxRow= %u\n",
@@ -1192,6 +1249,7 @@ uint RapidCsvReader::countBidiRows() const noexcept {
 }
 
 uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
+  flush_out(false);
   uint nr = numRows();
   if (!nr) return 0;
 
@@ -1222,10 +1280,12 @@ uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
   os << "   #inp_colm A2F = " << inp_colm_cnt << '\n';
   os << "   #out_colm F2A = " << out_colm_cnt << endl;
 
+  flush_out(false);
   return nr;
 }
 
 uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept {
+  flush_out(false);
   uint nr = numRows();
   os << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin "
         ":::"
@@ -1235,10 +1295,12 @@ uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept {
     os << "   " << bcd << endl;
   }
   os << "--- BCD dump ^^^ (nr=" << nr << ")\n" << endl;
+  flush_out(false);
   return nr;
 }
 
 uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept {
+  flush_out(false);
   uint n = bcd_AXI_.size();
   os << "+++ bcd_AXI_ dump (" << n
      << ") ::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin :::"
@@ -1248,10 +1310,12 @@ uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept {
     os << "\t " << *bcd_p << endl;
   }
   os << "--- bcd_AXI_ dump (n=" << n << ")\n" << endl;
+  flush_out(false);
   return n;
 }
 
 void RapidCsvReader::print_csv() const {
+  flush_out(false);
   lputs("print_csv()");
   auto& ls = lout();
   ls << "#row\tBump/Pin Name \t Customer Name \t Ball ID "

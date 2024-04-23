@@ -16,7 +16,21 @@ using namespace std;
 // can be set in main() by calling set_ltrace()
 static uint16_t s_logLevel = 0;
 uint16_t ltrace() noexcept { return s_logLevel; }
+
+static void flush_all() noexcept {
+  // Flushing does not prevent interleaved stdout and stderr
+  // becauses FOEDAG messes with child process stdout.
+  // pin_c will create a separate 'pin_c.log' sometime.
+  fflush(stdout);
+  fflush(stderr);
+  cout.flush();
+  cerr.flush();
+  // ::fsync(1);
+}
+
 void set_ltrace(int t) noexcept {
+  flush_all();
+  cerr.tie(&cout);
   if (t <= 0) {
     s_logLevel = 0;
     return;
@@ -32,10 +46,14 @@ void set_ltrace(int t) noexcept {
 #define LEND cout << endl; fflush(stdout);
 
 void lputs(CStr cs) noexcept {
+  if (s_logLevel >= 3) {
+    flush_all();
+  }
   LPUT
   LEND
 }
 void err_puts(CStr cs) noexcept {
+  flush_all();
   if (cs && cs[0]) cerr << cs;
   cerr << endl; fflush(stdout);
 }
@@ -86,12 +104,14 @@ void lputsX(CStr cs) noexcept {
 }
 
 void lputs(const string& s) noexcept {
+  if (s_logLevel >= 3) flush_all();
   if (s.empty())
     cout << endl;
   else
     lputs(s.c_str());
 }
 void err_puts(const string& s) noexcept {
+  flush_all();
   if (s.empty())
     cerr << endl;
   else
@@ -131,13 +151,12 @@ void bh7(CStr fn, int l, CStr s) noexcept {
 void flush_out(bool nl) noexcept {
   if (nl)
     cout << endl;
-  cout.flush();
-  fflush(stdout);
-  cerr.flush();
-  fflush(stderr);
+  flush_all();
 }
 
 void lprintf(CStr format, ...) {
+  if (s_logLevel >= 3)
+    flush_all();
   char buf[32768];
   va_list args;
   va_start(args, format);
@@ -157,6 +176,7 @@ void lprintf(CStr format, ...) {
 
 // lprintf2 : log-printf with CC to stderr
 void lprintf2(CStr format, ...) {
+  flush_all();
   char buf[32768];
   va_list args;
   va_start(args, format);
@@ -178,6 +198,7 @@ void lprintf2(CStr format, ...) {
 
 // lprintfl : log-printf with file:line
 void lprintfl(CStr fn, uint l, CStr format, ...) {
+  flush_all();
   char buf[32768];
   va_list args;
   va_start(args, format);
@@ -241,6 +262,7 @@ static bool s_readLink(const string& path, string& out) noexcept {
 }
 
 void traceEnv(int argc, CStr* argv) noexcept {
+  flush_all();
   int pid  = ::getpid();
   int ppid = ::getppid();
   string selfPath, parentPath, exe_link;
