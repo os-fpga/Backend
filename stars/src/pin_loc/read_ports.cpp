@@ -100,6 +100,7 @@ bool PinPlacer::read_design_ports() {
 }
 
 bool PinPlacer::read_edits() {
+  flush_out(false);
   uint16_t tr = ltrace();
   if (tr >= 4) lputs("\nread_edits() __ getting io_config .json");
 
@@ -117,16 +118,18 @@ bool PinPlacer::read_edits() {
     lprintf("--edits file name : %s\n", edits_fn.c_str());
 
   if (! Fio::regularFileExists(edits_fn)) {
-    lprintf("\n[Error] specified <io edits>.json file %s does not exist\n", edits_fn.c_str());
+    flush_out(true);
+    lprintf("[Error] specified <io edits>.json file %s does not exist\n", edits_fn.c_str());
     CERROR << "specified <io edits>.json file does not exist: " << edits_fn << endl;
     lputs();
     return false;
   }
   if (! Fio::nonEmptyFileExists(edits_fn)) {
-    lprintf("\n[Error] specified <io edits>.json file %s is empty or not accessible\n",
+    flush_out(true);
+    lprintf("[Error] specified <io edits>.json file %s is empty or not accessible\n",
             edits_fn.c_str());
     CERROR << "specified <io edits>.json file is empty or not accessible: " << edits_fn << endl;
-    lputs();
+    flush_out(true);
     return false;
   }
 
@@ -147,6 +150,7 @@ bool PinPlacer::read_edits() {
     return false;
   }
 
+  flush_out(true);
   if (tr >= 4) {
     lprintf("DONE read_edits()  #ibufs= %zu  #obufs= %zu\n",
             ibufs_.size(), obufs_.size());
@@ -339,14 +343,16 @@ bool PinPlacer::read_port_info(std::ifstream& ifs,
 
 static bool s_read_json_items(const nlohmann::ordered_json& from,
                               vector<PinPlacer::EditItem>& items) {
+  flush_out(false);
   items.clear();
 
   nlohmann::ordered_json itemsObj = from["instances"];
 
   if (!itemsObj.is_array()) {
+    flush_out(true);
     lputs("[Error] pin_c: read_edits: json schema error");
     CERROR << "pin_c: read_edits: json schema error" << endl;
-    lputs();
+    flush_out(true);
     return false;
   }
 
@@ -417,6 +423,7 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
 }
 
 bool PinPlacer::read_edit_info(std::ifstream& ifs) {
+  flush_out(false);
   all_edits_.clear();
   ibufs_.clear();
   obufs_.clear();
@@ -431,9 +438,10 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
   try {
     ifs >> rootObj;
   } catch (...) {
+    flush_out(true);
     ls << "[Error] pin_c: read_edits: Failed json input stream reading" << endl;
     CERROR << "pin_c: read_edits: Failed json input stream reading" << endl;
-    lputs();
+    flush_out(true);
     return false;
   }
 
@@ -443,6 +451,8 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
        << "  rootObj.is_array() : " << std::boolalpha << rootObj.is_array()
        << endl;
   }
+
+  flush_out(false);
 
   if (root_sz == 0) {
     ls << "[Error] pin_c: json: rootObj.size() == 0" << endl;
@@ -462,9 +472,10 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
     ok = s_read_json_items(rootObj, all_edits_);
 
   } catch (...) {
+    flush_out(true);
     ls << "[Error] pin_c: read_edits: json schema exception" << endl;
     CERROR << "pin_c: read_edits: json schema exception" << endl;
-    lputs();
+    flush_out(true);
     all_edits_.clear();
     ibufs_.clear();
     obufs_.clear();
@@ -475,6 +486,8 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
     lprintf("pin_c json: got all_edits_.size()= %zu  ok:%i\n",
              all_edits_.size(), ok);
   }
+
+  flush_out(false);
 
   if (ok) {
     size_t sz = all_edits_.size();
@@ -516,11 +529,13 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
     ed.parent_ = findIbufByOldPin(ed.newPin_);
   }
 
-  if (tr >= 5) {
+  flush_out(false);
+
+  if (tr >= 4) {
     uint esz = all_edits_.size();
     lprintf("  all_edits_.size()= %u   #input= %zu   #output= %zu\n",
             esz, ibufs_.size(), obufs_.size());
-    if (tr >= 6) {
+    if (tr >= 5) {
       lprintf("  ==== dumping all_edits ====\n");
       for (uint i = 0; i < esz; i++) {
         const EditItem& ed = all_edits_[i];
@@ -547,6 +562,7 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
     }
   }
 
+  flush_out(false);
   return true;
 }
 
