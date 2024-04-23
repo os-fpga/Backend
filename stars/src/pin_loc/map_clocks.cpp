@@ -28,7 +28,7 @@ using fio::Fio;
 int PinPlacer::map_clocks() {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 2) {
+  if (tr >= 4) {
     lputs();
     lputs("PinPlacer::map_clocks()..");
   }
@@ -39,7 +39,7 @@ int PinPlacer::map_clocks() {
 
   bool constraint_xml_requested = fpga_repack.size() or clk_map_file.size();
   if (not constraint_xml_requested) {
-    if (tr >= 2)
+    if (tr >= 4)
       lputs("PinPlacer::map_clocks() returns NOP");
     return 0;
   }
@@ -49,7 +49,7 @@ int PinPlacer::map_clocks() {
     return -1;
   }
 
-  if (tr >= 2)
+  if (tr >= 3)
     ls << "PinPlacer::map_clocks() returns OK" << endl;
   return 1;
 }
@@ -58,7 +58,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
   uint16_t tr = ltrace();
   auto& ls = lout();
   string cur_dir = get_CWD();
-  if (tr >= 2) {
+  if (tr >= 3) {
     lputs("pin_c:  write_clocks_logical_to_physical()..");
     lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
@@ -72,7 +72,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
     return -1;
   }
 
-  if (tr >= 3) {
+  if (tr >= 4) {
     ls << "  clkmap_fn : " << clkmap_fn << endl;
     fio::MMapReader mrd(clkmap_fn);
     rd_ok = mrd.read();
@@ -93,7 +93,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
   // read clkmap file
   fio::LineReader lr(clkmap_fn);
   rd_ok = lr.read(true, true);
-  if (tr >= 3)
+  if (tr >= 4)
     lprintf("\t  rd_ok : %i\n", rd_ok);
   if (not rd_ok) {
     CERROR << " error reading file (--clk_map): " << clkmap_fn << endl;
@@ -109,7 +109,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
   vector<string> commands;
   lr.copyLines(commands);
 
-  if (tr >= 4) {
+  if (tr >= 5) {
     ls << "    commands.size()= " << commands.size() << endl;
   }
 
@@ -125,17 +125,17 @@ int PinPlacer::write_clocks_logical_to_physical() {
     Fio::split_spa(cs, words);
   }
 
-  if (tr >= 4) {
+  if (tr >= 5) {
     ls << "    tokenized_cmds.size()= " << tokenized_cmds.size() << endl;
   }
 
   string out_fn = cl_.get_param("--write_repack");
-  if (tr >= 3) {
+  if (tr >= 4) {
     ls << "  out_fn (--write_repack): " << out_fn << endl;
   }
 
   string in_fn = cl_.get_param("--read_repack");
-  if (tr >= 3) {
+  if (tr >= 4) {
     ls << "   in_fn (--read_repack): " << in_fn << endl;
     lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
@@ -199,7 +199,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
       }
     }
   }
-  if (tr >= 3) {
+  if (tr >= 4) {
     lprintf("\n    udes_clocks.size()= %zu  pdev_clocks.size()= %zu\n",
         udes_clocks.size(), pdev_clocks.size());
     logVec(udes_clocks, "  udes_clocks: ");
@@ -222,7 +222,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
     dpin2unet[dpin] = unet;
   }
 
-  if (tr >= 3) {
+  if (tr >= 4) {
     lprintf("\n    dpin2unet.size()= %zu\n", dpin2unet.size());
   }
 
@@ -259,7 +259,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
   }
 
   // Save the updated XML file
-  if (tr >= 3) {
+  if (tr >= 4) {
     ls << "pin_c:  writing XML: " << out_fn << endl;
     if (tr >= 6)
       lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
@@ -283,15 +283,15 @@ int PinPlacer::write_clocks_logical_to_physical() {
     ls << "pin_c:  failed writing XML: " << out_fn << endl;
   }
 
-  if (tr >= 3) {
+  if (tr >= 4) {
     lprintf("keeping clock-map file for debugging: %s\n", clkmap_fn.c_str());
   } else {
-    if (tr >= 2)
+    if (tr >= 3)
       lprintf("pin_c:  removed clock-map file: %s\n", clkmap_fn.c_str());
     std::filesystem::remove(clkmap_fn);
   }
 
-  if (tr >= 3)
+  if (tr >= 4)
     lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
 
   return 1;
