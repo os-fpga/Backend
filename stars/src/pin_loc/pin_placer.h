@@ -178,6 +178,7 @@ public:
                              vector<string>& outputs);
 
   bool read_edit_info(std::ifstream& ifs);
+  bool check_edit_info() const;
 
   // map logical clocks to physical clocks. status = 0 if NOP, -1 if error
   int map_clocks();
