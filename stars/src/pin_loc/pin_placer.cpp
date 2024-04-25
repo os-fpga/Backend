@@ -275,6 +275,9 @@ bool PinPlacer::read_and_write() {
     return false;
   }
 
+  assert(user_design_inputs_.size() == raw_design_inputs_.size());
+  assert(user_design_outputs_.size() == raw_design_outputs_.size());
+
   // --3. read PT from csv file
   RapidCsvReader csv_rd;
   if (!read_csv_file(csv_rd)) {
@@ -297,6 +300,90 @@ bool PinPlacer::read_and_write() {
 
   // usage 2: if no user pcf is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
+    flush_out(true);
+    if (has_edits) {
+      // if auto-PCF and has_edits, translate and de-duplicate
+      // user-design ports now, since edits.json could remove some design ports.
+      for (Pin& pin : user_design_inputs_) {
+        pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, true);
+        if (pin.udes_pin_name_ == pin.trans_pin_name_)
+          continue;
+        if (tr >= 3) {
+          lprintf("design input pin TRANSLATED for auto-PCF: %s --> %s\n",
+                   pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
+        }
+        pin.udes_pin_name_ = pin.trans_pin_name_;
+      }
+      flush_out(true);
+      for (Pin& pin : user_design_outputs_) {
+        pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, false);
+        if (pin.udes_pin_name_ == pin.trans_pin_name_)
+          continue;
+        if (tr >= 3) {
+          lprintf("design output pin TRANSLATED for auto-PCF: %s --> %s\n",
+                   pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
+        }
+        pin.udes_pin_name_ = pin.trans_pin_name_;
+      }
+      vector<string> dups;
+      // de-duplicate inputs
+      if (user_design_inputs_.size() > 1) {
+        bool done = false;
+        while (not done) {
+          done = true;
+          for (int i = int(user_design_inputs_.size()) - 1; i > 0; i--) {
+            for (int j = i - 1; j >= 0; j--) {
+              if (user_design_inputs_[i].udes_pin_name_ == user_design_inputs_[j].udes_pin_name_) {
+                dups.push_back(user_design_outputs_[i].udes_pin_name_);
+                user_design_inputs_.erase(user_design_inputs_.begin() + i);
+                done = false;
+                break; // next i
+              }
+            }
+          }
+        }
+        if (tr >= 2 and !dups.empty()) {
+          flush_out(true);
+          lprintf("NOTE: pin_c removed duplicate inputs (%zu):\n", dups.size());
+          for (const string& s : dups)
+            lprintf("    removed duplicate input: %s\n", s.c_str());
+          flush_out(true);
+          if (tr >= 4) {
+            lprintf("after de-dup:  user_design_inputs_.size()= %zu  raw_design_inputs_.size()= %zu\n",
+                    user_design_inputs_.size(), raw_design_inputs_.size());
+          }
+        }
+      }
+      // de-duplicate outputs
+      dups.clear();
+      if (user_design_outputs_.size() > 1) {
+        bool done = false;
+        while (not done) {
+          done = true;
+          for (int i = int(user_design_outputs_.size()) - 1; i > 0; i--) {
+            for (int j = i - 1; j >= 0; j--) {
+              if (user_design_outputs_[i].udes_pin_name_ == user_design_outputs_[j].udes_pin_name_) {
+                dups.push_back(user_design_outputs_[i].udes_pin_name_);
+                user_design_outputs_.erase(user_design_outputs_.begin() + i);
+                done = false;
+                break; // next i
+              }
+            }
+          }
+        }
+        if (tr >= 2 and !dups.empty()) {
+          flush_out(true);
+          lprintf("NOTE: pin_c removed duplicate outputs (%zu):\n", dups.size());
+          for (const string& s : dups)
+            lprintf("    removed duplicate output: %s\n", s.c_str());
+          flush_out(true);
+          if (tr >= 4) {
+            lprintf("after de-dup:  user_design_outputs_.size()= %zu  raw_design_outputs_.size()= %zu\n",
+                    user_design_outputs_.size(), raw_design_outputs_.size());
+          }
+        }
+      }
+    }
     if (!create_temp_pcf(csv_rd)) {
       flush_out(true);
       string ec = s_err_code.empty() ? "FAIL_TO_CREATE_TEMP_PCF" : s_err_code;
