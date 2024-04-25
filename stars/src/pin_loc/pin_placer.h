@@ -67,8 +67,11 @@ private:
   string temp_pcf_name_;
   string temp_os_pcf_name_;
 
-  vector<string> user_design_inputs_;
-  vector<string> user_design_outputs_;
+  vector<string> raw_design_inputs_;
+  vector<string> raw_design_outputs_;
+
+  vector<Pin> user_design_inputs_;
+  vector<Pin> user_design_outputs_;
 
   vector<EditItem>  all_edits_;
   vector<EditItem*> ibufs_;
@@ -134,8 +137,8 @@ public:
 
   bool read_and_write();
 
-  bool check_xyz_overlap(const vector<string>& inputs,
-                         const vector<string>& outputs,
+  bool check_xyz_overlap(const vector<Pin>& inputs,
+                         const vector<Pin>& outputs,
                          vector<const Pin*>& inp_ov,
                          vector<const Pin*>& out_ov) const noexcept;
 
@@ -144,6 +147,34 @@ public:
 
   size_t num_placed_pins() const noexcept {
     return placed_inputs_.size() + placed_outputs_.size();
+  }
+
+  const string& user_design_output(uint i) const noexcept {
+    assert(i < user_design_outputs_.size());
+    return user_design_outputs_[i].udes_pin_name_;
+  }
+  const string& user_design_input(uint i) const noexcept {
+    assert(i < user_design_inputs_.size());
+    return user_design_inputs_[i].udes_pin_name_;
+  }
+
+  int find_udes_input(const string& pinName) const noexcept {
+    if (pinName.empty() or user_design_inputs_.empty())
+      return -1;
+    for (int i = int(user_design_inputs_.size()) - 1; i >= 0; i--) {
+      if (user_design_inputs_[i].udes_pin_name_ == pinName)
+        return i;
+    }
+    return -1;
+  }
+  int find_udes_output(const string& pinName) const noexcept {
+    if (pinName.empty() or user_design_outputs_.empty())
+      return -1;
+    for (int i = int(user_design_outputs_.size()) - 1; i >= 0; i--) {
+      if (user_design_outputs_[i].udes_pin_name_ == pinName)
+        return i;
+    }
+    return -1;
   }
 
   bool read_csv_file(RapidCsvReader&);

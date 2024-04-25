@@ -49,11 +49,18 @@ struct Pin {
     all_modes_.reset();
   }
 
+  bool is_translated() const noexcept {
+    if (trans_pin_name_.empty())
+      return false;
+    return trans_pin_name_ == udes_pin_name_;
+  }
+
   void reset() noexcept {
     rx_modes_.reset();
     tx_modes_.reset();
     all_modes_.reset();
     udes_pin_name_.clear();
+    trans_pin_name_.clear();
     device_pin_name_.clear();
     xyz_.inval();
     pt_row_ = 0;

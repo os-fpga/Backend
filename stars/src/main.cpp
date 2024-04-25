@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0168";
+static const char* _pln_VERSION_STR = "pln0171";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
