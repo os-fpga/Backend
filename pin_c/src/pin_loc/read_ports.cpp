@@ -22,6 +22,9 @@ bool PinPlacer::read_design_ports() {
     flush_out(true);
   }
 
+  user_design_inputs_.clear();
+  user_design_outputs_.clear();
+
   string port_info_fn = cl_.get_param("--port_info");
   string str_path;
   ifstream json_ifs;
@@ -50,7 +53,7 @@ bool PinPlacer::read_design_ports() {
 
   if (json_ifs.is_open()) {
     if (tr >= 2) lprintf("... reading %s\n", port_info_fn.c_str());
-    if (!read_port_info(json_ifs, user_design_inputs_, user_design_outputs_)) {
+    if (!read_port_info(json_ifs, raw_design_inputs_, raw_design_outputs_)) {
       CERROR    << " failed reading " << port_info_fn << endl;
       OUT_ERROR << " failed reading " << port_info_fn << endl;
       flush_out(true);
@@ -80,20 +83,36 @@ bool PinPlacer::read_design_ports() {
       CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
       return false;
     }
-    user_design_inputs_ = rd_blif.get_inputs();
-    user_design_outputs_ = rd_blif.get_outputs();
-    if (user_design_inputs_.empty() and user_design_outputs_.empty()) {
-      if (tr >= 2)
-        lputs("\nread_design_ports() FAILED : both user_design_inputs_ and user_design_outputs_ are empty");
+    raw_design_inputs_ = rd_blif.get_inputs();
+    raw_design_outputs_ = rd_blif.get_outputs();
+    if (raw_design_inputs_.empty() and raw_design_outputs_.empty()) {
+      if (tr >= 2) {
+        flush_out(true);
+        lprintf2("read_design_ports() FAILED : both user_design_inputs and user_design_outputs are empty");
+      }
+      err_puts();
       CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
+      err_puts();
       return false;
     }
   }
 
+  size_t sz = raw_design_inputs_.size();
+  user_design_inputs_.clear();
+  user_design_inputs_.resize(sz);
+  for (size_t i = 0; i < sz; i++)
+    user_design_inputs_[i].udes_pin_name_ = raw_design_inputs_[i];
+
+  sz = raw_design_outputs_.size();
+  user_design_outputs_.clear();
+  user_design_outputs_.resize(sz);
+  for (size_t i = 0; i < sz; i++)
+    user_design_outputs_[i].udes_pin_name_ = raw_design_outputs_[i];
+
   if (tr >= 4) {
     lprintf(
       "DONE read_design_ports()  #udes_inputs= %zu  #udes_outputs= %zu\n",
-      user_design_inputs_.size(), user_design_outputs_.size());
+      raw_design_inputs_.size(), raw_design_outputs_.size());
   }
 
   return true;

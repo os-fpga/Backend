@@ -30,8 +30,8 @@ const Pin* PinPlacer::find_udes_pin(const vector<Pin>& P, const string& nm) noex
   return nullptr;
 }
 
-bool PinPlacer::check_xyz_overlap(const vector<string>& inputs,
-                                  const vector<string>& outputs,
+bool PinPlacer::check_xyz_overlap(const vector<Pin>& inputs,
+                                  const vector<Pin>& outputs,
                                   vector<const Pin*>& inp_ov,
                                   vector<const Pin*>& out_ov) const noexcept {
   inp_ov.clear();
@@ -45,7 +45,11 @@ bool PinPlacer::check_xyz_overlap(const vector<string>& inputs,
 
   P.reserve(inputs.size());
   for (size_t i = 0; i < inputs.size(); i++) {
-    const string& nm = inputs[i];
+    const string& nm = inputs[i].udes_pin_name_;
+    if (inputs[i].is_translated())
+      trans_nm.clear();
+    else
+      trans_nm = translatePinName(nm, true);
     trans_nm = translatePinName(nm, true);
     pp = trans_nm.empty() ? find_udes_pin(placed_inputs_, nm) : find_udes_pin(placed_inputs_, trans_nm);
     if (pp)
@@ -69,8 +73,11 @@ bool PinPlacer::check_xyz_overlap(const vector<string>& inputs,
   P.clear();
   P.reserve(outputs.size());
   for (size_t i = 0; i < outputs.size(); i++) {
-    const string& nm = outputs[i];
-    trans_nm = translatePinName(nm, false);
+    const string& nm = outputs[i].udes_pin_name_;
+    if (outputs[i].is_translated())
+      trans_nm.clear();
+    else
+      trans_nm = translatePinName(nm, false);
     pp = trans_nm.empty() ? find_udes_pin(placed_outputs_, nm) : find_udes_pin(placed_outputs_, trans_nm);
     if (pp)
       P.push_back(pp);
@@ -97,8 +104,8 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   flush_out(false);
   uint16_t tr = ltrace();
   auto& ls = lout();
-  const vector<string>& inputs = user_design_inputs_;
-  const vector<string>& outputs = user_design_outputs_;
+  const vector<Pin>& inputs = user_design_inputs_;
+  const vector<Pin>& outputs = user_design_outputs_;
 
   if (num_warnings_) {
     flush_out(true);
@@ -143,8 +150,9 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     const Pin* pp = nullptr;
     lprintf("\n ---- inputs(%zu): ---- \n", inputs.size());
     for (size_t i = 0; i < inputs.size(); i++) {
-      const string& nm = inputs[i];
-      trans_nm = translatePinName(nm, true);
+      const Pin& ipin = inputs[i];
+      const string& nm = ipin.udes_pin_name_;
+      trans_nm = ipin.is_translated() ? nm : translatePinName(nm, true);
       ls << "   in  " << nm << "   ";
       if (!trans_nm.empty())
         ls << "trans-->  " << trans_nm << "  ";
@@ -160,8 +168,9 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     }
     lprintf("\n ---- outputs(%zu): ---- \n", outputs.size());
     for (size_t i = 0; i < outputs.size(); i++) {
-      const string& nm = outputs[i];
-      trans_nm = translatePinName(nm, false);
+      const Pin& opin = outputs[i];
+      const string& nm = opin.udes_pin_name_;
+      trans_nm = opin.is_translated() ? nm : translatePinName(nm, false);
       ls << "  out  " << nm << "   ";
       if (!trans_nm.empty())
         ls << "trans-->  " << trans_nm << "  ";
@@ -364,13 +373,6 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
   return true;
 }
 
-static bool vec_contains(const vector<string>& V, const string& s) noexcept {
-  if (V.empty()) return false;
-  for (int i = V.size() - 1; i >= 0; i--)
-    if (V[i] == s) return true;
-  return false;
-}
-
 bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 {
   placed_inputs_.clear();
@@ -428,10 +430,10 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
 
     const string& udes_pn1 = pcf_cmd[1];
 
-    bool is_in_pin = vec_contains(user_design_inputs_, udes_pn1);
+    bool is_in_pin = (find_udes_input(udes_pn1) >= 0);
 
     bool is_out_pin =
-        is_in_pin ? false : vec_contains(user_design_outputs_, udes_pn1);
+        is_in_pin ? false : (find_udes_output(udes_pn1) >= 0);
 
     udes_pn2 = translatePinName(udes_pn1, is_in_pin);
     if (udes_pn2 != udes_pn1) {
@@ -1119,7 +1121,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     lprintf("--- writing pcf inputs (%u)\n", input_sz);
   }
   for (uint i = 0; i < input_sz; i++) {
-    const string& inpName = user_design_inputs_[i];
+    const string& inpName = user_design_input(i);
     if (tr >= 4) {
       flush_out(false);
       lprintf("assigning user_design_input #%u %s\n", i, inpName.c_str());
@@ -1133,7 +1135,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
       pinName = csv.bumpName2CustomerName(dpin.first());
       assert(!pinName.empty());
 
-      set_io_str = user_design_inputs_[input_idx[i]];
+      set_io_str = user_design_input(input_idx[i]);
       set_io_str.push_back(' ');
       set_io_str += pinName;
       set_io_str += " -mode ";
@@ -1196,7 +1198,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
     lprintf("--- writing pcf outputs (%u)\n", output_sz);
   }
   for (uint i = 0; i < output_sz; i++) {
-    const string& outName = user_design_outputs_[i];
+    const string& outName = user_design_output(i);
     if (tr >= 4) {
       lprintf("assigning user_design_output #%u %s\n", i, outName.c_str());
       if (csv.hasCustomerInternalName(outName)) {
@@ -1209,7 +1211,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
       pinName = csv.bumpName2CustomerName(dpin.first());
       assert(!pinName.empty());
 
-      set_io_str = user_design_outputs_[output_idx[i]];
+      set_io_str = user_design_output(output_idx[i]);
       set_io_str.push_back(' ');
       set_io_str += pinName;
       set_io_str += " -mode ";
