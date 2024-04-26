@@ -127,7 +127,8 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   }
 
   if (tr >= 2) {
-    ls << "======== stats:" << endl;
+    flush_out(true);
+    ls << "======== pin_c stats:" << endl;
     ls << " --> got " << inputs.size() << " inputs and "
        << outputs.size() << " outputs" << endl;
   }
@@ -148,43 +149,53 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   {
     string trans_nm;
     const Pin* pp = nullptr;
-    lprintf("\n ---- inputs(%zu): ---- \n", inputs.size());
+    flush_out(true);
+    lprintf(" ---- inputs(%zu): ---- \n", inputs.size());
     for (size_t i = 0; i < inputs.size(); i++) {
       const Pin& ipin = inputs[i];
       const string& nm = ipin.udes_pin_name_;
       trans_nm = ipin.is_translated() ? nm : translatePinName(nm, true);
-      ls << "   in  " << nm << "   ";
+      ls << "  I  " << nm << "   ";
       if (!trans_nm.empty())
-        ls << "trans-->  " << trans_nm << "  ";
+        ls << "trans-->  " << trans_nm << " ";
       pp = trans_nm.empty() ? find_udes_pin(placed_inputs_, nm) : find_udes_pin(placed_inputs_, trans_nm);
-      if (pp and (tr >= 4 or ov)) {
+      if (pp and (tr >= 3 or ov)) {
         ls << "  placed at " << pp->xyz_
            << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
         const auto& bcd = csv.getBCD(pp->pt_row_);
-        ls << "  isInput:" << int(bcd.isInput());
-        ls << "  colM_dir: " << bcd.str_colM_dir();
+        ls << "  Fullchip_N: " << bcd.fullchipName_;
+        if (tr >= 4) {
+          ls << "  isInp:" << int(bcd.isInput());
+          ls << "  colM_dir: " << bcd.str_colM_dir();
+        }
       }
-      ls << endl;
+      flush_out(true);
     }
-    lprintf("\n ---- outputs(%zu): ---- \n", outputs.size());
+    flush_out(true);
+    lprintf(" ---- outputs(%zu): ---- \n", outputs.size());
     for (size_t i = 0; i < outputs.size(); i++) {
       const Pin& opin = outputs[i];
       const string& nm = opin.udes_pin_name_;
       trans_nm = opin.is_translated() ? nm : translatePinName(nm, false);
-      ls << "  out  " << nm << "   ";
+      ls << "  O  " << nm << "   ";
       if (!trans_nm.empty())
-        ls << "trans-->  " << trans_nm << "  ";
+        ls << "trans-->  " << trans_nm << " ";
       pp = trans_nm.empty() ? find_udes_pin(placed_outputs_, nm) : find_udes_pin(placed_outputs_, trans_nm);
-      if (pp and (tr >= 4 or ov)) {
+      if (pp and (tr >= 3 or ov)) {
         ls << "  placed at " << pp->xyz_
            << "  device: " << pp->device_pin_name_ << "  pt_row: " << pp->pt_row_+2;
         const auto& bcd = csv.getBCD(pp->pt_row_);
-        ls << "  isInput:" << int(bcd.isInput());
-        ls << "  colM_dir: " << bcd.str_colM_dir();
+        ls << "  Fullchip_N: " << bcd.fullchipName_;
+        if (bcd.customerInternal_.length())
+          ls << "  CustomerInternal_BU: " << bcd.customerInternal_;
+        if (tr >= 4) {
+          ls << "  isInp:" << int(bcd.isInput());
+          ls << "  colM_dir: " << bcd.str_colM_dir();
+        }
       }
-      ls << endl;
+      flush_out(true);
     }
-    lputs();
+    flush_out(true); 
     ls << " <----- pin_c got " << inputs.size() << " inputs and "
        << outputs.size() << " outputs" << endl;
     ls << " <-- pin_c placed " << placed_inputs_.size() << " inputs and "
@@ -192,15 +203,16 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
   }
 
   ls << "  min_pt_row= " << min_pt_row_+2 << "  max_pt_row= " << max_pt_row_+2 << endl;
-  if (tr >= 4) {
+  if (tr >= 5) {
     ls << "  row0_GBOX_GPIO()= " << csv.row0_GBOX_GPIO()
        << "  row0_CustomerInternal()= " << csv.row0_CustomerInternal() << endl;
   }
 
-  ls << endl;
+  flush_out(true);
   csv.print_bcd_stats(ls);
 
-  ls << "======== end stats." << endl;
+  ls << "======== end pin_c stats." << endl;
+  flush_out(true);
   if (tr >= 7) {
     uint nr = csv.numRows();
     if (max_pt_row_ > 0 && nr > 10 && max_pt_row_ < nr - 1) {
@@ -295,6 +307,51 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     }
   }
 #endif // NDEBUG
+}
+
+void PinPlacer::print_summary(const string& csv_name) const {
+  uint16_t tr = ltrace();
+  auto& ls = lout();
+  const vector<Pin>& inputs = user_design_inputs_;
+  const vector<Pin>& outputs = user_design_outputs_;
+
+  flush_out((tr >= 7));
+
+  ls << "======== pin_c summary:" << endl;
+
+  ls << "    Pin Table csv :  " << csv_name << endl;
+
+  if (num_warnings_) {
+    lprintf("\t pin_c: NOTE ERRORs: %u\n", num_warnings_);
+    lprintf("\t itile_overlap_level_= %u  otile_overlap_level_= %u\n",
+            itile_overlap_level_, otile_overlap_level_);
+    lprintf("\t pin_c: number of inputs = %zu  number of outputs = %zu\n",
+            inputs.size(), outputs.size());
+    assert(placed_inputs_.size() <= inputs.size());
+    assert(placed_outputs_.size() <= outputs.size());
+    if (placed_inputs_.size() < inputs.size()) {
+      uint num = inputs.size() - placed_inputs_.size();
+      lprintf("\t pin_c: NOTE: some inputs were not placed #= %u\n", num);
+    }
+    if (placed_outputs_.size() < outputs.size()) {
+      uint num = outputs.size() - placed_outputs_.size();
+      lprintf("\t pin_c: NOTE: some outputs were not placed #= %u\n", num);
+    }
+  }
+
+  lprintf("        total design inputs: %zu   placed design inputs: %zu\n",
+          inputs.size(), placed_inputs_.size());
+  lprintf("       total design outputs: %zu   placed design outputs: %zu\n",
+          outputs.size(), placed_outputs_.size());
+
+  ls << "     pin_c output :  " << cl_.get_param("--output") << endl;
+
+  lprintf("     auto-PCF : %s\n", auto_pcf_created_ ? "TRUE" : "FALSE");
+  if (!auto_pcf_created_)
+  lprintf("     user-PCF : %s\n", user_pcf_.c_str());
+
+  ls << "======== end pin_c summary." << endl;
+  flush_out(true);
 }
 
 void PinPlacer::printTileUsage(const RapidCsvReader& csv) const {
@@ -553,7 +610,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
     }
 
     if (!xyz.valid()) {
-      lputs();
+      flush_out(true);
       CERROR << "\n   no valid coordinates for "
              << direction << " pin: " << udes_pin_name << endl;
       lputs("\n[Error]");
@@ -564,7 +621,7 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
       logVec(pcf_cmd, "     ");
       lputs();
       lprintf("   related pin table row: %u\n", pt_row > 0 ? pt_row + 2 : pt_row);
-      lputs();
+      flush_out(true);
       return false;
     }
 
@@ -581,12 +638,15 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
       max_pt_row_ = pt_row;
 
     out_file << xyz.x_ << '\t' << xyz.y_ << '\t' << xyz.z_;
-    if (tr >= 4) {
+    if (tr >= 3) {
       // debug annotation
       out_file << "    #  device: " << device_pin_name;
       out_file << "  pt_row: " << pt_row+2;
-      out_file << "  isInput:" << int(bcd.isInput());
-      out_file << "  colM_dir: " << bcd.str_colM_dir();
+      out_file << "  Fullchip_N: " << bcd.fullchipName_;
+      if (tr >= 4) {
+        out_file << "  isInp:" << int(bcd.isInput());
+        out_file << "  colM_dir: " << bcd.str_colM_dir();
+      }
     }
     out_file << endl;
     out_file.flush();
@@ -609,7 +669,8 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
   }
 
   if (tr >= 2) {
-    ls << "\nwritten " << num_placed_pins() << " pins to " << out_fn << endl;
+    flush_out(true);
+    ls << "written " << num_placed_pins() << " pins to " << out_fn << endl;
     if (tr >= 3) {
       ls << "  min_pt_row= " << min_pt_row_ << "  max_pt_row= " << max_pt_row_ << endl;
     }
