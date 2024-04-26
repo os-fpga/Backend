@@ -164,7 +164,7 @@ bool PinPlacer::read_and_write() {
 
   string xml_name = cl_.get_param("--xml");
   string csv_name = cl_.get_param("--csv");
-  string pcf_name = cl_.get_param("--pcf");
+  user_pcf_ = cl_.get_param("--pcf");
   string blif_name = cl_.get_param("--blif");
   string json_name = cl_.get_param("--port_info");
   string output_name = cl_.get_param("--output");
@@ -173,10 +173,11 @@ bool PinPlacer::read_and_write() {
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 2) {
-    lputs("\n  === pin_c options ===");
+    flush_out(true);
+    lputs("  === pin_c options ===");
     ls << "        xml_name (--xml) : " << xml_name << endl;
     ls << "        csv_name (--csv) : " << csv_name << endl;
-    ls << "        pcf_name (--pcf) : " << pcf_name << endl;
+    ls << "       user_pcf_ (--pcf) : " << user_pcf_ << endl;
     ls << "      blif_name (--blif) : " << blif_name << endl;
     ls << " json_name (--port_info) : " << json_name << endl;
     ls << "    edits_file (--edits) : " << edits_file << endl;
@@ -214,7 +215,7 @@ bool PinPlacer::read_and_write() {
 
   // usage 1: rs only - specify csv (which contains coordinate data described in
   // pinmap xml info), pcf, blif, and output files
-  bool usage_requirement_1 = !(csv_name.empty() || pcf_name.empty() ||
+  bool usage_requirement_1 = !(csv_name.empty() || user_pcf_.empty() ||
                                no_b_json || output_name.empty()) && xml_name.empty();
 
   // usage 2: rs only - user dose not provide a pcf (this is really rare in
@@ -224,7 +225,7 @@ bool PinPlacer::read_and_write() {
   //          generated to guide VPR use LEGAL pins only.
   bool usage_requirement_2 =
       !(csv_name.empty() || no_b_json || output_name.empty()) &&
-      pcf_name.empty();
+      user_pcf_.empty();
 
   if (tr >= 2) {
     ls << "\t usage_requirement_1 : " << boolalpha << usage_requirement_1 << endl;
@@ -247,8 +248,8 @@ bool PinPlacer::read_and_write() {
     // in os mode, the pcf does not contains any "-mode"
     // we need to generate a temp pcf file with "-mode" option, which selects
     // mode "Mode_GPIO"
-    if (pcf_name.size()) {
-      if (!convert_pcf_for_os_flow(pcf_name)) {
+    if (user_pcf_.size()) {
+      if (!convert_pcf_for_os_flow(user_pcf_)) {
         CERROR << err_lookup("GENERATE_PCF_FILE_FOR_OS_FLOW") << endl;
         return false;
       }
@@ -270,6 +271,7 @@ bool PinPlacer::read_and_write() {
     flush_out(true);
     if (tr >= 2)
       lputs("[Error] pin_c: !read_design_ports()\n");
+    err_puts();
     CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
     flush_out(true);
     return false;
@@ -283,7 +285,8 @@ bool PinPlacer::read_and_write() {
   if (!read_csv_file(csv_rd)) {
     flush_out(true);
     if (tr >= 2) {
-      lputs("[Error] pin_c: !read_csv_file()");
+      err_puts();
+      lprintf2("[Error] pin_c: !read_csv_file()");
       flush_out(true);
     }
     CERROR << err_lookup("PIN_MAP_CSV_PARSE_ERROR") << endl;
@@ -299,7 +302,7 @@ bool PinPlacer::read_and_write() {
 
 
   // usage 2: if no user pcf is provided, created a temp one
-  if (usage_requirement_2 || (usage_requirement_0 && pcf_name == "")) {
+  if (usage_requirement_2 || (usage_requirement_0 && user_pcf_ == "")) {
     flush_out(true);
     if (has_edits) {
       // if auto-PCF and has_edits, translate and de-duplicate
@@ -387,6 +390,7 @@ bool PinPlacer::read_and_write() {
     if (!create_temp_pcf(csv_rd)) {
       flush_out(true);
       string ec = s_err_code.empty() ? "FAIL_TO_CREATE_TEMP_PCF" : s_err_code;
+      err_puts();
       CERROR << err_lookup(ec) << endl;
       ls << "[Error] " << err_lookup(ec) << endl;
       ls << "  design has " << user_design_inputs_.size() << " input pins" << endl;
@@ -406,6 +410,7 @@ bool PinPlacer::read_and_write() {
   // --5. read user pcf (or our temprary pcf).
   if (!read_pcf(csv_rd)) {
     flush_out(true);
+    err_puts();
     CERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
     OUT_ERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
     flush_out(true);
@@ -418,6 +423,7 @@ bool PinPlacer::read_and_write() {
     if (tr) {
       flush_out(true);
       ls << "[Error] pin_c: !write_dot_place(csv_rd)" << endl;
+      err_puts();
       CERROR << "write_dot_place() failed" << endl;
       flush_out(true);
     }
@@ -444,6 +450,7 @@ bool PinPlacer::read_and_write() {
     lprintf("pin_c done:  read_and_write() succeeded.  map_clk_status= %i\n",
             map_clk_status);
     print_stats(csv_rd);
+    print_summary(csv_name);
   }
   return true;
 }
