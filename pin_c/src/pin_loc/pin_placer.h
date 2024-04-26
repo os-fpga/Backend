@@ -96,6 +96,7 @@ private:
   bool pin_assign_def_order_ = true;
 
   bool auto_pcf_created_ = false;
+  string user_pcf_;
 
 public:
   enum class PortDir : uint8_t {
@@ -143,6 +144,7 @@ public:
                          vector<const Pin*>& out_ov) const noexcept;
 
   void print_stats(const RapidCsvReader& csv) const;
+  void print_summary(const string& csv_name) const;
   void printTileUsage(const RapidCsvReader& csv) const;
 
   size_t num_placed_pins() const noexcept {
