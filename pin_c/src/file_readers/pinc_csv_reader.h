@@ -42,7 +42,7 @@ public:
 
     string groupA_; // 0-A  Group
 
-    // columns: B, C, D, I, J, K, L, BU(#72)
+    // columns: B, C, D, I, J, K, L, M, N, BU(#72)
     // --- 1-B    Bump/Pin Name
     // --- 2-C    Customer Name
     // --- 3-D    Ball ID
@@ -50,6 +50,8 @@ public:
     // --- 9-J    IO_tile_pin_x
     // --- 10-K   IO_tile_pin_y
     // --- 11-L   IO_tile_pin_z
+    // --- 12-M   EFPGA_PIN
+    // --- 13-N   Fullchip_NAME
     // --- 72-BU  Customer Internal Name
     string bump_,     // 1-B
            customer_, // 2-C Customer Name

@@ -15,7 +15,7 @@ using namespace std;
 using fio::Fio;
 
 #define CERROR std::cerr << "[Error] "
-#define OUT_ERROR std::cout << "[Error] "
+#define OUT_ERROR lout() << "[Error] "
 
 
 // static data (hacky, but temporary)
@@ -349,6 +349,7 @@ void PinPlacer::print_summary(const string& csv_name) const {
   lprintf("     auto-PCF : %s\n", auto_pcf_created_ ? "TRUE" : "FALSE");
   if (!auto_pcf_created_)
   lprintf("     user-PCF : %s\n", user_pcf_.c_str());
+  lprintf("  pinc_trace verbosity= %u\n", tr);
 
   ls << "======== end pin_c summary." << endl;
   flush_out(true);
@@ -365,14 +366,13 @@ void PinPlacer::printTileUsage(const RapidCsvReader& csv) const {
 }
 
 bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
+  flush_out(true);
   uint16_t tr = ltrace();
   auto& ls = lout();
   string cur_dir = get_CWD();
-  if (tr >= 3) {
-    lputs();
+  if (tr >= 4) {
     lputs("pin_c:  PinPlacer::read_pcf()");
-    if (tr >= 4)
-      lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
+    lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
 
   pcf_pin_cmds_.clear();
@@ -381,8 +381,15 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
   if (temp_os_pcf_name_.size()) {
     // use generated temp pcf for open source flow
     pcf_name = temp_os_pcf_name_;
+    if (tr >= 3)
+      lputs("pin_c: NOTE: auto-PCF");
   } else {
     pcf_name = cl_.get_param("--pcf");
+  }
+
+  if (tr >= 3) {
+    lprintf("pin_c: reading .pcf from %s\n", pcf_name.c_str());
+    flush_out(true);
   }
 
   PcfReader rd_pcf;
@@ -412,7 +419,8 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
     key = mode;
     RapidCsvReader::prepare_mode_header(key);
     if (csv.hasMode(key)) continue;
-    ls << endl;
+    flush_out(true);
+    err_puts();
     CERROR << " (ERROR) invalid mode name: " << mode << endl;
     if (tr >= 2) {
       ls << " (ERROR) invalid mode name: " << mode << "  [ " << key << " ]" << endl;
@@ -422,24 +430,33 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
         ls << " (ERROR) invalid mode name: " << mode << "  [ " << key << " ]" << endl;
       }
     }
+    flush_out(true);
     return false;
   }
 
   pcf_pin_cmds_ = std::move(rd_pcf.commands_);
 
+  if (tr >= 3) {
+    flush_out(true);
+    lputs("\t  ***  pin_c  read_pcf  SUCCEEDED  ***");
+  }
+
   return true;
 }
 
-bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
-{
+bool PinPlacer::write_dot_place(const RapidCsvReader& csv) {
+  flush_out(true);
   placed_inputs_.clear();
   placed_outputs_.clear();
   string out_fn = cl_.get_param("--output");
   uint16_t tr = ltrace();
   auto& ls = lout();
   if (tr >= 3) {
-    ls << "\npinc::write_dot_place() __ Creating .place file  get_param(--output) : "
-       << out_fn << endl;
+    ls << "pin_c: writing .place output file: " << out_fn << endl;
+    if (tr >= 7) {
+      ls << "write_dot_place() __ Creating .place file  get_param(--output) : "
+         << out_fn << endl;
+    }
     if (tr >= 5) {
       lprintf("  ___ pcf_pin_cmds_ (%zu):\n", pcf_pin_cmds_.size());
       for (const auto& cmd : pcf_pin_cmds_) {
@@ -453,7 +470,11 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
   out_file.open(out_fn);
   if (out_file.fail()) {
     if (tr >= 1) {
-      ls << "\n[Error] pln::write_dot_place() FAILED to write " << out_fn << endl;
+      flush_out(true);
+      err_puts();
+      lprintf2("[Error] pin_c: write_dot_place() output file is not writable: %s\n",
+               out_fn.c_str());
+      flush_out(true);
     }
     return false;
   }
@@ -463,9 +484,10 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv)
   out_file << std::flush;
 
   if (tr >= 4) {
+    flush_out(true);
     ls << "#Block Name   x   y   z\n";
     ls << "#------------ --  --  -" << endl;
-    flush_out();
+    flush_out(true);
   }
 
   string gbox_pin_name;
