@@ -123,6 +123,26 @@ bool CSV_Reader::printCsv(std::ostream& os, uint minRow, uint maxRow) const noex
   return true;
 }
 
+static char s_str_buf[128];
+
+// trim front and copy 'inp' to s_str_buf,
+// stop copying on 1st trailing space.
+static void prep_str_buf(CStr inp) noexcept {
+  ::memset(s_str_buf, 0, sizeof(s_str_buf));
+  if (!inp or !inp[0])
+    return;
+  inp = str::trimFront(inp);
+  size_t len = ::strlen(inp);
+  if (!len or len > 127)
+    return;
+  for (size_t i = 0; i < len; i++) {
+    char c = inp[i];
+    if (!c or ::isspace(c))
+      break;
+    s_str_buf[i] = c;
+  }
+}
+
 bool CSV_Reader::parse(bool cutComments) noexcept {
   if (!sz_ || !fsz_) return false;
   if (!buf_) return false;
@@ -137,6 +157,8 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
   nr_ = nc_ = 0;
   smat_ = nullptr;
   nmat_ = nullptr;
+
+  flush_out(false);
 
   // 1. replace '\n' by 0 and count lines and commas
   for (size_t i = 0; i < sz_; i++) {
@@ -195,7 +217,9 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
   nr_ = nel - 1;
   if (nr_ < 1) return false;
   if (trace() >= 3) {
-    lprintf("CReader::parse()  nr_= %zu  nc_= %zu\n", nr_, nc_);
+    lprintf("pin_c CSV:  #rows= %zu   #colums= %zu\n", nr_, nc_);
+    if (trace() >= 4)
+      lprintf("CReader::parse()  nr_= %zu  nc_= %zu\n", nr_, nc_);
   }
   for (size_t li = 1; li <= num_lines_; li++) {
     char* line = lines_[li];
@@ -203,8 +227,11 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
     size_t nCom = countCommas(line);
     if (!nCom || nCom >= nc_) {
       if (trace() >= 2) {
-        lprintf("CReader::parse() ERROR: unexpected #commas(%zu) at line %zu of %s\n", nCom, li,
-                fnm_.c_str());
+        flush_out(true);
+        err_puts();
+        lprintf2("[Error] pin_c: CSV parse: unexpected #commas(%zu) at line %zu of %s\n", nCom, li,
+                 fnm_.c_str());
+        flush_out(true);
       }
       return false;
     }
@@ -266,17 +293,95 @@ bool CSV_Reader::parse(bool cutComments) noexcept {
         row[i] = -1;
         continue;
       }
-      CStr cs = V[i].c_str();
-      if (!is_integer(cs)) {
+      prep_str_buf(V[i].c_str());
+      if (!is_integer(s_str_buf)) {
         row[i] = -1;
         continue;
       }
-      row[i] = ::atoi(cs);
+      row[i] = ::atoi(s_str_buf);
     }
     lcnt++;
   }
   if (trace() >= 5) lprintf("lcnt= %zu\n", lcnt);
   assert(lcnt == nr_);
+
+  valid_csv_ = true;
+
+  // 8. check that XYZ coordinates are integers
+  //
+  // -- check X
+  vector<string> colVec = getColumn("IO_tile_pin_x");
+  if (colVec.empty()) {
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] pin_c: CSV parse: column 'IO_tile_pin_x' not found\n");
+    flush_out(true);
+    valid_csv_ = false;
+    return false;
+  }
+  for (uint r = 1; r < colVec.size(); r++) {
+    if (colVec[r].empty())
+      continue;
+    prep_str_buf(colVec[r].c_str());
+    CStr cs = s_str_buf;
+    if (is_integer(cs))
+      continue;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] pin_c: CSV parse error at row# %u column 'IO_tile_pin_x'\n", r+2);
+    lprintf2("\t  bad 'IO_tile_pin_x' value: %s\n", cs);
+    if (::strchr(cs, '_'))
+      lprintf2("\t  contains underscore '_'\n");
+    if (::strchr(cs, '.'))
+      lprintf2("\t  contains dot '.'\n");
+    flush_out(true);
+    valid_csv_ = false;
+    return false;
+  }
+  // -- check Y
+  colVec = getColumn("IO_tile_pin_y");
+  for (uint r = 1; r < colVec.size(); r++) {
+    if (colVec[r].empty())
+      continue;
+    prep_str_buf(colVec[r].c_str());
+    CStr cs = s_str_buf;
+    if (is_integer(cs))
+      continue;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] pin_c: CSV parse error at row# %u column 'IO_tile_pin_y'\n", r+2);
+    lprintf2("\t  bad 'IO_tile_pin_y' value: %s\n", cs);
+    if (::strchr(cs, '_'))
+      lprintf2("\t  contains underscore '_'\n");
+    if (::strchr(cs, '.'))
+      lprintf2("\t  contains dot '.'\n");
+    flush_out(true);
+    valid_csv_ = false;
+    return false;
+  }
+  // -- check Z
+  colVec = getColumn("IO_tile_pin_z");
+  for (uint r = 1; r < colVec.size(); r++) {
+    if (colVec[r].empty())
+      continue;
+    prep_str_buf(colVec[r].c_str());
+    CStr cs = s_str_buf;
+    if (is_integer(cs))
+      continue;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] pin_c: CSV parse error at row# %u column 'IO_tile_pin_z'\n", r+2);
+    lprintf2("\t  bad 'IO_tile_pin_z' value: %s\n", cs);
+    if (::strchr(cs, '_'))
+      lprintf2("\t  contains underscore '_'\n");
+    if (::strchr(cs, '.'))
+      lprintf2("\t  contains dot '.'\n");
+    flush_out(true);
+    valid_csv_ = false;
+    return false;
+  }
+
+  flush_out(false);
 
   valid_csv_ = true;
   return true;

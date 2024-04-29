@@ -524,7 +524,14 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
     const XYZ& loc = bcd->xyz_;
     if (loc.nonNeg() && loc.z_ >= 0 && bcd->numModes()) {
       assert(loc.x_ >= 0);
-      assert(loc.y_ >= 0);
+      //assert(loc.y_ >= 0);
+      if (loc.y_ < 0) {
+        flush_out(true);
+        err_puts();
+        lprintf2("[Error] pin_c:  negative location coordinate Y: %i\n", loc.y_);
+        flush_out(true);
+        return false;
+      }
       bcd_good_.push_back(bcd);
     }
   }
@@ -532,10 +539,11 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
   uint sz_bcd_good = bcd_good_.size();
   if (tr >= 5)
     lprintf("createTiles:  num_rows= %u  num_good_ROWs= %u\n", num_rows, sz_bcd_good);
-  if (sz_bcd_good < 2 && tr >= 1)
-    lputs("\n[Error] pin_c:  NO GOOD ROWs in .csv");
   if (sz_bcd_good < 2) {
-    cerr << "[Error] pin_c:  NO GOOD ROWs in .csv\n" << endl;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] pin_c:  NO GOOD ROWs in .csv\n");
+    flush_out(true);
     return false;
   }
 
@@ -822,7 +830,6 @@ BCD_p RapidCsvReader::Tile::bestOutputSite() noexcept {
 bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   flush_out(false);
   uint16_t tr = ltrace();
-  auto& ls = lout();
   if (tr >= 3)
     lprintf("pin_c CsvReader::read_csv( %s )  num_udes_pins= %u\n", fn.c_str(), num_udes_pins);
 
@@ -837,14 +844,17 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   crd.setTrace(tr);
   if (!crd.fileExistsAccessible()) {
     flush_out(true);
-    ls << "ERROR reading csv: file is not accessible: " << fn << '\n' << endl;
+    err_puts();
+    lprintf2("[Error] pin_c: ERROR reading csv: file is not accessible: %s\n", fn.c_str());
+    flush_out(true);
     delete crd_;
     crd_ = nullptr;
     return false;
   }
   if (!crd.readCsv(false)) {
     flush_out(true);
-    ls << "ERROR reading csv: wrong format: " << fn << '\n' << endl;
+    lprintf2("[Error] pin_c: reading csv: %s\n", fn.c_str());
+    flush_out(true);
     delete crd_;
     crd_ = nullptr;
     return false;
@@ -853,13 +863,15 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
 
   if (!initCols(crd)) {
     flush_out(true);
-    ls << "ERROR initCols() failed\n" << endl;
+    lprintf2("[Error] pin_c: initCols() failed\n");
+    flush_out(true);
     return false;
   }
 
   if (!initRows(crd)) {
     flush_out(true);
-    ls << "ERROR initRows() failed\n" << endl;
+    lprintf2("[Error] pin_c: initRows() failed\n");
+    flush_out(true);
     return false;
   }
   flush_out(false);
@@ -892,13 +904,17 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
 
     mode_data = crd.getColumn(orig_hdr_i);
     if (mode_data.empty()) {
-      ls << "\nERROR reading csv: failed column: " << orig_hdr_i << endl;
+      flush_out(true);
+      err_puts();
+      lprintf2("[Error] pin_c: ERROR reading csv: failed column: %s\n", orig_hdr_i.c_str());
+      flush_out(true);
       return false;
     }
 
     assert(mode_data.size() <= num_rows);
     if (mode_data.size() < num_rows) {
-      if (tr >= 4) ls << "!!! mode_data.size() < num_rows" << endl;
+      if (tr >= 4)
+        lputs("!!! mode_data.size() < num_rows");
       mode_data.resize(num_rows);
     }
     //// modes_map_.emplace(hdr_i, mode_data);
@@ -914,12 +930,13 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
 
   flush_out(false);
 
-  if (tr >= 4) {
-    if (tr >= 5) ls << endl;
-    ls << "  mode_names_.size()= " << mode_names_.size() << endl;
-    if (tr >= 5) {
+  if (tr >= 5) {
+    if (tr >= 6)
+      flush_out(true);
+    lout() << "  mode_names_.size()= " << mode_names_.size() << endl;
+    if (tr >= 6) {
       logVec(mode_names_, "  mode_names_ ");
-      ls << endl;
+      flush_out(true);
     }
   }
 
@@ -1024,6 +1041,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
       flush_out(false);
       const auto& firs_bcd = *bcd_[firs_ri];
       const auto& last_bcd = *bcd_[last_ri];
+      auto& ls = lout();
       ls << " ==        first row with Customer Internal Name : "
          << (firs_ri + 2) << "  " << firs_bcd << endl;
       ls << " == first row with unique Customer Internal Name : "
@@ -1043,6 +1061,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   }
 
   if (tr >= 4) {
+    auto& ls = lout();
     ls << "  num_rows= " << num_rows << "  num_cols= " << col_headers_.size()
        << "  start_GBOX_GPIO_row_= " << start_GBOX_GPIO_row_
        << "  start_CustomerInternal_row_= " << start_CustomerInternal_row_
@@ -1070,6 +1089,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   const vector<string>& bump_pin_name = S_tmp;
 
   if (tr >= 9) {
+    auto& ls = lout();
     flush_out(true);
     if (num_rows > 3000) {
       const string* A = bump_pin_name.data();
@@ -1097,8 +1117,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     bcd.bump_ = bump_pin_name[i];
     if (bcd.bump_.empty()) {
       if (bcd.customerInternal().empty() && tr >= 4) {
-        ls << " (WW) both bcd.bump_ and bcd.customerInternal_ are empty"
-           << " on row# " << i << endl;
+        lprintf(" (WW) both bcd.bump_ and bcd.customerInternal_ are empty on row# %u\n", i);
         // assert(0);
       }
     }
@@ -1161,14 +1180,16 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   flush_out(false);
 
   if (tr >= 7) {
-    ls << "___ original ROW-RECORD order ___" << endl;
-    print_bcd(ls);
+    lputs("___ original ROW-RECORD order ___");
+    print_bcd(lout());
   }
 
   status_ok = createTiles(false); // non-uniq XY
   if (not status_ok) {
-    ls << '\n' << "[Error] pin_c csv-reader: createTiles(false) status not OK" << endl;
-    cerr << "[Error] pin_c csv-reader: createTiles(false) status not OK" << endl;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] pin_c csv-reader: createTiles(false) status not OK");
+    flush_out(true);
     return false;
   }
   //status_ok = createTiles(true); // uniq XY
@@ -1197,18 +1218,18 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
       std::stable_partition(bcd_.begin(), bcd_.end(),
                             [](BCD* p) { return p->isNotBidiRxTx(); });
       if (tr >= 6) {
-        ls << "___ new ROW-RECORD order ___" << endl;
-        print_bcd(ls);
+        lputs("___ new ROW-RECORD order ___");
+        print_bcd(lout());
       }
-      lputs();
+      flush_out(true);
     }
   }
 
   if (tr >= 6) {
     flush_out(false);
-    print_bcd_stats(ls);
+    print_bcd_stats(lout());
     flush_out(true);
-    print_axi_bcd(ls);
+    print_axi_bcd(lout());
     flush_out(false);
     print_csv();
   }
