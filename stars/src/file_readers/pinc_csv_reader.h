@@ -117,6 +117,16 @@ public:
     bool isNotBidiRxTx() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
     bool allModesEnabledRxTx() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
 
+    bool dirContradiction() const noexcept {
+      if (isBidiRxTx())
+        return false;
+      if (isA2F() and isOutputRxTx())
+        return true;
+      if (isF2A() and isInputRxTx())
+        return true;
+      return false;
+    }
+
     std::bitset<MAX_PT_COLS> getRxModes() const noexcept;
     std::bitset<MAX_PT_COLS> getTxModes() const noexcept;
     std::bitset<MAX_PT_COLS> getGpioModes() const noexcept;
@@ -206,6 +216,7 @@ public:
   bool write_csv(const string& fn, uint minRow, uint maxRow) const;
 
   void print_csv() const;
+  void write_debug_csv() const;
 
   uint countBidiRows() const noexcept;
 
