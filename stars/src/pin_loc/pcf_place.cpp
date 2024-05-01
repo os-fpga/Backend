@@ -613,55 +613,112 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv) {
       if (is_out_pin) {
         xyz = csv.get_opin_xyz_by_name(mode, device_pin_name, gbox_pin_name,
                                        used_oxyz_, pt_row);
-        if (tr >= 6) {
-          if (xyz.valid())
-            lprintf("    get_opin_xyz annotated pt_row= %u\n", pt_row);
-          else
-            lputs("\n    get_opin_xyz FAILED");
+        if (tr >= 3) {
+          if (xyz.valid()) {
+            if (tr >= 6) lprintf("    get_opin_xyz annotated pt_row= %u\n", pt_row);
+          } else {
+            flush_out(true);
+            err_puts();
+            lprintf2("[Error]  get output pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
+                    mode.c_str(), device_pin_name.c_str());
+            flush_out(true);
+            uint col_idx = csv.getModeCol(mode);
+            string col_label = csv.label_of_column(col_idx);
+            vector<uint> enabledRows = csv.get_enabled_rows_for_mode(mode);
+            lprintf("  ---- BEGIN DEBUG_NOTE ----  mode %s (#%u %s)  is enabled for %zu rows:\n",
+                    mode.c_str(), col_idx, col_label.c_str(), enabledRows.size());
+            for (uint r : enabledRows) {
+              uint row = r + 2;
+              const RapidCsvReader::BCD& b = csv.getBCD(r);
+              const XYZ& p = b.xyz_;
+              flush_out(false);
+
+              if (tr < 4 and b.customer_ != device_pin_name) {
+                continue;
+              }
+
+              lprintf(" ROW-%u  ", row);
+              lprintf(" B:%s ", b.bump_B_.c_str());
+
+              lprintf(" ");
+              if (b.customer_ == device_pin_name)
+                lprintf(" NOTE:");
+              lprintf("C:%s ", b.customer_.c_str());
+
+              lprintf(" D:%s ", b.ball_ID_.c_str());
+
+              lprintf("  XYZ: (%i %i %i) ", p.x_, p.y_, p.z_);
+
+              lprintf("   M:%s ", b.col_M_.c_str());
+              lprintf("   RXTX:%s ", RapidCsvReader::str_Mode_dir(b.rxtx_dir_));
+              if (b.dirContradiction()) {
+                lprintf(" DIR_CONTRADICTION  ");
+              }
+              flush_out(true);
+            }
+            lputs("  -------- END DEBUG_NOTE ---- ");
+            if (tr >= 4) {
+              lprintf("  -------- get output pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
+                       mode.c_str(), device_pin_name.c_str());
+              lprintf("  -------- see info between  'BEGIN DEBUG_NOTE'  'END DEBUG_NOTE'  markers\n");
+            }
+            flush_out(true);
+          }
         }
+
       } else {
         xyz = csv.get_ipin_xyz_by_name(mode, device_pin_name, gbox_pin_name,
                                        used_ixyz_, pt_row);
-        if (tr >= 4) {
+        if (tr >= 3) {
           if (xyz.valid()) {
             if (tr >= 6) lprintf("    get_ipin_xyz annotated pt_row= %u\n", pt_row);
           } else {
             flush_out(true);
-            lprintf("\n  get_ipin_xyz FAILED for  mode= %s  device_pin_name= %s\n",
+            err_puts();
+            lprintf2("[Error]  get input pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
                     mode.c_str(), device_pin_name.c_str());
             flush_out(true);
-            if (tr >= 5) {
-              uint col_idx = csv.getModeCol(mode);
-              string col_label = csv.label_of_column(col_idx);
-              lprintf("  ___ mode %s (#%u %s)  is enabled for the following PT rows:\n",
-                      mode.c_str(), col_idx, col_label.c_str());
-              vector<uint> enabledRows = csv.get_enabled_rows_for_mode(mode);
-              lprintf("  ___ enabledRows.size()= %zu\n", enabledRows.size());
-              for (uint r : enabledRows) {
-                uint row = r + 2;
-                const RapidCsvReader::BCD& b = csv.getBCD(r);
-                const XYZ& p = b.xyz_;
+            uint col_idx = csv.getModeCol(mode);
+            string col_label = csv.label_of_column(col_idx);
+            vector<uint> enabledRows = csv.get_enabled_rows_for_mode(mode);
+            lprintf("  ---- BEGIN DEBUG_NOTE ----  mode %s (#%u %s)  is enabled for %zu rows:\n",
+                    mode.c_str(), col_idx, col_label.c_str(), enabledRows.size());
+            for (uint r : enabledRows) {
+              uint row = r + 2;
+              const RapidCsvReader::BCD& b = csv.getBCD(r);
+              const XYZ& p = b.xyz_;
+              flush_out(false);
 
-                flush_out(false);
-                lprintf(" ROW-%u  ", row);
-
-                lprintf(" B:%s ", b.bump_B_.c_str());
-                lprintf(" C:%s ", b.customer_.c_str());
-                lprintf(" D:%s ", b.ball_ID_.c_str());
-
-                lprintf("  XYZ: (%i %i %i) ", p.x_, p.y_, p.z_);
-
-                lprintf("   M:%s ", b.col_M_.c_str());
-                lprintf("   RXTX:%s ", RapidCsvReader::str_Mode_dir(b.rxtx_dir_));
-                if (b.dirContradiction()) {
-                  lprintf(" DIR_CONTRADICTION  ");
-                }
-                flush_out(true);
-
+              if (tr < 4 and b.customer_ != device_pin_name) {
+                continue;
               }
-              lputs("  --------");
+
+              lprintf(" ROW-%u  ", row);
+              lprintf(" B:%s ", b.bump_B_.c_str());
+
+              lprintf(" ");
+              if (b.customer_ == device_pin_name)
+                lprintf(" NOTE:");
+              lprintf("C:%s ", b.customer_.c_str());
+
+              lprintf(" D:%s ", b.ball_ID_.c_str());
+
+              lprintf("  XYZ: (%i %i %i) ", p.x_, p.y_, p.z_);
+
+              lprintf("   M:%s ", b.col_M_.c_str());
+              lprintf("   RXTX:%s ", RapidCsvReader::str_Mode_dir(b.rxtx_dir_));
+              if (b.dirContradiction()) {
+                lprintf(" DIR_CONTRADICTION  ");
+              }
               flush_out(true);
             }
+            lputs("  -------- END DEBUG_NOTE ---- ");
+            if (tr >= 4) {
+              lprintf("  -------- get input pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
+                       mode.c_str(), device_pin_name.c_str());
+              lprintf("  -------- see info between  'BEGIN DEBUG_NOTE'  'END DEBUG_NOTE'  markers\n");
+            }
+            flush_out(true);
           }
         }
       }
