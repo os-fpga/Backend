@@ -1,6 +1,6 @@
 #pragma once
-#ifndef __rs_PinPlacer_fa337e863b11ab_H_
-#define __rs_PinPlacer_fa337e863b11ab_H_
+#ifndef _pln_PinPlacer_fa337e863b11ab_H_
+#define _pln_PinPlacer_fa337e863b11ab_H_
 
 #include <set>
 #include <unordered_set>
@@ -205,7 +205,9 @@ public:
   //
   bool no_more_inp_bumps_ = false; // state for get_available_device_pin()
   bool no_more_out_bumps_ = false; //
-  uint num_warnings_ = 0;
+
+  mutable uint num_warnings_ = 0, num_critical_warnings_ = 0;
+  void incrCriticalWarnings() const noexcept { num_critical_warnings_++; }
 
   static bool read_port_info(std::ifstream& json_ifs, vector<string>& inputs,
                              vector<string>& outputs);

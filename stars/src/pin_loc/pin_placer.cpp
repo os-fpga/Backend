@@ -386,7 +386,43 @@ bool PinPlacer::read_and_write() {
           }
         }
       }
-    }
+
+      if (tr >= 3) {
+        flush_out(true);
+        uint sz = user_design_inputs_.size();
+        lprintf(" ---- dumping user_design_inputs_ after translation (%u) --\n", sz);
+        for (uint i = 0; i < sz; i++)
+          lprintf("  inp-%u  %s\n", i, user_design_input(i).c_str());
+        lprintf(" ----\n");
+        sz = user_design_outputs_.size();
+        lprintf(" ---- dumping user_design_outputs_ after translation (%u) --\n", sz);
+        for (uint i = 0; i < sz; i++)
+          lprintf("  out-%u  %s\n", i, user_design_output(i).c_str());
+        lprintf(" ----\n");
+      }
+
+      // check overlap of inputs with outputs:
+      uint numInp = user_design_inputs_.size();
+      uint numOut = user_design_outputs_.size();
+      for (uint i = 0; i < numInp; i++) {
+        const string& inp = user_design_input(i);
+        assert(!inp.empty());
+        for (uint j = 0; j < numOut; j++) {
+          const string& out = user_design_output(j);
+          assert(!out.empty());
+          if (inp == out) {
+            flush_out(true);
+            err_puts();
+            lprintf2("  [CRITICAL_WARNING]  pin '%s' is both input and output (after NL-edits).\n",
+                     inp.c_str());
+            incrCriticalWarnings();
+            flush_out(true);
+          }
+        }
+      }
+
+    } // has_edits
+
     if (!create_temp_pcf(csv_rd)) {
       flush_out(true);
       string ec = s_err_code.empty() ? "FAIL_TO_CREATE_TEMP_PCF" : s_err_code;

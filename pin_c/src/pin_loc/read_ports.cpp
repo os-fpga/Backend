@@ -109,12 +109,34 @@ bool PinPlacer::read_design_ports() {
   for (size_t i = 0; i < sz; i++)
     user_design_outputs_[i].udes_pin_name_ = raw_design_outputs_[i];
 
-  if (tr >= 4) {
+  if (tr >= 3) {
+    flush_out(tr >= 5);
     lprintf(
       "DONE read_design_ports()  #udes_inputs= %zu  #udes_outputs= %zu\n",
       raw_design_inputs_.size(), raw_design_outputs_.size());
   }
 
+  if (tr >= 5) {
+    flush_out(true);
+
+    sz = user_design_inputs_.size();
+    lprintf(" ---- dumping user_design_inputs_ (%zu) ----\n", sz);
+    for (uint i = 0; i < sz; i++)
+      lprintf("  inp-%u  %s\n", i, user_design_input(i).c_str());
+    lprintf(" ----\n");
+
+    sz = user_design_outputs_.size();
+    lprintf(" ---- dumping user_design_outputs_ (%zu) ----\n", sz);
+    for (uint i = 0; i < sz; i++)
+      lprintf("  out-%u  %s\n", i, user_design_output(i).c_str());
+    lprintf(" ----\n");
+
+    lprintf(
+      "DONE read_design_ports()  #udes_inputs= %zu  #udes_outputs= %zu\n",
+      raw_design_inputs_.size(), raw_design_outputs_.size());
+  }
+
+  flush_out(true);
   return true;
 }
 
@@ -184,7 +206,8 @@ bool PinPlacer::read_edits() {
   if (!check_ok) {
     flush_out(true);
     err_puts();
-    lprintf2(" [CRITICAL_WARNING] NOTE: netlist modifications (config.json) have overlapping pins\n");
+    lprintf2(" [WARNING] NOTE: netlist modifications (config.json) have overlapping pins\n");
+    // incrCriticalWarnings();
     err_puts();
     flush_out(true);
   }

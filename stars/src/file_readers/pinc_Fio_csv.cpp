@@ -516,12 +516,19 @@ int CSV_Reader::dprint1() const noexcept {
 
   logVec(header_, "    header_:");
 
-  lputs();
-  logVec(lowHeader_, "    lowHeader_:");
-  lputs();
+  flush_out(true);
+
+  if (trace() >= 6) {
+    logVec(lowHeader_, "    lowHeader_:");
+    flush_out(true);
+  }
 
   lprintf("    lines_.size()= %zu\n", lines_.size());
-  if (lines_.size() > 3 && lines_[2] && nc_ < 400) lprintf("    lines_[2]  %s\n", lines_[2]);
+
+  if (trace() >= 6) {
+    if (lines_.size() > 3 && lines_[2] && nc_ < 400)
+      lprintf("    lines_[2]  %s\n", lines_[2]);
+  }
 
   return sz_;
 }
