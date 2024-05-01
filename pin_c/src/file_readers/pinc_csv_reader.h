@@ -53,7 +53,7 @@ public:
     // --- 12-M   EFPGA_PIN
     // --- 13-N   Fullchip_NAME
     // --- 72-BU  Customer Internal Name
-    string bump_,     // 1-B
+    string bump_B_,   // 1-B
            customer_, // 2-C Customer Name
            ball_ID_;  // 3-D
 
@@ -105,8 +105,8 @@ public:
     void normalize() noexcept {
       if (customerInternal_.empty())
         return;
-      if (bump_.empty())
-        bump_ = customerInternal_;
+      if (bump_B_.empty())
+        bump_B_ = customerInternal_;
       if (customer_.empty())
         customer_ = customerInternal_;
     }
@@ -116,6 +116,16 @@ public:
     bool isBidiRxTx() const noexcept { return rxtx_dir_ == HasBoth_dir or rxtx_dir_ == AllEnabled_dir; }
     bool isNotBidiRxTx() const noexcept { return rxtx_dir_ != HasBoth_dir and rxtx_dir_ != AllEnabled_dir; }
     bool allModesEnabledRxTx() const noexcept { return rxtx_dir_ == AllEnabled_dir; }
+
+    bool dirContradiction() const noexcept {
+      if (isBidiRxTx())
+        return false;
+      if (isA2F() and isOutputRxTx())
+        return true;
+      if (isF2A() and isInputRxTx())
+        return true;
+      return false;
+    }
 
     std::bitset<MAX_PT_COLS> getRxModes() const noexcept;
     std::bitset<MAX_PT_COLS> getTxModes() const noexcept;
@@ -159,7 +169,7 @@ public:
     bool operator==(const Tile& t) const noexcept { return loc_ == t.loc_ && colB_ == t.colB_; }
     bool operator!=(const Tile& t) const noexcept { return not operator==(t); }
     bool eq(const XY& loc, const string& colb) const noexcept { return loc_ == loc && colB_ == colb; }
-    bool eq(const BCD& bcd) const noexcept { return eq(bcd.xyz_, bcd.bump_); }
+    bool eq(const BCD& bcd) const noexcept { return eq(bcd.xyz_, bcd.bump_B_); }
 
     BCD* bestInputSite() noexcept;
     BCD* bestOutputSite() noexcept;
@@ -206,6 +216,9 @@ public:
   bool write_csv(const string& fn, uint minRow, uint maxRow) const;
 
   void print_csv() const;
+  void write_debug_csv() const;
+
+  vector<uint> get_enabled_rows_for_mode(const string& mode) const noexcept;
 
   uint countBidiRows() const noexcept;
 
@@ -244,7 +257,7 @@ public:
 
   const string& bumpPinName(uint row) const noexcept {
     assert(row < bcd_.size());
-    return bcd_[row]->bump_;
+    return bcd_[row]->bump_B_;
   }
 
   const string& customerPinName(uint row) const noexcept {
@@ -297,6 +310,8 @@ public:
   }
 
   static const char* str_Mode_dir(BCD::ModeDir t) noexcept;
+
+  static string label_of_column(int i) noexcept;
 
 private:
 
