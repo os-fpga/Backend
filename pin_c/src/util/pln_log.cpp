@@ -215,6 +215,22 @@ void lprintfl(CStr fn, uint l, CStr format, ...) {
   fflush(stdout);
 }
 
+// printf to output-stream 'os'
+void os_printf(std::ostream& os, CStr format, ...) {
+  char buf[32768];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(buf, 32766, format, args);
+  buf[32767] = 0;
+  va_end(args);
+
+  size_t len = strlen(buf);
+  if (!len) return;
+
+  os << buf;
+  os.flush();
+}
+
 int get_PID() noexcept { return ::getpid(); }
 
 string get_CWD() noexcept {

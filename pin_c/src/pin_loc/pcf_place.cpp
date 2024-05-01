@@ -613,32 +613,127 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv) {
       if (is_out_pin) {
         xyz = csv.get_opin_xyz_by_name(mode, device_pin_name, gbox_pin_name,
                                        used_oxyz_, pt_row);
-        if (tr >= 6) {
-          if (xyz.valid())
-            lprintf("    get_opin_xyz annotated pt_row= %u\n", pt_row);
-          else
-            lputs("\n    get_opin_xyz FAILED");
+        if (tr >= 3) {
+          if (xyz.valid()) {
+            if (tr >= 6) lprintf("    get_opin_xyz annotated pt_row= %u\n", pt_row);
+          } else {
+            flush_out(true);
+            err_puts();
+            lprintf2("[Error]  get output pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
+                    mode.c_str(), device_pin_name.c_str());
+            flush_out(true);
+            uint col_idx = csv.getModeCol(mode);
+            string col_label = csv.label_of_column(col_idx);
+            vector<uint> enabledRows = csv.get_enabled_rows_for_mode(mode);
+            lprintf("  ---- BEGIN DEBUG_NOTE ----  mode %s (#%u %s)  is enabled for %zu rows:\n",
+                    mode.c_str(), col_idx, col_label.c_str(), enabledRows.size());
+            for (uint r : enabledRows) {
+              uint row = r + 2;
+              const RapidCsvReader::BCD& b = csv.getBCD(r);
+              const XYZ& p = b.xyz_;
+              flush_out(false);
+
+              if (tr < 4 and b.customer_ != device_pin_name) {
+                continue;
+              }
+
+              lprintf(" ROW-%u  ", row);
+              lprintf(" B:%s ", b.bump_B_.c_str());
+
+              lprintf(" ");
+              if (b.customer_ == device_pin_name)
+                lprintf(" NOTE:");
+              lprintf("C:%s ", b.customer_.c_str());
+
+              lprintf(" D:%s ", b.ball_ID_.c_str());
+
+              lprintf("  XYZ: (%i %i %i) ", p.x_, p.y_, p.z_);
+
+              lprintf("   M:%s ", b.col_M_.c_str());
+              lprintf("   RXTX:%s ", RapidCsvReader::str_Mode_dir(b.rxtx_dir_));
+              if (b.dirContradiction()) {
+                lprintf(" DIR_CONTRADICTION  ");
+              }
+              flush_out(true);
+            }
+            lputs("  -------- END DEBUG_NOTE ---- ");
+            if (tr >= 4) {
+              lprintf("  -------- get output pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
+                       mode.c_str(), device_pin_name.c_str());
+              lprintf("  -------- see info between  'BEGIN DEBUG_NOTE'  'END DEBUG_NOTE'  markers\n");
+            }
+            flush_out(true);
+          }
         }
+
       } else {
         xyz = csv.get_ipin_xyz_by_name(mode, device_pin_name, gbox_pin_name,
                                        used_ixyz_, pt_row);
-        if (tr >= 6) {
-          if (xyz.valid())
-            lprintf("    get_ipin_xyz annotated pt_row= %u\n", pt_row);
-          else
-            lputs("\n    get_ipin_xyz FAILED");
+        if (tr >= 3) {
+          if (xyz.valid()) {
+            if (tr >= 6) lprintf("    get_ipin_xyz annotated pt_row= %u\n", pt_row);
+          } else {
+            flush_out(true);
+            err_puts();
+            lprintf2("[Error]  get input pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
+                    mode.c_str(), device_pin_name.c_str());
+            flush_out(true);
+            uint col_idx = csv.getModeCol(mode);
+            string col_label = csv.label_of_column(col_idx);
+            vector<uint> enabledRows = csv.get_enabled_rows_for_mode(mode);
+            lprintf("  ---- BEGIN DEBUG_NOTE ----  mode %s (#%u %s)  is enabled for %zu rows:\n",
+                    mode.c_str(), col_idx, col_label.c_str(), enabledRows.size());
+            for (uint r : enabledRows) {
+              uint row = r + 2;
+              const RapidCsvReader::BCD& b = csv.getBCD(r);
+              const XYZ& p = b.xyz_;
+              flush_out(false);
+
+              if (tr < 4 and b.customer_ != device_pin_name) {
+                continue;
+              }
+
+              lprintf(" ROW-%u  ", row);
+              lprintf(" B:%s ", b.bump_B_.c_str());
+
+              lprintf(" ");
+              if (b.customer_ == device_pin_name)
+                lprintf(" NOTE:");
+              lprintf("C:%s ", b.customer_.c_str());
+
+              lprintf(" D:%s ", b.ball_ID_.c_str());
+
+              lprintf("  XYZ: (%i %i %i) ", p.x_, p.y_, p.z_);
+
+              lprintf("   M:%s ", b.col_M_.c_str());
+              lprintf("   RXTX:%s ", RapidCsvReader::str_Mode_dir(b.rxtx_dir_));
+              if (b.dirContradiction()) {
+                lprintf(" DIR_CONTRADICTION  ");
+              }
+              flush_out(true);
+            }
+            lputs("  -------- END DEBUG_NOTE ---- ");
+            if (tr >= 4) {
+              lprintf("  -------- get input pin xyz FAILED for  mode= %s  device_pin_name= %s\n",
+                       mode.c_str(), device_pin_name.c_str());
+              lprintf("  -------- see info between  'BEGIN DEBUG_NOTE'  'END DEBUG_NOTE'  markers\n");
+            }
+            flush_out(true);
+          }
         }
       }
     }
 
     if (!xyz.valid()) {
-      flush_out(true);
-      CERROR << "\n   no valid coordinates for "
+      flush_out(false);
+      err_puts();
+      CERROR << "pin_c: no valid coordinates for "
              << direction << " pin: " << udes_pin_name << endl;
       lputs("\n[Error]");
       lprintf("   user_design_pin_name:  %s\n", udes_pin_name.c_str());
-      lprintf("   mode %s  device_pin_name %s   gbox_pin_name %s\n\n",
+      lprintf("   mode= %s  device_pin_name= %s   gbox_pin_name= '%s'\n",
               mode.c_str(), device_pin_name.c_str(), gbox_pin_name.c_str());
+      flush_out(true);
       lprintf("   related %s pcf command:\n", auto_pcf_created_ ? "auto" : "user");
       logVec(pcf_cmd, "     ");
       lputs();
@@ -903,16 +998,16 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
     // ==1== non-GPIO RX
     for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
       if (modes[col] && !csv.isTxCol(col)) {
-        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        result.set(site->bump_B_, csv.col_headers_[col], site->row_);
         site->set_used();
         tile->incr_used();
-        ann_pin = site->annotatePin(udesName, site->bump_, true);
-        used_bump_pins_.insert(site->bump_);
+        ann_pin = site->annotatePin(udesName, site->bump_B_, true);
+        used_bump_pins_.insert(site->bump_B_);
         used_XYs_.insert(site->xy());
         used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==1==RX GABI used_bump_pins_.insert( %s )  row_= %u\n",
-              site->bump_.c_str(), site->row_);
+              site->bump_B_.c_str(), site->row_);
           flush_out(false);
         }
         found = true;
@@ -923,16 +1018,16 @@ DevPin PinPlacer::get_available_bump_ipin(RapidCsvReader& csv,
     modes = site->getGpioModes();
     for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
       if (modes[col]) {
-        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        result.set(site->bump_B_, csv.col_headers_[col], site->row_);
         site->set_used();
         tile->incr_used();
-        ann_pin = site->annotatePin(udesName, site->bump_, true);
-        used_bump_pins_.insert(site->bump_);
+        ann_pin = site->annotatePin(udesName, site->bump_B_, true);
+        used_bump_pins_.insert(site->bump_B_);
         used_XYs_.insert(site->xy());
         used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==2==GPIO_rx GABI used_bump_pins_.insert( %s )  row_= %u\n",
-              site->bump_.c_str(), site->row_);
+              site->bump_B_.c_str(), site->row_);
         }
         found = true;
         goto ret;
@@ -1032,16 +1127,16 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
     // ==1== non-GPIO TX
     for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
       if (modes[col] && !csv.isRxCol(col)) {
-        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        result.set(site->bump_B_, csv.col_headers_[col], site->row_);
         site->set_used();
         tile->incr_used();
-        ann_pin = site->annotatePin(udesName, site->bump_, false);
-        used_bump_pins_.insert(site->bump_);
+        ann_pin = site->annotatePin(udesName, site->bump_B_, false);
+        used_bump_pins_.insert(site->bump_B_);
         used_XYs_.insert(site->xy());
         used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==1==TX GABO used_bump_pins_.insert( %s )  row_= %u\n",
-              site->bump_.c_str(), site->row_);
+              site->bump_B_.c_str(), site->row_);
         }
         found = true;
         goto ret;
@@ -1051,16 +1146,16 @@ DevPin PinPlacer::get_available_bump_opin(RapidCsvReader& csv,
     modes = site->getGpioModes();
     for (uint col = csv.start_MODE_col_; col < num_cols; col++) {
       if (modes[col]) {
-        result.set(site->bump_, csv.col_headers_[col], site->row_);
+        result.set(site->bump_B_, csv.col_headers_[col], site->row_);
         site->set_used();
         tile->incr_used();
-        ann_pin = site->annotatePin(udesName, site->bump_, false);
-        used_bump_pins_.insert(site->bump_);
+        ann_pin = site->annotatePin(udesName, site->bump_B_, false);
+        used_bump_pins_.insert(site->bump_B_);
         used_XYs_.insert(site->xy());
         used_tiles_.insert(tile->id_);
         if (tr >= 6) {
           lprintf("\t\t ==2==GPIO_tx GABO used_bump_pins_.insert( %s )  row_= %u\n",
-              site->bump_.c_str(), site->row_);
+              site->bump_B_.c_str(), site->row_);
         }
         found = true;
         goto ret;
@@ -1243,7 +1338,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
         set_io_str += bcd.str_colM_dir();
       }
 
-      if (tr >= 4) {
+      if (tr >= 5) {
         lprintf(" ... writing Input to pcf for  bump_pin= %s  pinName= %s\n",
                 dpin.first().c_str(), pinName.c_str());
         lprintf("        set_io %s\n", set_io_str.c_str());

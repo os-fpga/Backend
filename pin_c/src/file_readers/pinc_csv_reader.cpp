@@ -78,11 +78,17 @@ static inline bool ends_with_gpio(const char* z, size_t len) noexcept {
 
 static inline bool starts_with_A2F(const char* z) noexcept {
   assert(z);
+  if (!z[0])
+    return false;
+  assert(::strlen(z) >= 3);
   return z[0] == 'A' and z[1] == '2' and z[2] == 'F';
 }
 
 static inline bool starts_with_F2A(const char* z) noexcept {
   assert(z);
+  if (!z[0])
+    return false;
+  assert(::strlen(z) >= 3);
   return z[0] == 'F' and z[1] == '2' and z[2] == 'A';
 }
 
@@ -160,9 +166,9 @@ Pin* RapidCsvReader::BCD::annotatePin(const string& udes_pn,
 
 const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
   // enum ModeDir
-  // {  No_dir,   Input_dir,   Output_dir, HasBoth_dir,   AllEnabled_dir  };
+  // {  No_dir,   Input_dir,   Output_dir,   HasBoth_dir,   AllEnabled_dir  };
   static const char* enumS[] =
-    {"No_dir", "Input_dir", "Output_dir", "HasBoth_dir", "AllEnabled_dir"};
+     { "No_dir", "Input_dir", "Output_dir", "HasBoth_dir", "AllEnabled_dir" };
   constexpr size_t n = sizeof(enumS) / sizeof(enumS[0]);
   static_assert(n == BCD::AllEnabled_dir + 1);
   uint i = uint(t);
@@ -172,7 +178,7 @@ const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
 
 std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
   os << "(bcd-" << b.row_ << ' '
-     << "  grp:" << b.groupA_ << "  " << b.bump_ << "  " << b.customer_ << "  "
+     << "  grp:" << b.groupA_ << "  " << b.bump_B_ << "  " << b.customer_ << "  "
      << b.ball_ID_ << "  ITP: " << b.IO_tile_pin_ << "  XYZ: " << b.xyz_
      << "  colM:" << b.col_M_ << "  fc:" << b.fullchipName_
      << "  ci:" << b.customerInternal() << "  axi:" << int(b.is_axi_)
@@ -218,7 +224,7 @@ string RapidCsvReader::Tile::key2() const noexcept {
 }
 
 // returns spreadsheet column label ("A", "B", "BC", etc) for column index 'i'
-static inline string label_column(int i) noexcept {
+string RapidCsvReader::label_of_column(int i) noexcept {
   assert(i >= 0 && i < 1000);
   string label;
 
@@ -277,7 +283,10 @@ static bool get_row_modes(const fio::CSV_Reader& crd, uint rowNum,
 
   const string* R = crd.getRow(rowNum);
   if (!R) {
-    lout() << "\nERROR reading csv: failed row: " << rowNum << endl;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] pin_c: ERROR reading csv: failed row: %u\n", rowNum+2);
+    flush_out(true);
     return false;
   }
 
@@ -293,7 +302,7 @@ static bool get_row_modes(const fio::CSV_Reader& crd, uint rowNum,
   }
 
   if (ltrace() >= 8) {
-    lout() << "ROW-" << rowNum;
+    lout() << "ROW-" << rowNum+2;
     for (uint c = 0; c < nc; c++) lout() << " | " << R[c];
     lputs(" |");
   }
@@ -344,7 +353,7 @@ bool RapidCsvReader::initCols(const fio::CSV_Reader& crd) {
        << col_headers_.front() << " ... " << col_headers_.back() << ']' << endl;
     if (tr >= 5) {
       for (uint i = 0; i < nc; i++) {
-        string col_label = label_column(i);
+        string col_label = label_of_column(i);
         const string& hdr_i = col_headers_[i];
         ls << "--- " << i << '-' << col_label << "  hdr_i= " << hdr_i << endl;
       }
@@ -582,14 +591,14 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
   // 2. add tiles_ avoiding duplicates if possible
   tPool.emplace_back(bcd_good_[first_valid_k]->xyz_,
                       bcd_good_[first_valid_k]->groupA_,
-                      bcd_good_[first_valid_k]->bump_,
+                      bcd_good_[first_valid_k]->bump_B_,
                       first_valid_k);
   for (uint k = first_valid_k + 1; k < sz_bcd_good; k++) {
     const BCD& bcd = *bcd_good_[k];
     const XY& loc = bcd.xyz_;
-    if (tPool.back().eq(loc, bcd.bump_))
+    if (tPool.back().eq(loc, bcd.bump_B_))
       continue;
-    tPool.emplace_back(loc, bcd.groupA_, bcd.bump_, k);
+    tPool.emplace_back(loc, bcd.groupA_, bcd.bump_B_, k);
   }
 
   uint sz = tPool.size();
@@ -885,7 +894,7 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   mode_names_.reserve(col_headers_.size());
   start_MODE_col_ = 0;
   for (uint col = 0; col < col_headers_.size(); col++) {
-    string col_label = label_column(col);
+    string col_label = label_of_column(col);
     const string& orig_hdr_i = col_headers_[col]; // before case conversion
     hdr_i = orig_hdr_i;
 
@@ -1114,15 +1123,15 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
 
   for (uint i = 0; i < num_rows; i++) {
     BCD& bcd = *bcd_[i];
-    bcd.bump_ = bump_pin_name[i];
-    if (bcd.bump_.empty()) {
+    bcd.bump_B_ = bump_pin_name[i];
+    if (bcd.bump_B_.empty()) {
       if (bcd.customerInternal().empty() && tr >= 4) {
-        lprintf(" (WW) both bcd.bump_ and bcd.customerInternal_ are empty on row# %u\n", i);
+        lprintf(" (WW) both bcd.bump_B_ and bcd.customerInternal_ are empty on row# %u\n", i);
         // assert(0);
       }
     }
     bcd.normalize();
-    // assert(!bcd.bump_.empty()); // no-assert, could be clock: colM = F2CLK
+    // assert(!bcd.bump_B_.empty()); // no-assert, could be clock: colM = F2CLK
   }
 
   flush_out(false);
@@ -1225,14 +1234,24 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
     }
   }
 
+  bool always_print = ::getenv("pinc_always_print_csv");
+  bool write_debug = (tr >= 8 or ::getenv("pinc_write_debug_csv"));
+
   if (tr >= 6) {
     flush_out(false);
     print_bcd_stats(lout());
     flush_out(true);
     print_axi_bcd(lout());
     flush_out(false);
-    print_csv();
+    if (tr >= 7 or always_print) {
+      print_csv();
+    }
+  } else if (always_print) {
+      print_csv();
   }
+
+  if (write_debug)
+    write_debug_csv();
 
   flush_out(false);
   return true;
@@ -1336,13 +1355,15 @@ uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept {
 }
 
 void RapidCsvReader::print_csv() const {
-  flush_out(false);
+  flush_out(true);
   lputs("print_csv()");
   auto& ls = lout();
   ls << "#row\tBump/Pin Name \t Customer Name \t Ball ID "
-     << "\t IO_tile_pin\t IO_tile_pin_x\tIO_tile_pin_y\tIO_tile_pin_z"
+     << "   IO_tile_pin\t X   Y   Z"
+     << " \t column-M"
+     << "    rxtx_dir"
      << " \t Customer Internal Name" << endl;
-  string dash = str::sReplicate('-', 139u);
+  string dash = str::sReplicate('-', 131u);
   ls << dash << endl;
 
   uint num_rows = numRows();
@@ -1351,17 +1372,93 @@ void RapidCsvReader::print_csv() const {
     const BCD& b = *bcd_[i];
     const XYZ& p = b.xyz_;
     lprintf("%-5u ", i + 2);
-    lprintf(" %12s ", b.bump_.c_str());
+    lprintf(" %12s ", b.bump_B_.c_str());
     lprintf(" %22s ", b.customer_.c_str());
     lprintf(" %6s ", b.ball_ID_.c_str());
     ls << "\t " << b.IO_tile_pin_ << "\t " << p.x_ << " " << p.y_ << " "
-       << p.z_;
+       << p.z_ << " ";
+    lprintf(" %10s ", b.col_M_.c_str());
+    lprintf(" %16s ", str_Mode_dir(b.rxtx_dir_));
+    if (b.dirContradiction()) {
+      ls << " DIR_CONTRADICTION  ";
+    }
     lprintf(" %22s ", b.customerInternal().c_str());
     ls << endl;
   }
 
   ls << dash << endl;
-  ls << "Total Records: " << num_rows << endl;
+  lprintf("Total Records: %u\n", num_rows);
+  flush_out(true);
+}
+
+void RapidCsvReader::write_debug_csv() const {
+  flush_out(true);
+  string cwd = get_CWD();
+  lprintf("write_debug_csv() in work_dir = %s\n", cwd.c_str());
+
+  CStr fn = "DEBUG_PINC_PT.csv";
+  std::ofstream fos(fn);
+  if (not fos.is_open()) {
+    flush_out(true);
+    lprintf2("ERROR write_debug_csv() could not open file for writing: %s\n", fn);
+    flush_out(true);
+    return;
+  }
+
+  lprintf("  writing %s ...\n", fn);
+
+  fos << "#row\tBump/Pin Name \t Customer Name \t Ball ID "
+      << "   IO_tile_pin\t X   Y   Z"
+      << " \t column-M"
+      << "    rxtx_dir"
+      << " \t Customer Internal Name" << endl;
+  string dash = str::sReplicate('-', 131u);
+  fos << dash << endl;
+
+  uint num_rows = numRows();
+  assert(bcd_.size() == num_rows);
+  for (uint i = 0; i < num_rows; i++) {
+    const BCD& b = *bcd_[i];
+    const XYZ& p = b.xyz_;
+    os_printf(fos, "%-5u ", i + 2);
+    os_printf(fos, " %12s ", b.bump_B_.c_str());
+    os_printf(fos, " %22s ", b.customer_.c_str());
+    os_printf(fos, " %6s ", b.ball_ID_.c_str());
+    fos << "\t " << b.IO_tile_pin_ << "\t " << p.x_ << " " << p.y_ << " "
+       << p.z_ << " ";
+    os_printf(fos, " %10s ", b.col_M_.c_str());
+    os_printf(fos, " %16s ", str_Mode_dir(b.rxtx_dir_));
+    if (b.dirContradiction()) {
+      os_printf(fos, " DIR_CONTRADICTION  ");
+    }
+    os_printf(fos, " %22s ", b.customerInternal().c_str());
+    fos << endl;
+  }
+
+  fos << dash << endl;
+
+  lprintf("    wrote %s\n", fn);
+  flush_out(true);
+}
+
+vector<uint> RapidCsvReader::get_enabled_rows_for_mode(const string& mode) const noexcept {
+  if (mode.empty())
+    return {};
+  uint col_idx = getModeCol(mode);
+  if (!col_idx)
+    return {};
+  vector<string> col = crd_->getColumn(mode);
+  if (col.empty())
+    return {};
+
+  vector<uint> result;
+  result.reserve(col.size());
+  for (uint r = 0; r < col.size(); r++) {
+    if (col[r] == "Y")
+      result.push_back(r);
+  }
+
+  return result;
 }
 
 XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
@@ -1589,7 +1686,7 @@ string RapidCsvReader::bumpName2CustomerName(
   // tmp linear search
   for (uint i = 0; i < num_rows; i++) {
     const BCD& bcd = *bcd_[i];
-    if (bcd.bump_ == bump_nm) return bcd.customer_;
+    if (bcd.bump_B_ == bump_nm) return bcd.customer_;
   }
 
   return {};
