@@ -139,6 +139,7 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     flush_out(true);
     err_puts();
     lprintf2("  [CRITICAL_WARNING] pin_c: detected XYZ overlap in placed pins\n");
+    incrCriticalWarnings();
     err_puts();
     flush_out(true);
   }
@@ -249,6 +250,7 @@ void PinPlacer::print_stats(const RapidCsvReader& csv) const {
     flush_out(true);
     err_puts();
     lprintf2("  [CRITICAL_WARNING] pin_c: detected XYZ overlap in placed pins\n");
+    incrCriticalWarnings();
     err_puts();
     flush_out(true);
     if (inp_ov.size()) {
@@ -350,6 +352,13 @@ void PinPlacer::print_summary(const string& csv_name) const {
   if (!auto_pcf_created_)
   lprintf("     user-PCF : %s\n", user_pcf_.c_str());
   lprintf("  pinc_trace verbosity= %u\n", tr);
+
+  if (num_critical_warnings_) {
+    flush_out(true);
+    err_puts();
+    lprintf2("  [Error] NOTE CRITICAL_WARNINGs (%u)\n", num_critical_warnings_);
+    flush_out(true);
+  }
 
   ls << "======== end pin_c summary." << endl;
   flush_out(true);
@@ -1352,6 +1361,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
       flush_out(true);
       err_puts();
       lprintf2("  [CRITICAL_WARNING] pin_c: failed getting device pin for input pin: %s\n", pinName.c_str());
+      incrCriticalWarnings();
       err_puts();
       set_err_code("TOO_MANY_INPUTS");
       num_warnings_++;
@@ -1422,6 +1432,7 @@ bool PinPlacer::create_temp_pcf(RapidCsvReader& csv) {
       flush_out(true);
       err_puts();
       lprintf2("  [CRITICAL_WARNING] pin_c: failed getting device pin for output pin: %s\n", pinName.c_str());
+      incrCriticalWarnings();
       err_puts();
       set_err_code("TOO_MANY_OUTPUTS");
       num_warnings_++;
