@@ -206,6 +206,8 @@ public:
   bool no_more_inp_bumps_ = false; // state for get_available_device_pin()
   bool no_more_out_bumps_ = false; //
 
+  bool is_fabric_eblif_ = false;
+
   mutable uint num_warnings_ = 0, num_critical_warnings_ = 0;
   void incrCriticalWarnings() const noexcept { num_critical_warnings_++; }
 

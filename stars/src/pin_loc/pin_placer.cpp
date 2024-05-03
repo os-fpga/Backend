@@ -227,7 +227,7 @@ bool PinPlacer::read_and_write() {
       !(csv_name.empty() || no_b_json || output_name.empty()) &&
       user_pcf_.empty();
 
-  if (tr >= 2) {
+  if (tr >= 4) {
     ls << "\t usage_requirement_1 : " << boolalpha << usage_requirement_1 << endl;
     ls << "\t usage_requirement_2 : " << boolalpha << usage_requirement_2 << endl;
   }
