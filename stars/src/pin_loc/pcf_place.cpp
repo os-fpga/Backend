@@ -445,6 +445,50 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
 
   pcf_pin_cmds_ = std::move(rd_pcf.commands_);
 
+  // translate pin-references in cmds_
+  if (pcf_pin_cmds_.size() and
+      pin_names_translated_ and is_fabric_eblif_ and all_edits_.size()) {
+
+    if (tr >= 6) {
+      lprintf("  ---- pcf_pin_cmds_ before translation (%zu):\n",
+              pcf_pin_cmds_.size());
+      for (const auto& cmd : pcf_pin_cmds_)
+        logVec(cmd, " ");
+      lprintf("  ---- \n");
+    }
+
+    uint numInpTr = 0, numOutTr = 0;
+    string was;
+    for (auto& cmd : pcf_pin_cmds_) {
+      if (cmd.size() < 2)
+        continue;
+      string& pinName = cmd[1];
+      was = pinName;
+      if (findIbufByOldPin(was)) {
+        // input
+        pinName = translatePinName(was, true);
+        if (pinName != was) numInpTr++;
+      } else if (findObufByOldPin(was)) {
+        // output
+        pinName = translatePinName(was, false);
+        if (pinName != was) numOutTr++;
+      }
+    }
+
+    if (tr >= 3) {
+      lprintf("PCF command translation:  #input translations= %u  #output translations= %u\n",
+              numInpTr, numOutTr);
+    }
+
+    if (tr >= 6) {
+      lprintf("  ++++ pcf_pin_cmds_ after translation (%zu):\n",
+              pcf_pin_cmds_.size());
+      for (const auto& cmd : pcf_pin_cmds_)
+        logVec(cmd, " ");
+      lprintf("  ++++ \n");
+    }
+  }
+
   if (tr >= 3) {
     flush_out(true);
     lputs("\t  ***  pin_c  read_pcf  SUCCEEDED  ***");
