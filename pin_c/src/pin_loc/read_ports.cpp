@@ -11,7 +11,36 @@ using namespace std;
 using fio::Fio;
 
 #define CERROR std::cerr << "[Error] "
-#define OUT_ERROR std::cout << "[Error] "
+#define OUT_ERROR lout() << "[Error] "
+
+static bool s_is_fabric_eblif(const string& fn) noexcept {
+  size_t len = fn.length();
+  if (len < 12 or len > 5000)
+    return false;
+  char buf[len + 2] = {};
+  ::strcpy(buf, fn.c_str());
+
+  // replace '/' and '.' by spaces to use space-based tokenizer
+  for (char* p = buf; *p; p++) {
+    if (*p == '/' or *p == '.')
+      *p = ' ';
+  }
+
+  vector<string> W;
+  Fio::split_spa(buf, W);
+  if (W.size() < 2)
+    return false;
+  if (W.back() != "eblif")
+    return false;
+
+  const string& f = W[W.size() - 2];
+  if (f.length() < 7)
+    return false;
+  CStr s = f.c_str();
+
+  return s[0] == 'f' and s[1] == 'a' and s[2] == 'b' and
+         s[3] == 'r' and s[4] == 'i' and s[5] == 'c' and s[6] == '_';
+}
 
 bool PinPlacer::read_design_ports() {
   uint16_t tr = ltrace();
@@ -48,7 +77,7 @@ bool PinPlacer::read_design_ports() {
       }
     }
   } else {
-    if (tr >= 1) lprintf("port_info cmd option not specified => using blif\n");
+    if (tr >= 4) lprintf("port_info cmd option not specified => using blif\n");
   }
 
   if (json_ifs.is_open()) {
@@ -80,7 +109,11 @@ bool PinPlacer::read_design_ports() {
     }
     BlifReader rd_blif;
     if (!rd_blif.read_blif(blif_fn)) {
+      flush_out(true);
+      err_puts();
       CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
+      OUT_ERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
+      flush_out(true);
       return false;
     }
     raw_design_inputs_ = rd_blif.get_inputs();
@@ -95,38 +128,42 @@ bool PinPlacer::read_design_ports() {
       err_puts();
       return false;
     }
+
+    is_fabric_eblif_ = s_is_fabric_eblif(blif_fn);
   }
 
   size_t sz = raw_design_inputs_.size();
   user_design_inputs_.clear();
   user_design_inputs_.resize(sz);
   for (size_t i = 0; i < sz; i++)
-    user_design_inputs_[i].udes_pin_name_ = raw_design_inputs_[i];
+    user_design_inputs_[i].set_udes_pin_name(raw_design_inputs_[i]);
 
   sz = raw_design_outputs_.size();
   user_design_outputs_.clear();
   user_design_outputs_.resize(sz);
   for (size_t i = 0; i < sz; i++)
-    user_design_outputs_[i].udes_pin_name_ = raw_design_outputs_[i];
+    user_design_outputs_[i].set_udes_pin_name(raw_design_outputs_[i]);
 
   if (tr >= 3) {
     flush_out(tr >= 5);
     lprintf(
       "DONE read_design_ports()  #udes_inputs= %zu  #udes_outputs= %zu\n",
       raw_design_inputs_.size(), raw_design_outputs_.size());
+    if (tr >= 4)
+      lprintf("is_fabric_eblif_: %s\n", is_fabric_eblif_ ? "TRUE" : "FALSE");
   }
 
   if (tr >= 5) {
     flush_out(true);
 
     sz = user_design_inputs_.size();
-    lprintf(" ---- dumping user_design_inputs_ (%zu) ----\n", sz);
+    lprintf(" ---- dumping user_design_inputs_ (before translation) (%zu) ----\n", sz);
     for (uint i = 0; i < sz; i++)
       lprintf("  inp-%u  %s\n", i, user_design_input(i).c_str());
     lprintf(" ----\n");
 
     sz = user_design_outputs_.size();
-    lprintf(" ---- dumping user_design_outputs_ (%zu) ----\n", sz);
+    lprintf(" ---- dumping user_design_outputs_ (before translation) (%zu) ----\n", sz);
     for (uint i = 0; i < sz; i++)
       lprintf("  out-%u  %s\n", i, user_design_output(i).c_str());
     lprintf(" ----\n");
@@ -134,6 +171,36 @@ bool PinPlacer::read_design_ports() {
     lprintf(
       "DONE read_design_ports()  #udes_inputs= %zu  #udes_outputs= %zu\n",
       raw_design_inputs_.size(), raw_design_outputs_.size());
+  }
+
+  if (1) {
+    translatePinNames("(read_design_ports)");
+
+    if (tr >= 5) {
+      flush_out(true);
+
+      sz = user_design_inputs_.size();
+      lprintf(" ---- dumping user_design_inputs_ (after translation) (%zu) ----\n", sz);
+      for (uint i = 0; i < sz; i++) {
+        const Pin& pin = user_design_inputs_[i];
+        lprintf("  inp-%u  %s  (was %s)\n", i,
+                pin.udes_pin_name_.c_str(), pin.orig_pin_name_.c_str());
+      }
+      lprintf(" --------\n");
+
+      sz = user_design_outputs_.size();
+      lprintf(" ---- dumping user_design_outputs_ (after translation) (%zu) ----\n", sz);
+      for (uint i = 0; i < sz; i++) {
+        const Pin& pin = user_design_outputs_[i];
+        lprintf("  out-%u  %s  (was %s)\n", i,
+                pin.udes_pin_name_.c_str(), pin.orig_pin_name_.c_str());
+      }
+      lprintf(" --------\n");
+
+      lprintf(
+        "DONE read-and-translate-design-ports  #udes_inputs= %zu  #udes_outputs= %zu\n",
+        raw_design_inputs_.size(), raw_design_outputs_.size());
+    }
   }
 
   flush_out(true);

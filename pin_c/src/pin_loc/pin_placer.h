@@ -135,6 +135,7 @@ public:
 
   PinPlacer(const cmd_line& cl);
   ~PinPlacer();
+  void resetState() noexcept;
 
   bool read_and_write();
 
@@ -206,6 +207,9 @@ public:
   bool no_more_inp_bumps_ = false; // state for get_available_device_pin()
   bool no_more_out_bumps_ = false; //
 
+  bool is_fabric_eblif_ = false;
+  bool pin_names_translated_ = false;
+
   mutable uint num_warnings_ = 0, num_critical_warnings_ = 0;
   void incrCriticalWarnings() const noexcept { num_critical_warnings_++; }
 
@@ -233,6 +237,7 @@ private:
   EditItem* findIbufByOldPin(const string& old_pin) const noexcept;
 
   string translatePinName(const string& pinName, bool is_input) const noexcept;
+  uint translatePinNames(const string& memo) noexcept;
 };
 
 }

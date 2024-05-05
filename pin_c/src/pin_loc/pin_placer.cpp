@@ -129,9 +129,7 @@ static string USAGE_MSG_2 =
 PinPlacer::PinPlacer(const cmd_line& cl)
  : cl_(cl) {
   pin_assign_def_order_ = true;
-  auto_pcf_created_ = false;
-  min_pt_row_ = UINT_MAX;
-  max_pt_row_ = 0;
+  resetState();
 }
 
 PinPlacer::~PinPlacer() {
@@ -157,10 +155,22 @@ PinPlacer::~PinPlacer() {
   }
 }
 
+void PinPlacer::resetState() noexcept {
+  auto_pcf_created_ = false;
+  min_pt_row_ = UINT_MAX;
+  max_pt_row_ = 0;
+  no_more_inp_bumps_ = false;
+  no_more_out_bumps_ = false;
+  is_fabric_eblif_ = false;
+  pin_names_translated_ = false;
+  num_warnings_ = 0;
+  num_critical_warnings_ = 0;
+  clear_err_code();
+}
+
 bool PinPlacer::read_and_write() {
   flush_out(false);
-  num_warnings_ = 0;
-  clear_err_code();
+  resetState();
 
   string xml_name = cl_.get_param("--xml");
   string csv_name = cl_.get_param("--csv");
@@ -227,7 +237,7 @@ bool PinPlacer::read_and_write() {
       !(csv_name.empty() || no_b_json || output_name.empty()) &&
       user_pcf_.empty();
 
-  if (tr >= 2) {
+  if (tr >= 4) {
     ls << "\t usage_requirement_1 : " << boolalpha << usage_requirement_1 << endl;
     ls << "\t usage_requirement_2 : " << boolalpha << usage_requirement_2 << endl;
   }
@@ -307,29 +317,11 @@ bool PinPlacer::read_and_write() {
     if (has_edits) {
       // if auto-PCF and has_edits, translate and de-duplicate
       // user-design ports now, since edits.json could remove some design ports.
-      for (Pin& pin : user_design_inputs_) {
-        pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, true);
-        if (pin.udes_pin_name_ == pin.trans_pin_name_)
-          continue;
-        if (tr >= 3) {
-          lprintf("design input pin TRANSLATED for auto-PCF: %s --> %s\n",
-                   pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
-        }
-        pin.udes_pin_name_ = pin.trans_pin_name_;
-      }
-      flush_out(true);
-      for (Pin& pin : user_design_outputs_) {
-        pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, false);
-        if (pin.udes_pin_name_ == pin.trans_pin_name_)
-          continue;
-        if (tr >= 3) {
-          lprintf("design output pin TRANSLATED for auto-PCF: %s --> %s\n",
-                   pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
-        }
-        pin.udes_pin_name_ = pin.trans_pin_name_;
-      }
-      vector<string> dups;
+      if (not pin_names_translated_)
+        translatePinNames("(auto-PCF)");
+      //
       // de-duplicate inputs
+      vector<string> dups;
       if (user_design_inputs_.size() > 1) {
         bool done = false;
         while (not done) {
@@ -489,6 +481,41 @@ bool PinPlacer::read_and_write() {
     print_summary(csv_name);
   }
   return true;
+}
+
+uint PinPlacer::translatePinNames(const string& memo) noexcept {
+  flush_out(false);
+  uint16_t tr = ltrace();
+  uint cnt = 0;
+  CStr mem = memo.c_str();
+
+  for (Pin& pin : user_design_inputs_) {
+    pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, true);
+    if (pin.udes_pin_name_ == pin.trans_pin_name_)
+      continue;
+    if (tr >= 3) {
+      lprintf("design input pin TRANSLATED %s: %s --> %s\n", mem,
+               pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
+    }
+    pin.udes_pin_name_ = pin.trans_pin_name_;
+    cnt++;
+  }
+
+  flush_out(true);
+  for (Pin& pin : user_design_outputs_) {
+    pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, false);
+    if (pin.udes_pin_name_ == pin.trans_pin_name_)
+      continue;
+    if (tr >= 3) {
+      lprintf("design output pin TRANSLATED %s: %s --> %s\n", mem,
+               pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
+    }
+    pin.udes_pin_name_ = pin.trans_pin_name_;
+    cnt++;
+  }
+
+  pin_names_translated_ = true;
+  return cnt;
 }
 
 } // namespace pln

@@ -16,7 +16,8 @@ struct Pin {
 
   static constexpr uint MAX_PT_COLS = 128;
 
-  string udes_pin_name_;
+  string orig_pin_name_;  // never translated
+  string udes_pin_name_;  // maybe translated
   string trans_pin_name_; // translated due to netlist edits
 
   string device_pin_name_;
@@ -42,11 +43,17 @@ struct Pin {
   }
 
   Pin(const string& u, const string& d, const XYZ& xyz, uint r) noexcept
-    : udes_pin_name_(u), device_pin_name_(d),
+    : orig_pin_name_(u), udes_pin_name_(u),
+      device_pin_name_(d),
       xyz_(xyz), pt_row_(r) {
     rx_modes_.reset();
     tx_modes_.reset();
     all_modes_.reset();
+  }
+
+  void set_udes_pin_name(const string& pn) noexcept {
+    orig_pin_name_ = pn;
+    udes_pin_name_ = pn;
   }
 
   bool is_translated() const noexcept {
@@ -59,6 +66,7 @@ struct Pin {
     rx_modes_.reset();
     tx_modes_.reset();
     all_modes_.reset();
+    orig_pin_name_.clear();
     udes_pin_name_.clear();
     trans_pin_name_.clear();
     device_pin_name_.clear();
