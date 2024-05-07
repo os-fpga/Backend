@@ -44,7 +44,7 @@ struct PinPlacer {
 
     CStr cname() const noexcept { return name_.c_str(); }
 
-    bool isInput()  const noexcept { return module_ == "I_BUF"; }
+    bool isInput()  const noexcept { return module_ == "I_BUF" or module_ == "CLK_BUF"; }
     bool isOutput() const noexcept { return module_ == "O_BUF"; }
 
     struct CmpOldPin {
