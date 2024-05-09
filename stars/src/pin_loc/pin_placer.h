@@ -44,8 +44,12 @@ struct PinPlacer {
 
     CStr cname() const noexcept { return name_.c_str(); }
 
-    bool isInput()  const noexcept { return module_ == "I_BUF" or module_ == "CLK_BUF"; }
-    bool isOutput() const noexcept { return module_ == "O_BUF"; }
+    bool isInput()  const noexcept {
+      return module_ == "I_BUF" or module_ == "CLK_BUF" or module_ == "I_DELAY";
+    }
+    bool isOutput() const noexcept {
+      return module_ == "O_BUF" or module_ == "O_DELAY";
+    }
 
     struct CmpOldPin {
       bool operator()(const EditItem* a, const EditItem* b) const noexcept {
