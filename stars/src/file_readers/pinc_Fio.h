@@ -38,10 +38,8 @@ inline char* p_strdup(CStr p) noexcept {
   return ::strdup(p);
 }
 
-struct Info
-{
+struct Info {
   string name_, absName_;
-
   size_t size_ = 0;
   bool exists_ = false;
   bool accessible_ = false;
@@ -53,6 +51,10 @@ public:
   Info(CStr nm) noexcept;
   Info(const string& nm) noexcept;
   void init() noexcept;
+
+  static string get_abs_name(const string& nm) noexcept;
+  static string get_realpath(const string& nm) noexcept;
+  static string get_basename(const string& nm) noexcept;
 };
 
 class Fio {
@@ -243,7 +245,8 @@ public:
   int64_t countWC(int64_t& numWords) const noexcept;  // ~ wc command
   int64_t printWC(std::ostream& os) const noexcept;   // ~ wc command
 
-  int64_t printLines(std::ostream& os) noexcept;
+  size_t printLines(std::ostream& os) noexcept;
+  int64_t writeFile(const string& nm) noexcept;
 
   char* skipLine(char* curL) noexcept;
   bool advanceLine(char*& curL) noexcept;

@@ -313,6 +313,9 @@ public:
 
   static string label_of_column(int i) noexcept;
 
+  static bool ends_with_rx(const char* z, size_t len) noexcept;
+  static bool ends_with_tx(const char* z, size_t len) noexcept;
+
 private:
 
   bool initCols(const fio::CSV_Reader& crd);

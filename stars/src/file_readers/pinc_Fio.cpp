@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <filesystem>
 
 namespace fio {
@@ -56,6 +57,53 @@ void Info::init() noexcept {
   } catch (...) {
     // noexcept
   }
+}
+
+string Info::get_abs_name(const string& nm) noexcept {
+  namespace fs = std::filesystem;
+  if (nm.empty()) return {};
+  try {
+    fs::path p{nm};
+    p = p.lexically_normal();
+    p = fs::absolute(p);
+    return p.string();
+  } catch (...) {
+    // noexcept
+  }
+  return {};
+}
+
+string Info::get_realpath(const string& nm) noexcept {
+  string abs_nm = get_abs_name(nm);
+  if (abs_nm.empty())
+    return {};
+
+  char buf[8192];
+  buf[0] = 0;
+  buf[1] = 0;
+  buf[8190] = 0;
+  buf[8191] = 0;
+
+  if (::realpath(abs_nm.c_str(), buf)) {
+    return buf;
+  } else {
+    ::perror("realpath()");
+    return abs_nm;
+  }
+}
+
+string Info::get_basename(const string& nm) noexcept {
+  size_t len = nm.length();
+  if (!len or len > 8192)
+    return {};
+
+  char buf[len + 2] = {};
+
+  ::strncpy(buf, nm.c_str(), len);
+
+  CStr bn = ::basename(buf);
+  if (!bn) bn = "";
+  return bn;
 }
 
 void Fio::setTrace(int t) noexcept {
@@ -506,7 +554,7 @@ int64_t MMapReader::printWC(std::ostream& os) const noexcept {
   return numLines;
 }
 
-int64_t MMapReader::printLines(std::ostream& os) noexcept {
+size_t MMapReader::printLines(std::ostream& os) noexcept {
   if (!fsz_ || !sz_ || !buf_ || fnm_.empty()) return 0;
   bool hasl = hasLines();
   if (!hasl) {
@@ -522,6 +570,64 @@ int64_t MMapReader::printLines(std::ostream& os) noexcept {
     os << i << ": " << cs << endl;
   }
   return cnt;
+}
+
+int64_t MMapReader::writeFile(const string& nm) noexcept {
+  if (nm.empty())
+    return -1;
+  if (!fsz_ || !sz_ || !buf_ || fnm_.empty())
+    return -1;
+  if (nm == fnm_)
+    return -1;
+
+  auto tr = trace();
+  CStr cnm = nm.c_str();
+  FILE* f = ::fopen(cnm, "w");
+  if (!f) {
+    if (tr >= 3) {
+      flush_out(true);
+      lprintf("ERROR writeFile() could not open file for writing: %s\n", cnm);
+      flush_out(true);
+    }
+    return -1;
+  }
+
+  if (hasLines()) {
+    // write line-by-line
+    size_t cnt = 0, n = lines_.size();
+    for (size_t i = 0; i < n; i++) {
+      CStr cs = lines_[i];
+      if (!cs || !cs[0]) continue;
+      ::fputs(cs, f);
+      ::fputc('\n', f);
+      if (::ferror(f)) {
+        if (tr >= 3) {
+          flush_out(true);
+          lprintf("ERROR writeFile() error during writing: %s\n", cnm);
+          flush_out(true);
+        }
+        break;
+      }
+      cnt++;
+    }
+    ::fclose(f);
+    return cnt;
+  }
+
+  // no lines, write raw buffer
+  int64_t ret = sz_;
+  ::fwrite(buf_, sz_, 1, f);
+  if (::ferror(f)) {
+    if (tr >= 3) {
+      flush_out(true);
+      lprintf("ERROR writeFile() error during writing: %s\n", cnm);
+      flush_out(true);
+    }
+    ret = -1;
+  }
+
+  ::fclose(f);
+  return ret;
 }
 
 uint64_t MMapReader::hashSum() const noexcept {
