@@ -28,6 +28,8 @@ struct PinPlacer {
     string newPin_;    // "$iopadmap$dout"
                        // newPin_ is always inside fabric, for both ibuf and obuf
 
+    int16_t dir_ = 0;
+
     // use root if there is a chain of buffers
     EditItem* parent_ = nullptr;
     bool isRoot() const noexcept { return ! parent_; }
@@ -43,13 +45,11 @@ struct PinPlacer {
     EditItem() noexcept = default;
 
     CStr cname() const noexcept { return name_.c_str(); }
+    bool isInput()  const noexcept { return dir_ > 0; }
+    bool isOutput() const noexcept { return dir_ < 0; }
 
-    bool isInput()  const noexcept {
-      return module_ == "I_BUF" or module_ == "CLK_BUF" or module_ == "I_DELAY";
-    }
-    bool isOutput() const noexcept {
-      return module_ == "O_BUF" or module_ == "O_DELAY";
-    }
+    bool hasPins() const noexcept { return !oldPin_.empty() and !newPin_.empty(); }
+    void swapPins() noexcept { std::swap(oldPin_, newPin_); }
 
     struct CmpOldPin {
       bool operator()(const EditItem* a, const EditItem* b) const noexcept {
@@ -187,12 +187,17 @@ public:
   bool read_csv_file(RapidCsvReader&);
   bool read_design_ports();
   bool read_edits();
+  void translate_pcf_cmds();
 
   bool read_pcf(const RapidCsvReader&);
 
   bool write_dot_place(const RapidCsvReader&);
 
   bool create_temp_pcf(RapidCsvReader&);
+
+  void get_pcf_directions(vector<string>& inps,
+                          vector<string>& outs,
+                          vector<string>& undefs) const noexcept;
 
   static void shuffle_candidates(vector<int>& v);
 
@@ -222,6 +227,11 @@ public:
 
   bool read_edit_info(std::ifstream& ifs);
   bool check_edit_info() const;
+
+  void finalize_edits() noexcept;
+  void set_edit_dirs(bool initial) noexcept;
+  void link_edits() noexcept;
+  void dump_edits(const string& memo) noexcept;
 
   // map logical clocks to physical clocks. status = 0 if NOP, -1 if error
   int map_clocks();

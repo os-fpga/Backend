@@ -55,13 +55,13 @@ static inline bool ends_with_tx_rx(const char* z, size_t len) noexcept {
          z[len - 3] == '_';
 }
 
-static inline bool ends_with_rx(const char* z, size_t len) noexcept {
+bool RapidCsvReader::ends_with_rx(const char* z, size_t len) noexcept {
   assert(z);
   if (len < 4) return false;
   return z[len - 1] == 'x' and z[len - 2] == 'r' and z[len - 3] == '_';
 }
 
-static inline bool ends_with_tx(const char* z, size_t len) noexcept {
+bool RapidCsvReader::ends_with_tx(const char* z, size_t len) noexcept {
   assert(z);
   if (len < 4) return false;
   return z[len - 1] == 'x' and z[len - 2] == 't' and z[len - 3] == '_';
@@ -263,7 +263,7 @@ struct RX_TX_val {
 
   bool enabled() const noexcept { return val_ == "Y"; }
   bool is_rx() const noexcept {
-    return ends_with_rx(hdr_.c_str(), hdr_.length());
+    return RapidCsvReader::ends_with_rx(hdr_.c_str(), hdr_.length());
   }
 };
 
@@ -1236,6 +1236,9 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
 
   bool always_print = ::getenv("pinc_always_print_csv");
   bool write_debug = (tr >= 8 or ::getenv("pinc_write_debug_csv"));
+  bool copy_to_CWD = always_print or write_debug;
+  if (!copy_to_CWD)
+    copy_to_CWD = ::getenv("pinc_copy_input");
 
   if (tr >= 6) {
     flush_out(false);
@@ -1252,6 +1255,31 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
 
   if (write_debug)
     write_debug_csv();
+
+  if (copy_to_CWD) {
+    string cwd = get_CWD();
+    string bn = fio::Info::get_basename(fn);
+    string cn = str::concat("cp_", bn); 
+
+    if (tr >= 4) {
+      flush_out(true);
+      lprintf("read_csv: copy_to_CWD in work_dir = %s\n", cwd.c_str());
+      lprintf("  input csv: %s\n", fn.c_str());
+      lprintf("   basename: %s\n", bn.c_str());
+      lprintf("   copyname: %s\n", cn.c_str());
+      flush_out(true);
+    }
+
+    int64_t wr_status = crd.writeFile(cn);
+    if (wr_status > 0) {
+      if(tr >= 4)
+        lprintf("read_csv: copy_to_CWD OK  wr_status= %zu\n", size_t(wr_status));
+    } else {
+      if(tr >= 3)
+        lprintf("read_csv: copy_to_CWD FAILED\n");
+    }
+    flush_out(true);
+  }
 
   flush_out(false);
   return true;

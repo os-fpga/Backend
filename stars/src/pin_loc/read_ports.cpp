@@ -173,36 +173,6 @@ bool PinPlacer::read_design_ports() {
       raw_design_inputs_.size(), raw_design_outputs_.size());
   }
 
-  if (1) {
-    translatePinNames("(read_design_ports)");
-
-    if (tr >= 5) {
-      flush_out(true);
-
-      sz = user_design_inputs_.size();
-      lprintf(" ---- dumping user_design_inputs_ (after translation) (%zu) ----\n", sz);
-      for (uint i = 0; i < sz; i++) {
-        const Pin& pin = user_design_inputs_[i];
-        lprintf("  inp-%u  %s  (was %s)\n", i,
-                pin.udes_pin_name_.c_str(), pin.orig_pin_name_.c_str());
-      }
-      lprintf(" --------\n");
-
-      sz = user_design_outputs_.size();
-      lprintf(" ---- dumping user_design_outputs_ (after translation) (%zu) ----\n", sz);
-      for (uint i = 0; i < sz; i++) {
-        const Pin& pin = user_design_outputs_[i];
-        lprintf("  out-%u  %s  (was %s)\n", i,
-                pin.udes_pin_name_.c_str(), pin.orig_pin_name_.c_str());
-      }
-      lprintf(" --------\n");
-
-      lprintf(
-        "DONE read-and-translate-design-ports  #udes_inputs= %zu  #udes_outputs= %zu\n",
-        raw_design_inputs_.size(), raw_design_outputs_.size());
-    }
-  }
-
   flush_out(true);
   return true;
 }
@@ -544,12 +514,93 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
         last.newPin_ = propObj["I"];
       if (propObj.contains("O"))
         last.oldPin_ = propObj["O"];
-      if (last.isInput()) // swap pins if I_BUF
-        std::swap(last.newPin_, last.oldPin_);
     }
   }
 
   return not items.empty();
+}
+
+void PinPlacer::link_edits() noexcept {
+  if (all_edits_.empty())
+    return;
+
+  size_t sz = all_edits_.size();
+  ibufs_.clear();
+  obufs_.clear();
+  ibufs_.reserve(sz);
+  obufs_.reserve(sz);
+  for (size_t i = 0; i < sz; i++) {
+    EditItem& ed = all_edits_[i];
+    if (ed.isInput())
+      ibufs_.push_back(&ed);
+    else if (ed.isOutput())
+      obufs_.push_back(&ed);
+  }
+
+  ibufs_SortedByOld_ = ibufs_;
+  obufs_SortedByOld_ = obufs_;
+  std::sort(ibufs_SortedByOld_.begin(), ibufs_SortedByOld_.end(), EditItem::CmpOldPin());
+  std::sort(obufs_SortedByOld_.begin(), obufs_SortedByOld_.end(), EditItem::CmpOldPin());
+
+  // link obuf chains:
+  for (EditItem* e : obufs_) {
+    EditItem& ed = *e;
+    ed.parent_ = findObufByOldPin(ed.newPin_);
+  }
+  // link ibuf chains:
+  for (EditItem* e : ibufs_) {
+    EditItem& ed = *e;
+    ed.parent_ = findIbufByOldPin(ed.newPin_);
+  }
+  flush_out(false);
+}
+
+void PinPlacer::dump_edits(const string& memo) noexcept {
+  uint16_t tr = ltrace();
+  flush_out(tr >= 3);
+
+  uint esz = all_edits_.size();
+  lprintf("  [%s]  all_edits_.size()= %u   #input= %zu   #output= %zu\n",
+          memo.c_str(), esz, ibufs_.size(), obufs_.size());
+
+  if (tr >= 5) {
+    vector<uint> undefs;
+    lprintf("  ==== [%s] ==== dumping all_edits ====\n", memo.c_str());
+    for (uint i = 0; i < esz; i++) {
+      const EditItem& ed = all_edits_[i];
+      lprintf(
+          "   |%u|  name_:%s   mode_:%s  dir:%i    old: %s  new: %s\n",
+          i+1, ed.cname(),  ed.mode_.c_str(),
+          ed.dir_, ed.oldPin_.c_str(), ed.newPin_.c_str());
+      if (!ed.dir_)
+        undefs.push_back(i);
+    }
+    lprintf("  ---- obufs (%zu) ----\n", obufs_.size());
+    for (const EditItem* e : obufs_SortedByOld_) {
+      const EditItem& ed = *e;
+      lprintf("  name_:%s  dir:%i   old: %s  new %s  R:%i\n",
+              ed.cname(), ed.dir_,
+              ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
+    }
+    lprintf("  ---- ibufs (%zu) ----\n", ibufs_.size());
+    for (const EditItem* e : ibufs_SortedByOld_) {
+      const EditItem& ed = *e;
+      lprintf("  name_:%s  dir:%i   old %s  new %s  R:%i\n",
+              ed.cname(), ed.dir_,
+              ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
+    }
+    lputs("  ====");
+    if (! undefs.empty()) {
+      lprintf("  >>>==== NOTE undefs (%zu) ====\n", undefs.size());
+      for (uint u : undefs) {
+        const EditItem& ed = all_edits_[u];
+        lprintf(
+            "   |u#%u|  name_:%s     old: %s   new: %s\n",
+            u, ed.cname(), ed.oldPin_.c_str(), ed.newPin_.c_str());
+      }
+    }
+    lputs("  ====");
+  }
 }
 
 bool PinPlacer::read_edit_info(std::ifstream& ifs) {
@@ -609,8 +660,6 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
     CERROR << "pin_c: read_edits: json schema exception" << endl;
     flush_out(true);
     all_edits_.clear();
-    ibufs_.clear();
-    obufs_.clear();
     return false;
   }
 
@@ -621,22 +670,16 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
 
   flush_out(false);
 
+  ibufs_.clear();
+  obufs_.clear();
+
   if (ok) {
-    size_t sz = all_edits_.size();
-    ibufs_.reserve(sz);
-    obufs_.reserve(sz);
-    for (size_t i = 0; i < sz; i++) {
-      EditItem& item = all_edits_[i];
-      if (item.isInput())
-        ibufs_.push_back(&item);
-      else if (item.isOutput())
-        obufs_.push_back(&item);
-    }
+    set_edit_dirs(true);
   } else {
     all_edits_.clear();
-    ibufs_.clear();
-    obufs_.clear();
   }
+
+  // assert(ibufs_.size() + obufs_.size() == all_edits_.size());
 
   size_t num_inp_out = ibufs_.size() + obufs_.size();
   if (num_inp_out == 0) {
@@ -644,54 +687,8 @@ bool PinPlacer::read_edit_info(std::ifstream& ifs) {
     return false;
   }
 
-  // sort for binary search
-  ibufs_SortedByOld_ = ibufs_;
-  obufs_SortedByOld_ = obufs_;
-  std::sort(ibufs_SortedByOld_.begin(), ibufs_SortedByOld_.end(), EditItem::CmpOldPin());
-  std::sort(obufs_SortedByOld_.begin(), obufs_SortedByOld_.end(), EditItem::CmpOldPin());
-
-  // link obuf chains:
-  for (EditItem* e : obufs_) {
-    EditItem& ed = *e;
-    ed.parent_ = findObufByOldPin(ed.newPin_);
-  }
-  // link ibuf chains:
-  for (EditItem* e : ibufs_) {
-    EditItem& ed = *e;
-    ed.parent_ = findIbufByOldPin(ed.newPin_);
-  }
-
-  flush_out(false);
-
   if (tr >= 4) {
-    uint esz = all_edits_.size();
-    lprintf("  all_edits_.size()= %u   #input= %zu   #output= %zu\n",
-            esz, ibufs_.size(), obufs_.size());
-    if (tr >= 5) {
-      lprintf("  ==== dumping all_edits ====\n");
-      for (uint i = 0; i < esz; i++) {
-        const EditItem& ed = all_edits_[i];
-        lprintf(
-            "    |%u|  name_:%s  loc_:%s  mode_:%s  input:%i  output:%i  oldPin:%s  newPin:%s\n",
-            i+1, ed.cname(), ed.location_.c_str(), ed.mode_.c_str(),
-            ed.isInput(), ed.isOutput(), ed.oldPin_.c_str(), ed.newPin_.c_str());
-      }
-      lprintf("  ---- obufs (%zu) ----\n", obufs_.size());
-      for (const EditItem* e : obufs_SortedByOld_) {
-        const EditItem& ed = *e;
-        lprintf("   name_:%s  loc_:%s  input:%i  output:%i  oldPin:%s  newPin:%s  isRoot:%i\n",
-                ed.cname(), ed.location_.c_str(), ed.isInput(), ed.isOutput(),
-                ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
-      }
-      lprintf("  ---- ibufs (%zu) ----\n", ibufs_.size());
-      for (const EditItem* e : ibufs_SortedByOld_) {
-        const EditItem& ed = *e;
-        lprintf("   name_:%s  loc_:%s  input:%i  output:%i  oldPin:%s  newPin:%s  isRoot:%i\n",
-                ed.cname(), ed.location_.c_str(), ed.isInput(), ed.isOutput(),
-                ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
-      }
-      lputs("  ====");
-    }
+    dump_edits("initial");
   }
 
   flush_out(false);
@@ -742,7 +739,7 @@ bool PinPlacer::check_edit_info() const {
     err_puts();
     for (const EditItem* ep : obuf_ov) {
       const EditItem& ed = *ep;
-      lprintf2(" [CRITICAL_WARNING] [OBUF-OVERLAP]   name_:%s  input:%i  output:%i  oldPin:%s  newPin:%s\n",
+      lprintf2(" [CRITICAL_WARNING] [OBUF-OVERLAP]   name_:%s  input:%i  output:%i  old %s  new %s\n",
                ed.cname(), ed.isInput(), ed.isOutput(),
                ed.oldPin_.c_str(), ed.newPin_.c_str());
     }
@@ -759,7 +756,7 @@ bool PinPlacer::check_edit_info() const {
     err_puts();
     for (const EditItem* ep : ibuf_ov) {
       const EditItem& ed = *ep;
-      lprintf2(" [CRITICAL_WARNING] [IBUF-OVERLAP]   name_:%s  input:%i  output:%i  oldPin:%s  newPin:%s\n",
+      lprintf2(" [CRITICAL_WARNING] [IBUF-OVERLAP]   name_:%s  input:%i  output:%i  old %s  new %s\n",
                ed.cname(), ed.isInput(), ed.isOutput(),
                ed.oldPin_.c_str(), ed.newPin_.c_str());
     }
@@ -769,6 +766,151 @@ bool PinPlacer::check_edit_info() const {
 
   flush_out(false);
   return obuf_ov.empty() and ibuf_ov.empty();
+}
+
+void PinPlacer::set_edit_dirs(bool initial) noexcept {
+  if (all_edits_.empty())
+    return;
+  assert(all_edits_.size() < UINT_MAX - 1);
+
+  vector<uint> undefs;
+  uint sz = all_edits_.size();
+
+  if (initial) {
+    assert(ibufs_.empty() and obufs_.empty());
+    ibufs_.clear();
+    obufs_.clear();
+    for (uint i = 0; i < sz; i++) {
+      EditItem& item = all_edits_[i];
+      assert(item.dir_ == 0);
+      const string& mod = item.module_;
+      if (mod == "I_BUF" or mod == "CLK_BUF" or mod == "I_DELAY")
+        item.dir_ = 1;
+      else if (mod == "O_BUF" or mod == "O_DELAY")
+        item.dir_ = -1;
+      else if (item.hasPins())
+        undefs.push_back(i);
+    }
+  }
+  else {
+    for (uint i = 0; i < sz; i++) {
+      const EditItem& ed = all_edits_[i];
+      if (ed.dir_ == 0 and ed.hasPins())
+        undefs.push_back(i);
+    }
+  }
+
+  if (not undefs.empty()) {
+
+    std::unordered_set<string> IN, OUT;
+    IN.reserve(2 * raw_design_inputs_.size() +  1);
+    OUT.reserve(2 * raw_design_outputs_.size() +  1);
+    IN.insert( raw_design_inputs_.begin(), raw_design_inputs_.end() );
+    OUT.insert( raw_design_outputs_.begin(), raw_design_outputs_.end() );
+
+    if (not initial) {
+      vector<string> pcf_inps, pcf_outs, tmp;
+      get_pcf_directions(pcf_inps, pcf_outs, tmp);
+      IN.insert( pcf_inps.begin(), pcf_inps.end() );
+      OUT.insert( pcf_outs.begin(), pcf_outs.end() );
+    }
+
+    vector<uint> next;
+    bool done = false;
+    while (not done) {
+      done = true;
+      next.clear();
+
+      for (uint u : undefs) {
+        EditItem& item = all_edits_[u];
+        assert(item.dir_ == 0);
+        if (!item.hasPins())
+          continue;
+
+        if (IN.count(item.oldPin_)) {
+          item.dir_ = 1;
+          IN.insert(item.newPin_);
+          done = false;
+        }
+        else if (OUT.count(item.oldPin_)) {
+          item.dir_ = -1;
+          OUT.insert(item.newPin_);
+          done = false;
+        }
+
+        else if (IN.count(item.newPin_)) {
+          item.dir_ = 1;
+          IN.insert(item.oldPin_);
+          done = false;
+        }
+        else if (OUT.count(item.newPin_)) {
+          item.dir_ = -1;
+          OUT.insert(item.oldPin_);
+          done = false;
+        }
+
+        else {
+          next.push_back(u);
+        }
+      }
+
+      if (done)
+        break;
+      std::swap(next, undefs);
+    }
+
+  }
+
+  if (not initial) {
+    for (EditItem& ed : all_edits_) {
+      if (ed.isInput())
+        ed.swapPins();
+    }
+  }
+
+  link_edits();
+}
+
+// adjust edits based on PCF pin-lists
+void PinPlacer::finalize_edits() noexcept {
+  uint16_t tr = ltrace();
+  flush_out(tr >= 6);
+
+  set_edit_dirs(false);
+
+  if (tr >= 4) {
+    dump_edits("final");
+  }
+
+  translatePinNames("(finalize_edits)");
+
+  if (tr >= 5) {
+    flush_out(true);
+
+    size_t sz = user_design_inputs_.size();
+    lprintf(" ==== final dumping user_design_inputs_ (%zu) ----\n", sz);
+    for (uint i = 0; i < sz; i++) {
+      const Pin& pin = user_design_inputs_[i];
+      lprintf("  inp-%u  %s  (was %s)\n", i,
+              pin.udes_pin_name_.c_str(), pin.orig_pin_name_.c_str());
+    }
+    lprintf(" --------\n");
+
+    sz = user_design_outputs_.size();
+    lprintf(" ==== final dumping user_design_outputs_ (%zu) ----\n", sz);
+    for (uint i = 0; i < sz; i++) {
+      const Pin& pin = user_design_outputs_[i];
+      lprintf("  out-%u  %s  (was %s)\n", i,
+              pin.udes_pin_name_.c_str(), pin.orig_pin_name_.c_str());
+    }
+    lprintf(" --------\n");
+
+    lprintf(
+      "DONE translate-design-ports  #udes_inputs= %zu  #udes_outputs= %zu\n",
+      raw_design_inputs_.size(), raw_design_outputs_.size());
+  }
+
+  translate_pcf_cmds();
 }
 
 PinPlacer::EditItem* PinPlacer::findObufByOldPin(const string& old_pin) const noexcept {

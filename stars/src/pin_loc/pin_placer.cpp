@@ -304,14 +304,14 @@ bool PinPlacer::read_and_write() {
     return false;
   }
 
-  // --4 optionally, read netlist edits (--edits option)
+  // --4. read netlist edits (--edits option)
   bool has_edits = read_edits();
   flush_out(false);
   if (tr >= 3)
     lprintf("\t  has_edits : %i\n", has_edits);
 
 
-  // usage 2: if no user pcf is provided, created a temp one
+  // if no user pcf is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && user_pcf_ == "")) {
     flush_out(true);
     if (has_edits) {
@@ -445,7 +445,10 @@ bool PinPlacer::read_and_write() {
     return false;
   }
 
-  // --6. create .place file
+  // --6. adjust edits based on PCF pin-lists
+  finalize_edits();
+
+  // --7. create .place file
   if (!write_dot_place(csv_rd)) {
     // error messages will be issued in callee
     if (tr) {
@@ -458,7 +461,7 @@ bool PinPlacer::read_and_write() {
     return false;
   }
 
-  // --7. optionally, map logical clocks to physical clocks
+  // --8. optionally, map logical clocks to physical clocks
   //      status = 0 if NOP, -1 if error
   int map_clk_status = map_clocks();
   if (map_clk_status < 0) {

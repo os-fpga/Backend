@@ -445,9 +445,22 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
 
   pcf_pin_cmds_ = std::move(rd_pcf.commands_);
 
-  // translate pin-references in cmds_
-  if (pcf_pin_cmds_.size() and
-      pin_names_translated_ and is_fabric_eblif_ and all_edits_.size()) {
+  if (tr >= 3) {
+    flush_out(true);
+    lputs("\t  ***  pin_c  read_pcf  SUCCEEDED  ***");
+  }
+
+  return true;
+}
+
+void PinPlacer::translate_pcf_cmds() {
+  if (pcf_pin_cmds_.empty() or all_edits_.empty())
+    return;
+
+  uint16_t tr = ltrace();
+  flush_out(tr >= 6);
+
+  if (1) {
 
     if (tr >= 6) {
       lprintf("  ---- pcf_pin_cmds_ before translation (%zu):\n",
@@ -475,6 +488,7 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
       }
     }
 
+    flush_out(tr >= 6);
     if (tr >= 3) {
       lprintf("PCF command translation:  #input translations= %u  #output translations= %u\n",
               numInpTr, numOutTr);
@@ -486,15 +500,44 @@ bool PinPlacer::read_pcf(const RapidCsvReader& csv) {
       for (const auto& cmd : pcf_pin_cmds_)
         logVec(cmd, " ");
       lprintf("  ++++ \n");
+      flush_out(true);
     }
   }
 
-  if (tr >= 3) {
-    flush_out(true);
-    lputs("\t  ***  pin_c  read_pcf  SUCCEEDED  ***");
-  }
+  flush_out(false);
+}
 
-  return true;
+void PinPlacer::get_pcf_directions( vector<string>& inps, vector<string>& outs,
+                          vector<string>& undefs ) const noexcept {
+  inps.clear();
+  outs.clear();
+  undefs.clear();
+
+  if (pcf_pin_cmds_.empty())
+    return;
+
+  size_t n = pcf_pin_cmds_.size();
+  inps.reserve(n/2 + 2);
+  outs.reserve(n/2 + 2);
+
+  string mod;
+  for (const vector<string>& cmd : pcf_pin_cmds_) {
+    if (cmd.size() < 5)
+      continue;
+    const string& pin = cmd[1];
+    assert(!pin.empty());
+    if (pin.empty())
+      continue;
+    mod = str::s2lower(cmd[4]);
+    CStr cmod = mod.c_str();
+    size_t len = mod.length();
+    if (RapidCsvReader::ends_with_rx(cmod, len))
+      inps.push_back(pin);
+    else if (RapidCsvReader::ends_with_tx(cmod, len))
+      outs.push_back(pin);
+    else
+      undefs.push_back(pin);
+  }
 }
 
 bool PinPlacer::write_dot_place(const RapidCsvReader& csv) {
@@ -515,6 +558,13 @@ bool PinPlacer::write_dot_place(const RapidCsvReader& csv) {
       for (const auto& cmd : pcf_pin_cmds_) {
         logVec(cmd, " ");
       }
+      lprintf("  ___\n");
+      vector<string> inps, outs, undefs;
+      get_pcf_directions(inps, outs, undefs);
+      lprintf("  ___\n");
+      logVec(inps, "   [pcf_inputs] ");
+      lprintf("  ___\n");
+      logVec(outs, "  [pcf_outputs] ");
       lprintf("  ___\n");
     }
   }
