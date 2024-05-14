@@ -489,9 +489,12 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
     PinPlacer::EditItem& last = items.back();
     last.name_ = obj["name"];
 
-    // 3. read 'module'
+    // 3. read 'module' and 'js_dir'
     if (obj.contains("module")) {
       last.module_ = obj["module"];
+    }
+    if (obj.contains("direction")) {
+      last.js_dir_ = obj["direction"];
     }
 
     if (tr >= 6) {
@@ -528,10 +531,17 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
       if (!has_new and !has_old and cont_1 and cont_2) {
         last.newPin_ = propObj["D"];
         auto Q_obj = propObj["Q"];
-        if (Q_obj.is_array())
-          last.oldPin_ = Q_obj[0];
-        else
+        if (Q_obj.is_array()) {
+          size_t q_sz = Q_obj.size();
+          if (q_sz) {
+            last.oldPin_ = Q_obj[0];
+            last.Q_bus_.resize(q_sz);
+            for (size_t i = 0; i < q_sz; i++)
+              last.Q_bus_[i] = Q_obj[i];
+          }
+        } else {
           last.oldPin_ = Q_obj;
+        }
         has_new = true;
         has_old = true;
       }
@@ -606,25 +616,33 @@ void PinPlacer::dump_edits(const string& memo) noexcept {
     for (uint i = 0; i < esz; i++) {
       const EditItem& ed = all_edits_[i];
       lprintf(
-          "   |%u|  name_:%s   mode_:%s  dir:%i    old: %s  new: %s\n",
-          i+1, ed.cname(),  ed.mode_.c_str(),
-          ed.dir_, ed.oldPin_.c_str(), ed.newPin_.c_str());
+          "   |%u|   %s   module: %s  js_dir:%s  dir:%i    old: %s  new: %s",
+          i+1, ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.dir_, ed.c_old(), ed.c_new());
+      if (ed.isBus())
+        lprintf("  BUS-%u", ed.busSize());
+      lputs();
       if (!ed.dir_)
         undefs.push_back(i);
     }
     lprintf("  ---- obufs (%zu) ----\n", obufs_.size());
     for (const EditItem* e : obufs_SortedByOld_) {
       const EditItem& ed = *e;
-      lprintf("  name_:%s  dir:%i   old: %s  new %s  R:%i\n",
-              ed.cname(), ed.dir_,
-              ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
+      lprintf("  nm:%s  module: %s  js_dir:%s  dir:%i   old: %s  new %s  R:%i",
+              ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.dir_,
+              ed.c_old(), ed.c_new(), ed.isRoot());
+      if (ed.isBus())
+        lprintf("  BUS-%u", ed.busSize());
+      lputs();
     }
     lprintf("  ---- ibufs (%zu) ----\n", ibufs_.size());
     for (const EditItem* e : ibufs_SortedByOld_) {
       const EditItem& ed = *e;
-      lprintf("  name_:%s  dir:%i   old %s  new %s  R:%i\n",
-              ed.cname(), ed.dir_,
-              ed.oldPin_.c_str(), ed.newPin_.c_str(), ed.isRoot());
+      lprintf("  nm:%s  module: %s  js_dir:%s  dir:%i   old %s  new %s  R:%i",
+              ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.dir_,
+              ed.c_old(), ed.c_new(), ed.isRoot());
+      if (ed.isBus())
+        lprintf("  BUS-%u", ed.busSize());
+      lputs();
     }
     lputs("  ====");
     if (! undefs.empty()) {
@@ -632,8 +650,8 @@ void PinPlacer::dump_edits(const string& memo) noexcept {
       for (uint u : undefs) {
         const EditItem& ed = all_edits_[u];
         lprintf(
-            "   |u#%u|  name_:%s     old: %s   new: %s\n",
-            u, ed.cname(), ed.oldPin_.c_str(), ed.newPin_.c_str());
+            "   |u#%u|  nm:%s  module: %s  js_dir:%s  old: %s   new: %s\n",
+            u, ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.c_old(), ed.c_new());
       }
     }
     lputs("  ====");
