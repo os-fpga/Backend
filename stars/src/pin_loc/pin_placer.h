@@ -22,11 +22,12 @@ struct PinPlacer {
   struct EditItem {
     string name_;      // "$iopadmap$flop2flop.dout"
     string module_;    // "O_BUF"
+    string js_dir_;    // "OUT", "IN"
     string location_;  // "HR_5_0_0P"
     string mode_;      // "Mode_BP_SDR_A_TX"
     string oldPin_;    // "dout",
-    string newPin_;    // "$iopadmap$dout"
-                       // newPin_ is always inside fabric, for both ibuf and obuf
+    string newPin_;    // newPin_ is always inside fabric, for both ibuf and obuf
+    vector<string> Q_bus_;
 
     int16_t dir_ = 0;
 
@@ -44,9 +45,16 @@ struct PinPlacer {
 
     EditItem() noexcept = default;
 
+    CStr c_jsdir() const noexcept { return js_dir_.c_str(); }
     CStr cname() const noexcept { return name_.c_str(); }
+    CStr c_mod() const noexcept { return module_.c_str(); }
+    CStr c_old() const noexcept { return oldPin_.c_str(); }
+    CStr c_new() const noexcept { return newPin_.c_str(); }
+
     bool isInput()  const noexcept { return dir_ > 0; }
     bool isOutput() const noexcept { return dir_ < 0; }
+    bool isBus() const noexcept { return Q_bus_.size(); }
+    uint busSize() const noexcept { return Q_bus_.size(); }
 
     bool hasPins() const noexcept { return !oldPin_.empty() and !newPin_.empty(); }
     void swapPins() noexcept { std::swap(oldPin_, newPin_); }
