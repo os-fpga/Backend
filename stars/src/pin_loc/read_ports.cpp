@@ -527,7 +527,11 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
       bool cont_2 = propObj.contains("Q");
       if (!has_new and !has_old and cont_1 and cont_2) {
         last.newPin_ = propObj["D"];
-        last.oldPin_ = propObj["Q"];
+        auto Q_obj = propObj["Q"];
+        if (Q_obj.is_array())
+          last.oldPin_ = Q_obj[0];
+        else
+          last.oldPin_ = Q_obj;
         has_new = true;
         has_old = true;
       }
