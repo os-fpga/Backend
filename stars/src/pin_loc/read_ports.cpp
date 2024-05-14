@@ -488,32 +488,65 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
     // 2. read 'name'
     PinPlacer::EditItem& last = items.back();
     last.name_ = obj["name"];
-    if (tr >= 8) ls << " ........ last.name_ " << last.name_ << endl;
 
     // 3. read 'module'
     if (obj.contains("module")) {
       last.module_ = obj["module"];
     }
 
-    // 3. read 'location'
+    if (tr >= 6) {
+      ls << "rd_js_items ---  .name_= " << last.name_
+         << "  .module_= " << last.module_ << endl;
+    }
+
+    // 4. read 'location'
     if (obj.contains("location")) {
       last.location_ = obj["location"];
     }
 
-    // 4. read 'mode'
+    // 5. read 'mode'
     if (obj.contains("properties")) {
       const auto& propObj = obj["properties"];
       if (propObj.contains("mode"))
         last.mode_ = propObj["mode"];
     }
 
-    // 5. read oldPin_/newPin_
+    // 6. read oldPin_/newPin_
     if (obj.contains("connectivity")) {
       const auto& propObj = obj["connectivity"];
-      if (propObj.contains("I"))
+      bool has_new = false, has_old = false;
+      if (propObj.contains("I")) {
         last.newPin_ = propObj["I"];
-      if (propObj.contains("O"))
+        has_new = true;
+      }
+      if (propObj.contains("O")) {
         last.oldPin_ = propObj["O"];
+        has_old = true;
+      }
+      bool cont_1 = propObj.contains("D");
+      bool cont_2 = propObj.contains("Q");
+      if (!has_new and !has_old and cont_1 and cont_2) {
+        last.newPin_ = propObj["D"];
+        last.oldPin_ = propObj["Q"];
+        has_new = true;
+        has_old = true;
+      }
+      cont_1 = propObj.contains("I_P");
+      cont_2 = propObj.contains("O");
+      if ((!has_new or !has_old) and cont_1 and cont_2) {
+        last.newPin_ = propObj["I_P"];
+        last.oldPin_ = propObj["O"];
+        has_new = true;
+        has_old = true;
+      }
+      cont_1 = propObj.contains("I");
+      cont_2 = propObj.contains("O_P");
+      if ((!has_new or !has_old) and cont_1 and cont_2) {
+        last.newPin_ = propObj["I"];
+        last.oldPin_ = propObj["O_P"];
+        has_new = true;
+        has_old = true;
+      }
     }
   }
 
@@ -784,9 +817,9 @@ void PinPlacer::set_edit_dirs(bool initial) noexcept {
       EditItem& item = all_edits_[i];
       assert(item.dir_ == 0);
       const string& mod = item.module_;
-      if (mod == "I_BUF" or mod == "CLK_BUF" or mod == "I_DELAY")
+      if (mod == "I_BUF" or mod == "CLK_BUF" or mod == "I_DELAY" or mod == "I_SERDES")
         item.dir_ = 1;
-      else if (mod == "O_BUF" or mod == "O_DELAY")
+      else if (mod == "O_BUF" or mod == "O_DELAY" or mod == "O_SERDES")
         item.dir_ = -1;
       else if (item.hasPins())
         undefs.push_back(i);
