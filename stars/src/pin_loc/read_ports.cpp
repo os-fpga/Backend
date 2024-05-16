@@ -526,10 +526,26 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
         last.oldPin_ = propObj["O"];
         has_old = true;
       }
+
       bool cont_1 = propObj.contains("D");
       bool cont_2 = propObj.contains("Q");
       if (!has_new and !has_old and cont_1 and cont_2) {
-        last.newPin_ = propObj["D"];
+
+        // read "D", can be array
+        auto D_obj = propObj["D"];
+        if (D_obj.is_array()) {
+          size_t q_sz = D_obj.size();
+          if (q_sz) {
+            last.newPin_ = D_obj[0];
+            last.D_bus_.resize(q_sz);
+            for (size_t i = 0; i < q_sz; i++)
+              last.D_bus_[i] = D_obj[i];
+          }
+        } else {
+          last.newPin_ = D_obj;
+        }
+
+        // read "Q", can be array
         auto Q_obj = propObj["Q"];
         if (Q_obj.is_array()) {
           size_t q_sz = Q_obj.size();
@@ -545,6 +561,7 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
         has_new = true;
         has_old = true;
       }
+
       cont_1 = propObj.contains("I_P");
       cont_2 = propObj.contains("O");
       if ((!has_new or !has_old) and cont_1 and cont_2) {
@@ -618,8 +635,8 @@ void PinPlacer::dump_edits(const string& memo) noexcept {
       lprintf(
           "   |%u|   %s   module: %s  js_dir:%s  dir:%i    old: %s  new: %s",
           i+1, ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.dir_, ed.c_old(), ed.c_new());
-      if (ed.isBus())
-        lprintf("  BUS-%u", ed.busSize());
+      if (ed.isQBus())
+        lprintf("  QBUS-%u", ed.qbusSize());
       lputs();
       if (!ed.dir_)
         undefs.push_back(i);
@@ -630,8 +647,8 @@ void PinPlacer::dump_edits(const string& memo) noexcept {
       lprintf("  nm:%s  module: %s  js_dir:%s  dir:%i   old: %s  new %s  R:%i",
               ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.dir_,
               ed.c_old(), ed.c_new(), ed.isRoot());
-      if (ed.isBus())
-        lprintf("  BUS-%u", ed.busSize());
+      if (ed.isQBus())
+        lprintf("  QBUS-%u", ed.qbusSize());
       lputs();
     }
     lprintf("  ---- ibufs (%zu) ----\n", ibufs_.size());
@@ -640,8 +657,8 @@ void PinPlacer::dump_edits(const string& memo) noexcept {
       lprintf("  nm:%s  module: %s  js_dir:%s  dir:%i   old %s  new %s  R:%i",
               ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.dir_,
               ed.c_old(), ed.c_new(), ed.isRoot());
-      if (ed.isBus())
-        lprintf("  BUS-%u", ed.busSize());
+      if (ed.isQBus())
+        lprintf("  QBUS-%u", ed.qbusSize());
       lputs();
     }
     lputs("  ====");
