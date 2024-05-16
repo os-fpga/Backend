@@ -27,7 +27,8 @@ struct PinPlacer {
     string mode_;      // "Mode_BP_SDR_A_TX"
     string oldPin_;    // "dout",
     string newPin_;    // newPin_ is always inside fabric, for both ibuf and obuf
-    vector<string> Q_bus_;
+
+    vector<string> Q_bus_, D_bus_;
 
     int16_t dir_ = 0;
 
@@ -53,8 +54,11 @@ struct PinPlacer {
 
     bool isInput()  const noexcept { return dir_ > 0; }
     bool isOutput() const noexcept { return dir_ < 0; }
-    bool isBus() const noexcept { return Q_bus_.size(); }
-    uint busSize() const noexcept { return Q_bus_.size(); }
+
+    bool isQBus() const noexcept { return Q_bus_.size(); }
+    uint qbusSize() const noexcept { return Q_bus_.size(); }
+    bool isDBus() const noexcept { return D_bus_.size(); }
+    uint dbusSize() const noexcept { return D_bus_.size(); }
 
     bool hasPins() const noexcept { return !oldPin_.empty() and !newPin_.empty(); }
     void swapPins() noexcept { std::swap(oldPin_, newPin_); }
