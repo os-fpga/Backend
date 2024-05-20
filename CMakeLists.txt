@@ -290,14 +290,6 @@ add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
 
-# Sub-project pin_c
-add_subdirectory(pin_c)
-add_dependencies(pin_c openfpga)
-set_target_properties(libpinconst pin_c
-  PROPERTIES
-  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pin_c"
-  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pin_c"
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/pin_c")
 
 # Sub-project stars (Static Timing Analysis Rapid Silicon)
 add_subdirectory(stars)
