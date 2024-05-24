@@ -8,7 +8,6 @@ using std::endl;
 using std::string;
 using std::stringstream;
 using std::ostream;
-using namespace pln;
 
 ///@brief Returns the name of a unique unconnected net
 static string create_unconn_net(size_t& unconn_count) noexcept {

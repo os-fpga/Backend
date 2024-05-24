@@ -95,11 +95,11 @@ struct rsOpts {
   bool trace_specified() const noexcept { return traceIndex_ > 0; }
   bool test_id_specified() const noexcept { return test_id_ > 0; }
 
-  bool set_VPR_TC1() noexcept;  // and2_gemini
   bool set_STA_testCase(int TC_id) noexcept;
 
   bool createVprArgv(vector<string>& W) noexcept;
 
+  bool hasInputFile() const noexcept;
   bool isCmdInput() const noexcept;
 
 private:
