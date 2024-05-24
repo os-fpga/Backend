@@ -251,9 +251,16 @@ public:
   char* skipLine(char* curL) noexcept;
   bool advanceLine(char*& curL) noexcept;
 
+  bool printMagic(std::ostream& os) const noexcept;
+  bool isGoodForParsing() const noexcept;
+
   uint64_t hashSum() const noexcept;
   int dprint1() const noexcept;
   int dprint2() const noexcept;
+
+private:
+  bool is_text_file(string& label) const noexcept;
+
 }; // MMapReader
 
 
@@ -455,11 +462,24 @@ private:
 
 bool addIncludeGuards(LineReader& lr) noexcept;
 
+inline bool c_is_digit(char c) noexcept { return uint32_t(c) - '0' < 10u; }
+inline bool c_is_dot_digit(char c) noexcept { return uint32_t(c) - '0' < 10u or c == '.'; }
+
 inline bool has_digit(CStr z) noexcept {
   if (!z || !z[0]) return false;
 
   for (; *z; z++) {
     bool is_digit = (uint32_t(*z) - '0' < 10u);
+    if (is_digit) return true;
+  }
+  return false;
+}
+
+inline bool has_digit(CStr s, size_t len) noexcept {
+  if (!s or !len) return false;
+
+  for (size_t i = 0; i < len; i++) {
+    bool is_digit = (uint32_t(s[i]) - '0' < 10u);
     if (is_digit) return true;
   }
   return false;

@@ -267,13 +267,33 @@ inline void logArray(const T* A, size_t n, CStr pref) noexcept {
 }
 
 template <typename T>
-inline void prnArray(std::ostream& os, const T* A, size_t n, CStr pref) noexcept {
+inline void prnArray(std::ostream& os, const T* A, size_t n,
+                     CStr pref, CStr suf = nullptr) noexcept {
   if (pref) os << pref;
   if (!A || !n) {
     os << " (empty)" << std::endl;
     return;
   }
   for (size_t i = 0; i < n; i++) os << ' ' << A[i];
+  if (suf) os << suf;
+  os << std::endl;
+}
+
+template <typename T>
+inline void hexArray(std::ostream& os, const T* A, size_t n,
+                     CStr pref, CStr suf = nullptr) noexcept {
+  if (pref) os << pref;
+  if (!A || !n) {
+    os << " (empty)" << std::endl;
+    return;
+  }
+  std::ios_base::fmtflags savedF = os.flags();
+  os.setf(std::ios::showbase);
+  for (size_t i = 0; i < n; i++) {
+    os << ' ' << std::hex << A[i] << ',';
+  }
+  os.setf(savedF);
+  if (suf) os << suf;
   os << std::endl;
 }
 
@@ -298,6 +318,8 @@ template <typename T>
 inline T* unconst(const T* p) noexcept { return const_cast<T*>(p); }
 
 }  // namespace pln
+
+namespace pinc = pln;
 
 const char* pln_get_version();
 
