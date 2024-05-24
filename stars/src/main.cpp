@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0216";
+static const char* _pln_VERSION_STR = "pln0218";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -14,6 +14,7 @@ static const char* _pln_VERSION_STR = "pln0216";
 #include "read_options.h"
 
 #include "RS/rsVPR.h"
+#include "RS/rsCheck.h"
 #include "RS/sta_file_writer.h"
 
 namespace pln {
@@ -26,6 +27,33 @@ using std::string;
 static rsEnv s_env;
 
 static bool deal_pinc(const rsOpts& opts, bool orig_args);
+
+static bool deal_check(const rsOpts& opts) {
+  bool status = false;
+  uint16_t tr = ltrace();
+  if (tr >= 4)
+    lputs("[PLANNER CHECKER] deal_check()");
+
+  if (not opts.hasInputFile()) {
+    err_puts("\n[PLANNER CHECKER] : something wrong with input file\n");
+    if (!opts.input_) {
+      lputs("[PLANNER CHECKER] : input file is not specified");
+    } else {
+      lprintf("[PLANNER CHECKER] : input file '%s'\n", opts.input_);
+      lprintf("                  : does not exist or not readable\n");
+    }
+    flush_out(true);
+    return false;
+  }
+
+  status = do_check(opts);
+
+  if (tr >= 3)
+    lprintf("(deal_check status) %s\n", status ? "TRUE" : "FALSE");
+
+  flush_out(true);
+  return status;
+}
 
 static bool deal_stars(const rsOpts& opts, bool orig_args) {
   bool status = false;
@@ -236,7 +264,7 @@ static bool deal_cmd(rsOpts& opts) {
       return false;
     }
     arg0 = W[0];
-    if (tr >= 6) {
+    if (tr >= 7) {
       lprintf("  W.size()= %zu  W[0]= %s\n", W.size(), arg0.c_str());
       lputs();
     }
@@ -247,7 +275,7 @@ static bool deal_cmd(rsOpts& opts) {
       for (uint j = 1; j < W.size(); j++) {
         cmdArgv[cmdArgc++] = ::strdup(W[j].c_str());
       }
-      if (tr >= 3)
+      if (tr >= 4)
         lprintf("  created cmdArgv: cmdArgc= %i\n", cmdArgc);
       opts.vprArgc_ = cmdArgc;
       opts.vprArgv_ = cmdArgv;
@@ -310,7 +338,7 @@ static bool deal_pinc(const rsOpts& opts, bool orig_args) {
     return false;
   }
 
-  if (tr >= 9 || getenv("pln_trace_env")) {
+  if (tr >= 11 || getenv("pln_trace_env")) {
     string cmd_fn = str::concat("01_deal_pinc.", std::to_string(s_env.pid_), ".pinc.sh");
     std::ofstream cmd_os(cmd_fn);
     if (cmd_os.is_open()) {
@@ -424,17 +452,14 @@ int main(int argc, char** argv) {
 
   s_env.initVersions(_pln_VERSION_STR);
 
-  if (ltrace() >= 2) {
-    if (ltrace() >= 6)
-      s_env.printPids(_pln_VERSION_STR);
-    else
-      lout() << _pln_VERSION_STR << endl;
+  if (ltrace() >= 3) {
+    lprintf("\t %s\n", _pln_VERSION_STR);
     lprintf("\t compiled:  %s\n", s_env.compTimeCS());
   }
 
   s_env.parse(argc, argv);
 
-  if (opts.trace_ >= 4 || ltrace() >= 9 || getenv("pln_trace_env")) {
+  if (opts.trace_ >= 8 || ltrace() >= 9 || getenv("pln_trace_env")) {
     s_env.dump("\n----env----\n");
     lout() << "-----------" << endl;
   }
@@ -445,13 +470,21 @@ int main(int argc, char** argv) {
     std::quick_exit(0);
   }
 
+  if (ltrace() >= 4) {
+    lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
+  }
+
   if (opts.unit_specified()) {
     deal_units(opts);
     ::exit(0);
   }
 
-  if (ltrace() >= 3) {
-    lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
+  if (opts.check_) {
+    bool check_ok = deal_check(opts);
+    if (check_ok)
+      ::exit(0);
+    else
+      ::exit(1);
   }
 
   int status = 1;

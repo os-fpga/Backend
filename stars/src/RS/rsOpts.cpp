@@ -21,9 +21,9 @@ static CStr _help_[] = {"H", "h", "help", "hel", "hlp", "he", nullptr};
 
 static CStr _fun_[] = {"F", "fu", "fun", "func", "funct", "function", nullptr};
 
-static CStr _check_[] = {"ch", "che", "chec", "check", nullptr};
+static CStr _check_[] = {"CH", "ch", "che", "chec", "check", nullptr};
 
-static CStr _csv_[] = {"CS", "cs", "csv", nullptr};
+static CStr _csv_[] = {"CSV", "cs", "csv", nullptr};
 
 static CStr _xml_[] = {"XM", "xm", "xml", "XML", nullptr};
 
@@ -399,19 +399,6 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   if (test_id_ < 0) test_id_ = 0;
 }
 
-// and2_gemini
-bool rsOpts::set_VPR_TC1() noexcept {
-  lputs(" O-set_VPR_TC1: and2_gemini");
-  assert(argc_ > 0 && argv_);
-  bool ok = false;
-
-#ifdef RSBE_UNIT_TEST_ON
-#endif  // RSBE_UNIT_TEST_ON
-
-  flush_out(true);
-  return ok;
-}
-
 bool rsOpts::set_STA_testCase(int TC_id) noexcept { return false; }
 
 bool rsOpts::set_VPR_TC_args(CStr raw_tc) noexcept {
@@ -488,6 +475,14 @@ bool rsOpts::isCmdInput() const noexcept {
   size_t len = ::strlen(input_);
   if (len < 5 || len > UNIX_Path_Max) return false;
   if (!ends_with_dot_cmd(input_, len)) return false;
+
+  return input_file_exists(input_);
+}
+
+bool rsOpts::hasInputFile() const noexcept {
+  if (!input_ || !input_[0]) return false;
+  size_t len = ::strlen(input_);
+  if (len < 1 || len > UNIX_Path_Max) return false;
 
   return input_file_exists(input_);
 }
