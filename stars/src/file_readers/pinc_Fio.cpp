@@ -554,6 +554,122 @@ int64_t MMapReader::printWC(std::ostream& os) const noexcept {
   return numLines;
 }
 
+static void print_byte(std::ostream& os, CStr prefix, int b) noexcept {
+  bool printable = std::ispunct(b) or std::isalnum(b);
+  os_printf(os, "%s decimal= %d  hex= %x",
+            prefix ? prefix : "", b, b);
+  if (printable)
+    os_printf(os, "  char= %c", b);
+  os << endl;
+  os.flush();
+}
+
+bool MMapReader::is_text_file(string& label) const noexcept {
+  label.clear();
+  if (!buf_ or sz_ < 4)
+    return false;
+
+  const uint* sig_p = (uint*) buf_;
+  uint sig = *sig_p;
+
+  // lprintf("\t ....... sig= %u   hex %x\n", sig, sig);
+
+  if (sig == 0x464c457f) {
+    label = "ELF";
+    return false;
+  }
+  if (sig == 0x21726152) {
+    label = "RAR";
+    return false;
+  }
+  if (sig == 0x587a37fd) {
+    label = "XZ";
+    return false;
+  }
+  if (sig == 0xfd2fb528) {
+    label = "ZST";
+    return false;
+  }
+  if (sig == 0x425a6839) {
+    label = "BZ2";
+    return false;
+  }
+  if (sig == 0x1f8b0808) {
+    label = "GZ";
+    return false;
+  }
+  if (sig == 0x46445025) {
+    label = "PDF";
+    return false;
+  }
+  if (sig == 0x213c6172) {
+    label = "AR";
+    return false;
+  }
+
+  return true;
+}
+
+bool MMapReader::printMagic(std::ostream& os) const noexcept {
+  assert(fsz_ == sz_);
+  if (!fsz_ || !sz_ || !buf_ || fnm_.empty()) {
+    os << "(empty)" << endl;
+    return false;
+  }
+  if (sz_ == 1) {
+    print_byte(os, "(single-byte)", buf_[0]);
+    return false;
+  }
+  if (sz_ < 5) {
+    os << "(tiny) size= " << sz_ << endl;
+    char prefix[32] = {};
+    for (uint i = 0; i < sz_; i++) {
+      ::sprintf(prefix, "    byte#%u  ", i);
+      print_byte(os, prefix, buf_[i]);
+    }
+    return false;
+  }
+  if (sz_ < UINT_MAX) {
+    os << "(normal) size= " << sz_ << endl;
+    char prefix[32] = {};
+    for (uint i = 0; i < sz_; i++) {
+      ::sprintf(prefix, "    byte#%u  ", i);
+      print_byte(os, prefix, buf_[i]);
+      if (i > 8)
+        break;
+    }
+    string label;
+    bool is_txt = is_text_file(label);
+    if (is_txt) {
+      os << "(guessed TEXT)" << endl;
+    } else if (!label.empty()) {
+      os << "(guessed BINARY) : " << label << endl;
+    }
+    os.flush();
+    return true;
+  }
+
+  os << "(huge) size= " << sz_ << endl;
+  return false;
+}
+
+bool MMapReader::isGoodForParsing() const noexcept {
+  assert(fsz_ == sz_);
+  if (!fsz_ || !sz_ || !buf_ || fnm_.empty())
+    return false;
+  if (sz_ < 5)
+    return false;
+
+  if (sz_ < UINT_MAX) {
+    string label;
+    bool is_txt = is_text_file(label);
+    return is_txt;
+  }
+
+  // huge size
+  return false;
+}
+
 size_t MMapReader::printLines(std::ostream& os) noexcept {
   if (!fsz_ || !sz_ || !buf_ || fnm_.empty()) return 0;
   bool hasl = hasLines();
