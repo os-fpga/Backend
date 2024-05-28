@@ -232,6 +232,8 @@ public:
 
   virtual bool makeLines(bool cutComments, bool cutNL) noexcept override;
 
+  size_t escapeNL() noexcept; // by '\'
+
   int64_t countLines() const noexcept;
 
   size_t setNumLines() noexcept {
@@ -260,6 +262,8 @@ public:
 
 private:
   bool is_text_file(string& label) const noexcept;
+
+  vector<char*> get_backslashed_block(size_t fromLine) noexcept;
 
 }; // MMapReader
 
