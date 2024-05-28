@@ -146,11 +146,11 @@ bool BLIF_file::readBlif() noexcept {
     return false;
   }
 
-  ok = ::memmem(buf_, sz_, ".end", 4);
-  if (!ok) {
-    err_msg_ = ".end not found";
-    return false;
-  }
+  //ok = ::memmem(buf_, sz_, ".end", 4);
+  //if (!ok) {
+  //  err_msg_ = ".end not found";
+  //  return false;
+  //}
 
   ok = MMapReader::makeLines(true, true);
   if (!ok) {
@@ -162,6 +162,11 @@ bool BLIF_file::readBlif() noexcept {
   if (not hasLines() or lsz < 3) {
     err_msg_ = "failed reading lines";
     return false;
+  }
+
+  size_t num_escaped = escapeNL();
+  if (trace_ >= 4) {
+    lprintf(" ....\\ ...  num_escaped= %zu\n", num_escaped);
   }
 
   inputs_lnum_ = outputs_lnum_ = 0;
@@ -189,7 +194,7 @@ bool BLIF_file::readBlif() noexcept {
     return false;
   }
 
-  if (trace() >= 3) {
+  if (trace_ >= 3) {
     lprintf("\t ....  inputs_lnum_= %zu  outputs_lnum_= %zu\n", inputs_lnum_, outputs_lnum_);
   }
 
@@ -636,7 +641,14 @@ bool BLIF_file::linkNodes() noexcept {
   for (Node* fab_nd : fabricNodes_) {
     assert(fab_nd);
     Node& nd = *fab_nd;
-    assert(!nd.out_.empty());
+    if (nd.out_.empty()) {
+      err_msg_ = str::concat("incomplete fabric cell:  ", nd.kw_);
+      if (!nd.data_.empty()) {
+        err_msg_ += str::concat("  ", nd.data_.front());
+      }
+      err_lnum_ = nd.lnum_;
+      return false;
+    }
     Node* port = findOutputPort(nd.out_);
     if (port) {
       link(*port, nd);

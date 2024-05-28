@@ -867,6 +867,108 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
   return true;
 }
 
+vector<char*> MMapReader::get_backslashed_block(size_t fromLine) noexcept {
+  if (!sz_ || !fsz_) return {};
+  if (!buf_) return {};
+  if (!hasLines()) return {};
+
+  size_t numLines = lines_.size();
+  if (numLines <= 3)
+    return {};
+  if (fromLine >= numLines - 3)
+    return {};
+
+  vector<char*> V;
+  size_t li = 0;
+
+  for (li = fromLine; li < numLines - 3; li++) {
+    char* line = lines_[li];
+    if (!line)
+      break;
+    size_t len = ::strlen(line);
+    if (len <= 2)
+      break;
+    if (line[len - 1] != '\\')
+      break;
+
+    line[len - 1] = ' '; // erase backslash
+    V.push_back(line);
+  }
+
+  // add non-backslashed line at the end of block:
+  if (li < numLines - 1) {
+    char* line = lines_[li];
+    if (line and line[0])
+      V.push_back(line);
+  }
+
+  return V;
+}
+
+// '\' screens new-line '\n' like in tcl and cpp.
+// returns number of processed '\' symbols.
+size_t MMapReader::escapeNL() noexcept {
+  if (!sz_ || !fsz_) return 0;
+  if (!buf_) return 0;
+  if (!hasLines()) return 0;
+
+  size_t numLines = lines_.size();
+  if (numLines <= 3)
+    return 0;
+
+  size_t cnt = 0;
+  vector<char*> bs_block;
+
+  for (size_t li = 1; li < numLines - 1; li++) {
+    char* line = lines_[li];
+    if (!line)
+      continue;
+    size_t len = ::strlen(line);
+    if (len <= 2)
+      continue;
+    if (line[len - 1] != '\\')
+      continue;
+    line[len - 1] = ' '; // erase backslash
+
+    char* nextLine = lines_[li + 1];
+    if (!nextLine)
+      continue;
+    size_t nextLen = ::strlen(nextLine);
+    if (nextLen <= 1)
+      continue;
+
+    bs_block = get_backslashed_block(li + 1);
+    if (bs_block.empty())
+      continue;
+
+    // lprintf("\t    ............. bs_block.size()= %zu\n", bs_block.size());
+
+    // replace 'line' by allocated and contatenated string:
+    size_t newSize = len;
+    for (char* s : bs_block) {
+      assert(s);
+      newSize += ::strlen(s);
+    }
+    char* replacement = (char*) ::calloc(newSize + 2, 1);
+
+    void* next = ::mempcpy(replacement, line, len);
+    for (char* s : bs_block) {
+      size_t slen = ::strlen(s);
+      next = ::mempcpy(next, s, slen);
+      cnt++;
+    }
+
+    // blank bs_block lines:
+    for (char* s : bs_block) {
+      s[0] = 0;
+    }
+
+    lines_[li] = replacement;
+  }
+
+  return cnt;
+}
+
 char* MMapReader::skipLine(char* curL) noexcept {
   assert(sz_);
   assert(buf_);
