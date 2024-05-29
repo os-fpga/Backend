@@ -22,6 +22,15 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   err_msg_.clear();
 }
 
+// "model "
+static inline bool starts_w_model(CStr z, size_t len) noexcept {
+  assert(z);
+  if (len < 6)
+    return false;
+  return z[0] == 'm' and z[1] == 'o' and z[2] == 'd' and
+         z[3] == 'e' and z[4] == 'l' and ::isspace(z[5]);
+}
+
 // "inputs "
 static inline bool starts_w_inputs(CStr z, size_t len) noexcept {
   assert(z);
@@ -78,12 +87,48 @@ static inline bool starts_w_R_eq(CStr z) noexcept {
   return z[0] == 'R' and z[1] == '=';
 }
 
+// "T="
+static inline bool starts_w_T_eq(CStr z) noexcept {
+  assert(z);
+  if (::strlen(z) < 2)
+    return false;
+  return z[0] == 'T' and z[1] == '=';
+}
+
+static inline bool starts_w_R_or_T(CStr z) noexcept {
+  return starts_w_R_eq(z) or starts_w_T_eq(z);
+}
+
 // "I="
 static inline bool starts_w_I_eq(CStr z) noexcept {
   assert(z);
   if (::strlen(z) < 2)
     return false;
   return z[0] == 'I' and z[1] == '=';
+}
+
+// "O="
+static inline bool starts_w_O_eq(CStr z) noexcept {
+  assert(z);
+  if (::strlen(z) < 2)
+    return false;
+  return z[0] == 'O' and z[1] == '=';
+}
+
+// "Y="
+static inline bool starts_w_Y_eq(CStr z) noexcept {
+  assert(z);
+  if (::strlen(z) < 2)
+    return false;
+  return z[0] == 'Y' and z[1] == '=';
+}
+
+// "Q="
+static inline bool starts_w_Q_eq(CStr z) noexcept {
+  assert(z);
+  if (::strlen(z) < 2)
+    return false;
+  return z[0] == 'Q' and z[1] == '=';
 }
 
 // sometimes in eblif the gate output is not the last token. correct it.
@@ -113,7 +158,7 @@ bool BLIF_file::readBlif() noexcept {
     if (ts) {
       int tr = ::atoi(ts);
       if (tr > 0) {
-        tr = std::max(tr, 1000);
+        tr = std::min(tr, 1000);
         trace_ = tr;
       }
     }
@@ -169,6 +214,9 @@ bool BLIF_file::readBlif() noexcept {
     lprintf(" ....\\ ...  num_escaped= %zu\n", num_escaped);
   }
 
+  std::vector<string> V; // tmp buffer for tokenizing
+  V.reserve(16);
+
   inputs_lnum_ = outputs_lnum_ = 0;
   err_lnum_ = 0;
   for (size_t i = 1; i < lsz; i++) {
@@ -187,7 +235,14 @@ bool BLIF_file::readBlif() noexcept {
       outputs_lnum_ = i;
       continue;
     }
-    if (inputs_lnum_ and outputs_lnum_) break;
+    if (starts_w_model(cs + 1, len - 1)) {
+      V.clear();
+      Fio::split_spa(cs, V);
+      if (V.size() > 1)
+        topModel_ = V.back();
+    }
+    if (inputs_lnum_ and outputs_lnum_)
+      break;
   }
   if (!inputs_lnum_ and !outputs_lnum_) {
     err_msg_ = ".inputs/.outputs not found";
@@ -195,11 +250,11 @@ bool BLIF_file::readBlif() noexcept {
   }
 
   if (trace_ >= 3) {
+    lprintf("\t ....  topModel_= %s\n", topModel_.c_str());
     lprintf("\t ....  inputs_lnum_= %zu  outputs_lnum_= %zu\n", inputs_lnum_, outputs_lnum_);
   }
 
-  std::vector<string> V;
-  V.reserve(16);
+  V.clear();
   if (inputs_lnum_) {
     Fio::split_spa(lines_[inputs_lnum_], V);
     if (V.size() > 1 and V.front() == ".inputs") {
@@ -355,10 +410,10 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
   for (uint i = 1; i <= n; i++) {
     const Node& nd = nodePool_[i];
     os_printf(os,
-              "  |%u| L:%u  %s  inDeg=%u outDeg=%u  par=%u  out:%s  ",
+              "  |%u| L:%u  %s  inDeg=%u outDeg=%u  par=%u  out:%s  mog:%i/%i  ",
               i, nd.lnum_, nd.kw_.c_str(),
               nd.inDeg(), nd.outDeg(), nd.parent_,
-              nd.cOut());
+              nd.cOut(), nd.isMog(), nd.isVirtualMog());
     if (nd.data_.empty()) {
       os << endl;
     } else {
@@ -371,6 +426,69 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
   os << endl;
   os.flush();
   return n;
+}
+
+static bool s_is_MOG(const vector<string>& data,
+                     vector<string>& terms) noexcept {
+  terms.clear();
+  uint dsz = data.size();
+  assert(dsz < 1000000);
+  if (dsz < 4)
+    return false;
+
+  bool has_O = false, has_Y = false, has_Q = false;
+  uint sum = 0;
+
+  for (uint i = dsz - 1; i > 1; i--) {
+    CStr cs = data[i].c_str();
+    if (!has_O) {
+      has_O = starts_w_O_eq(cs);
+      if (has_O)
+        terms.emplace_back(cs);
+    }
+    if (!has_Y) {
+      has_Y = starts_w_Y_eq(cs);
+      if (has_Y)
+        terms.emplace_back(cs);
+    }
+    if (!has_Q) {
+      has_Q = starts_w_Q_eq(cs);
+      if (has_Q)
+        terms.emplace_back(cs);
+    }
+    sum = uint(has_O) + uint(has_Y) + uint(has_Q);
+    if (sum == 3)
+      break;
+  }
+
+  sum = uint(has_O) + uint(has_Y) + uint(has_Q);
+  if (sum < 2) {
+    terms.clear();
+    return false;
+  }
+  return true;
+}
+
+static void s_remove_MOG_terms(vector<string>& data) noexcept {
+  uint dsz = data.size();
+  assert(dsz < 1000000);
+  if (dsz < 4)
+    return;
+  for (uint i = dsz - 1; i > 1; i--) {
+    CStr cs = data[i].c_str();
+    if (starts_w_O_eq(cs)) {
+      data.erase(data.begin() + i);
+      continue;
+    }
+    if (starts_w_Y_eq(cs)) {
+      data.erase(data.begin() + i);
+      continue;
+    }
+    if (starts_w_Q_eq(cs)) {
+      data.erase(data.begin() + i);
+      continue;
+    }
+  }
 }
 
 bool BLIF_file::createNodes() noexcept {
@@ -459,6 +577,55 @@ bool BLIF_file::createNodes() noexcept {
     err_msg_ = "no nodes created";
     return false;
   }
+
+  // -- replace MOGs by virtual SOGs
+  num_MOGs_ = 0;
+  for (uint i = 1; i <= nn; i++) {
+    V.clear();
+    Node& nd = nodePool_[i];
+    if (nd.kw_ != ".subckt" and nd.kw_ != ".gate")
+      continue;
+    if (nd.data_.size() < 4)
+      continue;
+    if (nd.is_IBUF() or nd.is_OBUF())
+      continue;
+    assert(!nd.is_mog_);
+
+    // if (topModel_ == "MOG_01" and i == 10)
+    // lputs9();
+
+    s_is_MOG(nd.data_, V);
+    bool is_mog = V.size() > 1;
+    if (is_mog) {
+      if (trace_ >= 5) {
+        lprintf("\t\t .... MOG-type: %s\n", nd.cType());
+        lprintf("\t\t .... [terms] V.size()= %zu\n", V.size());
+        logVec(V, "  [V-terms] ");
+        lputs();
+      }
+
+      s_remove_MOG_terms(nd.data_);
+      uint startVirtual = nodePool_.size();
+      for (uint j = 1; j < V.size(); j++) {
+        nodePool_.emplace_back(nd);
+        nodePool_.back().virtualOrigin_ = i;
+        nodePool_.back().is_mog_ = true;
+      }
+      nd.data_.push_back(V.front());
+      nd.is_mog_ = true;
+      // give one output term to each virtual MOG:
+      uint V_index = 1;
+      for (uint k = startVirtual; k < nodePool_.size(); k++) {
+        assert(V_index < V.size());
+        Node& k_node = nodePool_[k];
+        k_node.data_.push_back(V[V_index++]);
+      }
+      num_MOGs_++;
+    }
+  }
+
+  nn = numNodes();
+  assert(nn);
 
   fabricNodes_.reserve(nn);
 
@@ -681,8 +848,8 @@ bool BLIF_file::linkNodes() noexcept {
         assert(pinIndex >= 0);
         assert(uint(pinIndex) < par->data_.size());
         const string& pinToken = par->data_[pinIndex];
-        if (not starts_w_R_eq(pinToken.c_str())) {
-          // skipping reset pins "R="
+        if (not starts_w_R_or_T(pinToken.c_str())) {
+          // skipping reset (and similar) pins "R=", "T="
           // because they can be both input and output.
           // need to read library primitives to determine direction.
           err_msg_ = "output port contacts fabric input: ";
@@ -736,8 +903,6 @@ bool BLIF_file::linkNodes() noexcept {
   }
 
   // 4. every node except topInputs_ should be driven
-/*
-///// --- not ready - need to support multi-driver cells
   string inp1;
   for (Node* fab_nd : fabricNodes_) {
     Node& nd = *fab_nd;
@@ -752,7 +917,7 @@ bool BLIF_file::linkNodes() noexcept {
       continue;
     Node* drv_cell = findFabricDriver(nd.id_, inp1);
     if (!drv_cell) {
-      lputs9();
+      // lputs9();
       err_msg_ = "undriven cell input: ";
       err_msg_ += inp1;
       if (trace_ >= 2) {
@@ -763,7 +928,6 @@ bool BLIF_file::linkNodes() noexcept {
       return false;
     }
   }
-*/
 
   return true;
 }

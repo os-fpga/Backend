@@ -23,11 +23,18 @@ struct BLIF_file : public fio::MMapReader
 
     string kw_;            // keyword: .names, .subckt, etc.
     vector<string> data_;  // everything on the line ater kw, tokenized
-    string out_;           // usually last token in 'data_'
 
-    int16_t is_top_ = 0;  // -1 : top input
-                          //  1 : top output
+    // vector<string> mog_outs_; // pin names O, Y, Q are considered to be outputs.
+    //                           // MOG-nodes are transformed to bunches of SOG-nodes.
 
+    string out_; // SOG output (real or virtual)
+
+    uint virtualOrigin_ = 0; // node-ID from which this virtual MOG is created
+
+    int16_t is_top_ = 0;  // -1:top input  1:top output
+    bool is_mog_ = false;
+
+  public:
     Node() noexcept = default;
     Node(CStr keyword, uint L) noexcept : lnum_(L) {
       if (keyword) kw_ = keyword;
@@ -39,6 +46,9 @@ struct BLIF_file : public fio::MMapReader
 
     bool isRoot() const noexcept { return parent_ == 0; }
     bool isLeaf() const noexcept { return chld_.empty(); }
+
+    bool isMog() const noexcept { return is_mog_; }
+    bool isVirtualMog() const noexcept { return is_mog_ and virtualOrigin_ > 0; }
 
     bool valid() const noexcept { return id_ > 0; }
     void inval() noexcept { id_ = 0; }
@@ -56,16 +66,26 @@ struct BLIF_file : public fio::MMapReader
     // returns pin index in chld_ or -1
     int in_contact(const string& x) const noexcept;
 
+    bool is_IBUF() const noexcept {
+      return data_.size() > 1 and data_.front() == "I_BUF";
+    }
+    bool is_OBUF() const noexcept {
+      return data_.size() > 1 and data_.front() == "O_BUF";
+    }
+
     string firstInputPin() const noexcept;
 
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
+    CStr cType() const noexcept { return data_.empty() ? "{e}" : data_.front().c_str(); }
 
     struct CmpOut {
       bool operator()(const Node* a, const Node* b) const noexcept {
         return a->out_ < b->out_;
       }
     };
-  };
+  }; // Node
+
+  string topModel_;
 
   vector<string> inputs_;
   vector<string> outputs_;
@@ -77,6 +97,7 @@ struct BLIF_file : public fio::MMapReader
 
   bool rd_ok_ = false;
   bool chk_ok_ = false;
+  uint num_MOGs_ = 0;
 
 public:
   BLIF_file() noexcept = default;
