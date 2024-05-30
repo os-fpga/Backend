@@ -3,6 +3,7 @@
 #define _pln_frd_BLIF_FILE_H_e6f4ecdf41a2f915079_
 
 #include "file_readers/pinc_Fio.h"
+#include "file_readers/pln_primitives.h"
 
 namespace pln {
 
@@ -21,17 +22,16 @@ struct BLIF_file : public fio::MMapReader
     uint depth_ = 0;
     vector<uint> chld_;
 
-    string kw_;            // keyword: .names, .subckt, etc.
-    vector<string> data_;  // everything on the line ater kw, tokenized
+    string kw_;              // keyword: .names, .subckt, etc.
+    vector<string> data_;    // everything on the line ater kw, tokenized
 
-    // vector<string> mog_outs_; // pin names O, Y, Q are considered to be outputs.
-    //                           // MOG-nodes are transformed to bunches of SOG-nodes.
-
-    string out_; // SOG output (real or virtual)
+    string out_;             // SOG output (real or virtual)
 
     uint virtualOrigin_ = 0; // node-ID from which this virtual MOG is created
 
-    int16_t is_top_ = 0;  // -1:top input  1:top output
+    Prim_t  ptype_ = A_ZERO;
+
+    int16_t is_top_ = 0;     // -1:top input  1:top output
     bool is_mog_ = false;
 
   public:
@@ -76,7 +76,11 @@ struct BLIF_file : public fio::MMapReader
     string firstInputPin() const noexcept;
 
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
+
     CStr cType() const noexcept { return data_.empty() ? "{e}" : data_.front().c_str(); }
+
+    // cPrimType() will replace cType()
+    CStr cPrimType() const noexcept { return primt_name(ptype_); }
 
     struct CmpOut {
       bool operator()(const Node* a, const Node* b) const noexcept {
