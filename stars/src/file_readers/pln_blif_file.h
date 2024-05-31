@@ -66,21 +66,32 @@ struct BLIF_file : public fio::MMapReader
     // returns pin index in chld_ or -1
     int in_contact(const string& x) const noexcept;
 
-    bool is_IBUF() const noexcept {
+    CStr data_front() const noexcept {
+      return data_.size() > 1 ? data_.front().c_str() : nullptr;
+    }
+
+    bool is_str_IBUF() const noexcept {
       return data_.size() > 1 and data_.front() == "I_BUF";
     }
-    bool is_OBUF() const noexcept {
+    bool is_str_OBUF() const noexcept {
       return data_.size() > 1 and data_.front() == "O_BUF";
+    }
+
+    bool is_IBUF() const noexcept {
+      return ptype_ == I_BUF or ptype_ == I_BUF_DS;
+    }
+    bool is_OBUF() const noexcept {
+      return ptype_ == O_BUF or ptype_ == O_BUF_DS or
+             ptype_ == O_BUFT or ptype_ == O_BUFT_DS;
     }
 
     string firstInputPin() const noexcept;
 
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
 
-    CStr cType() const noexcept { return data_.empty() ? "{e}" : data_.front().c_str(); }
+    // CStr cType() const noexcept { return data_.empty() ? "{e}" : data_.front().c_str(); }
 
-    // cPrimType() will replace cType()
-    CStr cPrimType() const noexcept { return primt_name(ptype_); }
+    CStr cPrimType() const noexcept { return ptype_ == A_ZERO ? "{e}" : primt_name(ptype_); }
 
     struct CmpOut {
       bool operator()(const Node* a, const Node* b) const noexcept {

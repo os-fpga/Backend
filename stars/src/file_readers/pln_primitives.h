@@ -56,6 +56,11 @@ constexpr uint Prim_MAX_ID = X_UNKNOWN;
 // enum -> string
 CStr primt_name(Prim_t enu) noexcept;
 
+
+// string -> enum, returns A_ZERO on error
+Prim_t primt_id(CStr name) noexcept;
+
+
 }
 
 #endif

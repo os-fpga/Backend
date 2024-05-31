@@ -409,9 +409,11 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
   os << "--- nodes (" << n << ") :" << endl;
   for (uint i = 1; i <= n; i++) {
     const Node& nd = nodePool_[i];
+    CStr pts = nd.cPrimType();
+    assert(pts);
     os_printf(os,
-              "  |%u| L:%u  %s  inDeg=%u outDeg=%u  par=%u  out:%s  mog:%i/%i  ",
-              i, nd.lnum_, nd.kw_.c_str(),
+              "  |%u| L:%u  %s  ptype:%s  inDeg=%u outDeg=%u  par=%u  out:%s  mog:%i/%i  ",
+              i, nd.lnum_, nd.kw_.c_str(), pts,
               nd.inDeg(), nd.outDeg(), nd.parent_,
               nd.cOut(), nd.isMog(), nd.isVirtualMog());
     if (nd.data_.empty()) {
@@ -550,6 +552,7 @@ bool BLIF_file::createNodes() noexcept {
         nodePool_.emplace_back(".subckt", L);
         Node& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
+        nd.ptype_ = primt_id(nd.data_front());
         place_output_at_back(nd.data_);
       }
       continue;
@@ -562,6 +565,7 @@ bool BLIF_file::createNodes() noexcept {
         nodePool_.emplace_back(".gate", L);
         Node& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
+        nd.ptype_ = primt_id(nd.data_front());
         place_output_at_back(nd.data_);
       }
       continue;
@@ -598,7 +602,7 @@ bool BLIF_file::createNodes() noexcept {
     bool is_mog = V.size() > 1;
     if (is_mog) {
       if (trace_ >= 5) {
-        lprintf("\t\t .... MOG-type: %s\n", nd.cType());
+        lprintf("\t\t .... MOG-type: %s\n", nd.cPrimType());
         lprintf("\t\t .... [terms] V.size()= %zu\n", V.size());
         logVec(V, "  [V-terms] ");
         lputs();
