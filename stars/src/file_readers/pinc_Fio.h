@@ -209,11 +209,13 @@ inline size_t hf_std(CStr z) noexcept
 class MMapReader : public Fio
 {
 public:
-  static constexpr size_t MIN_SIZE_for_MMAP = 2048;  // half-page
+  static constexpr size_t MIN_SIZE_for_MMAP = 4098;  // > 1 page
 
   char* buf_ = nullptr;
-  int fd_ = -1;
   size_t mm_len_ = 0;
+  int fd_ = -1;
+  int16_t lastByte_ = -1;
+  bool pad_ = false;
 
 public:
   MMapReader() noexcept = default;
