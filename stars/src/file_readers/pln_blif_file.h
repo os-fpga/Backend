@@ -22,7 +22,7 @@ struct BLIF_file : public fio::MMapReader
     uint depth_ = 0;
     vector<uint> chld_;
 
-    string kw_;              // keyword: .names, .subckt, etc.
+    string kw_;              // keyword: .names, .latch, .subckt, .gate, etc.
     vector<string> data_;    // everything on the line ater kw, tokenized
 
     string out_;             // SOG output (real or virtual)
@@ -50,8 +50,15 @@ struct BLIF_file : public fio::MMapReader
     bool isMog() const noexcept { return is_mog_; }
     bool isVirtualMog() const noexcept { return is_mog_ and virtualOrigin_ > 0; }
 
+    bool isLatch() const noexcept { return kw_ == ".latch"; }
+
     bool valid() const noexcept { return id_ > 0; }
     void inval() noexcept { id_ = 0; }
+
+    bool hasPrimType() const noexcept {
+      uint pt = ptype_;
+      return pt > 0 and pt < Prim_MAX_ID;
+    }
 
     uint deg() const noexcept { return uint(!isRoot()) + chld_.size(); }
     uint inDeg() const noexcept { return uint(!isRoot()); }
@@ -65,6 +72,8 @@ struct BLIF_file : public fio::MMapReader
 
     // returns pin index in chld_ or -1
     int in_contact(const string& x) const noexcept;
+
+    void place_output_at_back(vector<string>& dat) noexcept;
 
     CStr data_front() const noexcept {
       return data_.size() > 1 ? data_.front().c_str() : nullptr;
@@ -98,6 +107,36 @@ struct BLIF_file : public fio::MMapReader
         return a->out_ < b->out_;
       }
     };
+    struct PinIsInput {
+      Prim_t pt_ = A_ZERO;
+      PinIsInput(Prim_t p) noexcept
+        : pt_(p) {}
+      bool operator()(const string& pinName) const noexcept {
+        return not prim_pin_is_output(pt_, pinName); 
+      }
+    };
+
+    struct PinPatternIsInput {
+      Prim_t pt_ = A_ZERO;
+      PinPatternIsInput(Prim_t p) noexcept
+        : pt_(p) {}
+      bool operator()(const string& pat) const noexcept {
+        size_t len = pat.length();
+        if (len < 2 or len > 256)
+          return false;
+        char buf[258];
+        ::strcpy(buf, pat.c_str());
+        // cut at '='
+        for (uint i = 0; i < len; i++) {
+          if (buf[i] == '=') {
+            buf[i] = 0;
+            break;
+          }
+        }
+        return not prim_cpin_is_output(pt_, buf);
+      }
+    };
+
   }; // Node
 
   string topModel_;
@@ -134,6 +173,9 @@ public:
   uint printOutputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printNodes(std::ostream& os) const noexcept;
 
+  uint countCarryNodes() const noexcept;
+  uint printCarryNodes(std::ostream& os) const noexcept;
+
 private:
   bool createNodes() noexcept;
   bool linkNodes() noexcept;
@@ -149,6 +191,8 @@ private:
 
   std::vector<Node*> topInputs_, topOutputs_;
   std::vector<Node*> fabricNodes_, constantNodes_;
+
+  std::vector<Node*> latches_; // latches are not checked for now
 };
 
 }

@@ -15,6 +15,7 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   topInputs_.clear();
   topOutputs_.clear();
   fabricNodes_.clear();
+  latches_.clear();
   constantNodes_.clear();
   rd_ok_ = chk_ok_ = false;
   inputs_lnum_ = outputs_lnum_ = 0;
@@ -60,6 +61,15 @@ static inline bool starts_w_names(CStr z, size_t len) noexcept {
          z[3] == 'e' and z[4] == 's' and ::isspace(z[5]);
 }
 
+// "latch "
+static inline bool starts_w_latch(CStr z, size_t len) noexcept {
+  assert(z);
+  if (len < 6)
+    return false;
+  return z[0] == 'l' and z[1] == 'a' and z[2] == 't' and
+         z[3] == 'c' and z[4] == 'h' and ::isspace(z[5]);
+}
+
 // "subckt "
 static inline bool starts_w_subckt(CStr z, size_t len) noexcept {
   assert(z);
@@ -82,27 +92,31 @@ static inline bool starts_w_gate(CStr z, size_t len) noexcept {
 // "R="
 static inline bool starts_w_R_eq(CStr z) noexcept {
   assert(z);
-  if (::strlen(z) < 2)
+  if (::strnlen(z, 4) < 2)
     return false;
   return z[0] == 'R' and z[1] == '=';
+}
+
+// "P="
+static inline bool starts_w_P_eq(CStr z) noexcept {
+  assert(z);
+  if (::strnlen(z, 4) < 2)
+    return false;
+  return z[0] == 'P' and z[1] == '=';
 }
 
 // "T="
 static inline bool starts_w_T_eq(CStr z) noexcept {
   assert(z);
-  if (::strlen(z) < 2)
+  if (::strnlen(z, 4) < 2)
     return false;
   return z[0] == 'T' and z[1] == '=';
-}
-
-static inline bool starts_w_R_or_T(CStr z) noexcept {
-  return starts_w_R_eq(z) or starts_w_T_eq(z);
 }
 
 // "I="
 static inline bool starts_w_I_eq(CStr z) noexcept {
   assert(z);
-  if (::strlen(z) < 2)
+  if (::strnlen(z, 4) < 2)
     return false;
   return z[0] == 'I' and z[1] == '=';
 }
@@ -110,7 +124,7 @@ static inline bool starts_w_I_eq(CStr z) noexcept {
 // "O="
 static inline bool starts_w_O_eq(CStr z) noexcept {
   assert(z);
-  if (::strlen(z) < 2)
+  if (::strnlen(z, 4) < 2)
     return false;
   return z[0] == 'O' and z[1] == '=';
 }
@@ -118,7 +132,7 @@ static inline bool starts_w_O_eq(CStr z) noexcept {
 // "Y="
 static inline bool starts_w_Y_eq(CStr z) noexcept {
   assert(z);
-  if (::strlen(z) < 2)
+  if (::strnlen(z, 4) < 2)
     return false;
   return z[0] == 'Y' and z[1] == '=';
 }
@@ -126,18 +140,33 @@ static inline bool starts_w_Y_eq(CStr z) noexcept {
 // "Q="
 static inline bool starts_w_Q_eq(CStr z) noexcept {
   assert(z);
-  if (::strlen(z) < 2)
+  if (::strnlen(z, 4) < 2)
     return false;
   return z[0] == 'Q' and z[1] == '=';
 }
 
+// "COUT="
+static inline bool starts_w_COUT_eq(CStr z) noexcept {
+  assert(z);
+  if (::strnlen(z, 8) < 6)
+    return false;
+  return z[0] == 'C' and z[1] == 'O' and z[2] == 'U' and
+         z[3] == 'T' and z[4] == '=';
+}
+
 // sometimes in eblif the gate output is not the last token. correct it.
-static void place_output_at_back(vector<string>& dat) noexcept {
+void BLIF_file::Node::place_output_at_back(vector<string>& dat) noexcept {
   size_t dsz = dat.size();
   if (dsz < 3) return;
   CStr cs = dat.back().c_str();
   if (starts_w_R_eq(cs)) {
     std::swap(dat[dsz - 2], dat[dsz - 1]);
+  }
+  if (starts_w_P_eq(cs)) {
+    std::swap(dat[dsz - 2], dat[dsz - 1]);
+  }
+  if (hasPrimType()) {
+    std::stable_partition(dat.begin() + 1, dat.end(), PinPatternIsInput(ptype_));
   }
 }
 
@@ -148,6 +177,7 @@ bool BLIF_file::readBlif() noexcept {
   topInputs_.clear();
   topOutputs_.clear();
   fabricNodes_.clear();
+  latches_.clear();
   constantNodes_.clear();
   rd_ok_ = chk_ok_ = false;
   err_msg_.clear();
@@ -284,6 +314,7 @@ bool BLIF_file::readBlif() noexcept {
 bool BLIF_file::checkBlif() noexcept {
   chk_ok_ = false;
   err_msg_.clear();
+  auto& ls = lout();
 
   if (inputs_.empty() and outputs_.empty()) {
     err_msg_ = ".inputs/.outputs are empty";
@@ -333,7 +364,11 @@ bool BLIF_file::checkBlif() noexcept {
   createNodes();
 
   if (trace_ >= 5) {
-    printNodes(lout());
+    printNodes(ls);
+    lputs();
+  }
+  if (trace_ >= 6) {
+    printCarryNodes(ls);
     lputs();
   }
 
@@ -347,7 +382,10 @@ bool BLIF_file::checkBlif() noexcept {
     return false;
   }
 
-  if (trace_ >= 4) printNodes(lout());
+  if (trace_ >= 3) {
+    lputs();
+    printNodes(ls);
+  }
 
   // 5. no undriven output ports
   for (Node* port : topOutputs_) {
@@ -401,11 +439,18 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
     return 0;
   }
   os << "--- nodes (" << n << ") :" << endl;
-  os << "--- #topInputs_= " << topInputs_.size();
-  os << "  #fabricNodes_= " << fabricNodes_.size();
-  os << "  #topOutputs_= " << topOutputs_.size();
-  os << "  #constantNodes_= " << constantNodes_.size();
+  os << "---    #topInputs_= " << topInputs_.size() << '\n';
+  os << "      #topOutputs_= " << topOutputs_.size() << '\n';
+  os << "     #fabricNodes_= " << fabricNodes_.size() << '\n';
+  os << "         #latches_= " << latches_.size() << '\n';
+  os << "   #constantNodes_= " << constantNodes_.size() << '\n';
   os << endl;
+
+  if (trace_ < 4) {
+    os.flush();
+    return n;
+  }
+
   os << "--- nodes (" << n << ") :" << endl;
   for (uint i = 1; i <= n; i++) {
     const Node& nd = nodePool_[i];
@@ -430,6 +475,62 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
   return n;
 }
 
+uint BLIF_file::countCarryNodes() const noexcept {
+  uint nn = numNodes();
+  if (nn == 0)
+    return 0;
+
+  uint cnt = 0;
+  for (uint i = 1; i <= nn; i++) {
+    const Node& nd = nodePool_[i];
+    if (nd.ptype_ == CARRY_CHAIN)
+      cnt++;
+  }
+
+  return cnt;
+}
+
+uint BLIF_file::printCarryNodes(std::ostream& os) const noexcept {
+  uint nn = numNodes();
+  if (!nn) {
+    os << "(no nodes_)" << endl;
+    return 0;
+  }
+
+  uint cnt = countCarryNodes();
+  if (!cnt) {
+    os << "(no CarryNodes)" << endl;
+    return 0;
+  }
+
+  os << "--- CarryNodes (" << cnt << ") :" << endl;
+
+  for (uint i = 1; i <= nn; i++) {
+    const Node& nd = nodePool_[i];
+    if (nd.ptype_ != CARRY_CHAIN)
+      continue;
+    CStr pts = nd.cPrimType();
+    assert(pts);
+    os_printf(os,
+              "  |%u| L:%u  %s  ptype:%s  inDeg=%u outDeg=%u  par=%u  out:%s  mog:%i/%i  ",
+              i, nd.lnum_, nd.kw_.c_str(), pts,
+              nd.inDeg(), nd.outDeg(), nd.parent_,
+              nd.cOut(), nd.isMog(), nd.isVirtualMog());
+    if (nd.data_.empty()) {
+      os << endl;
+    } else {
+      const string* A = nd.data_.data();
+      size_t sz = nd.data_.size();
+      prnArray(os, A, sz, "  ");
+      lputs();
+    }
+  }
+  os << "^^^ CarryNodes (" << cnt << ") ^^^" << endl;
+
+  flush_out(true);
+  return cnt;
+}
+
 static bool s_is_MOG(const vector<string>& data,
                      vector<string>& terms) noexcept {
   terms.clear();
@@ -438,7 +539,8 @@ static bool s_is_MOG(const vector<string>& data,
   if (dsz < 4)
     return false;
 
-  bool has_O = false, has_Y = false, has_Q = false;
+  bool has_O = false, has_Y = false, has_Q = false,
+       has_COUT = false;
   uint sum = 0;
 
   for (uint i = dsz - 1; i > 1; i--) {
@@ -458,12 +560,15 @@ static bool s_is_MOG(const vector<string>& data,
       if (has_Q)
         terms.emplace_back(cs);
     }
-    sum = uint(has_O) + uint(has_Y) + uint(has_Q);
-    if (sum == 3)
-      break;
+    if (!has_COUT) {
+      has_COUT = starts_w_COUT_eq(cs);
+      if (has_COUT)
+        terms.emplace_back(cs);
+    }
+    // sum = uint(has_O) + uint(has_Y) + uint(has_Q) + uint(has_COUT);
   }
 
-  sum = uint(has_O) + uint(has_Y) + uint(has_Q);
+  sum = uint(has_O) + uint(has_Y) + uint(has_Q) + uint(has_COUT);
   if (sum < 2) {
     terms.clear();
     return false;
@@ -490,6 +595,10 @@ static void s_remove_MOG_terms(vector<string>& data) noexcept {
       data.erase(data.begin() + i);
       continue;
     }
+    if (starts_w_COUT_eq(cs)) {
+      data.erase(data.begin() + i);
+      continue;
+    }
   }
 }
 
@@ -498,6 +607,7 @@ bool BLIF_file::createNodes() noexcept {
   topInputs_.clear();
   topOutputs_.clear();
   fabricNodes_.clear();
+  latches_.clear();
   constantNodes_.clear();
   if (!rd_ok_) return false;
   if (inputs_.empty() and outputs_.empty()) return false;
@@ -545,6 +655,17 @@ bool BLIF_file::createNodes() noexcept {
       continue;
     }
 
+    // -- parse .latch
+    if (starts_w_latch(cs + 1, len - 1)) {
+      Fio::split_spa(lines_[L], V);
+      if (V.size() > 1 and V.front() == ".latch") {
+        nodePool_.emplace_back(".latch", L);
+        Node& nd = nodePool_.back();
+        nd.data_.assign(V.begin() + 1, V.end());
+      }
+      continue;
+    }
+
     // -- parse .subckt
     if (starts_w_subckt(cs + 1, len - 1)) {
       Fio::split_spa(lines_[L], V);
@@ -553,7 +674,7 @@ bool BLIF_file::createNodes() noexcept {
         Node& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
         nd.ptype_ = primt_id(nd.data_front());
-        place_output_at_back(nd.data_);
+        nd.place_output_at_back(nd.data_);
       }
       continue;
     }
@@ -566,7 +687,7 @@ bool BLIF_file::createNodes() noexcept {
         Node& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
         nd.ptype_ = primt_id(nd.data_front());
-        place_output_at_back(nd.data_);
+        nd.place_output_at_back(nd.data_);
       }
       continue;
     }
@@ -637,10 +758,15 @@ bool BLIF_file::createNodes() noexcept {
   for (uint i = 1; i <= nn; i++) {
     V.clear();
     Node& nd = nodePool_[i];
-    if (nd.kw_ == ".names") {
+    if (nd.kw_ == ".names" or nd.kw_ == ".latch") {
       if (nd.data_.size() > 1) {
-        nd.out_ = nd.data_.back();
-        fabricNodes_.push_back(&nd);
+        if (nd.kw_ == ".names") {
+          nd.out_ = nd.data_.back();
+          fabricNodes_.push_back(&nd);
+        } else if (nd.kw_ == ".latch") {
+          nd.out_ = nd.data_.back();
+          latches_.push_back(&nd);
+        }
       } else if (nd.data_.size() == 1) {
         constantNodes_.push_back(&nd);
       }
@@ -731,6 +857,9 @@ string BLIF_file::Node::firstInputPin() const noexcept {
   if (data_.size() < 2) return {};
   if (kw_ == ".names") {
     if (data_[0] != out_) return data_[0];
+  }
+  if (kw_ == ".latch") {
+    if (data_[1] != out_) return data_[1];
   }
   if (data_.size() < 3) return {};
   if (kw_ == ".subckt" or kw_ == ".gate") {
@@ -852,10 +981,10 @@ bool BLIF_file::linkNodes() noexcept {
         assert(pinIndex >= 0);
         assert(uint(pinIndex) < par->data_.size());
         const string& pinToken = par->data_[pinIndex];
-        if (not starts_w_R_or_T(pinToken.c_str())) {
-          // skipping reset (and similar) pins "R=", "T="
-          // because they can be both input and output.
-          // need to read library primitives to determine direction.
+        if (trace_ >= 20)
+          lout() << pinToken << endl;
+        if (not par->isLatch()) {
+          // skipping latches for now
           err_msg_ = "output port contacts fabric input: ";
           err_msg_ += nd.out_;
           err_lnum_ = nd.lnum_;

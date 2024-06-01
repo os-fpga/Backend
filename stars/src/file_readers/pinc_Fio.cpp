@@ -392,6 +392,7 @@ bool MMapReader::read() noexcept {
   buf_ = nullptr;
   fd_ = -1;
   mm_len_ = 0;
+  pad_ = false;
 
   struct stat sb;
   if (::stat(fnm_.c_str(), &sb)) {
@@ -446,6 +447,7 @@ bool MMapReader::read() noexcept {
       if (tr) lout() << "MMapReader::read() failed: " << fnm_ << endl;
       return false;
     }
+    pad_ = true;
     return true;
   }
 
@@ -462,8 +464,12 @@ bool MMapReader::read() noexcept {
   }
 
   buf_ = (char*)addr;
-  buf_[fsz_ + 1] = 0;
-  buf_[fsz_] = 0;
+
+  if (fsz_ % 4096) {
+    buf_[fsz_] = 0;
+    pad_ = true;
+  }
+
   assert(isMapped());
 
   return true;
@@ -805,6 +811,11 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
   if (!sz_ || !fsz_) return false;
   if (!buf_) return false;
 
+  if (!pad_ and fsz_ > 4) {
+    lastByte_ = buf_[fsz_ - 1];
+    buf_[fsz_ - 1] = 0;
+  }
+
   if (cutNL) {
     num_lines_ = 0;
     // count lines
@@ -986,11 +997,14 @@ char* MMapReader::skipLine(char* curL) noexcept {
 }
 
 bool MMapReader::advanceLine(char*& curL) noexcept {
-  if (!curL) return false;
-
+  if (!curL)
+    return false;
   char* p = skipLine(curL);
-  if (!p) return false;
+  if (!p)
+    return false;
   assert(p > buf_);
+  if (p >= buf_ + fsz_)
+    return false;
   curL = p;
   return true;
 }

@@ -61,6 +61,13 @@ CStr primt_name(Prim_t enu) noexcept;
 Prim_t primt_id(CStr name) noexcept;
 
 
+bool prim_cpin_is_output(Prim_t primId, CStr pinName) noexcept;
+
+inline bool prim_pin_is_output(Prim_t primId, const std::string& pinName) noexcept {
+  return prim_cpin_is_output(primId, pinName.c_str());
+}
+
+
 }
 
 #endif
