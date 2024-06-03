@@ -149,8 +149,24 @@ void rsOpts::print(CStr label) const noexcept {
 void rsOpts::printHelp() const noexcept {
   cout << "Usage:" << endl;
 
-#ifdef RSBE_UNIT_TEST_ON
-#endif  // RSBE_UNIT_TEST_ON
+  static CStr tab1[] = {
+    "--help,-H", "Help",
+    "--version,-V", "Version",
+    "--check <blif_file_name>", "BLIF or EBLIF file to check",
+    "--csv <csv_file_name>", "CSV file (pin table) to check",
+    nullptr, nullptr, nullptr };
+
+  for (uint i = 0; ; i += 2) {
+    CStr opt = tab1[i];
+    if (!opt)
+      break;
+    CStr hlp = tab1[i+1];
+    if (!hlp)
+      break;
+    printf("%30s : %s\n", opt, hlp);
+  }
+
+  flush_out(true);
 }
 
 static char* make_file_name(CStr arg) noexcept {

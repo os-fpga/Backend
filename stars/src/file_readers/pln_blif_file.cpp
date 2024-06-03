@@ -159,6 +159,12 @@ void BLIF_file::Node::place_output_at_back(vector<string>& dat) noexcept {
   size_t dsz = dat.size();
   if (dsz < 3) return;
   CStr cs = dat.back().c_str();
+  //if (1) {
+  //  lprintf("\t |||||  place_output_at_back()  dat.size()= %zu\n", dsz);
+  //  lprintf("\t |||||  kw_= %s  prim:%s\n", kw_.c_str(), primt_name(ptype_));
+  //  if (lnum_ == 76)
+  //    lputs9();
+  //}
   if (starts_w_R_eq(cs)) {
     std::swap(dat[dsz - 2], dat[dsz - 1]);
   }
@@ -531,13 +537,43 @@ uint BLIF_file::printCarryNodes(std::ostream& os) const noexcept {
   return cnt;
 }
 
-static bool s_is_MOG(const vector<string>& data,
+static bool s_is_MOG(const BLIF_file::Node& nd,
                      vector<string>& terms) noexcept {
   terms.clear();
+  const vector<string>& data = nd.data_;
   uint dsz = data.size();
   assert(dsz < 1000000);
   if (dsz < 4)
     return false;
+
+  if (nd.ptype_ == I_SERDES) {
+    for (const string& t : data) {
+      if (is_I_SERDES_output_term(t))
+        terms.push_back(t);
+    }
+    return true;
+  }
+  if (nd.ptype_ == O_SERDES) {
+    for (const string& t : data) {
+      if (is_O_SERDES_output_term(t))
+        terms.push_back(t);
+    }
+    return true;
+  }
+  if (nd.ptype_ == TDP_RAM36K) {
+    for (const string& t : data) {
+      if (is_TDP_RAM36K_output_term(t))
+        terms.push_back(t);
+    }
+    return true;
+  }
+  if (nd.ptype_ == TDP_RAM18KX2) {
+    for (const string& t : data) {
+      if (is_TDP_RAM18KX_output_term(t))
+        terms.push_back(t);
+    }
+    return true;
+  }
 
   bool has_O = false, has_Y = false, has_Q = false,
        has_COUT = false;
@@ -565,7 +601,6 @@ static bool s_is_MOG(const vector<string>& data,
       if (has_COUT)
         terms.emplace_back(cs);
     }
-    // sum = uint(has_O) + uint(has_Y) + uint(has_Q) + uint(has_COUT);
   }
 
   sum = uint(has_O) + uint(has_Y) + uint(has_Q) + uint(has_COUT);
@@ -576,11 +611,54 @@ static bool s_is_MOG(const vector<string>& data,
   return true;
 }
 
-static void s_remove_MOG_terms(vector<string>& data) noexcept {
+static void s_remove_MOG_terms(BLIF_file::Node& nd) noexcept {
+  vector<string>& data = nd.data_;
   uint dsz = data.size();
   assert(dsz < 1000000);
   if (dsz < 4)
     return;
+
+  if (nd.ptype_ == I_SERDES) {
+    for (uint i = dsz - 1; i > 1; i--) {
+      const string& t = data[i];
+      if (is_I_SERDES_output_term(t)) {
+        data.erase(data.begin() + i);
+        continue;
+      }
+    }
+    return;
+  }
+  if (nd.ptype_ == O_SERDES) {
+    for (uint i = dsz - 1; i > 1; i--) {
+      const string& t = data[i];
+      if (is_O_SERDES_output_term(t)) {
+        data.erase(data.begin() + i);
+        continue;
+      }
+    }
+    return;
+  }
+  if (nd.ptype_ == TDP_RAM36K) {
+    for (uint i = dsz - 1; i > 1; i--) {
+      const string& t = data[i];
+      if (is_TDP_RAM36K_output_term(t)) {
+        data.erase(data.begin() + i);
+        continue;
+      }
+    }
+    return;
+  }
+  if (nd.ptype_ == TDP_RAM18KX2) {
+    for (uint i = dsz - 1; i > 1; i--) {
+      const string& t = data[i];
+      if (is_TDP_RAM18KX_output_term(t)) {
+        data.erase(data.begin() + i);
+        continue;
+      }
+    }
+    return;
+  }
+
   for (uint i = dsz - 1; i > 1; i--) {
     CStr cs = data[i].c_str();
     if (starts_w_O_eq(cs)) {
@@ -716,10 +794,7 @@ bool BLIF_file::createNodes() noexcept {
       continue;
     assert(!nd.is_mog_);
 
-    // if (topModel_ == "MOG_01" and i == 10)
-    // lputs9();
-
-    s_is_MOG(nd.data_, V);
+    s_is_MOG(nd, V);
     bool is_mog = V.size() > 1;
     if (is_mog) {
       if (trace_ >= 5) {
@@ -729,7 +804,7 @@ bool BLIF_file::createNodes() noexcept {
         lputs();
       }
 
-      s_remove_MOG_terms(nd.data_);
+      s_remove_MOG_terms(nd);
       uint startVirtual = nodePool_.size();
       for (uint j = 1; j < V.size(); j++) {
         nodePool_.emplace_back(nd);
