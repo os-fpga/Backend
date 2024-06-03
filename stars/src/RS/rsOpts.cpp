@@ -243,6 +243,22 @@ bool rsOpts::is_implicit_pinc() const noexcept {
   return true;
 }
 
+bool rsOpts::is_implicit_check() const noexcept {
+  assert(argv_);
+  assert(argv_[0]);
+  assert(argc_ > 0);
+  if (!argv_ or !argv_[0])
+    return false;
+
+  if (!csvFile_ or !csvFile_[0])
+    return false;
+
+  if (argc_ > 4 or assignOrder_)
+    return false;
+
+  return true;
+}
+
 void rsOpts::parse(int argc, const char** argv) noexcept {
   using namespace ::pln::alias;
 
@@ -485,6 +501,14 @@ bool rsOpts::hasInputFile() const noexcept {
   if (len < 1 || len > UNIX_Path_Max) return false;
 
   return input_file_exists(input_);
+}
+
+bool rsOpts::hasCsvFile() const noexcept {
+  if (!csvFile_ || !csvFile_[0]) return false;
+  size_t len = ::strlen(csvFile_);
+  if (len < 1 || len > UNIX_Path_Max) return false;
+
+  return input_file_exists(csvFile_);
 }
 
 bool rsOpts::ends_with_pin_c(CStr z) noexcept {

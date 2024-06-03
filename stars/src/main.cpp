@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0225";
+static const char* _pln_VERSION_STR = "pln0227";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -31,22 +31,29 @@ static bool deal_pinc(const rsOpts& opts, bool orig_args);
 static bool deal_check(const rsOpts& opts) {
   bool status = false;
   uint16_t tr = ltrace();
-  if (tr >= 4)
-    lputs("[PLANNER CHECKER] deal_check()");
 
-  if (not opts.hasInputFile()) {
-    err_puts("\n[PLANNER CHECKER] : something wrong with input file\n");
-    if (!opts.input_) {
-      lputs("[PLANNER CHECKER] : input file is not specified");
-    } else {
-      lprintf("[PLANNER CHECKER] : input file '%s'\n", opts.input_);
-      lprintf("                  : does not exist or not readable\n");
+  CStr checkWhat = "BLIF";
+  if (not opts.hasInputFile() and opts.hasCsvFile())
+    checkWhat = "CSV";
+
+  if (tr >= 4)
+    lprintf("[PLANNER %s-CHECKER] deal_check()\n", checkWhat);
+
+  if (checkWhat[0] == 'B') {
+    if (not opts.hasInputFile()) {
+      err_puts("\n[PLANNER BLIF-CHECKER] : something wrong with input file\n");
+      if (!opts.input_) {
+        lputs("[PLANNER BLIF-CHECKER] : input file is not specified");
+      } else {
+        lprintf("[PLANNER BLIF-CHECKER] : input file '%s'\n", opts.input_);
+        lprintf("                  : does not exist or not readable\n");
+      }
+      flush_out(true);
+      return false;
     }
-    flush_out(true);
-    return false;
   }
 
-  status = do_check(opts);
+  status = do_check(opts, checkWhat[0] == 'B');
 
   if (tr >= 3)
     lprintf("(deal_check status) %s\n", status ? "TRUE" : "FALSE");
@@ -479,7 +486,7 @@ int main(int argc, char** argv) {
     ::exit(0);
   }
 
-  if (opts.check_) {
+  if (opts.check_ or opts.is_implicit_check()) {
     bool check_ok = deal_check(opts);
     if (check_ok)
       ::exit(0);

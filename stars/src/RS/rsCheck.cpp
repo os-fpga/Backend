@@ -1,22 +1,18 @@
 #include "RS/rsCheck.h"
 #include "file_readers/pln_blif_file.h"
+#include "file_readers/pinc_csv_reader.h"
 
 namespace pln {
 
 using std::string;
 using std::endl;
 
-bool do_check(const rsOpts& opts) {
-  if (!opts.input_)
-    return false;
+static bool do_check_blif(CStr cfn) {
+  assert(cfn);
   uint16_t tr = ltrace();
   auto& ls = lout();
 
-  string fn1 = opts.input_;
-  CStr cfn = fn1.c_str();
-  ls << "  checking BLIF file: " << fn1 << endl;
-
-  BLIF_file bfile(fn1);
+  BLIF_file bfile(string{cfn});
 
   if (tr >= 4)
     bfile.setTrace(3);
@@ -57,7 +53,7 @@ bool do_check(const rsOpts& opts) {
   }
 
   lputs();
-  ls << ">>>>> checking BLIF " << fn1 << "  ..." << endl;
+  ls << ">>>>> checking BLIF " << cfn << "  ..." << endl;
 
   bool chk_ok = bfile.checkBlif();
   assert(chk_ok == bfile.chk_ok_);
@@ -79,7 +75,88 @@ bool do_check(const rsOpts& opts) {
   ls << "[Error] !!! BLIF is not OK !!!" << endl;
   ls << "[Error] !!! " << bfile.err_msg_ << endl;
 
+  flush_out(true);
+  lprintf2("ERROR: BLIF verification failed at %s:%zu\n",
+            bfile.fnm_.c_str(), bfile.err_lnum_);
+
   return false;
+}
+
+static bool do_check_csv(CStr cfn) {
+  assert(cfn);
+  uint16_t tr = ltrace();
+  auto& ls = lout();
+
+  {
+    fio::MMapReader fileTester(string{cfn});
+
+    if (tr >= 4)
+      fileTester.setTrace(3);
+
+    bool exi = false;
+    exi = fileTester.fileExists();
+    if (tr >= 7)
+      ls << int(exi) << endl;
+    if (not exi) {
+      lprintf2("[Error] file '%s' does not exist\n", cfn); 
+      return false;
+    }
+
+    exi = fileTester.fileAccessible();
+    if (tr >= 7)
+      ls << int(exi) << endl;
+    if (not exi) {
+      lprintf2("[Error] file '%s' is not accessible\n", cfn); 
+      return false;
+    }
+  }
+
+  flush_out(true);
+
+  // run CSV reader
+  RapidCsvReader csv_rd;
+  bool chk_ok = csv_rd.read_csv(string{cfn}, 1000);
+
+  flush_out(true);
+  if (chk_ok) {
+    ls << " === CSV is OK." << endl;
+    return true;
+  }
+
+  flush_out(true);
+  lprintf2("ERROR: CSV verification failed at %s:%u\n",
+            cfn, 0);
+
+  return false;
+}
+
+bool do_check(const rsOpts& opts, bool blif_vs_csv) {
+  if (!opts.input_ and !opts.csvFile_)
+    return false;
+  uint16_t tr = ltrace();
+
+  if (blif_vs_csv and !opts.input_)
+    return false;
+  if (!blif_vs_csv and !opts.csvFile_)
+    return false;
+
+  CStr fileType = blif_vs_csv ? "BLIF" : "CSV";
+  CStr cfn = blif_vs_csv ? opts.input_ : opts.csvFile_;
+  assert(cfn);
+  lprintf("  checking %s file: %s\n", fileType, cfn);
+
+  bool status;
+  if (blif_vs_csv)
+    status = do_check_blif(cfn);
+  else
+    status = do_check_csv(cfn);
+
+  flush_out(true);
+
+  if (tr >= 6) {
+    lprintf("  do_check() status: %i\n", status);
+  }
+  return status;
 }
 
 }

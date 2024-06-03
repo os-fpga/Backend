@@ -39,6 +39,7 @@ struct rsOpts {
   }
   bool is_arg0_pinc() const noexcept;
   bool is_implicit_pinc() const noexcept;
+  bool is_implicit_check() const noexcept;
 
   static bool isFunctionArg(CStr arg) noexcept;
   static bool ends_with_pin_c(CStr z) noexcept;
@@ -100,6 +101,7 @@ struct rsOpts {
   bool createVprArgv(vector<string>& W) noexcept;
 
   bool hasInputFile() const noexcept;
+  bool hasCsvFile() const noexcept;
   bool isCmdInput() const noexcept;
 
 private:
