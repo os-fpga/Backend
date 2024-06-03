@@ -7,7 +7,7 @@
 
 namespace pln {
 
-bool do_check(const rsOpts& opts);
+bool do_check(const rsOpts& opts, bool blif_vs_csv);
 
 }
 
