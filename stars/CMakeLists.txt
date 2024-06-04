@@ -13,7 +13,7 @@ set_property(CACHE OPENFPGA_IPO_BUILD PROPERTY STRINGS auto off off)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -mavx2 -march=haswell")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -mavx2 -march=haswell")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC -O3 -mavx2 -march=haswell")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC -O1 -mavx2 -march=haswell")
 
 file(GLOB_RECURSE EXEC_SOURCE src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)
