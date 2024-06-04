@@ -1,4 +1,5 @@
 #include "file_readers/pln_primitives.h"
+#include <regex>
 
 namespace pln {
 
@@ -178,6 +179,106 @@ static inline bool starts_w_CAR(CStr z) noexcept {
   if (::strnlen(z, 8) < 4)
     return false;
   return z[0] == 'C' and z[1] == 'A' and z[2] == 'R';
+}
+
+bool is_I_SERDES_output_term(const std::string& term) noexcept {
+  assert(!term.empty());
+  if (term.empty()) return false;
+
+  static std::regex re_iserdes_out{
+      R"(DLY_TAP_VALUE=|CLK_OUT=|CDR_CORE_CLK=|Q=|DATA_VALID=|DPA_LOCK=|DPA_ERROR=|Q\[\d+\]=)" };
+  
+  std::cmatch m;
+  bool b = false;
+
+  try {
+    b = std::regex_search(term.c_str(), m, re_iserdes_out);
+  } catch (...) {
+    assert(0);
+    b = false;
+  }
+
+  //if (b)
+  //  lprintf("__I_SERDES_output REGEX matched: %s\n", term.c_str());
+
+  return b;
+}
+
+bool is_O_SERDES_output_term(const std::string& term) noexcept {
+  assert(!term.empty());
+  if (term.empty()) return false;
+
+  static std::regex re_oserdes_out{
+      R"(CLK_OUT=|Q=|CHANNEL_BOND_SYNC_OUT=|DLY_TAP_VALUE=|Q\[\d+\]=)" };
+  
+  std::cmatch m;
+  bool b = false;
+
+  try {
+    b = std::regex_search(term.c_str(), m, re_oserdes_out);
+  } catch (...) {
+    assert(0);
+    b = false;
+  }
+
+  //if (b)
+  //  lprintf("__O_SERDES_output REGEX matched: %s\n", term.c_str());
+
+  return b;
+}
+
+bool is_TDP_RAM36K_output_term(const std::string& term) noexcept {
+  assert(!term.empty());
+  if (term.empty()) return false;
+
+  //  // TDP_RAM36K  = 32,
+  //  { "RDATA_A", "RPARITY_A", "RDATA_B", "RPARITY_B" },
+
+  static std::regex re_RAM36K_out{
+      R"(RDATA_A=|RPARITY_A=|RDATA_B=|RPARITY_B=|RDATA_A\[\d+\]=|RPARITY_A\[\d+\]=|RDATA_B\[\d+\]=|RPARITY_B\[\d+\]=)"
+  };
+
+  std::cmatch m;
+  bool b = false;
+
+  try {
+    b = std::regex_search(term.c_str(), m, re_RAM36K_out);
+  } catch (...) {
+    assert(0);
+    b = false;
+  }
+
+  //if (b)
+  //  lprintf("__RAM36K_output REGEX matched: %s\n", term.c_str());
+
+  return b;
+}
+
+bool is_TDP_RAM18KX_output_term(const std::string& term) noexcept {
+  assert(!term.empty());
+  if (term.empty()) return false;
+
+  //  // TDP_RAM18KX2  = 31,
+  //  { "RDATA_A1", "RDATA_B1", "RDATA_A2", "RDATA_B2" },
+
+  static std::regex re_RAM18KX_out{
+      R"(RDATA_A1=|RDATA_A1\[\d+\]=|RDATA_A2=|RDATA_A2\[\d+\]=|RDATA_B1=|RDATA_B1\[\d+\]=|RDATA_B2=|RDATA_B2\[\d+\]=)"
+  };
+
+  std::cmatch m;
+  bool b = false;
+
+  try {
+    b = std::regex_search(term.c_str(), m, re_RAM18KX_out);
+  } catch (...) {
+    assert(0);
+    b = false;
+  }
+
+  //if (b)
+  //  lprintf("__RAM18KX_output REGEX matched: %s\n", term.c_str());
+
+  return b;
 }
 
 // string -> enum, returns A_ZERO on error
