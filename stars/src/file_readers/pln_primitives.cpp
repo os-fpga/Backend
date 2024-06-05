@@ -82,9 +82,26 @@ namespace {
     { "O" }, // IO_BUF        = 13,
     { "O" }, // IO_BUF_DS     = 14,
 
-    // I_SERDES = 15,
-    { "DLY_TAP_VALUE", "CLK_OUT", "CDR_CORE_CLK",
-      "Q", "DATA_VALID", "DPA_LOCK", "DPA_ERROR" },
+
+    /* I_SERDES
+     CLK_OUT:
+       dir: output
+       desc: Fabric clock output
+     Q[WIDTH-1:0]:
+       dir: output
+       desc: Data output
+     DATA_VALID:
+       dir: output
+       desc: DATA_VALID output
+     DPA_LOCK:
+       dir: output
+       desc: DPA_LOCK output
+     DPA_ERROR:
+       dir: output
+       desc: DPA_ERROR output
+    */
+    { "CLK_OUT", "Q", "DATA_VALID", "DPA_LOCK", "DPA_ERROR" },
+
 
     { "Y" },   // LUT1  = 16,
     { "Y" },   // LUT2  = 17,
@@ -103,18 +120,60 @@ namespace {
 
     { "O", "DLY_TAP_VALUE" },  // O_DELAY   = 27,
 
-    // O_SERDES      = 28,
-    { "CLK_OUT", "Q", "CHANNEL_BOND_SYNC_OUT", "DLY_TAP_VALUE" },
+    /* O_SERDES
+     OE_OUT:
+       dir: output
+       desc: Output tri-state enable output (to O_BUFT or inferred tri-state signal)
+     Q:
+       dir: output
+       desc: Data output (Connect to output port, buffer or O_DELAY)
+     CHANNEL_BOND_SYNC_OUT:
+       dir: output
+    */
+    { "OE_OUT", "Q", "CHANNEL_BOND_SYNC_OUT", "DLY_TAP_VALUE" },
 
-    // O_SERDES_CLK  = 29,
-    { "CLK_OUT", "Q", "CHANNEL_BOND_SYNC_OUT", "DLY_TAP_VALUE" },
 
-    // PLL  = 30,
-    { "CLK_OUT0", "CLK_OUT1", "CLK_OUT2", "CLK_OUT3",
-      "GEARBOX_FAST_CLK", "LOCK" },
+    /* O_SERDES_CLK
+     CLK_EN:
+       dir: input
+       desc: Gates output OUTPUT_CLK
+     OUTPUT_CLK:
+       dir: output
+       desc: Clock output (Connect to output port, buffer or O_DELAY)
+       type: reg
+       default: 1'b0
+     PLL_LOCK:
+       dir: input
+       desc: PLL lock input
+     PLL_CLK:
+       dir: input
+       desc: PLL clock input
+    */
+    { "OUTPUT_CLK" },
+
+
+    /* PLL
+     CLK_OUT:
+       dir: output
+     CLK_OUT_DIV2:
+       dir: output
+     CLK_OUT_DIV3:
+       dir: output
+     CLK_OUT_DIV4:
+       dir: output
+     SERDES_FAST_CLK:
+       dir: output
+     LOCK:
+       dir: output
+    */
+    { "CLK_OUT", "CLK_OUT_DIV2",
+      "CLK_OUT_DIV3", "CLK_OUT_DIV4",
+      "SERDES_FAST_CLK", "LOCK" },
+
 
     // TDP_RAM18KX2  = 31,
-    { "RDATA_A1", "RDATA_B1", "RDATA_A2", "RDATA_B2" },
+    { "RDATA_A1", "RDATA_B1", "RDATA_A2", "RDATA_B2",
+      "RPARITY_A1", "RPARITY_B1", "RPARITY_A2", "RPARITY_B2" },
 
     // TDP_RAM36K  = 32,
     { "RDATA_A", "RPARITY_A", "RDATA_B", "RPARITY_B" },
@@ -186,7 +245,7 @@ bool is_I_SERDES_output_term(const std::string& term) noexcept {
   if (term.empty()) return false;
 
   static std::regex re_iserdes_out{
-      R"(DLY_TAP_VALUE=|CLK_OUT=|CDR_CORE_CLK=|Q=|DATA_VALID=|DPA_LOCK=|DPA_ERROR=|Q\[\d+\]=)" };
+      R"(CLK_OUT=|Q=|DATA_VALID=|DPA_LOCK=|DPA_ERROR=|Q\[\d+\]=)" };
   
   std::cmatch m;
   bool b = false;
@@ -209,10 +268,10 @@ bool is_O_SERDES_output_term(const std::string& term) noexcept {
   if (term.empty()) return false;
 
   static std::regex re_oserdes_out{
-      R"(CLK_OUT=|Q=|CHANNEL_BOND_SYNC_OUT=|DLY_TAP_VALUE=|Q\[\d+\]=)" };
-  
-  std::cmatch m;
+      R"(OE_OUT=|Q=|CHANNEL_BOND_SYNC_OUT=|Q\[\d+\]=)" };
+
   bool b = false;
+  std::cmatch m;
 
   try {
     b = std::regex_search(term.c_str(), m, re_oserdes_out);
@@ -230,9 +289,6 @@ bool is_O_SERDES_output_term(const std::string& term) noexcept {
 bool is_TDP_RAM36K_output_term(const std::string& term) noexcept {
   assert(!term.empty());
   if (term.empty()) return false;
-
-  //  // TDP_RAM36K  = 32,
-  //  { "RDATA_A", "RPARITY_A", "RDATA_B", "RPARITY_B" },
 
   static std::regex re_RAM36K_out{
       R"(RDATA_A=|RPARITY_A=|RDATA_B=|RPARITY_B=|RDATA_A\[\d+\]=|RPARITY_A\[\d+\]=|RDATA_B\[\d+\]=|RPARITY_B\[\d+\]=)"
@@ -258,12 +314,10 @@ bool is_TDP_RAM18KX_output_term(const std::string& term) noexcept {
   assert(!term.empty());
   if (term.empty()) return false;
 
-  //  // TDP_RAM18KX2  = 31,
-  //  { "RDATA_A1", "RDATA_B1", "RDATA_A2", "RDATA_B2" },
+static CStr p =
+R"(RDATA_A1=|RDATA_A1\[\d+\]=|RDATA_A2=|RDATA_A2\[\d+\]=|RDATA_B1=|RDATA_B1\[\d+\]=|RDATA_B2=|RDATA_B2\[\d+\]=|RPARITY_A1\[\d+\]=|RPARITY_A2\[\d+\]=|RPARITY_B1\[\d+\]=|RPARITY_B2\[\d+\]=)";
 
-  static std::regex re_RAM18KX_out{
-      R"(RDATA_A1=|RDATA_A1\[\d+\]=|RDATA_A2=|RDATA_A2\[\d+\]=|RDATA_B1=|RDATA_B1\[\d+\]=|RDATA_B2=|RDATA_B2\[\d+\]=)"
-  };
+  static std::regex re_RAM18KX_out{ p };
 
   std::cmatch m;
   bool b = false;
@@ -277,6 +331,35 @@ bool is_TDP_RAM18KX_output_term(const std::string& term) noexcept {
 
   //if (b)
   //  lprintf("__RAM18KX_output REGEX matched: %s\n", term.c_str());
+
+  return b;
+}
+
+bool is_PLL_output_term(const std::string& term) noexcept {
+  assert(!term.empty());
+  if (term.empty()) return false;
+
+  // { "CLK_OUT", "CLK_OUT_DIV2",
+  //   "CLK_OUT_DIV3", "CLK_OUT_DIV4",
+  //   "SERDES_FAST_CLK", "LOCK" }
+
+static CStr p =
+R"(CLK_OUT=|CLK_OUT_DIV2=|CLK_OUT_DIV3=|CLK_OUT_DIV4=|SERDES_FAST_CLK=|LOCK=)";
+
+  static std::regex re_PLL_out{ p };
+
+  std::cmatch m;
+  bool b = false;
+
+  try {
+    b = std::regex_search(term.c_str(), m, re_PLL_out);
+  } catch (...) {
+    assert(0);
+    b = false;
+  }
+
+  //if (b)
+  //  lprintf("__PLL_output REGEX matched: %s\n", term.c_str());
 
   return b;
 }

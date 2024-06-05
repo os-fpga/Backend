@@ -69,8 +69,11 @@ inline bool prim_pin_is_output(Prim_t primId, const std::string& pinName) noexce
 
 bool is_I_SERDES_output_term(const std::string& term) noexcept;
 bool is_O_SERDES_output_term(const std::string& term) noexcept;
+
 bool is_TDP_RAM36K_output_term(const std::string& term) noexcept;
 bool is_TDP_RAM18KX_output_term(const std::string& term) noexcept;
+
+bool is_PLL_output_term(const std::string& term) noexcept;
 
 }
 

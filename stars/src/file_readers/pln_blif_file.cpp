@@ -546,6 +546,13 @@ static bool s_is_MOG(const BLIF_file::Node& nd,
   if (dsz < 4)
     return false;
 
+  if (nd.ptype_ == O_SERDES_CLK)
+    return false;
+
+  uint pt = nd.ptype_;
+  if (pt >= LUT1 and pt <= LUT6)
+    return false;
+
   if (nd.ptype_ == I_SERDES) {
     for (const string& t : data) {
       if (is_I_SERDES_output_term(t))
@@ -570,6 +577,13 @@ static bool s_is_MOG(const BLIF_file::Node& nd,
   if (nd.ptype_ == TDP_RAM18KX2) {
     for (const string& t : data) {
       if (is_TDP_RAM18KX_output_term(t))
+        terms.push_back(t);
+    }
+    return true;
+  }
+  if (nd.ptype_ == PLL) {
+    for (const string& t : data) {
+      if (is_PLL_output_term(t))
         terms.push_back(t);
     }
     return true;
@@ -652,6 +666,16 @@ static void s_remove_MOG_terms(BLIF_file::Node& nd) noexcept {
     for (uint i = dsz - 1; i > 1; i--) {
       const string& t = data[i];
       if (is_TDP_RAM18KX_output_term(t)) {
+        data.erase(data.begin() + i);
+        continue;
+      }
+    }
+    return;
+  }
+  if (nd.ptype_ == PLL) {
+    for (uint i = dsz - 1; i > 1; i--) {
+      const string& t = data[i];
+      if (is_PLL_output_term(t)) {
         data.erase(data.begin() + i);
         continue;
       }
