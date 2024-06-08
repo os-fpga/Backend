@@ -18,7 +18,6 @@ using std::endl;
 
 uint Par::countMolecules(t_pack_molecule* molecule_head) {
   uint cnt = 0;
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
   for (auto cur_mol = molecule_head; cur_mol; cur_mol = cur_mol->next) {
     cnt++;
   }
@@ -31,7 +30,7 @@ bool Par::init(t_pack_molecule* molecule_head) {
   set_ltrace(3);
   auto tr = ltrace();
 
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+  const AtomNetlist& myNetlist = g_vpr_ctx.atom().nlist;
   for (auto cur_mol = molecule_head; cur_mol; cur_mol = cur_mol->next) {
     molecules_.push_back(cur_mol);
     numMolecules_++;
@@ -68,11 +67,13 @@ bool Par::init(t_pack_molecule* molecule_head) {
     for (auto molecule : molecules_) {
       string name_block = "";
       for (auto abid : molecule->atom_block_ids) {
-        name_block += myNetlist.block_name(abid);
-        uint bid = size_t(abid);
-        if (bid >= numAtoms_) continue;
-        VTR_ASSERT(atomBlockIdToMolId_[bid] == -1);
-        atomBlockIdToMolId_[bid] = i;
+        if (abid.is_valid()) {
+          name_block += myNetlist.block_name(abid);
+          uint bid = size_t(abid);
+          if (bid >= numAtoms_) continue;
+          VTR_ASSERT(atomBlockIdToMolId_[bid] == -1);
+          atomBlockIdToMolId_[bid] = i;
+        }
       }
       molIdToName_[i] = name_block;
       i++;
@@ -163,7 +164,7 @@ bool Par::Bi_Partion(uint partition_index) {
       MoleculesToIntermediate.push_back(-1);
     }
   }
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+  const AtomNetlist& myNetlist = g_vpr_ctx.atom().nlist;
   vector<string> uniqueLines;
   vector<int> lineCounts;
 
@@ -323,7 +324,7 @@ struct partition_position {
 }
 
 bool Par::recursive_partitioning(int molecule_per_partition) {
-  AtomNetlist myNetlist = g_vpr_ctx.atom().nlist;
+  const AtomNetlist& myNetlist = g_vpr_ctx.atom().nlist;
   //// auto& device_ctx = g_vpr_ctx.device();
   //// auto& grid = device_ctx.grid;
   vector<int> partion_size;
