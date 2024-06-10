@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project("stars")
+project("planning")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,10 +46,10 @@ target_link_libraries(libPlanner
 #                      libvpr)
 
 #Create the executable
-add_executable(stars ${EXEC_SOURCE})
-target_link_libraries(stars libPlanner libvpr)
+add_executable(planning ${EXEC_SOURCE})
+target_link_libraries(planning libPlanner libvpr)
 
-set_target_properties(stars libPlanner PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
+set_target_properties(planning libPlanner PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
 
-install(TARGETS stars DESTINATION bin)
+install(TARGETS planning DESTINATION bin)
 
