@@ -4,7 +4,7 @@
 #include "blifparse.hpp"
 
 #include "file_readers/blif_reader.h"
-#include "file_readers/pinc_Fio.h"
+#include "file_readers/pln_Fio.h"
 
 namespace pln {
 

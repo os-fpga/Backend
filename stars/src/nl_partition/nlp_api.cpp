@@ -1,6 +1,6 @@
 #include "nl_partition/nl_Par.h"
 #include "nl_partition/nlp_api.h"
-#include "file_readers/pinc_Fio.h"
+#include "file_readers/pln_Fio.h"
 #include "globals.h"
 #include "vpr_types.h"
 
