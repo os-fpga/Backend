@@ -1,6 +1,6 @@
 #include "RS/rsCheck.h"
 #include "file_readers/pln_blif_file.h"
-#include "file_readers/pinc_csv_reader.h"
+#include "file_readers/pln_csv_reader.h"
 
 namespace pln {
 
