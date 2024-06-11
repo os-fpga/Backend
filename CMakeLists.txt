@@ -291,6 +291,7 @@ add_subdirectory(OpenFPGA)
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
 
 
-# Sub-project stars (Static Timing Analysis Rapid Silicon)
-add_subdirectory(stars)
-add_dependencies(stars vpr)
+# Sub-project 'planning' (aka planner)
+add_subdirectory(planning)
+add_dependencies(planning vpr)
+
