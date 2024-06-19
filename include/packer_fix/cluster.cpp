@@ -99,14 +99,12 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                                          const t_analysis_opts& analysis_opts,
                                                          const t_arch* arch,
                                                          t_pack_molecule* molecule_head,
-                                                         int num_models,
                                                          const std::unordered_set<AtomNetId>& is_clock,
+                                                         const std::unordered_set<AtomNetId>& is_global,
                                                          const std::unordered_map<AtomBlockId, t_pb_graph_node*>& expected_lowest_cost_pb_gnode,
                                                          bool allow_unrelated_clustering,
                                                          bool balance_block_type_utilization,
                                                          std::vector<t_lb_type_rr_node>* lb_type_rr_graphs,
-                                                         const t_ext_pin_util_targets& ext_pin_util_targets,
-                                                         const t_pack_high_fanout_thresholds& high_fanout_thresholds,
                                                          AttractionInfo& attraction_groups,
                                                          bool& floorplan_regions_overfull,
                                                          t_clustering_data& clustering_data) {
@@ -237,7 +235,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
 
     auto seed_atoms = initialize_seed_atoms(packer_opts.cluster_seed_type, max_molecule_stats, atom_criticality);
 
-    istart = get_highest_gain_seed_molecule(&seedindex, seed_atoms);
+    istart = get_highest_gain_seed_molecule(seedindex, seed_atoms);
 
     print_pack_status_header();
 
@@ -405,7 +403,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                     clb_index, istart,
                                     num_used_type_instances,
                                     packer_opts.target_device_utilization,
-                                    num_models, helper_ctx.max_cluster_size,
+                                    helper_ctx.num_models, helper_ctx.max_cluster_size,
                                     arch, packer_opts.device_layout,
                                     lb_type_rr_graphs, &router_data,
                                     detailed_routing_stage, &cluster_ctx.clb_nlist,
@@ -435,11 +433,11 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                     //Progress dot for seed-block
                     fflush(stdout);
 
-                    t_ext_pin_util target_ext_pin_util = ext_pin_util_targets.get_pin_util(cluster_ctx.clb_nlist.block_type(clb_index)->name);
-                    int high_fanout_threshold = high_fanout_thresholds.get_threshold(cluster_ctx.clb_nlist.block_type(clb_index)->name);
+                    t_ext_pin_util target_ext_pin_util = helper_ctx.target_external_pin_util.get_pin_util(cluster_ctx.clb_nlist.block_type(clb_index)->name);
+                    int high_fanout_threshold = helper_ctx.high_fanout_thresholds.get_threshold(cluster_ctx.clb_nlist.block_type(clb_index)->name);
                     update_cluster_stats(istart, clb_index,
                                         is_clock, //Set of clock nets
-                                        is_clock, //Set of global nets (currently all clocks)
+                                        is_global, //Set of global nets (currently all clocks)
                                         packer_opts.global_clocks,
                                         packer_opts.alpha, packer_opts.beta,
                                         packer_opts.timing_driven, packer_opts.connection_driven,
@@ -505,7 +503,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                         helper_ctx.primitives_list,
                                         cluster_stats,
                                         helper_ctx.total_clb_num,
-                                        num_models,
+                                        helper_ctx.num_models,
                                         helper_ctx.max_cluster_size,
                                         clb_index,
                                         detailed_routing_stage,
@@ -514,6 +512,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                         allow_unrelated_clustering,
                                         high_fanout_threshold,
                                         is_clock,
+                                        is_global,
                                         timing_info,
                                         router_data,
                                         target_ext_pin_util,
@@ -627,7 +626,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                   clb_index, istart,
                                   num_used_type_instances,
                                   packer_opts.target_device_utilization,
-                                  num_models, helper_ctx.max_cluster_size,
+                                  helper_ctx.num_models, helper_ctx.max_cluster_size,
                                   arch, packer_opts.device_layout,
                                   lb_type_rr_graphs, &router_data,
                                   detailed_routing_stage, &cluster_ctx.clb_nlist,
@@ -657,11 +656,11 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                 //Progress dot for seed-block
                 fflush(stdout);
 
-                t_ext_pin_util target_ext_pin_util = ext_pin_util_targets.get_pin_util(cluster_ctx.clb_nlist.block_type(clb_index)->name);
-                int high_fanout_threshold = high_fanout_thresholds.get_threshold(cluster_ctx.clb_nlist.block_type(clb_index)->name);
+                t_ext_pin_util target_ext_pin_util = helper_ctx.target_external_pin_util.get_pin_util(cluster_ctx.clb_nlist.block_type(clb_index)->name);
+                int high_fanout_threshold = helper_ctx.high_fanout_thresholds.get_threshold(cluster_ctx.clb_nlist.block_type(clb_index)->name);
                 update_cluster_stats(istart, clb_index,
                                      is_clock, //Set of clock nets
-                                     is_clock, //Set of global nets (currently all clocks)
+                                     is_global, //Set of global nets (currently all clocks)
                                      packer_opts.global_clocks,
                                      packer_opts.alpha, packer_opts.beta,
                                      packer_opts.timing_driven, packer_opts.connection_driven,
@@ -721,7 +720,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                      helper_ctx.primitives_list,
                                      cluster_stats,
                                      helper_ctx.total_clb_num,
-                                     num_models,
+                                     helper_ctx.num_models,
                                      helper_ctx.max_cluster_size,
                                      clb_index,
                                      detailed_routing_stage,
@@ -730,6 +729,7 @@ std::map<t_logical_block_type_ptr, size_t> do_clustering(const t_packer_opts& pa
                                      allow_unrelated_clustering,
                                      high_fanout_threshold,
                                      is_clock,
+                                     is_global,
                                      timing_info,
                                      router_data,
                                      target_ext_pin_util,
