@@ -248,15 +248,15 @@ file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
   ${XML_DEC_KEY_DEST}/libencrypt
 )
 
-message(STATUS "NOTE: PATCHING rr_graph_builder")
-FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
-          ${TILEABLE_SRC_DIR}/rr_graph_builder.h
-          DESTINATION
-          ${LIB_RRG_DEST_DIR}/src/base)
-
-FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
-          DESTINATION
-          ${LIB_RRG_DEST_DIR}/src/io)
+#message(STATUS "NOTE: PATCHING rr_graph_builder")
+#FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_builder.cpp
+#          ${TILEABLE_SRC_DIR}/rr_graph_builder.h
+#          DESTINATION
+#          ${LIB_RRG_DEST_DIR}/src/base)
+#
+#FILE(COPY ${TILEABLE_SRC_DIR}/rr_graph_uxsdcxx_serializer.h
+#          DESTINATION
+#          ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
 message(STATUS "NOTE: PATCHING TimingReporter")
