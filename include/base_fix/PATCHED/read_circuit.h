@@ -8,6 +8,8 @@ enum class e_circuit_format {
     AUTO,            ///<Infer from file extension
     BLIF,            ///<Strict structural BLIF
     EBLIF,           ///<Structural blif with extensions
+    VERILOG, // verilog netlist
+    EDIF,
     FPGA_INTERCHANGE ///<FPGA Interhange logical netlis format
 };
 

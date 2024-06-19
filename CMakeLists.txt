@@ -171,15 +171,15 @@ message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
 set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
 apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
 
-#message(STATUS "NOTE: OVERWRITING base/read_.*")
-#file(COPY
-#    ${PATCH_DIR}/base_fix/PATCHED/read_blif.cpp
-#    ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
-#    ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
-#    ${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
-#    ${PATCH_DIR}/base_fix/PATCHED/read_options.h
-#    DESTINATION ${TARGET_DIR})
-#message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
+message(STATUS "NOTE: OVERWRITING base/read_.*")
+file(COPY
+    ${PATCH_DIR}/base_fix/PATCHED/read_blif.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
+    ${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/read_options.h
+    DESTINATION ${TARGET_DIR})
+message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
 
 #message(STATUS "NOTE: PATCHING base/SetupVPR.cpp ..")
 #set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/SetupVPR_cpp.diff)
