@@ -177,6 +177,7 @@ file(COPY
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
     ${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_options.h
+    ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
     DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
 
