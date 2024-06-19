@@ -133,11 +133,7 @@ class AnalyticPlacer {
      *
      * The final legal placement is passed back to annealer in g_vpr_ctx.mutable_placement()
      */
-    void ap_place(const Netlist<>& net_list, std::unique_ptr<PlaceDelayModel>& place_delay_model, const t_placer_opts& placer_opts, const t_analysis_opts& analysis_opts, bool is_flat);
-  private:  
-    float UPPER_RLIM;
-    float FINAL_RLIM = 1.;
-    float INVERSE_DELTA_RLIM;
+    void ap_place();
 
   private:
     // for CutSpreader to access placement info from solver (legal_pos, block_locs, etc).
@@ -222,7 +218,6 @@ class AnalyticPlacer {
     // build matrix equations and solve for block type "run" in both x and y directions
     // macro member positions are updated after solving
     // iter is used to determine pseudo-connection strength
-    void build_solve_type(t_logical_block_type_ptr run, int iter, PlacerCriticalities *place_crit);
     void build_solve_type(t_logical_block_type_ptr run, int iter);
 
     /*
@@ -257,7 +252,6 @@ class AnalyticPlacer {
      * tuned for better performance)
      * the solution from the previous build-solve iteration is used as a guess for the iterative solver
      */
-    void build_solve_direction(bool yaxis, int iter, int build_solve_iter, PlacerCriticalities *place_crit);
     void build_solve_direction(bool yaxis, int iter, int build_solve_iter);
 
     /*
@@ -283,22 +277,13 @@ class AnalyticPlacer {
                                    bool dir,
                                    int num_pins,
                                    ClusterPinId bound_pin,
-                                   ClusterPinId this_pin,
-                                   ClusterNetId netID,
-                                   int ipin,
-                                   PlacerCriticalities *place_crit);
-    void add_pin_to_pin_connection(EquationSystem<double>& es,
-                                   bool dir,
-                                   int num_pins,
-                                   ClusterPinId bound_pin,
                                    ClusterPinId this_pin);
-           
+
     /*
      * Build the system of equations for either X or Y
      * When iter != -1, for each block, psudo-conenction to its prior legal location is formed,
      * the strength is determined by ap_cfg.alpha and iter
      */
-    void build_equations(EquationSystem<double>& es, bool yaxis, PlacerCriticalities *place_crit, int iter = -1);
     void build_equations(EquationSystem<double>& es, bool yaxis, int iter = -1);
 
     /*
@@ -342,8 +327,7 @@ class AnalyticPlacer {
                           const float iterTime,
                           const float time,
                           const int bestHPWL,
-                          const int stall,
-                          const float cpd);
+                          const int stall);
 };
 
 #endif /* ENABLE_ANALYTIC_PLACE */

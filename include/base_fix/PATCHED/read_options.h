@@ -64,7 +64,6 @@ struct t_options {
     argparse::ArgValue<bool> CreateEchoFile;
     argparse::ArgValue<bool> verify_file_digests;
     argparse::ArgValue<std::string> device_layout;
-    argparse::ArgValue<std::string> top_mod;
     argparse::ArgValue<float> target_device_utilization;
     argparse::ArgValue<e_constant_net_method> constant_net_method;
     argparse::ArgValue<e_clock_modeling> clock_modeling;
@@ -103,8 +102,6 @@ struct t_options {
     argparse::ArgValue<bool> use_attraction_groups;
     argparse::ArgValue<int> pack_num_moves;
     argparse::ArgValue<std::string> pack_move_type;
-    argparse::ArgValue<bool> use_partitioning_in_pack;
-    argparse::ArgValue<int> number_of_molecules_in_partition;
     /* Placement options */
     argparse::ArgValue<int> Seed;
     argparse::ArgValue<bool> ShowPlaceTiming;
@@ -128,8 +125,6 @@ struct t_options {
     argparse::ArgValue<e_place_effort_scaling> place_effort_scaling;
     argparse::ArgValue<e_place_delta_delay_algorithm> place_delta_delay_matrix_calculation_method;
     argparse::ArgValue<bool> enable_analytic_placer;
-    //Cascade_placer
-    argparse::ArgValue<bool> enable_cascade_placer;
     argparse::ArgValue<std::vector<float>> place_static_move_prob;
     argparse::ArgValue<std::vector<float>> place_static_notiming_move_prob;
     argparse::ArgValue<int> place_high_fanout_net;
@@ -158,14 +153,15 @@ struct t_options {
     argparse::ArgValue<std::string> noc_flows_file;
     argparse::ArgValue<std::string> noc_routing_algorithm;
     argparse::ArgValue<double> noc_placement_weighting;
+    argparse::ArgValue<double> noc_agg_bandwidth_weighting;
     argparse::ArgValue<double> noc_latency_constraints_weighting;
     argparse::ArgValue<double> noc_latency_weighting;
+    argparse::ArgValue<double> noc_congestion_weighting;
     argparse::ArgValue<double> noc_swap_percentage;
     argparse::ArgValue<std::string> noc_placement_file_name;
 
     /* Timing-driven placement options only */
     argparse::ArgValue<float> PlaceTimingTradeoff;
-    argparse::ArgValue<float> CongestionTradeoff;
     argparse::ArgValue<int> RecomputeCritIter;
     argparse::ArgValue<int> inner_loop_recompute_divider;
     argparse::ArgValue<int> quench_recompute_divider;
@@ -247,7 +243,7 @@ struct t_options {
     argparse::ArgValue<bool> skip_sync_clustering_and_routing_results;
 };
 
-argparse::ArgumentParser create_arg_parser(std::string prog_name, t_options& args);
+argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_options& args);
 t_options read_options(int argc, const char** argv);
 void set_conditional_defaults(t_options& args);
 bool verify_args(const t_options& args);
