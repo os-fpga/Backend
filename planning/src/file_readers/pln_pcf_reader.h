@@ -26,6 +26,11 @@ struct PcfReader {
     void clearInternalPin() noexcept { internalPin_.clear(); }
   };
 
+  static inline bool is_internal_cmd(const Cmd* p) noexcept {
+    assert(p);
+    return p->hasInternalPin();
+  }
+
   vector<Cmd> commands_;
 
   PcfReader() noexcept = default;

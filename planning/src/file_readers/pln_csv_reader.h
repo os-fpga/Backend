@@ -252,6 +252,7 @@ public:
   }
 
   bool has_io_pin(const string& pin_name_or_ID) const noexcept;
+  vector<uint> get_gbox_rows(const string& device_gbox_name) const noexcept;
 
   bool hasCustomerInternalName(const string& nm) const noexcept;
 

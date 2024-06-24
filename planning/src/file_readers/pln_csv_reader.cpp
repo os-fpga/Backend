@@ -1734,6 +1734,26 @@ bool PcCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
   return false;
 }
 
+vector<uint> PcCsvReader::get_gbox_rows(const string& device_gbox_name) const noexcept {
+  assert(!bcd_.empty());
+  assert(!device_gbox_name.empty());
+  if (device_gbox_name.empty())
+    return {};
+
+  vector<uint> result;
+
+  // tmp linear search
+  uint num_rows = numRows();
+  for (uint i = 0; i < num_rows; i++) {
+    const BCD& bcd = *bcd_[i];
+    if (bcd.match(device_gbox_name)) {
+      result.push_back(i);
+    }
+  }
+
+  return result;
+}
+
 bool PcCsvReader::hasCustomerInternalName(const string& nm) const noexcept {
   assert(!bcd_.empty());
   assert(!nm.empty());
