@@ -29,6 +29,7 @@ void PcCsvReader::reset() noexcept {
   rx_cols_.reset();
   tx_cols_.reset();
   gpio_cols_.reset();
+  fullchipNames_.clear();
 
   bcd_good_.clear();
 
@@ -973,12 +974,16 @@ bool PcCsvReader::read_csv(const string& fn, uint num_udes_pins) {
 
   flush_out(false);
 
+  fullchipNames_.clear();
   S_tmp = crd.getColumn("Fullchip_NAME");
   assert(S_tmp.size() > 1);
   assert(S_tmp.size() <= num_rows);
   S_tmp.resize(num_rows);
+  fullchipNames_.reserve(num_rows + 2);
   for (uint i = 0; i < num_rows; i++) {
     bcd_[i]->fullchipName_ = std::move(S_tmp[i]);
+    if (not bcd_[i]->fullchipName_.empty())
+      fullchipNames_.insert(bcd_[i]->fullchipName_);
   }
 
   flush_out(false);

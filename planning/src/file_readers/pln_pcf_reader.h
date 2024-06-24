@@ -11,11 +11,19 @@ struct PcfReader {
 
   struct Cmd {
     vector<string> cmd_;
-    bool hasInternalPin_ = false;
+    string internalPin_;
 
     Cmd() noexcept = default;
 
     size_t size() const noexcept { return cmd_.size(); }
+
+    bool hasInternalPin() const noexcept { return not internalPin_.empty(); }
+
+    void setInternalPin(const string& nm) noexcept {
+      assert(not nm.empty());
+      internalPin_ = nm;
+    }
+    void clearInternalPin() noexcept { internalPin_.clear(); }
   };
 
   vector<Cmd> commands_;
@@ -25,8 +33,6 @@ struct PcfReader {
   PcfReader(const string& f) { read_pcf(f); }
 
   bool read_pcf(const string& f);
-
-  //// const vector<Cmd>& get_commands() const noexcept { return commands_; }
 };
 
 }

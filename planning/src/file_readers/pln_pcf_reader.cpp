@@ -26,6 +26,7 @@ bool PcfReader::read_pcf(const string& f) {
   bool has_error = false;
   string set_io_cmd, user_pin, bump_or_ball_name, dash_mode, mode_name;
   string optional_dash_internal_pin, optional_internal_pin;
+  string internal_str;
 
   vector<string> dat;
   string row_str;
@@ -65,11 +66,32 @@ bool PcfReader::read_pcf(const string& f) {
     optional_internal_pin.clear();
 
     bool has_internal_pin = false;
+    internal_str.clear();
     if (line.find("-internal_pin") != string::npos) {
+      int index_in_dat = -1;
+      assert(dat.size() > 1);
+      for (int k = int(dat.size()) - 1; k > 0; k--) {
+        if (dat[k] == "-internal_pin") {
+          index_in_dat = k;
+          break;
+        }
+      }
+      if (index_in_dat < 0 or index_in_dat == int(dat.size()) - 1) {
+        flush_out(true);
+        err_puts();
+        lprintf2("[Error] PCF Reader: syntax error regarding -internal_pin\n");
+        flush_out(true);
+        lprintf("  PCF line with syntax error: %s\n", line.c_str());
+        flush_out(true);
+        return false;
+      }
       has_internal_pin = true;
+      internal_str = dat[index_in_dat + 1];
     }
 
-    if (tr >= 4) ls << "(pcf line) " << line << endl;
+    if (tr >= 5) {
+      ls << "(pcf line) " << line << endl;
+    }
 
     if (has_internal_pin) {
       if (!(iss >> set_io_cmd >> user_pin >> bump_or_ball_name >> dash_mode >>
@@ -87,27 +109,28 @@ bool PcfReader::read_pcf(const string& f) {
 
     if (tr >= 4) {
       ls << "    user_pin:" << user_pin << "  bump_or_ball_name:" << bump_or_ball_name
-         << "  mode_name:" << mode_name << endl;
+         << "  mode_name:" << mode_name << "  internal_str:" << internal_str << endl;
     }
 
     commands_.emplace_back();
     Cmd& last = commands_.back();
-    vector<string>& cur_command = last.cmd_;
+    last.clearInternalPin();
 
-    cur_command.push_back(set_io_cmd);
-    cur_command.push_back(user_pin);
-    cur_command.push_back(bump_or_ball_name);
-    cur_command.push_back(dash_mode);
-    cur_command.push_back(mode_name);
+    last.cmd_.push_back(set_io_cmd);
+    last.cmd_.push_back(user_pin);
+    last.cmd_.push_back(bump_or_ball_name);
+    last.cmd_.push_back(dash_mode);
+    last.cmd_.push_back(mode_name);
 
     if (has_internal_pin) {
-      cur_command.push_back(optional_dash_internal_pin);
-      cur_command.push_back(optional_internal_pin);
+      last.cmd_.push_back(optional_dash_internal_pin);
+      last.cmd_.push_back(optional_internal_pin);
+      last.setInternalPin(internal_str);
     }
 
     if (row_num > 0) {
-      cur_command.emplace_back("-pt_row");
-      cur_command.emplace_back(std::to_string(row_num));
+      last.cmd_.emplace_back("-pt_row");
+      last.cmd_.emplace_back(std::to_string(row_num));
     }
   }
 
