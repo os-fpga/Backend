@@ -412,14 +412,21 @@ bool PinPlacer::read_pcf(const PcCsvReader& csv) {
   if (rd_pcf.commands_.empty())
     return true;
 
-  // validate modes
+  assert(rd_pcf.commands_.size() < UINT_MAX);
+  uint num_pcf_commands = rd_pcf.commands_.size();
+  uint num_internal_pins = 0;
+
+  // -- validate modes
   string mode, key;
-  for (uint cmd_i = 0; cmd_i < rd_pcf.commands_.size(); cmd_i++) {
-    const vector<string>& pcf_cmd = rd_pcf.commands_[cmd_i].cmd_;
+  for (uint cmd_i = 0; cmd_i < num_pcf_commands; cmd_i++) {
+    const PcfReader::Cmd& cmdObj = rd_pcf.commands_[cmd_i];
+    if (cmdObj.hasInternalPin())
+      num_internal_pins++;
+    const vector<string>& cmdl = cmdObj.cmd_;
     mode.clear();
-    for (uint j = 1; j < pcf_cmd.size() - 1; j++) {
-      if (pcf_cmd[j] == "-mode") {
-        mode = pcf_cmd[j + 1];
+    for (uint j = 1; j < cmdl.size() - 1; j++) {
+      if (cmdl[j] == "-mode") {
+        mode = cmdl[j + 1];
         break;
       }
     }
@@ -438,6 +445,28 @@ bool PinPlacer::read_pcf(const PcCsvReader& csv) {
         ls << " (ERROR) invalid mode name: " << mode << "  [ " << key << " ]" << endl;
       }
     }
+    flush_out(true);
+    return false;
+  }
+
+  if (tr >= 3) {
+    lprintf("pin_c PCF:  num_pcf_commands= %u  num_internal_pins= %u\n",
+            num_pcf_commands, num_internal_pins);
+  }
+
+  // -- validate internal_pins
+  for (uint cmd_i = 0; cmd_i < num_pcf_commands; cmd_i++) {
+    const PcfReader::Cmd& cmdObj = rd_pcf.commands_[cmd_i];
+    if (not cmdObj.hasInternalPin())
+      continue;
+    const string& ip = cmdObj.internalPin_;
+    if (ip.empty())
+      continue;
+    if (csv.hasFullchipName(ip))
+      continue;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] invalid -internal_pin in PCF: %s\n", ip.c_str());
     flush_out(true);
     return false;
   }

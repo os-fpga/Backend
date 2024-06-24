@@ -283,6 +283,10 @@ public:
   uint getModeCol(const string& mode) const noexcept;
   bool hasMode(const string& key) const noexcept { return getModeCol(key); }
 
+  bool hasFullchipName(const string& key) const noexcept {
+    return fullchipNames_.count(key);
+  }
+
   uint printModeNames() const;
 
   string bumpName2CustomerName(const string& bump_name) const noexcept;
@@ -335,6 +339,8 @@ private:
   std::bitset<MAX_PT_COLS> rx_cols_;    // which columns are "Mode_..._RX"
   std::bitset<MAX_PT_COLS> tx_cols_;    // which columns are "Mode_..._TX"
   std::bitset<MAX_PT_COLS> gpio_cols_;  // which columns are "Mode_..._GPIO"
+
+  std::unordered_set<string> fullchipNames_; // for -internal_pin validation
 
   vector<BCD*> bcd_;         // all BCD records, indexed by csv row
 
