@@ -1,5 +1,4 @@
 #include "pin_loc/pin_placer.h"
-#include "file_readers/pcf_reader.h"
 #include "file_readers/pln_csv_reader.h"
 #include "file_readers/pln_Fio.h"
 
