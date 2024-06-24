@@ -8,7 +8,7 @@
 #include "util/cmd_line.h"
 #include "pin_loc/pinc_main.h"
 #include "pin_loc/pin.h"
-#include "file_readers/pcf_reader.h"
+#include "file_readers/pln_pcf_reader.h"
 
 namespace pln {
 
