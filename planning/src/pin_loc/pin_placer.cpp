@@ -291,7 +291,7 @@ bool PinPlacer::read_and_write() {
   assert(user_design_outputs_.size() == raw_design_outputs_.size());
 
   // --3. read PT from csv file
-  RapidCsvReader csv_rd;
+  PcCsvReader csv_rd;
   if (!read_csv_file(csv_rd)) {
     flush_out(true);
     if (tr >= 2) {

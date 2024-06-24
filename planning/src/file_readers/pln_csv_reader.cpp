@@ -7,16 +7,16 @@
 namespace pln {
 
 using namespace std;
-using Tile_p = RapidCsvReader::Tile*;
-using BCD_p = RapidCsvReader::BCD*;
+using Tile_p = PcCsvReader::Tile*;
+using BCD_p = PcCsvReader::BCD*;
 
-static constexpr uint MAX_COLMS = RapidCsvReader::MAX_PT_COLS;
+static constexpr uint MAX_COLMS = PcCsvReader::MAX_PT_COLS;
 
-RapidCsvReader::RapidCsvReader() {}
+PcCsvReader::PcCsvReader() {}
 
-RapidCsvReader::~RapidCsvReader() { delete crd_; }
+PcCsvReader::~PcCsvReader() { delete crd_; }
 
-void RapidCsvReader::reset() noexcept {
+void PcCsvReader::reset() noexcept {
   start_GBOX_GPIO_row_ = 0;
   start_CustomerInternal_row_ = 0;
   start_MODE_col_ = 0;
@@ -55,13 +55,13 @@ static inline bool ends_with_tx_rx(const char* z, size_t len) noexcept {
          z[len - 3] == '_';
 }
 
-bool RapidCsvReader::ends_with_rx(const char* z, size_t len) noexcept {
+bool PcCsvReader::ends_with_rx(const char* z, size_t len) noexcept {
   assert(z);
   if (len < 4) return false;
   return z[len - 1] == 'x' and z[len - 2] == 'r' and z[len - 3] == '_';
 }
 
-bool RapidCsvReader::ends_with_tx(const char* z, size_t len) noexcept {
+bool PcCsvReader::ends_with_tx(const char* z, size_t len) noexcept {
   assert(z);
   if (len < 4) return false;
   return z[len - 1] == 'x' and z[len - 2] == 't' and z[len - 3] == '_';
@@ -92,7 +92,7 @@ static inline bool starts_with_F2A(const char* z) noexcept {
   return z[0] == 'F' and z[1] == '2' and z[2] == 'A';
 }
 
-std::bitset<MAX_COLMS> RapidCsvReader::BCD::getRxModes() const noexcept {
+std::bitset<MAX_COLMS> PcCsvReader::BCD::getRxModes() const noexcept {
   std::bitset<MAX_COLMS> result{0U};
   if (modes_.none())
     return result;
@@ -107,7 +107,7 @@ std::bitset<MAX_COLMS> RapidCsvReader::BCD::getRxModes() const noexcept {
   return result;
 }
 
-std::bitset<MAX_COLMS> RapidCsvReader::BCD::getTxModes() const noexcept {
+std::bitset<MAX_COLMS> PcCsvReader::BCD::getTxModes() const noexcept {
   std::bitset<MAX_COLMS> result{0U};
   if (modes_.none())
     return result;
@@ -122,7 +122,7 @@ std::bitset<MAX_COLMS> RapidCsvReader::BCD::getTxModes() const noexcept {
   return result;
 }
 
-std::bitset<MAX_COLMS> RapidCsvReader::BCD::getGpioModes() const noexcept {
+std::bitset<MAX_COLMS> PcCsvReader::BCD::getGpioModes() const noexcept {
   std::bitset<MAX_COLMS> result{0U};
   if (modes_.none())
     return result;
@@ -136,7 +136,7 @@ std::bitset<MAX_COLMS> RapidCsvReader::BCD::getGpioModes() const noexcept {
   return result;
 }
 
-Pin* RapidCsvReader::BCD::annotatePin(const string& udes_pn,
+Pin* PcCsvReader::BCD::annotatePin(const string& udes_pn,
                                       const string& device_pn,
                                       bool is_usr_inp) noexcept {
   if (ann_pin_)
@@ -164,7 +164,7 @@ Pin* RapidCsvReader::BCD::annotatePin(const string& udes_pn,
   return ann_pin_;
 }
 
-const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
+const char* PcCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
   // enum ModeDir
   // {  No_dir,   Input_dir,   Output_dir,   HasBoth_dir,   AllEnabled_dir  };
   static const char* enumS[] =
@@ -176,14 +176,14 @@ const char* RapidCsvReader::str_Mode_dir(BCD::ModeDir t) noexcept {
   return enumS[i];
 }
 
-std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
+std::ostream& operator<<(std::ostream& os, const PcCsvReader::BCD& b) {
   os << "(bcd-" << b.row_ << ' '
      << "  grp:" << b.groupA_ << "  " << b.bump_B_ << "  " << b.customer_ << "  "
      << b.ball_ID_ << "  ITP: " << b.IO_tile_pin_ << "  XYZ: " << b.xyz_
      << "  colM:" << b.col_M_ << "  fc:" << b.fullchipName_
      << "  ci:" << b.customerInternal() << "  axi:" << int(b.is_axi_)
      << "  isGPIO:" << int(b.is_GPIO_) << "  isGB_GPIO:" << int(b.is_GBOX_GPIO_)
-     << "  rxtx_dir:" << RapidCsvReader::str_Mode_dir(b.rxtx_dir_)
+     << "  rxtx_dir:" << PcCsvReader::str_Mode_dir(b.rxtx_dir_)
      << "  colM_dir:" << b.str_colM_dir()
      << "  is_input:" << int(b.isInput())
      << "  #modes:" << b.numModes()
@@ -193,9 +193,9 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b) {
      << "  row:" << b.row_ << ')';
   return os;
 }
-void RapidCsvReader::BCD::dump() const { lout() << *this << endl; }
+void PcCsvReader::BCD::dump() const { lout() << *this << endl; }
 
-std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t) {
+std::ostream& operator<<(std::ostream& os, const PcCsvReader::Tile& t) {
   os << "(tile-" << t.id_ << ' '
      << "  loc: " << t.loc_
      << "  colA: " << t.colA_
@@ -208,15 +208,15 @@ std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t) {
      << ')';
   return os;
 }
-void RapidCsvReader::Tile::dump() const { lout() << *this << endl; }
+void PcCsvReader::Tile::dump() const { lout() << *this << endl; }
 
-string RapidCsvReader::Tile::key1() const noexcept {
+string PcCsvReader::Tile::key1() const noexcept {
   string k = loc_.toString();
   k.push_back(' ');
   k += colB_;
   return k;
 }
-string RapidCsvReader::Tile::key2() const noexcept {
+string PcCsvReader::Tile::key2() const noexcept {
   string k = key1();
   k += " #";
   k += std::to_string(id_);
@@ -224,7 +224,7 @@ string RapidCsvReader::Tile::key2() const noexcept {
 }
 
 // returns spreadsheet column label ("A", "B", "BC", etc) for column index 'i'
-string RapidCsvReader::label_of_column(int i) noexcept {
+string PcCsvReader::label_of_column(int i) noexcept {
   assert(i >= 0 && i < 1000);
   string label;
 
@@ -263,7 +263,7 @@ struct RX_TX_val {
 
   bool enabled() const noexcept { return val_ == "Y"; }
   bool is_rx() const noexcept {
-    return RapidCsvReader::ends_with_rx(hdr_.c_str(), hdr_.length());
+    return PcCsvReader::ends_with_rx(hdr_.c_str(), hdr_.length());
   }
 };
 
@@ -312,7 +312,7 @@ static bool get_row_modes(const fio::CSV_Reader& crd, uint rowNum,
 
 // if 'hdr' starts with "Mode_"/"MODE_" then convert
 // the prefix to upper case and return true.
-bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept {
+bool PcCsvReader::prepare_mode_header(string& hdr) noexcept {
   if (hdr.size() < 6) return false;
   const char* cs = hdr.c_str();
   char p[8] = {};
@@ -329,7 +329,7 @@ bool RapidCsvReader::prepare_mode_header(string& hdr) noexcept {
   return false;
 }
 
-bool RapidCsvReader::initCols(const fio::CSV_Reader& crd) {
+bool PcCsvReader::initCols(const fio::CSV_Reader& crd) {
   uint16_t tr = ltrace();
   auto& ls = lout();
 
@@ -384,7 +384,7 @@ bool RapidCsvReader::initCols(const fio::CSV_Reader& crd) {
   return true;
 }
 
-bool RapidCsvReader::initRows(const fio::CSV_Reader& crd) {
+bool PcCsvReader::initRows(const fio::CSV_Reader& crd) {
   start_GBOX_GPIO_row_ = 0;
   vector<string> group_col = crd.getColumn("Group");
   assert(!group_col.empty());
@@ -424,7 +424,7 @@ bool RapidCsvReader::initRows(const fio::CSV_Reader& crd) {
 }
 
 // classify row directions BCD:: rxtx_dir_, colM_dir_
-bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
+bool PcCsvReader::setDirections(const fio::CSV_Reader& crd) {
   uint16_t tr = ltrace();
   uint num_rows = numRows();
   if (num_rows < 3) return false;
@@ -501,7 +501,7 @@ bool RapidCsvReader::setDirections(const fio::CSV_Reader& crd) {
   return true;
 }
 
-bool RapidCsvReader::createTiles(bool uniq_XY) {
+bool PcCsvReader::createTiles(bool uniq_XY) {
   flush_out(false);
   uniq_XY = false;
   static uint cr_tiles_cnt = 0;
@@ -733,7 +733,7 @@ bool RapidCsvReader::createTiles(bool uniq_XY) {
   return true;
 }
 
-Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
+Tile_p PcCsvReader::getUnusedTile(bool input_dir,
                            const std::unordered_set<uint>& except,
                            uint overlap_level) noexcept {
   assert(uni_XY_ == 0 or uni_XY_ == 1);
@@ -772,7 +772,7 @@ Tile_p RapidCsvReader::getUnusedTile(bool input_dir,
   return result;
 }
 
-BCD_p RapidCsvReader::Tile::bestInputSite() noexcept {
+BCD_p PcCsvReader::Tile::bestInputSite() noexcept {
   if (a2f_sites_.empty())
     return nullptr;
 
@@ -804,7 +804,7 @@ BCD_p RapidCsvReader::Tile::bestInputSite() noexcept {
   return nullptr;
 }
 
-BCD_p RapidCsvReader::Tile::bestOutputSite() noexcept {
+BCD_p PcCsvReader::Tile::bestOutputSite() noexcept {
   if (f2a_sites_.empty())
     return nullptr;
 
@@ -836,7 +836,7 @@ BCD_p RapidCsvReader::Tile::bestOutputSite() noexcept {
   return nullptr;
 }
 
-bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
+bool PcCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   flush_out(false);
   uint16_t tr = ltrace();
   if (tr >= 3)
@@ -1285,12 +1285,12 @@ bool RapidCsvReader::read_csv(const string& fn, uint num_udes_pins) {
   return true;
 }
 
-bool RapidCsvReader::write_csv(const string& fn, uint minRow,
+bool PcCsvReader::write_csv(const string& fn, uint minRow,
                                uint maxRow) const {
   flush_out(false);
   uint16_t tr = ltrace();
   if (tr >= 2) {
-    lprintf("RapidCsvReader::write_csv( %s )  minRow= %u  maxRow= %u\n",
+    lprintf("PcCsvReader::write_csv( %s )  minRow= %u  maxRow= %u\n",
             fn.c_str(), minRow, maxRow);
   }
 
@@ -1301,12 +1301,12 @@ bool RapidCsvReader::write_csv(const string& fn, uint minRow,
 
   bool ok = crd_->writeCsv(fn, minRow, maxRow);
   if (tr >= 2)
-    lprintf("done RapidCsvReader::write_csv( %s )  ok:%i\n", fn.c_str(), ok);
+    lprintf("done PcCsvReader::write_csv( %s )  ok:%i\n", fn.c_str(), ok);
 
   return ok;
 }
 
-uint RapidCsvReader::countBidiRows() const noexcept {
+uint PcCsvReader::countBidiRows() const noexcept {
   uint nr = numRows();
   uint cnt = 0;
   for (uint i = 0; i < nr; i++) {
@@ -1316,7 +1316,7 @@ uint RapidCsvReader::countBidiRows() const noexcept {
   return cnt;
 }
 
-uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
+uint PcCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
   flush_out(false);
   uint nr = numRows();
   if (!nr) return 0;
@@ -1352,7 +1352,7 @@ uint RapidCsvReader::print_bcd_stats(std::ostream& os) const noexcept {
   return nr;
 }
 
-uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept {
+uint PcCsvReader::print_bcd(std::ostream& os) const noexcept {
   flush_out(false);
   uint nr = numRows();
   os << "+++ BCD dump::: Bump/Pin Name , Customer Name , Ball ID , IO_tile_pin "
@@ -1367,7 +1367,7 @@ uint RapidCsvReader::print_bcd(std::ostream& os) const noexcept {
   return nr;
 }
 
-uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept {
+uint PcCsvReader::print_axi_bcd(std::ostream& os) const noexcept {
   flush_out(false);
   uint n = bcd_AXI_.size();
   os << "+++ bcd_AXI_ dump (" << n
@@ -1382,7 +1382,7 @@ uint RapidCsvReader::print_axi_bcd(std::ostream& os) const noexcept {
   return n;
 }
 
-void RapidCsvReader::print_csv() const {
+void PcCsvReader::print_csv() const {
   flush_out(true);
   lputs("print_csv()");
   auto& ls = lout();
@@ -1419,7 +1419,7 @@ void RapidCsvReader::print_csv() const {
   flush_out(true);
 }
 
-void RapidCsvReader::write_debug_csv() const {
+void PcCsvReader::write_debug_csv() const {
   flush_out(true);
   string cwd = get_CWD();
   lprintf("write_debug_csv() in work_dir = %s\n", cwd.c_str());
@@ -1469,7 +1469,7 @@ void RapidCsvReader::write_debug_csv() const {
   flush_out(true);
 }
 
-vector<uint> RapidCsvReader::get_enabled_rows_for_mode(const string& mode) const noexcept {
+vector<uint> PcCsvReader::get_enabled_rows_for_mode(const string& mode) const noexcept {
   if (mode.empty())
     return {};
   uint col_idx = getModeCol(mode);
@@ -1489,7 +1489,7 @@ vector<uint> RapidCsvReader::get_enabled_rows_for_mode(const string& mode) const
   return result;
 }
 
-XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
+XYZ PcCsvReader::get_axi_xyz_by_name(const string& axi_name,
                                         uint& pt_row) const noexcept {
   pt_row = 0;
   XYZ result;
@@ -1510,7 +1510,7 @@ XYZ RapidCsvReader::get_axi_xyz_by_name(const string& axi_name,
   return result;
 }
 
-uint RapidCsvReader::getModeCol(const string& mode) const noexcept {
+uint PcCsvReader::getModeCol(const string& mode) const noexcept {
   if (mode.length() <= 1)
     return 0;
   string mode_lc = str::s2lower(mode);
@@ -1525,7 +1525,7 @@ uint RapidCsvReader::getModeCol(const string& mode) const noexcept {
   return modeCol;
 }
 
-XYZ RapidCsvReader::get_ipin_xyz_by_name(const string& mode,
+XYZ PcCsvReader::get_ipin_xyz_by_name(const string& mode,
                                          const string& customerPin_or_ID,
                                          const string& gbox_pin_name,
                                          const std::set<XYZ>& except,
@@ -1609,7 +1609,7 @@ ret:
   return result;
 }
 
-XYZ RapidCsvReader::get_opin_xyz_by_name(const string& mode,
+XYZ PcCsvReader::get_opin_xyz_by_name(const string& mode,
                                          const string& customerPin_or_ID,
                                          const string& gbox_pin_name,
                                          const std::set<XYZ>& except,
@@ -1693,7 +1693,7 @@ ret:
   return result;
 }
 
-uint RapidCsvReader::printModeNames() const {
+uint PcCsvReader::printModeNames() const {
   uint n = mode_names_.size();
   lprintf("mode_names_.size()= %u\n", n);
   if (mode_names_.empty()) return 0;
@@ -1704,7 +1704,7 @@ uint RapidCsvReader::printModeNames() const {
   return n;
 }
 
-string RapidCsvReader::bumpName2CustomerName(
+string PcCsvReader::bumpName2CustomerName(
     const string& bump_nm) const noexcept {
   assert(!bump_nm.empty());
   uint num_rows = numRows();
@@ -1720,7 +1720,7 @@ string RapidCsvReader::bumpName2CustomerName(
   return {};
 }
 
-bool RapidCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
+bool PcCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
   assert(!bcd_.empty());
 
   for (const BCD* x : bcd_) {
@@ -1729,7 +1729,7 @@ bool RapidCsvReader::has_io_pin(const string& pin_name_or_ID) const noexcept {
   return false;
 }
 
-bool RapidCsvReader::hasCustomerInternalName(const string& nm) const noexcept {
+bool PcCsvReader::hasCustomerInternalName(const string& nm) const noexcept {
   assert(!bcd_.empty());
   assert(!nm.empty());
 
@@ -1740,7 +1740,7 @@ bool RapidCsvReader::hasCustomerInternalName(const string& nm) const noexcept {
   return false;
 }
 
-vector<string> RapidCsvReader::get_AXI_inputs() const {
+vector<string> PcCsvReader::get_AXI_inputs() const {
   assert(!bcd_.empty());
   // DO NOT uncomment:  assert(!bcd_AXI_.empty());
 
@@ -1762,7 +1762,7 @@ vector<string> RapidCsvReader::get_AXI_inputs() const {
   return result;
 }
 
-vector<string> RapidCsvReader::get_AXI_outputs() const {
+vector<string> PcCsvReader::get_AXI_outputs() const {
   assert(!bcd_.empty());
   // DO NOT uncomment: assert(!bcd_AXI_.empty());
 

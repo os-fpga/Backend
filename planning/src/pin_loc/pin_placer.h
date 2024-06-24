@@ -8,10 +8,11 @@
 #include "util/cmd_line.h"
 #include "pin_loc/pinc_main.h"
 #include "pin_loc/pin.h"
+#include "file_readers/pcf_reader.h"
 
 namespace pln {
 
-class RapidCsvReader;
+class PcCsvReader;
 
 using std::string;
 using std::vector;
@@ -95,7 +96,7 @@ private:
   vector<EditItem*> ibufs_SortedByOld_;
   vector<EditItem*> obufs_SortedByOld_;
 
-  vector<vector<string>> pcf_pin_cmds_;
+  vector<PcfReader::Cmd> pcf_pin_cmds_;
 
   std::set<string> used_bump_pins_;
   std::set<XY>     used_XYs_;
@@ -160,9 +161,9 @@ public:
                          vector<const Pin*>& inp_ov,
                          vector<const Pin*>& out_ov) const noexcept;
 
-  void print_stats(const RapidCsvReader& csv) const;
+  void print_stats(const PcCsvReader& csv) const;
   void print_summary(const string& csv_name) const;
-  void printTileUsage(const RapidCsvReader& csv) const;
+  void printTileUsage(const PcCsvReader& csv) const;
 
   size_t num_placed_pins() const noexcept {
     return placed_inputs_.size() + placed_outputs_.size();
@@ -196,30 +197,31 @@ public:
     return -1;
   }
 
-  bool read_csv_file(RapidCsvReader&);
+  bool read_csv_file(PcCsvReader&);
   bool read_design_ports();
   bool read_edits();
   void translate_pcf_cmds();
 
-  bool read_pcf(const RapidCsvReader&);
+  bool read_pcf(const PcCsvReader&);
 
-  bool write_dot_place(const RapidCsvReader&);
+  bool write_dot_place(const PcCsvReader&);
 
-  bool create_temp_pcf(RapidCsvReader&);
+  bool create_temp_pcf(PcCsvReader&);
 
   void get_pcf_directions(vector<string>& inps,
                           vector<string>& outs,
-                          vector<string>& undefs) const noexcept;
+                          vector<string>& undefs,
+                          vector<string>& internals) const noexcept;
 
   static void shuffle_candidates(vector<int>& v);
 
-  DevPin get_available_device_pin(RapidCsvReader& csv,
+  DevPin get_available_device_pin(PcCsvReader& csv,
                                   bool is_inp, const string& udesName,
                                   Pin*& ann_pin);
   //
-  DevPin get_available_bump_ipin(RapidCsvReader& csv,
+  DevPin get_available_bump_ipin(PcCsvReader& csv,
                                  const string& udesName, Pin*& ann_pin);
-  DevPin get_available_bump_opin(RapidCsvReader& csv,
+  DevPin get_available_bump_opin(PcCsvReader& csv,
                                  const string& udesName, Pin*& ann_pin);
   //
   DevPin get_available_axi_ipin(vector<string>& Q);

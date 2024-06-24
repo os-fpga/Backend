@@ -4,6 +4,7 @@
 namespace pln {
 
 using namespace std;
+using fio::Fio;
 
 bool PcfReader::read_pcf(const string& f) {
   uint16_t tr = ltrace();
@@ -14,8 +15,10 @@ bool PcfReader::read_pcf(const string& f) {
 
   std::ifstream infile(f);
   if (!infile.is_open()) {
-    cerr << "ERROR: could not open the file " << f << endl;
-    ls << "ERROR: could not open the file " << f << endl;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] PCF Reader: could not open the file %s\n", f.c_str());
+    flush_out(true);
     return false;
   }
 
@@ -38,7 +41,7 @@ bool PcfReader::read_pcf(const string& f) {
     dat.clear();
     row_str.clear();
     row_num = -1;
-    bool split_ok = fio::Fio::split_spa(line.c_str(), dat);
+    bool split_ok = Fio::split_spa(line.c_str(), dat);
     if (split_ok && dat.size() > 2) {
       for (uint j = 1; j < dat.size() - 1; j++) {
         if (dat[j] == "-pt_row") {
@@ -88,7 +91,8 @@ bool PcfReader::read_pcf(const string& f) {
     }
 
     commands_.emplace_back();
-    vector<string>& cur_command = commands_.back();
+    Cmd& last = commands_.back();
+    vector<string>& cur_command = last.cmd_;
 
     cur_command.push_back(set_io_cmd);
     cur_command.push_back(user_pin);
@@ -107,35 +111,18 @@ bool PcfReader::read_pcf(const string& f) {
     }
   }
 
-  if (tr >= 2) {
-    ls << "done  PcfReader::read_pcf().  commands_.size()= " << commands_.size()
-       << "  has_error= " << boolalpha << has_error << endl;
+  if (tr >= 4) {
+    lprintf("done  PcfReader::read_pcf().  commands_.size()= %zu  has_error:%i\n",
+            commands_.size(), has_error);
   }
-  if (tr >= 1 && has_error)
-    ls << "\nNOTE error in PcfReader::read_pcf()\n" << endl;
+  if (tr >= 1 && has_error) {
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] in PcfReader::read_pcf()\n");
+    flush_out(true);
+  }
+  flush_out(false);
 
-  return true;
-}
-
-bool PcfReader::read_os_pcf(const string& f) {
-  std::ifstream infile(f);
-  if (!infile.is_open()) {
-    cerr << "ERROR: could not open the file " << f << endl;
-    return false;
-  }
-  string line;
-  while (std::getline(infile, line)) {
-    std::istringstream iss(line);
-    string a, b, c;
-    if (!(iss >> a >> b >> c)) {
-      break;
-    }  // error
-    commands_.push_back(vector<string>());
-    commands_.back().push_back(a);
-    commands_.back().push_back(b);
-    commands_.back().push_back(c);
-    // pcf_pin_map.insert(std::pair<string, string>(b, c));
-  }
   return true;
 }
 

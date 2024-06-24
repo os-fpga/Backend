@@ -882,7 +882,7 @@ void PinPlacer::set_edit_dirs(bool initial) noexcept {
 
     if (not initial) {
       vector<string> pcf_inps, pcf_outs, tmp;
-      get_pcf_directions(pcf_inps, pcf_outs, tmp);
+      get_pcf_directions(pcf_inps, pcf_outs, tmp, tmp);
       IN.insert( pcf_inps.begin(), pcf_inps.end() );
       OUT.insert( pcf_outs.begin(), pcf_outs.end() );
     }
