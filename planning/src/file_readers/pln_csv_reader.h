@@ -19,7 +19,7 @@ using std::vector;
 class PinPlacer;
 struct Pin;
 
-class RapidCsvReader {
+class PcCsvReader {
 public:
 
   static constexpr uint MAX_PT_COLS = 128;
@@ -27,7 +27,7 @@ public:
   // BCD is a "reduced row record" RRR (subset of important columns)
   struct BCD {
 
-    const RapidCsvReader& reader_;
+    const PcCsvReader& reader_;
     Pin* ann_pin_ = nullptr; // annotated Pin
 
     string customerInternal_; // 72-BU  Customer Internal Name
@@ -75,7 +75,7 @@ public:
 
     bool used_ = false; // pin_c already assigned this XYZ
 
-    BCD(const RapidCsvReader& rdr, uint ro = 0) noexcept
+    BCD(const PcCsvReader& rdr, uint ro = 0) noexcept
       : reader_(rdr), row_(ro) { modes_.reset(); }
 
     const XY& xy() const noexcept { return xyz_; }
@@ -206,8 +206,8 @@ public:
     void dump() const;
   }; // Tile
 
-  RapidCsvReader();
-  ~RapidCsvReader();
+  PcCsvReader();
+  ~PcCsvReader();
 
   void reset() noexcept;
 
@@ -360,10 +360,10 @@ private:
   friend class PinPlacer;
 };
 
-std::ostream& operator<<(std::ostream& os, const RapidCsvReader::BCD& b);
-std::ostream& operator<<(std::ostream& os, const RapidCsvReader::Tile& t);
+std::ostream& operator<<(std::ostream& os, const PcCsvReader::BCD& b);
+std::ostream& operator<<(std::ostream& os, const PcCsvReader::Tile& t);
 
-inline bool RapidCsvReader::BCD::isInput() const noexcept {
+inline bool PcCsvReader::BCD::isInput() const noexcept {
   if (isA2F())
     return true;
   if (isF2A())
@@ -371,8 +371,8 @@ inline bool RapidCsvReader::BCD::isInput() const noexcept {
   return isInputRxTx();
 }
 
-inline const char* RapidCsvReader::BCD::str_colM_dir() const noexcept {
-  return RapidCsvReader::str_Mode_dir(colM_dir_);
+inline const char* PcCsvReader::BCD::str_colM_dir() const noexcept {
+  return PcCsvReader::str_Mode_dir(colM_dir_);
 }
 
 }  // namespace pln

@@ -114,7 +114,7 @@ static bool do_check_csv(CStr cfn) {
   flush_out(true);
 
   // run CSV reader
-  RapidCsvReader csv_rd;
+  PcCsvReader csv_rd;
   bool chk_ok = csv_rd.read_csv(string{cfn}, 1000);
 
   flush_out(true);
