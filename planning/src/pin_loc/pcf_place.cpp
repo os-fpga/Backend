@@ -535,8 +535,10 @@ void PinPlacer::translate_pcf_cmds() {
   flush_out(false);
 }
 
-void PinPlacer::get_pcf_directions( vector<string>& inps, vector<string>& outs,
-                          vector<string>& undefs, vector<string>& internals ) const noexcept {
+void PinPlacer::get_pcf_directions(
+                          vector<string>& inps, vector<string>& outs,
+                          vector<string>& undefs,
+                          vector<string>& internals ) const noexcept {
   inps.clear();
   outs.clear();
   undefs.clear();
@@ -568,6 +570,9 @@ void PinPlacer::get_pcf_directions( vector<string>& inps, vector<string>& outs,
     else
       undefs.push_back(pin);
     //
+    if (cmdObj.hasInternalPin()) {
+      internals.push_back(cmdObj.internalPin_);
+    }
   }
 }
 
@@ -598,6 +603,8 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
       logVec(outs, "  [pcf_outputs] ");
       lprintf("  ___\n");
       if (not internals.empty()) {
+        logVec(internals, "  [pcf_internals] ");
+        lprintf("  ___\n");
       }
     }
   }
@@ -626,7 +633,33 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
     flush_out(true);
   }
 
+  //lputs9();
+  // -- do lines with -internal_pin first
+  vector<const PcfReader::Cmd*> P;
+  size_t num_cmds = pcf_pin_cmds_.size();
+  P.reserve(num_cmds + 1);
+  const PcfReader::Cmd* cmdA = pcf_pin_cmds_.data();
+  uint cnt_internals = 0;
+  for (uint i = 0; i < num_cmds; i++) {
+    P.push_back(cmdA + i);
+    if (P.back()->hasInternalPin())
+      cnt_internals++;
+  }
+  if (tr >= 4) {
+    lprintf("cnt_internals= %u  num_cmds= %zu\n", cnt_internals, num_cmds);
+    flush_out(true);
+  }
+  if (cnt_internals > 0 and cnt_internals < num_cmds) {
+    if (tr >= 4) {
+      lprintf("separating internals (%u) ..\n", cnt_internals);
+      flush_out(true);
+    }
+    std::stable_partition(P.begin(), P.end(), PcfReader::is_internal_cmd);
+  }
+
   string internalPin;
+  vector<uint> gbox_rows;
+
   string udes_pn2; // translated according to --edits <config.json>
 
   string row_str;
@@ -634,15 +667,14 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
 
   min_pt_row_ = UINT_MAX; max_pt_row_ = 0;
 
-  for (uint cmd_i = 0; cmd_i < pcf_pin_cmds_.size(); cmd_i++) {
+  assert(P.size() == num_cmds);
+  for (uint cmd_i = 0; cmd_i < num_cmds; cmd_i++) {
 
-    const PcfReader::Cmd& cmdObj = pcf_pin_cmds_[cmd_i];
+    const PcfReader::Cmd& cmdObj = *P[cmd_i];
     const vector<string>& pcf_cmd = cmdObj.cmd_;
 
     // only support io and clock for now
     if (pcf_cmd[0] != "set_io" && pcf_cmd[0] != "set_clk") continue;
-
-    internalPin.clear();
 
     const string& udes_pn1 = pcf_cmd[1];
 
@@ -667,13 +699,6 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
          << "   udes_pin_name=  " << udes_pin_name
          << "  -->  device_pin_name=  " << device_pin_name << endl;
       logVec(pcf_cmd, "    cur pcf_cmd: ");
-    }
-
-    for (size_t i = 1; i < pcf_cmd.size(); i++) {
-      if (pcf_cmd[i] == "-internal_pin") {
-        internalPin = pcf_cmd[++i];
-        break;
-      }
     }
 
     row_str.clear();
@@ -717,6 +742,15 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
                << ": <" << udes_pin_name
                << ">  device_pin_name: " << device_pin_name << "\n\n";
       return false;
+    }
+
+    internalPin.clear();
+    if (cmdObj.hasInternalPin()) {
+      internalPin = cmdObj.internalPin_;
+      // gbox_rows = csv.get_gbox_rows(device_pin_name);
+      // if (not gbox_rows.empty()) {
+      //  // search internalPin among gbox_rows
+      // }
     }
 
     const char* direction = "INPUT";
@@ -764,7 +798,7 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
             vector<uint> enabledRows = csv.get_enabled_rows_for_mode(mode);
             lprintf("  ---- BEGIN DEBUG_NOTE ----  mode %s (#%u %s)  is enabled for %zu rows:\n",
                     mode.c_str(), col_idx, col_label.c_str(), enabledRows.size());
-            lputs9();
+            //lputs9();
             for (uint r : enabledRows) {
               uint row = r + 2;
               const PcCsvReader::BCD& b = csv.getBCD(r);
@@ -821,7 +855,7 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
             vector<uint> enabledRows = csv.get_enabled_rows_for_mode(mode);
             lprintf("  ---- BEGIN DEBUG_NOTE ----  mode %s (#%u %s)  is enabled for %zu rows:\n",
                     mode.c_str(), col_idx, col_label.c_str(), enabledRows.size());
-            lputs9();
+            //lputs9();
             for (uint r : enabledRows) {
               uint row = r + 2;
               const PcCsvReader::BCD& b = csv.getBCD(r);
