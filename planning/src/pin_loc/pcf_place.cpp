@@ -747,10 +747,39 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
     internalPin.clear();
     if (cmdObj.hasInternalPin()) {
       internalPin = cmdObj.internalPin_;
-      // gbox_rows = csv.get_gbox_rows(device_pin_name);
-      // if (not gbox_rows.empty()) {
-      //  // search internalPin among gbox_rows
-      // }
+      gbox_rows = csv.get_gbox_rows(device_pin_name);
+      if (not gbox_rows.empty()) {
+        row_num = -1;
+        // search internalPin among gbox_rows
+        for (uint gbr : gbox_rows) {
+          const PcCsvReader::BCD& gbRow = csv.getBCD(gbr);
+          if (gbRow.fullchipName_ == internalPin) {
+            row_num = gbr + 2;
+            break;
+          }
+        }
+        if (row_num > 1) {
+          if (tr >= 4) {
+            lprintf("infered row_num= %i  from  gbox: %s  internal_pin: %s\n",
+                    row_num, device_pin_name.c_str(), internalPin.c_str());
+          }
+        } else {
+          flush_out(true);
+          flush_out(true);
+          string ers = str::concat("did not find PT row matching internal_pin: ", internalPin);
+          CERROR << ers << ": <" << device_pin_name << ">" << endl;
+          OUT_ERROR << ers << ": <" << device_pin_name << ">" << endl;
+          flush_out(true);
+
+          out_file << "\n=== Error happened, .place file is incomplete\n"
+                   << "=== ERROR:" << ers
+                   << ": <" << udes_pin_name
+                   << ">  device_pin_name: " << device_pin_name
+                   << "  internal_pin: " << internalPin
+                   << "\n\n";
+          return false;
+        }
+      }
     }
 
     const char* direction = "INPUT";
@@ -772,7 +801,7 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
     XYZ xyz;
 
     if (row_num > 1) {
-      // pt_row was explicitely passed in .pcf
+      // pt_row was explicitely passed in .pcf or infered from internal_pin
       uint row_idx = row_num - 2;
       if (row_idx < csv.numRows()) {
         const PcCsvReader::BCD& bb = csv.getBCD(row_idx);
