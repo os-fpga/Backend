@@ -127,25 +127,25 @@ FILE(COPY ${EBLIF_TRANSFORM_SRC_H}
            DESTINATION
            ${EBLIF_TRANSFORM_DEST})
 
-# patch VPR
-FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
-          ${PACKER_SRC_DIR}/cluster_util.cpp
-          ${PACKER_SRC_DIR}/cluster_util.h
-          ${PACKER_SRC_DIR}/output_clustering.cpp
-          ${PACKER_SRC_DIR}/output_clustering.h
-          ${PACKER_SRC_DIR}/cluster_router.cpp
-          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/pack)
-
-# add to VPR/pack
-FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
-          ${PACKER_SRC_DIR}/nl_Par.cpp
-          ${PACKER_SRC_DIR}/pinc_log.h
-          ${PACKER_SRC_DIR}/pinc_log.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/pack)
-message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
+## patch VPR
+#FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.h
+#          ${PACKER_SRC_DIR}/output_clustering.cpp
+#          ${PACKER_SRC_DIR}/output_clustering.h
+#          ${PACKER_SRC_DIR}/cluster_router.cpp
+#          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/pack)
+#
+## add to VPR/pack
+#FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
+#          ${PACKER_SRC_DIR}/nl_Par.cpp
+#          ${PACKER_SRC_DIR}/pinc_log.h
+#          ${PACKER_SRC_DIR}/pinc_log.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/pack)
+#message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 
 # add to VPR/base
 file(COPY
@@ -166,18 +166,18 @@ message(STATUS "NOTE: OVERWRITING netlist_writer.cpp")
 file(COPY ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED  ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
+#message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
+#set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
+#apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
 
 message(STATUS "NOTE: OVERWRITING base/read_.*")
 file(COPY
     ${PATCH_DIR}/base_fix/PATCHED/read_blif.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
-    ${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
-    ${PATCH_DIR}/base_fix/PATCHED/read_options.h
-    ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
+    ##${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
+    ##${PATCH_DIR}/base_fix/PATCHED/read_options.h
+    ##${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
     DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
 
@@ -185,13 +185,13 @@ message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${
 #set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/SetupVPR_cpp.diff)
 #apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/SetupVPR.cpp")
 
-message(STATUS "NOTE: PATCHING base/vpr_context.h ..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_context_h.diff)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_context.h")
+#message(STATUS "NOTE: PATCHING base/vpr_context.h ..")
+#set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_context_h.diff)
+#apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_context.h")
 
-message(STATUS "NOTE: PATCHING base/vpr_types.h ..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_types_h.diff)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_types.h")
+#message(STATUS "NOTE: PATCHING base/vpr_types.h ..")
+#set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_types_h.diff)
+#apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_types.h")
 
 message(STATUS "NOTE: PATCHING timing/read_sdc.cpp ..")
 set(DIFF_FILE ${TIMING_SRC_DIR}/DIFF/read_sdc_cpp.diff)
@@ -223,15 +223,15 @@ message(STATUS "NOTE: PATCHING VPR CMakefile..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
 apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
 
-FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
-          ${PLACER_SRC_DIR}/place.cpp
-          ${PLACER_SRC_DIR}/place_util.cpp
-          ${PLACER_SRC_DIR}/place_util.h
-          # Analytical Placer
-          ${PLACER_SRC_DIR}/analytic_placer.h
-          ${PLACER_SRC_DIR}/analytic_placer.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/place/)
+#FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
+#          ## ${PLACER_SRC_DIR}/place.cpp
+#          ${PLACER_SRC_DIR}/place_util.cpp
+#          ${PLACER_SRC_DIR}/place_util.h
+#          # Analytical Placer
+#          ${PLACER_SRC_DIR}/analytic_placer.h
+#          ${PLACER_SRC_DIR}/analytic_placer.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/place/)
 
 file(COPY ${XML_DEC_KEY_SRC}/private_key.pem
   DESTINATION
@@ -259,33 +259,33 @@ file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
 #          ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
-message(STATUS "NOTE: PATCHING TimingReporter")
-FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
-          ${TATUM_SRC_DIR}/TimingReporter.cpp
-          DESTINATION
-          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
-)
+#message(STATUS "NOTE: PATCHING TimingReporter")
+#FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
+#          ${TATUM_SRC_DIR}/TimingReporter.cpp
+#          DESTINATION
+#          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
+#)
+
+## Logical Levels
+#FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
+#          ${UTIL_SRC_DIR}/rsbe_utils.h
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/util/
+#)
+#message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
 
 # Logical Levels
-FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
-          ${UTIL_SRC_DIR}/rsbe_utils.h
-          DESTINATION
-          ${VPR_DEST_DIR}/src/util/
-)
-message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
-
-# Logical Levels
-FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/analysis
-)
+#FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/analysis
+#)
 
 message(STATUS "NOTE: DONE PATCHING\n")
 
-if(NOT RAPTOR)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
-    add_subdirectory("Raptor_Tools/graph_partition")
-endif()
+#if(NOT RAPTOR)
+#    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
+#    add_subdirectory("Raptor_Tools/graph_partition")
+#endif()
 add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
