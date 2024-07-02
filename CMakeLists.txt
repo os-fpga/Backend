@@ -166,9 +166,9 @@ message(STATUS "NOTE: OVERWRITING netlist_writer.cpp")
 file(COPY ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED  ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
 
-#message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
-#set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
-#apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
+message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
+set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
+apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
 
 message(STATUS "NOTE: OVERWRITING base/read_.*")
 file(COPY
