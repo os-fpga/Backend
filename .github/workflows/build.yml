@@ -80,6 +80,7 @@ jobs:
 
       - name: Install ssh-agent
         run: |
+          yum update -y
           yum install -y openssh-server openssh-clients
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
