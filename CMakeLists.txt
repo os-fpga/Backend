@@ -176,9 +176,10 @@ file(COPY
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
     ${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
-    ##${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
-    ##${PATCH_DIR}/base_fix/PATCHED/read_options.h
-    ##${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/vpr_context.h
+    ${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
+    ${PATCH_DIR}/base_fix/PATCHED/read_options.h
+    ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
     DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
 
@@ -268,12 +269,12 @@ file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
 #)
 
 ## Logical Levels
-#FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
-#          ${UTIL_SRC_DIR}/rsbe_utils.h
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/util/
-#)
-#message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
+FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
+          ${UTIL_SRC_DIR}/rsbe_utils.h
+          DESTINATION
+          ${VPR_DEST_DIR}/src/util/
+)
+message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
 
 # Logical Levels
 #FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
