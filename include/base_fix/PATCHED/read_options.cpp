@@ -1326,6 +1326,11 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
         .action(argparse::Action::STORE_TRUE)
         .default_value("off");
 
+    stage_grp.add_argument<bool, ParseOnOff>(args.do_legalize, "--legalize")
+        .help("Legalize a flat placement, i.e. reconstruct and place clusters based on a flat placement file, which lists cluster and intra-cluster placement coordinates for each primitive.")
+        .action(argparse::Action::STORE_TRUE)
+        .default_value("off");
+
     stage_grp.add_argument<bool, ParseOnOff>(args.do_placement, "--place")
         .help("Run placement")
         .action(argparse::Action::STORE_TRUE)
@@ -1536,7 +1541,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
     gen_grp.add_argument<bool, ParseOnOff>(args.strict_checks, "--strict_checks")
         .help(
             "Controls whether VPR enforces some consistency checks strictly (as errors) or treats them as warnings."
-            " Usually these checks indicate an issue with either the targetted architecture, or consistency issues"
+            " Usually these checks indicate an issue with either the targeted architecture, or consistency issues"
             " with VPR's internal data structures/algorithms (possibly harming optimization quality)."
             " In specific circumstances on specific architectures these checks may be too restrictive and can be turned off."
             " However exercise extreme caution when turning this option off -- be sure you completely understand why the issue"
@@ -1610,6 +1615,10 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
         .help("Path to packed netlist file")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
+    file_grp.add_argument(args.FlatPlaceFile, "--flat_place_file")
+        .help("Path to input flat placement file")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
     file_grp.add_argument(args.PlaceFile, "--place_file")
         .help("Path to placement file")
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -1645,6 +1654,17 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
 
     file_grp.add_argument(args.write_vpr_constraints_file, "--write_vpr_constraints")
         .help("Writes out new floorplanning constraints based on current placement to the specified XML file.")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    file_grp.add_argument(args.write_constraints_file, "--write_fix_clusters")
+        .help(
+            "Output file containing fixed locations of legalized input clusters - does not include clusters without placement coordinates; this file is used during post-legalization placement in order to hold input placement coordinates fixed while VPR places legalizer-generated orphan clusters.")
+        .default_value("fix_clusters.out")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    file_grp.add_argument(args.write_flat_place_file, "--write_flat_place")
+        .help(
+            "VPR's (or reconstructed external) placement solution in flat placement file format; this file lists cluster and intra-cluster placement coordinates for each atom and can be used to reconstruct a clustering and placement solution.")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     file_grp.add_argument(args.read_router_lookahead, "--read_router_lookahead")
@@ -2070,23 +2090,17 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
 
     place_grp.add_argument(args.place_static_move_prob, "--place_static_move_prob")
         .help(
-            "The percentage probabilities of different moves in Simulated Annealing placement."
-            "This option is only effective for timing-driven placement."
-            "The numbers listed are interpreted as the percentage probabilities of {uniformMove, MedianMove, CentroidMove, WeightedCentroid, WeightedMedian, Timing feasible Region(TFR), Critical UniformMove}, in that order.")
+            "The percentage probabilities of different moves in Simulated Annealing placement. "
+            "For non-timing-driven placement, only the first 3 probabilities should be provided. "
+            "For timing-driven placement, all probabilities should be provided. "
+            "When the number of provided probabilities is less then the number of move types, zero probability "
+            "is assumed."
+            "The numbers listed are interpreted as the percentage probabilities of {UniformMove, MedianMove, CentroidMove, "
+            "WeightedCentroid, WeightedMedian, Critical UniformMove, Timing feasible Region(TFR)}, in that order.")
         .nargs('+')
-        .default_value({"100", "0", "0", "0", "0", "0", "0"})
-
+        .default_value({"100"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
-    place_grp.add_argument(args.place_static_notiming_move_prob, "--place_static_notiming_move_prob")
-        .help(
-            "The Probability of different non timing move in Simulated Annealing."
-            "This option is only effective for nontiming driven placement."
-            " The numbers listed are interpreted as the percentage probabilities of {uniformMove, MedianMove, CentroidMove}, in that order.")
-        .nargs('+')
-        .default_value({"100", "0", "0"})
-
-        .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument(args.place_high_fanout_net, "--place_high_fanout_net")
         .help(
@@ -2256,12 +2270,6 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             " 0.0 focuses completely on wirelength, 1.0 completely on timing")
         .default_value("0.5")
         .show_in(argparse::ShowIn::HELP_ONLY);
-            place_timing_grp.add_argument(args.CongestionTradeoff, "--congest_tradeoff")
-        .help(
-            "Trade-off control between routability and timing during placement."
-            " 0.0 focuses completely on routability, 1.0 completely on timing")
-        .default_value("1.0")
-        .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_timing_grp.add_argument(args.RecomputeCritIter, "--recompute_crit_iter")
         .help("Controls how many temperature updates occur between timing analysis during placement")
@@ -2381,6 +2389,11 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             "Sets the growth factor by which the present overuse penalty factor is"
             " multiplied after each routing iteration")
         .default_value("1.3")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    route_grp.add_argument(args.max_pres_fac, "-max_pres_fac")
+        .help("Sets the maximum present overuse penalty factor")
+        .default_value("1000.0")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     route_grp.add_argument(args.acc_fac, "--acc_fac")
@@ -2622,7 +2635,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             " * classic: The classic VPR lookahead (may perform better on un-buffered routing\n"
             "            architectures)\n"
             " * map: An advanced lookahead which accounts for diverse wire type\n"
-            " * compressed_map: The algorithm is similar to map lookahead with the exception of saprse sampling of the chip"
+            " * compressed_map: The algorithm is similar to map lookahead with the exception of sparse sampling of the chip"
             " to reduce the run-time to build the router lookahead and also its memory footprint\n"
             " * extended_map: A more advanced and extended lookahead which accounts for a more\n"
             "                 exhaustive node sampling method\n"
@@ -2840,8 +2853,8 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
 
     noc_grp.add_argument<bool, ParseOnOff>(args.noc, "--noc")
         .help(
-            "Enables a NoC-driven placer that optimizes the placement of routers on the NoC."
-            "Also enables an option in the graphical display that can be used to display the NoC on the FPGA."
+            "Enables a NoC-driven placer that optimizes the placement of routers on the NoC. "
+            "Also enables an option in the graphical display that can be used to display the NoC on the FPGA. "
             "This should be on only when the FPGA device contains a NoC and the provided netlist connects to the NoC.")
         .default_value("off")
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -2857,7 +2870,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
         .help(
             "Controls the algorithm used by the NoC to route packets.\n"
             "* xy_routing: Uses the direction oriented routing algorithm. This is recommended to be used with mesh NoC topologies.\n"
-            "* bfs_routing: Uses the breadth first search algorithm. The objective is to find a route that uses a minimum number of links."
+            "* bfs_routing: Uses the breadth first search algorithm. The objective is to find a route that uses a minimum number of links. "
             " This algorithm is not guaranteed to generate deadlock-free traffic flow routes, but can be used with any NoC topology\n"
             "* west_first_routing: Uses the west-first routing algorithm. This is recommended to be used with mesh NoC topologies.\n"
             "* north_last_routing: Uses the north-last routing algorithm. This is recommended to be used with mesh NoC topologies.\n"
@@ -2870,9 +2883,9 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
 
     noc_grp.add_argument<double>(args.noc_placement_weighting, "--noc_placement_weighting")
         .help(
-            "Controls the importance of the NoC placement parameters relative to timing and wirelength of the design."
-            "This value can be >=0, where 0 would mean the placement is based solely on timing and wirelength."
-            "A value of 1 would mean noc placement is considered equal to timing and wirelength"
+            "Controls the importance of the NoC placement parameters relative to timing and wirelength of the design. "
+            "This value can be >=0, where 0 would mean the placement is based solely on timing and wirelength. "
+            "A value of 1 would mean noc placement is considered equal to timing and wirelength "
             "A value greater than 1 would mean the placement is increasingly dominated by NoC parameters.")
         .default_value("5.0")
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -2882,7 +2895,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             "Controls the importance of minimizing the NoC aggregate bandwidth.\n"
             "This value can be >=0, where 0 would mean the aggregate bandwidth has no relevance to placement.\n"
             "Other positive numbers specify the importance of minimizing the NoC aggregate bandwidth to other NoC-related cost terms.\n"
-            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and"
+            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and "
             "only their relative ratios determine the importance of each cost term.")
         .default_value("0.38")
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -2892,7 +2905,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             "Controls the importance of meeting all the NoC traffic flow latency constraints.\n"
             "This value can be >=0, where 0 would mean the latency constraints have no relevance to placement.\n"
             "Other positive numbers specify the importance of meeting latency constraints to other NoC-related cost terms.\n"
-            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and"
+            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and "
             "only their relative ratios determine the importance of each cost term.")
         .default_value("0.6")
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -2902,7 +2915,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             "Controls the importance of reducing the latencies of the NoC traffic flows.\n"
             "This value can be >=0, where 0 would mean the latencies have no relevance to placement.\n"
             "Other positive numbers specify the importance of minimizing aggregate latency to other NoC-related cost terms.\n"
-            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and"
+            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and "
             "only their relative ratios determine the importance of each cost term.")
         .default_value("0.02")
         .show_in(argparse::ShowIn::HELP_ONLY);
@@ -2912,16 +2925,56 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             "Controls the importance of reducing the congestion of the NoC links.\n"
             "This value can be >=0, where 0 would mean the congestion has no relevance to placement.\n"
             "Other positive numbers specify the importance of minimizing congestion to other NoC-related cost terms.\n"
-            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and"
+            "Weighting factors for NoC-related cost terms are normalized internally. Therefore, their absolute values are not important, and "
             "only their relative ratios determine the importance of each cost term.")
         .default_value("0.25")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
-    noc_grp.add_argument<double>(args.noc_swap_percentage, "--noc_swap_percentage")
+	noc_grp.add_argument<double>(args.noc_centroid_weight, "--noc_centroid_weight")
         .help(
             "Sets the minimum fraction of swaps attempted by the placer that are NoC blocks."
             "This value is an integer ranging from 0-100. 0 means NoC blocks will be moved at the same rate as other blocks. 100 means all swaps attempted by the placer are NoC router blocks.")
         .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+        
+    noc_grp.add_argument<double>(args.noc_swap_percentage, "--noc_swap_percentage")
+        .help(
+            "Sets the minimum fraction of swaps attempted by the placer that are NoC blocks. "
+            "This value is an integer ranging from 0-100. 0 means NoC blocks will be moved at the same rate as other blocks. 100 means all swaps attempted by the placer are NoC router blocks.")
+        .default_value("0")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<int>(args.noc_sat_routing_bandwidth_resolution, "--noc_sat_routing_bandwidth_resolution")
+        .help(
+            "Specifies the resolution by which traffic flow bandwidths are converted into integers in SAT routing algorithm.\n"
+            "The higher this number is, the more accurate the congestion estimation and aggregate bandwidth minimization is.\n"
+            "Higher resolution for bandwidth conversion increases the number of variables in the SAT formulation.")
+        .default_value("128")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<int>(args.noc_sat_routing_latency_overrun_weighting_factor, "--noc_sat_routing_latency_overrun_weighting_factor")
+        .help(
+            "Controls the importance of reducing traffic flow latency overrun in SAT routing.")
+        .default_value("1024")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<int>(args.noc_sat_routing_congestion_weighting_factor, "--noc_sat_routing_congestion_weighting_factor")
+        .help(
+            "Controls the importance of reducing the number of congested NoC links in SAT routing.")
+        .default_value("16384")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<int>(args.noc_sat_routing_num_workers, "--noc_sat_routing_num_workers")
+        .help(
+            "The maximum number of parallel threads that the SAT solver can use to explore the solution space.\n"
+            "If not explicitly specified by the user, VPR will set the number parallel SAT solver workers to the value "
+            "specified by -j command line option.")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    noc_grp.add_argument<bool, ParseOnOff>(args.noc_sat_routing_log_search_progress, "--noc_sat_routing_log_search_progress")
+        .help(
+            "Print the detailed log of the SAT solver's search progress.")
+        .default_value("off")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     noc_grp.add_argument<std::string>(args.noc_placement_file_name, "--noc_placement_file_name")
@@ -2930,6 +2983,21 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             "The default name is 'vpr_noc_placement_output.txt'")
         .default_value("vpr_noc_placement_output.txt")
         .show_in(argparse::ShowIn::HELP_ONLY);
+
+#ifndef NO_SERVER
+    auto& server_grp = parser.add_argument_group("server options");
+
+    server_grp.add_argument<bool, ParseOnOff>(args.is_server_mode_enabled, "--server")
+        .help("Run in server mode."
+              "Accept client application connection and respond to requests." )
+        .action(argparse::Action::STORE_TRUE)
+        .default_value("off");
+
+    server_grp.add_argument<int>(args.server_port_num, "--port")
+        .help("Server port number.")
+        .default_value("60555")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+#endif /* NO_SERVER */
 
     return parser;
 }
@@ -2985,6 +3053,12 @@ void set_conditional_defaults(t_options& args) {
         std::string route_file = args.out_file_prefix;
         route_file += default_output_name + ".route";
         args.RouteFile.set(route_file, Provenance::INFERRED);
+    }
+
+    if (args.FlatPlaceFile.provenance() != Provenance::SPECIFIED) {
+        std::string flat_place_file = args.out_file_prefix;
+        flat_place_file += default_output_name + ".flat_place";
+        args.FlatPlaceFile.set(flat_place_file, Provenance::INFERRED);
     }
 
     if (args.ActFile.provenance() != Provenance::SPECIFIED) {
