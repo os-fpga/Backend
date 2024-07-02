@@ -261,12 +261,12 @@ file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
 #          ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
-#message(STATUS "NOTE: PATCHING TimingReporter")
-#FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
-#          ${TATUM_SRC_DIR}/TimingReporter.cpp
-#          DESTINATION
-#          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
-#)
+message(STATUS "NOTE: PATCHING TimingReporter")
+FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
+          ${TATUM_SRC_DIR}/TimingReporter.cpp
+          DESTINATION
+          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
+)
 
 ## Logical Levels
 FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
@@ -277,10 +277,10 @@ FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
 message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
 
 # Logical Levels
-#FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/analysis
-#)
+FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/analysis
+)
 
 message(STATUS "NOTE: DONE PATCHING\n")
 
