@@ -175,6 +175,7 @@ file(COPY
     ${PATCH_DIR}/base_fix/PATCHED/read_blif.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
+    ${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
     ##${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
     ##${PATCH_DIR}/base_fix/PATCHED/read_options.h
     ##${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
@@ -282,10 +283,10 @@ file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
 
 message(STATUS "NOTE: DONE PATCHING\n")
 
-#if(NOT RAPTOR)
-#    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
-#    add_subdirectory("Raptor_Tools/graph_partition")
-#endif()
+if(NOT RAPTOR)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Raptor_Tools/libs/external/boost)
+    add_subdirectory("Raptor_Tools/graph_partition")
+endif()
 add_subdirectory(OpenFPGA)
 
 set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
