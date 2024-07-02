@@ -714,6 +714,9 @@ class VprContext : public Context {
     ServerContext& mutable_server() { return server_; }
 #endif /* NO_SERVER */
 
+    const rsbe::Levelized& logic_levels() const { return logic_levels_; }
+    rsbe::Levelized& mutable_logic_levels() { return logic_levels_; }
+
   private:
     DeviceContext device_;
 
