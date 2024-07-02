@@ -175,6 +175,7 @@ file(COPY
     ${PATCH_DIR}/base_fix/PATCHED/read_blif.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
+    ${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
     ##${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
     ##${PATCH_DIR}/base_fix/PATCHED/read_options.h
     ##${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
