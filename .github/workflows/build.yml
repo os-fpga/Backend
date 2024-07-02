@@ -80,6 +80,7 @@ jobs:
 
       - name: Install ssh-agent
         run: |
+          curl -L -o yumvault.tar.gz https://github.com/os-fpga/post_build_artifacts/releases/download/v0.2/yumvault.tar.gz && tar xzf yumvault.tar.gz
           yum update -y
           yum install -y openssh-server openssh-clients
           yum-config-manager --enable rhel-server-rhscl-7-rpms
