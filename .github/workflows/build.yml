@@ -91,7 +91,10 @@ jobs:
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
           yum install -y centos-release-scl
-          yum-config-manager --enable centos-sclo-sclo-source centos-sclo-rh-source --disable centos-sclo-rh centos-sclo-sclo
+          sed -i 's|^mirrorlist=|#mirrorlist=|' /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+          sed -i 's|^#baseurl=http://mirror.centos.org/centos/7/sclo/$basearch/rh/|baseurl=http://vault.centos.org/7.9.2009/sclo/$basearch/rh/|' /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+          sed -i 's|^mirrorlist=|#mirrorlist=|' /etc/yum.repos.d/CentOS-SCLo-scl.repo
+          sed -i 's|^# baseurl=http://mirror.centos.org/centos/7/sclo/$basearch/sclo/|baseurl=http://vault.centos.org/7.9.2009/sclo/$basearch/sclo/|' /etc/yum.repos.d/CentOS-SCLo-scl.repo
           yum install -y devtoolset-11
           yum install -y devtoolset-11-toolchain
           yum remove -y git*
