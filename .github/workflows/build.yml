@@ -82,8 +82,8 @@ jobs:
         run: |
           yum-config-manager --disable base extras updates
           yum-config-manager --enable C7.8.2003-extras C7.8.2003-updates C7.8.2003-base 
-          cat /etc/yum.repos.d/CentOS-Vault.repo
           yum -y update
+          cat /etc/yum.repos.d/CentOS-Vault.repo
           yum install -y openssh-server openssh-clients
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
