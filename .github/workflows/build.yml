@@ -81,6 +81,7 @@ jobs:
       - name: Install ssh-agent
         run: |
           yum-config-manager --disable base extras updates
+          ls -l /etc/yum.repos.d
           yum-config-manager --enable C7.9.2009-base C7.9.2009-updates C7.9.2009-extras 
           yum install -y openssh-server openssh-clients
           yum-config-manager --enable rhel-server-rhscl-7-rpms
