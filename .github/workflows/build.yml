@@ -82,12 +82,11 @@ jobs:
         run: |
           yum-config-manager --disable base extras updates
           yum-config-manager --enable C7.8.2003-extras C7.8.2003-updates C7.8.2003-base 
-          yum -y update
-          cat /etc/yum.repos.d/CentOS-Vault.repo
           yum install -y openssh-server openssh-clients
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
           yum install -y centos-release-scl
+          yum-config-manager --enable centos-sclo-sclo-source centos-sclo-rh-source --disable centos-sclo-rh centos-sclo-sclo
           yum install -y devtoolset-11
           yum install -y devtoolset-11-toolchain
           yum remove -y git*
