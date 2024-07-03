@@ -89,8 +89,8 @@ jobs:
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
           yum install -y centos-release-scl
-          yum install -y devtoolset-11
-          yum install -y devtoolset-11-toolchain
+          #yum install -y devtoolset-11
+          #yum install -y devtoolset-11-toolchain
           yum remove -y git*
           yum install -y https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
           yum install -y git
