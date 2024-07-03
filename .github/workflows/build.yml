@@ -92,8 +92,9 @@ jobs:
           #yum install -y devtoolset-11
           #yum install -y devtoolset-11-toolchain
           yum remove -y git*
-          curl -O https://packages.endpointdev.com/rhel/7/os/x86_64/git-all-2.43.0-1.ep7.noarch.rpm
-          yum localinstall -y git-all-2.43.0-1.ep7.noarch.rpm
+          curl -O https://packages.endpointdev.com/rhel/7/os/x86_64/git-core-2.43.0-1.ep7.x86_64.rpm
+          curl -O https://packages.endpointdev.com/rhel/7/os/x86_64/git-2.43.0-1.ep7.x86_64.rpm
+          yum localinstall -y git-core-2.43.0-1.ep7.x86_64.rpm git-all-2.43.0-1.ep7.noarch.rpm
       
       - name: Checkout repo
         uses: actions/checkout@v3
