@@ -80,8 +80,13 @@ jobs:
 
       - name: Install ssh-agent
         run: |
+          cd /opt && curl -L -o yumvault.tar.gz https://github.com/os-fpga/post_build_artifacts/releases/download/v0.2/yumvaultn.tar.gz && tar xvzf yumvault.tar.gz && ls -l && mv etc/yum.repos.d/Custom.repo /etc/yum.repos.d
           yum-config-manager --disable base extras updates
-          yum-config-manager --enable C7.8.2003-extras C7.8.2003-updates C7.8.2003-base 
+          yum update -y
+          rm -f /etc/yum.repos.d/Custom.repo
+          cat /etc/yum.repos.d/CentOS-Vault.repo
+          yum-config-manager --enable C7.9.2009-extras C7.9.2009-updates C7.9.2009-base
+          yum update -y
           yum install -y openssh-server openssh-clients
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
