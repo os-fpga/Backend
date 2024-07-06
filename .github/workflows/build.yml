@@ -80,10 +80,19 @@ jobs:
 
       - name: Install ssh-agent
         run: |
+          cd /opt && curl -L -o yumvault.tar.gz https://github.com/os-fpga/post_build_artifacts/releases/download/v0.2/yumvaultn.tar.gz && tar xvzf yumvault.tar.gz && ls -l && mv etc/yum.repos.d/Custom.repo /etc/yum.repos.d
+          yum-config-manager --disable base extras updates
+          yum update -y
+          rm -f /etc/yum.repos.d/Custom.repo
+          yum-config-manager --enable C7.9.2009-extras C7.9.2009-updates C7.9.2009-base
           yum install -y openssh-server openssh-clients
           yum-config-manager --enable rhel-server-rhscl-7-rpms
           yum install -y https://repo.ius.io/ius-release-el7.rpm
           yum install -y centos-release-scl
+          sed -i 's|^mirrorlist=|#mirrorlist=|' /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+          sed -i 's|^#baseurl=http://mirror.centos.org/centos/7/sclo/$basearch/rh/|baseurl=http://vault.centos.org/7.9.2009/sclo/$basearch/rh/|' /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+          sed -i 's|^mirrorlist=|#mirrorlist=|' /etc/yum.repos.d/CentOS-SCLo-scl.repo
+          sed -i 's|^# baseurl=http://mirror.centos.org/centos/7/sclo/$basearch/sclo/|baseurl=http://vault.centos.org/7.9.2009/sclo/$basearch/sclo/|' /etc/yum.repos.d/CentOS-SCLo-scl.repo
           yum install -y devtoolset-11
           yum install -y devtoolset-11-toolchain
           yum remove -y git*
