@@ -127,25 +127,25 @@ FILE(COPY ${EBLIF_TRANSFORM_SRC_H}
            DESTINATION
            ${EBLIF_TRANSFORM_DEST})
 
-## patch VPR
-#FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
-#          ${PACKER_SRC_DIR}/cluster_util.cpp
-#          ${PACKER_SRC_DIR}/cluster_util.h
-#          ${PACKER_SRC_DIR}/output_clustering.cpp
-#          ${PACKER_SRC_DIR}/output_clustering.h
+# patch VPR
+FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
+          ${PACKER_SRC_DIR}/cluster_util.cpp
+          ${PACKER_SRC_DIR}/cluster_util.h
+          ${PACKER_SRC_DIR}/output_clustering.cpp
+          ${PACKER_SRC_DIR}/output_clustering.h
 #          ${PACKER_SRC_DIR}/cluster_router.cpp
-#          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/pack)
-#
-## add to VPR/pack
-#FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
-#          ${PACKER_SRC_DIR}/nl_Par.cpp
-#          ${PACKER_SRC_DIR}/pinc_log.h
-#          ${PACKER_SRC_DIR}/pinc_log.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/pack)
-#message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
+          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/pack)
+
+# add to VPR/pack
+FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
+          ${PACKER_SRC_DIR}/nl_Par.cpp
+          ${PACKER_SRC_DIR}/pinc_log.h
+          ${PACKER_SRC_DIR}/pinc_log.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/pack)
+message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 
 # add to VPR/base
 file(COPY
