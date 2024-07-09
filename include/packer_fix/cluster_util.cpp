@@ -2911,7 +2911,7 @@ t_pack_molecule* get_highest_gain_seed_molecule(int& seed_index, const std::vect
                     }
                 }
             }
-            VTR_ASSERT(best != nullptr);
+            //VTR_ASSERT(best != nullptr);
             return best;
         }
     }

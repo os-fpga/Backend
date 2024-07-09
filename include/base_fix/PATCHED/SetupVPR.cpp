@@ -611,10 +611,13 @@ void SetupPackerOpts(const t_options& Options,
     PackerOpts->packer_algorithm = PACK_GREEDY; /* DEFAULT */
 
     PackerOpts->device_layout = Options.device_layout;
+    PackerOpts->top_mod = Options.top_mod;
 
     PackerOpts->timing_update_type = Options.timing_update_type;
     PackerOpts->pack_num_moves = Options.pack_num_moves;
     PackerOpts->pack_move_type = Options.pack_move_type;
+    PackerOpts->use_partitioning_in_pack = Options.use_partitioning_in_pack;
+    PackerOpts->number_of_molecules_in_partition = Options.number_of_molecules_in_partition;
 }
 
 static void SetupNetlistOpts(const t_options& Options, t_netlist_opts& NetlistOpts) {
