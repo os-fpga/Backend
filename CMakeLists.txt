@@ -221,9 +221,13 @@ file(COPY
 message(STATUS "NOTE: ADDED to VPR-root: VPR_CMake_RS1.cmake")
 message(STATUS "NOTE: VPR-root= ${VPR_DEST_DIR}\n")
 
-message(STATUS "NOTE: PATCHING VPR CMakefile..")
-set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
-apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
+message(STATUS "NOTE: COPY-PATCHING VPR CMakefile..")
+#set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/VPR_CMake.diff)
+#apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr  "VPR CMakefile")
+file(COPY
+  ${PATCH_DIR}/CMAKE_fix/PATCHED_VPR/CMakeLists.txt
+  DESTINATION
+  ${VPR_DEST_DIR})
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ## ${PLACER_SRC_DIR}/place.cpp
