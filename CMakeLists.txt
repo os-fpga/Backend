@@ -31,6 +31,9 @@ set(TIMING_SRC_DIR ${PATCH_DIR}/timing_fix)
 # Enable Analytic Placer in VTR CMake
 set(VPR_ANALYTIC_PLACE ON CACHE BOOL "Enable Analytic Placer in VTR" FORCE)
 
+# Enable server-mode (vpr --server) in VTR CMake
+set(VPR_USE_SERVER ON CACHE BOOL "Enable Server Mode in VTR" FORCE)
+
 set(OPENFPGA_SRC_DIR ${PATCH_DIR}/openfpga)
 set(TILEABLE_SRC_DIR ${PATCH_DIR}/tileable_fix)
 
