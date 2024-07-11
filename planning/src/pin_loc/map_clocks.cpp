@@ -26,9 +26,8 @@ using fio::Fio;
 
 int PinPlacer::map_clocks() {
   uint16_t tr = ltrace();
-  auto& ls = lout();
   if (tr >= 4) {
-    lputs();
+    flush_out(true);
     lputs("PinPlacer::map_clocks()..");
   }
 
@@ -40,6 +39,7 @@ int PinPlacer::map_clocks() {
   if (not constraint_xml_requested) {
     if (tr >= 4)
       lputs("PinPlacer::map_clocks() returns NOP");
+    flush_out(false);
     return 0;
   }
 
@@ -49,11 +49,13 @@ int PinPlacer::map_clocks() {
   }
 
   if (tr >= 3)
-    ls << "PinPlacer::map_clocks() returns OK" << endl;
+    lputs("PinPlacer::map_clocks() returns OK");
+  flush_out(false);
   return 1;
 }
 
 int PinPlacer::write_clocks_logical_to_physical() {
+  flush_out(false);
   uint16_t tr = ltrace();
   auto& ls = lout();
   string cur_dir = get_CWD();
@@ -66,8 +68,11 @@ int PinPlacer::write_clocks_logical_to_physical() {
   string clkmap_fn = cl_.get_param("--clk_map");
 
   if (not Fio::regularFileExists(clkmap_fn)) {
-    CERROR << " no such file (--clk_map): " << clkmap_fn << endl;
-    ls << " [Error] no such file (--clk_map): " << clkmap_fn << endl;
+    flush_out(true);
+    err_puts();
+    lprintf2("[Error] no such file (--clk_map): %s\n", clkmap_fn.c_str());
+    err_puts();
+    flush_out(true);
     return -1;
   }
 
@@ -86,7 +91,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
     } else {
       ls << "\n pin_c WARNING: --clk_map file is not readable: " <<  clkmap_fn << endl;
     }
-    ls << endl;
+    flush_out(true);
   }
 
   // read clkmap file
@@ -178,7 +183,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
   for (const auto& tcmd : tokenized_cmds) {
     assert(tcmd.size() < USHRT_MAX);
     uint sz = tcmd.size();
-    if (tr >= 5) {
+    if (tr >= 6) {
       logVec(tcmd, "      tcmd: ");
       lprintf("\t  tcmd.size()= %u\n", sz);
     }
@@ -198,16 +203,36 @@ int PinPlacer::write_clocks_logical_to_physical() {
       }
     }
   }
-  if (tr >= 4) {
-    lprintf("\n    udes_clocks.size()= %zu  pdev_clocks.size()= %zu\n",
-        udes_clocks.size(), pdev_clocks.size());
-    logVec(udes_clocks, "  udes_clocks: ");
-    logVec(pdev_clocks, "  pdev_clocks: ");
+
+  if (tr >= 3) {
+    flush_out(true);
+    lprintf("clock mapping:  # user-design clocks = %zu  # device clocks = %zu",
+            udes_clocks.size(), pdev_clocks.size());
   }
-  assert(udes_clocks.size() == pdev_clocks.size());
+  if (tr >= 4) {
+    flush_out(true);
+    lprintf("    udes_clocks.size()= %zu  pdev_clocks.size()= %zu\n",
+        udes_clocks.size(), pdev_clocks.size());
+    flush_out(true);
+    logVec(udes_clocks, "  udes_clocks: ");
+    flush_out(true);
+    logVec(pdev_clocks, "  pdev_clocks: ");
+    flush_out(true);
+  }
+
   if (udes_clocks.empty()) {
-    CERROR << " no clocks in file (--clk_map): " << clkmap_fn << endl;
-    ls << " [Error] no clocks in file (--clk_map): " << clkmap_fn << endl;
+    flush_out(true); err_puts();
+    lprintf2("[Error] no clocks in file (--clk_map): %s\n", clkmap_fn.c_str());
+    err_puts(); flush_out(true);
+    return -1;
+  }
+  if (udes_clocks.size() != pdev_clocks.size()) {
+    flush_out(true); err_puts();
+    lprintf2("[Error] reading --clk_map file: %s\n", clkmap_fn.c_str());
+    flush_out(true); err_puts();
+    lprintf2("[Error] number of user-design clocks (%zu) does not match number of device clocks (%zu)\n",
+        udes_clocks.size(), pdev_clocks.size());
+    err_puts(); flush_out(true);
     return -1;
   }
 
@@ -293,6 +318,7 @@ int PinPlacer::write_clocks_logical_to_physical() {
   if (tr >= 4)
     lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
 
+  flush_out(false);
   return 1;
 }
 
