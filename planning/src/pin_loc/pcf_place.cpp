@@ -349,7 +349,11 @@ void PinPlacer::print_summary(const string& csv_name) const {
 
   lprintf("     auto-PCF : %s\n", auto_pcf_created_ ? "TRUE" : "FALSE");
   if (!auto_pcf_created_)
-  lprintf("     user-PCF : %s\n", user_pcf_.c_str());
+    lprintf("     user-PCF : %s\n", user_pcf_.c_str());
+
+  CStr editsVal = has_edits_.empty() ? "FALSE" : has_edits_.c_str();
+  lprintf("     has edits (config.json) : %s\n", editsVal);
+
   lprintf("  pinc_trace verbosity= %u\n", tr);
 
   if (num_critical_warnings_) {

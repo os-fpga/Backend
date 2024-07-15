@@ -164,6 +164,8 @@ void PinPlacer::resetState() noexcept {
   pin_names_translated_ = false;
   num_warnings_ = 0;
   num_critical_warnings_ = 0;
+  user_pcf_.clear();
+  has_edits_.clear();
   clear_err_code();
 }
 
@@ -304,17 +306,18 @@ bool PinPlacer::read_and_write() {
   }
 
   // --4. read netlist edits (--edits option)
-  bool has_edits = read_edits();
+  has_edits_ = read_edits();
   flush_out(false);
-  if (tr >= 3)
-    lprintf("\t  has_edits : %i\n", has_edits);
-
+  if (tr >= 3) {
+    CStr val = has_edits_.empty() ? "(FALSE)" : has_edits_.c_str();
+    lprintf("\t  has_edits_ : %s\n", val);
+  }
 
   // if no user pcf is provided, created a temp one
   if (usage_requirement_2 || (usage_requirement_0 && user_pcf_ == "")) {
     flush_out(true);
-    if (has_edits) {
-      // if auto-PCF and has_edits, translate and de-duplicate
+    if (has_edits_.size()) {
+      // if auto-PCF and has_edits_, translate and de-duplicate
       // user-design ports now, since edits.json could remove some design ports.
       if (not pin_names_translated_)
         translatePinNames("(auto-PCF)");
@@ -412,7 +415,7 @@ bool PinPlacer::read_and_write() {
         }
       }
 
-    } // has_edits
+    } // has_edits_
 
     if (!create_temp_pcf(csv_rd)) {
       flush_out(true);

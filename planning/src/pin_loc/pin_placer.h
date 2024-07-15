@@ -114,6 +114,7 @@ private:
 
   bool auto_pcf_created_ = false;
   string user_pcf_;
+  string has_edits_;
 
 public:
   enum class PortDir : uint8_t {
@@ -199,7 +200,7 @@ public:
 
   bool read_csv_file(PcCsvReader&);
   bool read_design_ports();
-  bool read_edits();
+  string read_edits();
   void translate_pcf_cmds();
 
   bool read_pcf(const PcCsvReader&);
