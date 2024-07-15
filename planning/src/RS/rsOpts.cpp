@@ -29,6 +29,8 @@ static CStr _xml_[] = {"XM", "xm", "xml", "XML", nullptr};
 
 static CStr _pcf_[] = {"PCF", "pcf", nullptr};
 
+static CStr _edtf_[] = {"EDT", "edit", "edits", nullptr};
+
 static CStr _blif_[] = {"BL", "blif", nullptr};
 
 static CStr _json_[] = {"JS", "js", "jsf", "json", "port_info", "port_i", "PI", nullptr};
@@ -129,6 +131,7 @@ void rsOpts::print(CStr label) const noexcept {
   printf("  pcfFile_: %s\n", nns(pcfFile_));
   printf("  blifFile_: %s\n", nns(blifFile_));
   printf("  jsonFile_: %s\n", nns(jsonFile_));
+  printf("  editsFile_: %s\n", nns(editsFile_));
   printf("  output_: %s\n", nns(output_));
   printf("  assignOrder_: %s\n", nns(assignOrder_));
 
@@ -285,7 +288,7 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   assert(argc_ > 0 and argv_);
 
   CStr inp = 0, out = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0,
-       fun = 0, assignOrd = 0;
+       fun = 0, assignOrd = 0, edtf = 0;
 
   for (int i = 1; i < argc_; i++) {
     CStr arg = argv_[i];
@@ -341,6 +344,14 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
         pcf = argv_[i];
       else
         pcf = nullptr;
+      continue;
+    }
+    if (op_match(arg, _edtf_)) {
+      i++;
+      if (i < argc_)
+        edtf = argv_[i];
+      else
+        edtf = nullptr;
       continue;
     }
     if (op_match(arg, _blif_)) {
@@ -421,6 +432,7 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   pcfFile_ = p_strdup(pcf);
   blifFile_ = p_strdup(blif);
   jsonFile_ = p_strdup(jsnf);
+  editsFile_ = p_strdup(edtf);
 
   if (fun)
     setFunction(fun);
@@ -541,6 +553,7 @@ bool rsOpts::ends_with_pin_c(CStr z) noexcept {
 
 // static 
 bool rsOpts::validate_pinc_args(int argc, const char** argv) noexcept {
+  flush_out(false);
   using std::cerr;
   if (argc < 1 or !argv)
     return false;
@@ -576,12 +589,24 @@ bool rsOpts::validate_pinc_args(int argc, const char** argv) noexcept {
   CStr pcf = tmpO.pcfFile_;
   if (pcf) {
     if (not Fio::regularFileExists(pcf)) {
-      lprintf("\n[Error] specified PCF file %s does not exist\n", pcf);
-      cerr << "[Error] specified PCF file does not exist" << endl; 
+      flush_out(true); err_puts();
+      lprintf2("[Error] specified PCF file does not exist: %s\n", pcf);
+      err_puts(); flush_out(true);
       return false;
     }
   }
 
+  CStr editf = tmpO.editsFile_;
+  if (editf) {
+    if (not Fio::regularFileExists(editf)) {
+      flush_out(true); err_puts();
+      lprintf2("[Error] specified config_json (--edits) file does not exist: %s\n", editf);
+      err_puts(); flush_out(true);
+      return false;
+    }
+  }
+
+  flush_out(false);
   return true;
 }
 

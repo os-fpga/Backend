@@ -177,10 +177,14 @@ bool PinPlacer::read_design_ports() {
   return true;
 }
 
-bool PinPlacer::read_edits() {
+// returns {} on error
+string PinPlacer::read_edits() {
   flush_out(false);
   uint16_t tr = ltrace();
-  if (tr >= 4) lputs("\nread_edits() __ getting io_config .json");
+  if (tr >= 4) {
+    flush_out(true);
+    lputs("\nread_edits() __ getting io_config .json");
+  }
 
   all_edits_.clear();
   ibufs_.clear();
@@ -189,7 +193,7 @@ bool PinPlacer::read_edits() {
   string edits_fn = cl_.get_param("--edits");
   if (edits_fn.empty()) {
     if (tr >= 4) lputs("[Info] edits cmd option is not specified");
-    return false;
+    return {};
   }
 
   if (tr >= 4)
@@ -203,7 +207,7 @@ bool PinPlacer::read_edits() {
     err_puts();
     CERROR << "specified <io edits>.json file does not exist: " << edits_fn << endl;
     flush_out(true);
-    return false;
+    return {};
   }
   if (! Fio::nonEmptyFileExists(edits_fn)) {
     flush_out(true);
@@ -212,7 +216,7 @@ bool PinPlacer::read_edits() {
     err_puts();
     CERROR << "specified <io edits>.json file is empty or not accessible: " << edits_fn << endl;
     flush_out(true);
-    return false;
+    return {};
   }
 
   ifstream edits_ifs(edits_fn);
@@ -226,7 +230,7 @@ bool PinPlacer::read_edits() {
       err_puts();
       OUT_ERROR << " failed reading " << edits_fn << endl;
       flush_out(true);
-      return false;
+      return {};
     }
   }
   else {
@@ -236,7 +240,7 @@ bool PinPlacer::read_edits() {
     CERROR    << "  could not open <io edits>.json file : " << edits_fn << endl;
     err_puts();
     flush_out(true);
-    return false;
+    return {};
   }
 
   bool check_ok = check_edit_info();
@@ -256,7 +260,9 @@ bool PinPlacer::read_edits() {
   }
 
   flush_out(false);
-  return bool(ibufs_.size()) or bool(obufs_.size());
+  if (ibufs_.size() or obufs_.size())
+    return edits_fn;
+  return {};
 }
 
 static bool read_json_ports(const nlohmann::ordered_json& from,
