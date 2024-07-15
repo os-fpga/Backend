@@ -54,7 +54,9 @@ struct rsOpts {
   char* pcfFile_ = nullptr;
   char* blifFile_ = nullptr;
   char* jsonFile_ = nullptr;
+
   char* editsFile_ = nullptr;
+  char* cmapFile_ = nullptr;
 
   char* input_ = nullptr;
   char* output_ = nullptr;

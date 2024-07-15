@@ -30,6 +30,7 @@ static CStr _xml_[] = {"XM", "xm", "xml", "XML", nullptr};
 static CStr _pcf_[] = {"PCF", "pcf", nullptr};
 
 static CStr _edtf_[] = {"EDT", "edit", "edits", nullptr};
+static CStr _cmap_[] = {"MAPC", "clkmap", "clk_map", nullptr};
 
 static CStr _blif_[] = {"BL", "blif", nullptr};
 
@@ -288,7 +289,7 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   assert(argc_ > 0 and argv_);
 
   CStr inp = 0, out = 0, csv = 0, xml = 0, pcf = 0, blif = 0, jsnf = 0,
-       fun = 0, assignOrd = 0, edtf = 0;
+       fun = 0, assignOrd = 0, edtf = 0, cmapf = 0;
 
   for (int i = 1; i < argc_; i++) {
     CStr arg = argv_[i];
@@ -352,6 +353,14 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
         edtf = argv_[i];
       else
         edtf = nullptr;
+      continue;
+    }
+    if (op_match(arg, _cmap_)) {
+      i++;
+      if (i < argc_)
+        cmapf = argv_[i];
+      else
+        cmapf = nullptr;
       continue;
     }
     if (op_match(arg, _blif_)) {
@@ -433,6 +442,7 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   blifFile_ = p_strdup(blif);
   jsonFile_ = p_strdup(jsnf);
   editsFile_ = p_strdup(edtf);
+  cmapFile_ = p_strdup(cmapf);
 
   if (fun)
     setFunction(fun);
@@ -601,6 +611,16 @@ bool rsOpts::validate_pinc_args(int argc, const char** argv) noexcept {
     if (not Fio::regularFileExists(editf)) {
       flush_out(true); err_puts();
       lprintf2("[Error] specified config_json (--edits) file does not exist: %s\n", editf);
+      err_puts(); flush_out(true);
+      return false;
+    }
+  }
+
+  CStr cmap = tmpO.cmapFile_;
+  if (cmap) {
+    if (not Fio::regularFileExists(cmap)) {
+      flush_out(true); err_puts();
+      lprintf2("[Error] specified --clk_map file does not exist: %s\n", cmap);
       err_puts(); flush_out(true);
       return false;
     }
