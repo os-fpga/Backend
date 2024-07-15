@@ -354,6 +354,9 @@ void PinPlacer::print_summary(const string& csv_name) const {
   CStr editsVal = has_edits_.empty() ? "FALSE" : has_edits_.c_str();
   lprintf("     has edits (config.json) : %s\n", editsVal);
 
+  CStr cmapVal = clk_map_file_.empty() ? "(NONE)" : clk_map_file_.c_str();
+  lprintf("                clk_map_file : %s\n", cmapVal);
+
   lprintf("  pinc_trace verbosity= %u\n", tr);
 
   if (num_critical_warnings_) {

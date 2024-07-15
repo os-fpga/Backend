@@ -25,6 +25,7 @@ using fio::Fio;
 #define CERROR std::cerr << "[Error] "
 
 int PinPlacer::map_clocks() {
+  clk_map_file_.clear();
   uint16_t tr = ltrace();
   if (tr >= 4) {
     flush_out(true);
@@ -33,9 +34,9 @@ int PinPlacer::map_clocks() {
 
   string fpga_repack = cl_.get_param("--read_repack");
   string user_constrained_repack = cl_.get_param("--write_repack");
-  string clk_map_file = cl_.get_param("--clk_map");
+  clk_map_file_ = cl_.get_param("--clk_map");
 
-  bool constraint_xml_requested = fpga_repack.size() or clk_map_file.size();
+  bool constraint_xml_requested = fpga_repack.size() or clk_map_file_.size();
   if (not constraint_xml_requested) {
     if (tr >= 4)
       lputs("PinPlacer::map_clocks() returns NOP");
@@ -65,7 +66,9 @@ int PinPlacer::write_clocks_logical_to_physical() {
   }
 
   bool rd_ok = false, wr_ok = false;
-  string clkmap_fn = cl_.get_param("--clk_map");
+
+  clk_map_file_ = cl_.get_param("--clk_map");
+  const string& clkmap_fn = clk_map_file_;
 
   if (not Fio::regularFileExists(clkmap_fn)) {
     flush_out(true);

@@ -115,6 +115,7 @@ private:
   bool auto_pcf_created_ = false;
   string user_pcf_;
   string has_edits_;
+  string clk_map_file_;
 
 public:
   enum class PortDir : uint8_t {
