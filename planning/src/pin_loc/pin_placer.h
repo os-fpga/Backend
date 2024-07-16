@@ -26,8 +26,11 @@ struct PinPlacer {
     string js_dir_;    // "OUT", "IN"
     string location_;  // "HR_5_0_0P"
     string mode_;      // "Mode_BP_SDR_A_TX"
+
     string oldPin_;    // "dout",
-    string newPin_;    // newPin_ is always inside fabric, for both ibuf and obuf
+    string newPin_;    // newPin_ is always inside fabric
+
+    size_t oldPinHash_ = 0, newPinHash_ = 0;
 
     vector<string> Q_bus_, D_bus_;
 
@@ -65,6 +68,11 @@ struct PinPlacer {
 
     bool hasPins() const noexcept { return !oldPin_.empty() and !newPin_.empty(); }
     void swapPins() noexcept { std::swap(oldPin_, newPin_); }
+
+    void setHash() noexcept {
+      oldPinHash_ = str::hashf(c_old());
+      newPinHash_ = str::hashf(c_new());
+    }
 
     struct CmpOldPin {
       bool operator()(const EditItem* a, const EditItem* b) const noexcept {
@@ -271,10 +279,7 @@ private:
   string translatePinName(const string& pinName, bool is_input) const noexcept;
   uint translatePinNames(const string& memo) noexcept;
 
-  string translateClockName(const string& clkName) const noexcept {
-    assert(not clkName.empty());
-    return translatePinName(clkName, true);
-  }
+  const EditItem* findTerminalLink(const string& pinName) const noexcept;
 };
 
 }

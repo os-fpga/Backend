@@ -15,7 +15,9 @@
 
 #include <map>
 #include <filesystem>
-#include <unistd.h>
+
+#undef h
+#undef H
 
 namespace pln {
 
@@ -23,6 +25,43 @@ using namespace std;
 using fio::Fio;
 
 #define CERROR std::cerr << "[Error] "
+
+const PinPlacer::EditItem* PinPlacer::findTerminalLink(const string& pinName) const noexcept {
+  if (pinName.empty() or all_edits_.empty())
+    return nullptr;
+  size_t h = str::hashf(pinName.c_str());
+
+  int found_old = -1, cnt_old = 0;
+  int found_new = -1, cnt_new = 0;
+
+  const EditItem* A = all_edits_.data();
+  for (int i = int(all_edits_.size()) - 1; i >= 0; i--) {
+    const EditItem& itm = A[i];
+    //if ( strstr(itm.c_old(), "design_clk_9") or strstr(itm.c_new(), "design_clk_9"))
+    //  lputs9();
+    if (itm.oldPinHash_ == h and itm.oldPin_ == pinName) {
+      found_old = i;
+      cnt_old++;
+      continue;
+    }
+    if (itm.newPinHash_ == h and itm.newPin_ == pinName) {
+      found_new = i;
+      cnt_new++;
+    }
+  }
+
+  // if found > 1 times, then the link is not terminal
+  if (cnt_old == 1) {
+    assert(found_old >= 0);
+    return A + found_old;
+  }
+  if (cnt_new == 1) {
+    assert(found_new >= 0);
+    return A + found_new;
+  }
+
+  return nullptr;
+}
 
 int PinPlacer::map_clocks() {
   clk_map_file_.clear();
@@ -227,9 +266,28 @@ int PinPlacer::write_clocks_logical_to_physical() {
         if (tr >= 6)
           lprintf("\t  uclk: %s  is_post_edit:%i\n", cs, is_post_edit);
         if (not is_post_edit) {
-          postEdit_uclk = translateClockName(uclk);
+          bool is_input = true;
+          const EditItem* terminal_link = findTerminalLink(uclk);
+          if (terminal_link) {
+            const EditItem& tl = *terminal_link;
+            if (tl.dir_ < 0)
+              is_input = false;
+            if (tr >= 6) {
+              lprintf(
+                "\t (tl)  %zu   mod: %s  js_dir:%s  dir:%i    old: %s  new: %s  is_inp:%i\n",
+                tl.nameHash(), tl.c_mod(), tl.c_jsdir(), tl.dir_, tl.c_old(), tl.c_new(), is_input);
+            }
+          }
+          postEdit_uclk = translatePinName(uclk, is_input);
           if (tr >= 6)
             lprintf("\t\t  ..... postEdit_uclk: %s\n", postEdit_uclk.c_str());
+          if (postEdit_uclk != uclk) {
+            udes_clocks.back() = postEdit_uclk;
+            if (tr >= 5) {
+              lprintf("clock mapping: translated design_clock value from '%s' to '%s'\n",
+                      cs, postEdit_uclk.c_str());
+            }
+          }
         }
         j++;
         continue;
