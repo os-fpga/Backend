@@ -47,8 +47,10 @@ struct PinPlacer {
 
     EditItem() noexcept = default;
 
-    CStr c_jsdir() const noexcept { return js_dir_.c_str(); }
     CStr cname() const noexcept { return name_.c_str(); }
+    size_t nameHash() const noexcept { return str::hashf(name_.c_str()); }
+
+    CStr c_jsdir() const noexcept { return js_dir_.c_str(); }
     CStr c_mod() const noexcept { return module_.c_str(); }
     CStr c_old() const noexcept { return oldPin_.c_str(); }
     CStr c_new() const noexcept { return newPin_.c_str(); }
@@ -268,6 +270,11 @@ private:
 
   string translatePinName(const string& pinName, bool is_input) const noexcept;
   uint translatePinNames(const string& memo) noexcept;
+
+  string translateClockName(const string& clkName) const noexcept {
+    assert(not clkName.empty());
+    return translatePinName(clkName, true);
+  }
 };
 
 }

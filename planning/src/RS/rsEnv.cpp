@@ -278,9 +278,6 @@ void rsEnv::listDevEnv() const noexcept {
 #ifdef PINC_DEVEL_MODE
   lprintf("\t  PINC_DEVEL_MODE :\t (defined)\n");
 #endif
-#ifdef RSBE_PLANNER_MODE
-  lprintf("\t  RSBE_PLANNER_MODE :\t (defined)\n");
-#endif
 #ifdef NN_FAST_BUILD
   lprintf("\t  NN_FAST_BUILD :\t (defined)\n");
 #endif

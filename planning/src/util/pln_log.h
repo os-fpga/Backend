@@ -42,13 +42,12 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <string_view>
 #include <functional>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 #include <array>
-
-#define RSBE_PLANNER_MODE 1
 
 namespace pln {
 
@@ -250,6 +249,13 @@ inline CStr trimFront(CStr z) noexcept {
     while (std::isspace(*z)) z++;
   }
   return z;
+}
+
+inline size_t hashf(CStr z) noexcept {
+  if (!z) return 0;
+  if (!z[0]) return 1;
+  std::hash<std::string_view> h;
+  return h(std::string_view{z});
 }
 
 }  // NS str

@@ -639,8 +639,8 @@ void PinPlacer::dump_edits(const string& memo) noexcept {
     for (uint i = 0; i < esz; i++) {
       const EditItem& ed = all_edits_[i];
       lprintf(
-          "   |%u|   %s   module: %s  js_dir:%s  dir:%i    old: %s  new: %s",
-          i+1, ed.cname(), ed.c_mod(), ed.c_jsdir(), ed.dir_, ed.c_old(), ed.c_new());
+          "   |%u|  %zu   module: %s  js_dir:%s  dir:%i    old: %s  new: %s",
+          i+1, ed.nameHash(), ed.c_mod(), ed.c_jsdir(), ed.dir_, ed.c_old(), ed.c_new());
       if (ed.isQBus())
         lprintf("  QBUS-%u", ed.qbusSize());
       lputs();
@@ -861,6 +861,14 @@ void PinPlacer::set_edit_dirs(bool initial) noexcept {
     for (uint i = 0; i < sz; i++) {
       EditItem& item = all_edits_[i];
       assert(item.dir_ == 0);
+      if (item.js_dir_ == "IN") {
+        item.dir_ = 1;
+        continue;
+      }
+      if (item.js_dir_ == "OUT") {
+        item.dir_ = -1;
+        continue;
+      }
       const string& mod = item.module_;
       if (mod == "I_BUF" or mod == "CLK_BUF" or mod == "I_DELAY" or mod == "I_SERDES")
         item.dir_ = 1;
