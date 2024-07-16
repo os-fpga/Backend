@@ -55,6 +55,22 @@ int PinPlacer::map_clocks() {
   return 1;
 }
 
+static bool is_post_edit_clock(CStr cs, size_t len) noexcept {
+  if (!cs or !cs[0])
+    return false;
+  if (len < 18)
+    return false;
+  if (cs[0] != '$')
+    return false;
+  if (cs[1] != 'a')
+    return false;
+
+  // len("$auto$clkbufmap") == 15
+  if (::strncmp(cs, "$auto$clkbufmap", 15) == 0)
+    return true;
+  return false;
+}
+
 int PinPlacer::write_clocks_logical_to_physical() {
   flush_out(false);
   uint16_t tr = ltrace();
@@ -183,10 +199,13 @@ int PinPlacer::write_clocks_logical_to_physical() {
   udes_clocks.reserve(tokenized_cmds.size());
   pdev_clocks.reserve(tokenized_cmds.size());
 
+  string uclk, postEdit_uclk;
   for (const auto& tcmd : tokenized_cmds) {
+    uclk.clear();
+    postEdit_uclk.clear();
     assert(tcmd.size() < USHRT_MAX);
     uint sz = tcmd.size();
-    if (tr >= 6) {
+    if (tr >= 7) {
       logVec(tcmd, "      tcmd: ");
       lprintf("\t  tcmd.size()= %u\n", sz);
     }
@@ -201,6 +220,17 @@ int PinPlacer::write_clocks_logical_to_physical() {
       }
       if (tk == "-design_clock") {
         udes_clocks.push_back(tcmd[j + 1]);
+        uclk = udes_clocks.back();
+        postEdit_uclk.clear();
+        CStr cs = uclk.c_str();
+        bool is_post_edit = is_post_edit_clock(cs, uclk.length());
+        if (tr >= 6)
+          lprintf("\t  uclk: %s  is_post_edit:%i\n", cs, is_post_edit);
+        if (not is_post_edit) {
+          postEdit_uclk = translateClockName(uclk);
+          if (tr >= 6)
+            lprintf("\t\t  ..... postEdit_uclk: %s\n", postEdit_uclk.c_str());
+        }
         j++;
         continue;
       }
