@@ -864,14 +864,14 @@ void PinPlacer::set_edit_dirs(bool initial) noexcept {
     for (uint i = 0; i < sz; i++) {
       EditItem& item = all_edits_[i];
       assert(item.dir_ == 0);
-      if (item.js_dir_ == "IN") {
-        item.dir_ = 1;
-        continue;
-      }
-      if (item.js_dir_ == "OUT") {
-        item.dir_ = -1;
-        continue;
-      }
+      //if (item.js_dir_ == "IN") { // js_dir_ is incorrect sometimes?
+      //  item.dir_ = 1;
+      //  continue;
+      //}
+      //if (item.js_dir_ == "OUT") {
+      //  item.dir_ = -1;
+      //  continue;
+      //}
       const string& mod = item.module_;
       if (mod == "I_BUF" or mod == "CLK_BUF" or mod == "I_DELAY" or mod == "I_SERDES")
         item.dir_ = 1;
