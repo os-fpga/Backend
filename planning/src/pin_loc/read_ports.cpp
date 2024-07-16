@@ -587,6 +587,9 @@ static bool s_read_json_items(const nlohmann::ordered_json& from,
     }
   }
 
+  for (PinPlacer::EditItem& itm : items)
+    itm.setHash();
+
   return not items.empty();
 }
 
@@ -953,6 +956,9 @@ void PinPlacer::set_edit_dirs(bool initial) noexcept {
         ed.swapPins();
     }
   }
+
+  for (EditItem& itm : all_edits_)
+    itm.setHash();
 
   link_edits();
 }
