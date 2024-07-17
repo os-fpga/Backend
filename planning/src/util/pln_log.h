@@ -6,9 +6,7 @@
 //   lprintf2 : log-printf with CC to stderr
 //
 //     lputs  : log-puts
-//      lout  : replaces cout, will print to both stdout and logfile
-//
-//  currently, log- functions just print on stdout, real logfile can be added later
+//      LOut  : replaces cout, prints to both stdout and logfile
 //
 //  lputs<Number> functions are equivalent to lputs(),
 //  there are convenient "anchor points" for setting temporary breakpoints.
@@ -323,9 +321,24 @@ inline void logVec(const std::vector<T>& vec, CStr pref) noexcept {
 template <typename T>
 inline T* unconst(const T* p) noexcept { return const_cast<T*>(p); }
 
-}  // namespace pln
+//
+// LOut is an ostream that splits the output,
+// i.e. it prints to a file (logfile) and to stdout.
+//
+struct LOut : public std::ostream, public std::streambuf {
+  char* buf_ = nullptr;
+  uint buf_sz_ = 0;
 
-namespace pinc = pln;
+  LOut() noexcept;
+  virtual ~LOut();
+
+  virtual int overflow(int c) override;
+
+  LOut(const LOut&) = delete;
+  LOut& operator = (const LOut&) = delete;
+};
+
+}  // namespace pln
 
 const char* pln_get_version();
 
