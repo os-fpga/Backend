@@ -210,12 +210,11 @@ public:
     return -1;
   }
 
-  bool read_csv_file(PcCsvReader&);
+  bool read_PT_CSV(PcCsvReader&);
   bool read_design_ports();
   string read_edits();
-  void translate_pcf_cmds();
 
-  bool read_pcf(const PcCsvReader&);
+  bool read_PCF(const PcCsvReader&);
 
   bool write_dot_place(const PcCsvReader&);
 
@@ -278,7 +277,9 @@ private:
   EditItem* findIbufByOldPin(const string& old_pin) const noexcept;
 
   string translatePinName(const string& pinName, bool is_input) const noexcept;
-  uint translatePinNames(const string& memo) noexcept;
+
+  uint translatePinNames(CStr memo) noexcept;
+  uint translate_PCF_names() noexcept;
 
   const EditItem* findTerminalLink(const string& pinName) const noexcept;
 };

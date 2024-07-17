@@ -379,13 +379,13 @@ void PinPlacer::printTileUsage(const PcCsvReader& csv) const {
      << "  used_tiles_.size()= " << used_tiles_.size() << endl;
 }
 
-bool PinPlacer::read_pcf(const PcCsvReader& csv) {
+bool PinPlacer::read_PCF(const PcCsvReader& csv) {
   flush_out(true);
   uint16_t tr = ltrace();
   auto& ls = lout();
   string cur_dir = get_CWD();
   if (tr >= 4) {
-    lputs("pin_c:  PinPlacer::read_pcf()");
+    lputs("pin_c:  PinPlacer::read_PCF()");
     lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
 
@@ -407,7 +407,7 @@ bool PinPlacer::read_pcf(const PcCsvReader& csv) {
   }
 
   PcfReader rd_pcf;
-  if (!rd_pcf.read_pcf(pcf_name)) {
+  if (!rd_pcf.read_pcf_file(pcf_name)) {
     flush_out(true);
     OUT_ERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
     CERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
@@ -481,64 +481,62 @@ bool PinPlacer::read_pcf(const PcCsvReader& csv) {
 
   if (tr >= 3) {
     flush_out(true);
-    lputs("\t  ***  pin_c  read_pcf  SUCCEEDED  ***");
+    lputs("\t  ***  pin_c  read_PCF  SUCCEEDED  ***");
   }
 
   return true;
 }
 
-void PinPlacer::translate_pcf_cmds() {
+uint PinPlacer::translate_PCF_names() noexcept {
   if (pcf_pin_cmds_.empty() or all_edits_.empty())
-    return;
+    return 0;
 
   uint16_t tr = ltrace();
   flush_out(tr >= 6);
 
-  if (1) {
+  if (tr >= 6) {
+    lprintf("  ---- pcf_pin_cmds_ before translation (%zu):\n",
+            pcf_pin_cmds_.size());
+    for (const auto& cmd : pcf_pin_cmds_)
+      logVec(cmd.cmd_, " ");
+    lprintf("  ---- \n");
+  }
 
-    if (tr >= 6) {
-      lprintf("  ---- pcf_pin_cmds_ before translation (%zu):\n",
-              pcf_pin_cmds_.size());
-      for (const auto& cmd : pcf_pin_cmds_)
-        logVec(cmd.cmd_, " ");
-      lprintf("  ---- \n");
-    }
-
-    uint numInpTr = 0, numOutTr = 0;
-    string was;
-    for (auto& cmd : pcf_pin_cmds_) {
-      if (cmd.size() < 2)
-        continue;
-      string& pinName = cmd.cmd_[1];
-      was = pinName;
-      if (findIbufByOldPin(was)) {
-        // input
-        pinName = translatePinName(was, true);
-        if (pinName != was) numInpTr++;
-      } else if (findObufByOldPin(was)) {
-        // output
-        pinName = translatePinName(was, false);
-        if (pinName != was) numOutTr++;
-      }
-    }
-
-    flush_out(tr >= 6);
-    if (tr >= 3) {
-      lprintf("PCF command translation:  #input translations= %u  #output translations= %u\n",
-              numInpTr, numOutTr);
-    }
-
-    if (tr >= 6) {
-      lprintf("  ++++ pcf_pin_cmds_ after translation (%zu):\n",
-              pcf_pin_cmds_.size());
-      for (const auto& cmd : pcf_pin_cmds_)
-        logVec(cmd.cmd_, " ");
-      lprintf("  ++++ \n");
-      flush_out(true);
+  uint numInpTr = 0, numOutTr = 0;
+  string was;
+  for (auto& cmd : pcf_pin_cmds_) {
+    if (cmd.size() < 2)
+      continue;
+    string& pinName = cmd.cmd_[1];
+    was = pinName;
+    if (findIbufByOldPin(was)) {
+      // input
+      pinName = translatePinName(was, true);
+      if (pinName != was) numInpTr++;
+    } else if (findObufByOldPin(was)) {
+      // output
+      pinName = translatePinName(was, false);
+      if (pinName != was) numOutTr++;
     }
   }
 
+  flush_out(tr >= 6);
+  if (tr >= 3) {
+    lprintf("PCF command translation:  #input translations= %u  #output translations= %u\n",
+            numInpTr, numOutTr);
+  }
+
+  if (tr >= 6) {
+    lprintf("  ++++ pcf_pin_cmds_ after translation (%zu):\n",
+            pcf_pin_cmds_.size());
+    for (const auto& cmd : pcf_pin_cmds_)
+      logVec(cmd.cmd_, " ");
+    lprintf("  ++++ \n");
+    flush_out(true);
+  }
+
   flush_out(false);
+  return numInpTr + numOutTr;
 }
 
 void PinPlacer::get_pcf_directions(
@@ -1023,10 +1021,12 @@ static bool try_open_csv_file(const string& csv_name) {
   return true;
 }
 
-bool PinPlacer::read_csv_file(PcCsvReader& csv) {
-  flush_out(false);
+bool PinPlacer::read_PT_CSV(PcCsvReader& csv) {
   uint16_t tr = ltrace();
-  if (tr >= 2) lputs("\nread_csv_file() __ Reading csv");
+  if (tr >= 2) {
+    flush_out(true);
+    lputs("read_PT_CSV() __ Reading csv");
+  }
 
   string csv_name;
   if (temp_csv_file_name_.size()) {
@@ -1061,7 +1061,7 @@ bool PinPlacer::read_csv_file(PcCsvReader& csv) {
 
   if (tr >= 2) {
     flush_out(true);
-    lputs("\t  ***  pin_c  read_csv_file  SUCCEEDED  ***\n");
+    lputs("\t  ***  pin_c  read_PT_CSV  SUCCEEDED  ***\n");
   }
 
   flush_out(false);
@@ -1127,7 +1127,7 @@ DevPin PinPlacer::get_available_axi_ipin(vector<string>& Q) {
   result.set_first(Q.back());
   Q.pop_back();
 
-  // need to pick a mode, othewise PcfReader::read_pcf() will not tokenize pcf line properly
+  // need to pick a mode, othewise PcfReader will not tokenize pcf line properly
   result.mode_ = "MODE_GPIO";
 
   return result;
@@ -1148,7 +1148,7 @@ DevPin PinPlacer::get_available_axi_opin(vector<string>& Q) {
   result.set_first(Q.back());
   Q.pop_back();
 
-  // need to pick a mode, othewise PcfReader::read_pcf() will not tokenize pcf line properly
+  // need to pick a mode, othewise PcfReader will not tokenize pcf line properly
   result.mode_ = "MODE_GPIO";
 
   return result;

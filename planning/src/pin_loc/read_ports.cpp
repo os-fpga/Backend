@@ -972,7 +972,7 @@ void PinPlacer::set_edit_dirs(bool initial) noexcept {
 // adjust edits based on PCF pin-lists
 void PinPlacer::finalize_edits() noexcept {
   uint16_t tr = ltrace();
-  flush_out(tr >= 6);
+  flush_out((tr >= 6));
 
   set_edit_dirs(false);
 
@@ -1008,7 +1008,10 @@ void PinPlacer::finalize_edits() noexcept {
       raw_design_inputs_.size(), raw_design_outputs_.size());
   }
 
-  translate_pcf_cmds();
+  uint num_pcf_tr = translate_PCF_names();
+  if (tr >= 3)
+    lprintf("total number of translated PCF commands = %u\n", num_pcf_tr);
+  flush_out(false);
 }
 
 PinPlacer::EditItem* PinPlacer::findObufByOldPin(const string& old_pin) const noexcept {

@@ -11,9 +11,9 @@ message(STATUS "Building with IPO: off")
 set(OPENFPGA_IPO_BUILD "off" CACHE STRING "Should be compiled with LTO?")
 set_property(CACHE OPENFPGA_IPO_BUILD PROPERTY STRINGS auto off off)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O1 -mavx2 -march=haswell")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -O1 -mavx2 -march=haswell")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC -O1 -mavx2 -march=haswell")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O2 -mavx2 -march=haswell")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -O2 -mavx2 -march=haswell")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC -O2 -mavx2 -march=haswell")
 
 file(GLOB_RECURSE EXEC_SOURCE src/main.cpp)
 file(GLOB_RECURSE LIB_SOURCES src/*/*.cpp)

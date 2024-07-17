@@ -35,9 +35,9 @@ struct PcfReader {
 
   PcfReader() noexcept = default;
 
-  PcfReader(const string& f) { read_pcf(f); }
+  PcfReader(const string& f) { read_pcf_file(f); }
 
-  bool read_pcf(const string& f);
+  bool read_pcf_file(const string& f);
 };
 
 }

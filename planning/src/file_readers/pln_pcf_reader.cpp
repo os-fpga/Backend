@@ -6,10 +6,11 @@ namespace pln {
 using namespace std;
 using fio::Fio;
 
-bool PcfReader::read_pcf(const string& f) {
+bool PcfReader::read_pcf_file(const string& f) {
   uint16_t tr = ltrace();
   auto& ls = lout();
-  if (tr >= 2) ls << "PcfReader::read_pcf( " << f << " )" << endl;
+  flush_out(false);
+  if (tr >= 2) ls << "PcfReader::read_pcf_file( " << f << " )" << endl;
 
   assert(!f.empty());
 
@@ -135,13 +136,13 @@ bool PcfReader::read_pcf(const string& f) {
   }
 
   if (tr >= 4) {
-    lprintf("done  PcfReader::read_pcf().  commands_.size()= %zu  has_error:%i\n",
+    lprintf("done  PcfReader::read_pcf_file().  commands_.size()= %zu  has_error:%i\n",
             commands_.size(), has_error);
   }
   if (tr >= 1 && has_error) {
     flush_out(true);
     err_puts();
-    lprintf2("[Error] in PcfReader::read_pcf()\n");
+    lprintf2("[Error] in PcfReader::read_pcf_file()\n");
     flush_out(true);
   }
   flush_out(false);
