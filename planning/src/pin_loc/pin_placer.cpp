@@ -165,6 +165,7 @@ void PinPlacer::resetState() noexcept {
   num_warnings_ = 0;
   num_critical_warnings_ = 0;
   user_pcf_.clear();
+  blif_fn_.clear();
   has_edits_.clear();
   clk_map_file_.clear();
   clear_err_code();
