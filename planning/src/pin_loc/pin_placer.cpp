@@ -295,11 +295,11 @@ bool PinPlacer::read_and_write() {
 
   // --3. read PT from csv file
   PcCsvReader csv_rd;
-  if (!read_csv_file(csv_rd)) {
+  if (!read_PT_CSV(csv_rd)) {
     flush_out(true);
     if (tr >= 2) {
       err_puts();
-      lprintf2("[Error] pin_c: !read_csv_file()");
+      lprintf2("[Error] pin_c: !read_PT_CSV()");
       flush_out(true);
     }
     CERROR << err_lookup("PIN_MAP_CSV_PARSE_ERROR") << endl;
@@ -440,7 +440,7 @@ bool PinPlacer::read_and_write() {
   }
 
   // --5. read user pcf (or our temprary pcf).
-  if (!read_pcf(csv_rd)) {
+  if (!read_PCF(csv_rd)) {
     flush_out(true);
     err_puts();
     CERROR << err_lookup("PIN_CONSTRAINT_PARSE_ERROR") << endl;
@@ -490,18 +490,25 @@ bool PinPlacer::read_and_write() {
   return true;
 }
 
-uint PinPlacer::translatePinNames(const string& memo) noexcept {
-  flush_out(false);
+uint PinPlacer::translatePinNames(CStr memo) noexcept {
   uint16_t tr = ltrace();
   uint cnt = 0;
-  CStr mem = memo.c_str();
+  CStr mem = memo ? memo : "";
+
+  flush_out((tr >= 5));
+  if (tr >= 3) {
+    lprintf("translatePinNames() @ %s\n", mem);
+  }
 
   for (Pin& pin : user_design_inputs_) {
     pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, true);
-    if (pin.udes_pin_name_ == pin.trans_pin_name_)
+    if (pin.udes_pin_name_ == pin.trans_pin_name_) {
+      if (tr >= 6)
+        lprintf("\t des input NOT TRANSLATED : %s\n", pin.udes_pin_name_.c_str());
       continue;
-    if (tr >= 3) {
-      lprintf("design input pin TRANSLATED %s: %s --> %s\n", mem,
+    }
+    if (tr >= 4) {
+      lprintf("  design input pin TRANSLATED %s: %s --> %s\n", mem,
                pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
     }
     pin.udes_pin_name_ = pin.trans_pin_name_;
@@ -511,14 +518,22 @@ uint PinPlacer::translatePinNames(const string& memo) noexcept {
   flush_out(true);
   for (Pin& pin : user_design_outputs_) {
     pin.trans_pin_name_ = translatePinName(pin.udes_pin_name_, false);
-    if (pin.udes_pin_name_ == pin.trans_pin_name_)
+    if (pin.udes_pin_name_ == pin.trans_pin_name_) {
+      if (tr >= 6)
+        lprintf("\t des output NOT TRANSLATED : %s\n", pin.udes_pin_name_.c_str());
       continue;
-    if (tr >= 3) {
-      lprintf("design output pin TRANSLATED %s: %s --> %s\n", mem,
+    }
+    if (tr >= 4) {
+      lprintf("  design output pin TRANSLATED %s: %s --> %s\n", mem,
                pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
     }
     pin.udes_pin_name_ = pin.trans_pin_name_;
     cnt++;
+  }
+
+  if (tr >= 3) {
+    lprintf("DONE translatePinNames() @ %s\n", mem);
+    lprintf("     number of translated pins = %u\n", cnt);
   }
 
   pin_names_translated_ = true;
