@@ -316,11 +316,10 @@ void PinPlacer::print_summary(const string& csv_name) const {
   const vector<Pin>& inputs = user_design_inputs_;
   const vector<Pin>& outputs = user_design_outputs_;
 
-  flush_out((tr >= 7));
-
-  ls << "======== pin_c summary:" << endl;
-
-  ls << "    Pin Table csv :  " << csv_name << endl;
+  flush_out((tr >= 5));
+  lputs("======== pin_c summary:");
+  lprintf("   Pin Table csv :  %s\n", csv_name.c_str());
+  lprintf("       BLIF file :  %s\n", blif_fn_.c_str());
 
   if (num_warnings_) {
     lprintf("\t pin_c: NOTE ERRORs: %u\n", num_warnings_);

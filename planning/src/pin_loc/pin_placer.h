@@ -124,6 +124,7 @@ private:
 
   bool auto_pcf_created_ = false;
   string user_pcf_;
+  string blif_fn_;
   string has_edits_;
   string clk_map_file_;
 

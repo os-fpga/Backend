@@ -51,6 +51,7 @@ bool PinPlacer::read_design_ports() {
     flush_out(true);
   }
 
+  blif_fn_.clear();
   user_design_inputs_.clear();
   user_design_outputs_.clear();
 
@@ -91,24 +92,24 @@ bool PinPlacer::read_design_ports() {
     }
     json_ifs.close();
   } else {
-    string blif_fn = cl_.get_param("--blif");
-    if (tr >= 2) lprintf("... reading %s\n", blif_fn.c_str());
-    str_path = blif_fn;
+    blif_fn_ = cl_.get_param("--blif");
+    if (tr >= 2) lprintf("... reading %s\n", blif_fn_.c_str());
+    str_path = blif_fn_;
     if (not Fio::regularFileExists(str_path)) {
       lprintf("\npin_c WARNING: blif file %s does not exist\n", str_path.c_str());
       std::filesystem::path fs_path{str_path}, eblif_ext{"eblif"};
       fs_path.replace_extension(eblif_ext);
       string eblif_fn = fs_path.string();
       if (Fio::regularFileExists(fs_path)) {
-        blif_fn = eblif_fn;
-        str_path = blif_fn;
+        blif_fn_ = eblif_fn;
+        str_path = blif_fn_;
         lprintf("\npin_c INFO: using eblif file %s\n", eblif_fn.c_str());
       } else {
         lprintf("pin_c WARNING: eblif file %s does not exist\n", eblif_fn.c_str());
       }
     }
     BlifReader rd_blif;
-    if (!rd_blif.read_blif(blif_fn)) {
+    if (!rd_blif.read_blif(blif_fn_)) {
       flush_out(true);
       err_puts();
       CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
@@ -129,7 +130,7 @@ bool PinPlacer::read_design_ports() {
       return false;
     }
 
-    is_fabric_eblif_ = s_is_fabric_eblif(blif_fn);
+    is_fabric_eblif_ = s_is_fabric_eblif(blif_fn_);
   }
 
   size_t sz = raw_design_inputs_.size();
@@ -638,12 +639,17 @@ void PinPlacer::dump_edits(const string& memo) noexcept {
 
   if (tr >= 5) {
     vector<uint> undefs;
+    char nmA[128 + 2] = {};
     lprintf("  ==== [%s] ==== dumping all_edits ====\n", memo.c_str());
     for (uint i = 0; i < esz; i++) {
       const EditItem& ed = all_edits_[i];
+      if (ed.name_.length() <= 20)
+        ::sprintf(nmA, "%s", ed.name_.c_str());
+      else
+        ::sprintf(nmA, "%zu", ed.nameHash());
       lprintf(
-          "   |%u|  %zu   module: %s  js_dir:%s  dir:%i    old: %s  new: %s",
-          i+1, ed.nameHash(), ed.c_mod(), ed.c_jsdir(), ed.dir_, ed.c_old(), ed.c_new());
+          "  |%u|  %s   mod: %s  jsd:%s  dir:%i   old: %s  n: %s",
+          i+1, nmA, ed.c_mod(), ed.c_jsdir(), ed.dir_, ed.c_old(), ed.c_new());
       if (ed.isQBus())
         lprintf("  QBUS-%u", ed.qbusSize());
       lputs();
