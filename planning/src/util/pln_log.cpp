@@ -1,9 +1,9 @@
 #include "util/pln_log.h"
 
-#include <stdarg.h>
 #include <alloca.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -12,21 +12,13 @@ namespace pln {
 
 using namespace std;
 
+static void flush_all() noexcept;
+
 // log-trace value (debug print verbosity)
 // can be set in main() by calling set_ltrace()
 static uint16_t s_logLevel = 0;
-uint16_t ltrace() noexcept { return s_logLevel; }
 
-static void flush_all() noexcept {
-  // Flushing does not prevent interleaved stdout and stderr
-  // becauses FOEDAG messes with child process stdout.
-  // pin_c will create a separate 'pin_c.log' sometime.
-  fflush(stdout);
-  fflush(stderr);
-  cout.flush();
-  cerr.flush();
-  // ::fsync(1);
-}
+uint16_t ltrace() noexcept { return s_logLevel; }
 
 void set_ltrace(int t) noexcept {
   flush_all();
@@ -40,6 +32,52 @@ void set_ltrace(int t) noexcept {
     return;
   }
   s_logLevel = t;
+}
+
+//
+// LOut is an ostream that splits the output,
+// i.e. it prints to a file (logfile) and to stdout.
+/////////////
+
+static constexpr size_t LOut_buf_cap = 65518;
+
+LOut::LOut() noexcept : std::ostream(this), buf_sz_(0) {
+  buf_ = (char*)::calloc(LOut_buf_cap + 2, 1);
+  assert(buf_);
+}
+
+LOut::~LOut() {
+  if (buf_sz_) cout << buf_ << endl;
+  fflush(stdout);
+  fflush(stderr);
+  cout.flush();
+  cerr.flush();
+}
+
+int LOut::overflow(int c) {
+  if (c == '\n') {
+    cout << buf_;
+    flush_out(true);
+    if (buf_sz_)
+      buf_sz_--;
+    return 0;
+  }
+  assert(buf_sz_ < LOut_buf_cap);
+  buf_[buf_sz_++] = c;
+  return 0;
+}
+
+/////////////
+
+static void flush_all() noexcept {
+  // Flushing does not prevent interleaved stdout and stderr
+  // becauses FOEDAG messes with child process stdout.
+  // pin_c will create a separate 'pin_c.log' sometime.
+  fflush(stdout);
+  fflush(stderr);
+  cout.flush();
+  cerr.flush();
+  // ::fsync(1);
 }
 
 #define LPUT if (cs && cs[0]) cout << cs;
