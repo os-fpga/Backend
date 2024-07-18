@@ -509,19 +509,57 @@ uint PinPlacer::translate_PCF_names() noexcept {
       continue;
     string& pinName = cmd.cmd_[1];
     was = pinName;
+    bool topInp1 = isTopDesInput(was), topInp2 = false;
+    bool topOut1 = isTopDesOutput(was), topOut2 = false;
+
+    if (tr >= 7) {
+      flush_out((tr >= 8));
+      lprintf("\t  translating PCF pin '%s'\n", was.c_str());
+      lprintf("\t\t topInp:%i  topOut:%i  (%s)\n",
+          topInp1, topOut1, (topInp1 or topOut1) ? "TOP" : "n");
+    }
+
     if (findIbufByOldPin(was)) {
       // input
       pinName = translatePinName(was, true);
-      if (pinName != was) numInpTr++;
+      if (pinName != was) {
+        topInp2 = isTopDesInput(pinName);
+        topOut2 = isTopDesOutput(pinName);
+        bool changedSide = (topOut1 and topInp2) or (topInp1 and topOut2);
+        if (tr >= 7) {
+          lprintf("\t\t    became '%s'  topInp:%i  topOut:%i  (%s)\n",
+            pinName.c_str(),
+            topInp2, topOut2, (topInp2 or topOut2) ? "TOP" : "n");
+            if (changedSide)
+              lprintf("\t\t\t  !!!  CHANGED_SIDE  !!!\n");
+        }
+        numInpTr++;
+      }
     } else if (findObufByOldPin(was)) {
       // output
       pinName = translatePinName(was, false);
-      if (pinName != was) numOutTr++;
+      if (pinName != was) {
+        topInp2 = isTopDesInput(pinName);
+        topOut2 = isTopDesOutput(pinName);
+        bool changedSide = (topOut1 and topInp2) or (topInp1 and topOut2);
+        if (tr >= 7) {
+          lprintf("\t\t    became '%s'  topInp:%i  topOut:%i  (%s)\n",
+            pinName.c_str(),
+            topInp2, topOut2, (topInp2 or topOut2) ? "TOP" : "n");
+            if (changedSide)
+              lprintf("\t\t\t  !!!  CHANGED_SIDE  !!!\n");
+        }
+        if (changedSide) {
+          pinName = was; // cancel translation
+          continue;
+        }
+        numOutTr++;
+      }
     }
   }
 
-  flush_out(tr >= 6);
   if (tr >= 3) {
+    flush_out((tr >= 6));
     lprintf("PCF command translation:  #input translations= %u  #output translations= %u\n",
             numInpTr, numOutTr);
   }
@@ -664,8 +702,6 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
   string internalPin;
   vector<uint> gbox_rows;
 
-  string udes_pn2; // translated according to --edits <config.json>
-
   string row_str;
   int row_num = -1;
 
@@ -676,24 +712,33 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
 
     const PcfReader::Cmd& cmdObj = *P[cmd_i];
     const vector<string>& pcf_cmd = cmdObj.cmd_;
+    const string& op_code = pcf_cmd[0];
 
     // only support io and clock for now
-    if (pcf_cmd[0] != "set_io" && pcf_cmd[0] != "set_clk") continue;
+    if (op_code != "set_io" && op_code != "set_clk") {
+      if (tr >= 4) {
+        lprintf("\t  ignoring PCF cmd op_code= %s  only {set_io, set_clk} are used\n",
+                op_code.c_str());
+      }
+      continue;
+    }
 
     const string& udes_pn1 = pcf_cmd[1];
+    const string& udes_pn2 = udes_pn1;
 
     bool is_in_pin = (find_udes_input(udes_pn1) >= 0);
 
     bool is_out_pin =
         is_in_pin ? false : (find_udes_output(udes_pn1) >= 0);
 
-    udes_pn2 = translatePinName(udes_pn1, is_in_pin);
-    if (udes_pn2 != udes_pn1) {
-      if (tr >= 3) {
-        lprintf("  %s pin TRANSLATED: %s --> %s\n",
-                is_in_pin ? "input" : "output", udes_pn1.c_str(), udes_pn2.c_str());
-      }
-    }
+    ////// OBSOLETE CODE: translation is done in translate_PCF_names()
+    // udes_pn2 = translatePinName(udes_pn1, is_in_pin);
+    // if (udes_pn2 != udes_pn1) {
+    //  if (tr >= 3) {
+    //    lprintf("  %s pin TRANSLATED: %s --> %s\n",
+    //            is_in_pin ? "input" : "output", udes_pn1.c_str(), udes_pn2.c_str());
+    //  }
+    // }
 
     const string& udes_pin_name = udes_pn2;
     const string& device_pin_name = pcf_cmd[2];  // bump or ball
@@ -721,9 +766,16 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
 
       flush_out(true);
       flush_out(true);
+      err_puts();
       CERROR << err_lookup("CONSTRAINED_PORT_NOT_FOUND") << ": <"
              << udes_pin_name << ">" << endl;
+      err_puts();
       flush_out(true);
+      lprintf("[Error] === user-design top-port not found: %s\n", udes_pin_name.c_str());
+      flush_out(true);
+      // if (tr >= 6) { // dump all design ports for diagnostics
+      //   flush_out(true);
+      // }
 
       out_file << "\n=== Error happened, .place file is incomplete\n"
                << "=== ERROR:" << err_lookup("CONSTRAINED_PORT_NOT_FOUND")

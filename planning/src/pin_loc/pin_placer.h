@@ -16,6 +16,7 @@ class PcCsvReader;
 
 using std::string;
 using std::vector;
+using std::unordered_set;
 using StringPair = std::pair<std::string, std::string>;
 
 struct PinPlacer {
@@ -96,6 +97,7 @@ private:
 
   vector<string> raw_design_inputs_;
   vector<string> raw_design_outputs_;
+  unordered_set<string> raw_inputSet_, raw_outputSet_;
 
   vector<Pin> user_design_inputs_;
   vector<Pin> user_design_outputs_;
@@ -112,7 +114,7 @@ private:
   std::set<XY>     used_XYs_;
   std::set<XYZ>    used_oxyz_; // used output XYZ
   std::set<XYZ>    used_ixyz_; // used input XYZ
-  std::unordered_set<uint> used_tiles_;
+  unordered_set<uint> used_tiles_;
 
   uint otile_overlap_level_ = 1, itile_overlap_level_ = 1;
 
@@ -208,6 +210,17 @@ public:
         return i;
     }
     return -1;
+  }
+
+  bool isTopDesInput(const string& pinName) const noexcept {
+    assert(!pinName.empty());
+    assert(raw_inputSet_.size() == raw_design_inputs_.size());
+    return raw_inputSet_.count(pinName);
+  }
+  bool isTopDesOutput(const string& pinName) const noexcept {
+    assert(!pinName.empty());
+    assert(raw_outputSet_.size() == raw_design_outputs_.size());
+    return raw_outputSet_.count(pinName);
   }
 
   bool read_PT_CSV(PcCsvReader&);
