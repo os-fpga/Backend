@@ -136,14 +136,22 @@ bool PinPlacer::read_design_ports() {
   size_t sz = raw_design_inputs_.size();
   user_design_inputs_.clear();
   user_design_inputs_.resize(sz);
-  for (size_t i = 0; i < sz; i++)
+  raw_inputSet_.clear();
+  raw_inputSet_.reserve(2*sz + 1);
+  for (size_t i = 0; i < sz; i++) {
     user_design_inputs_[i].set_udes_pin_name(raw_design_inputs_[i]);
+  }
+  raw_inputSet_.insert( raw_design_inputs_.cbegin(), raw_design_inputs_.cend() );
 
   sz = raw_design_outputs_.size();
   user_design_outputs_.clear();
   user_design_outputs_.resize(sz);
-  for (size_t i = 0; i < sz; i++)
+  raw_outputSet_.clear();
+  raw_outputSet_.reserve(2*sz + 1);
+  for (size_t i = 0; i < sz; i++) {
     user_design_outputs_[i].set_udes_pin_name(raw_design_outputs_[i]);
+  }
+  raw_outputSet_.insert( raw_design_outputs_.cbegin(), raw_design_outputs_.cend() );
 
   if (tr >= 3) {
     flush_out(tr >= 5);
@@ -1042,6 +1050,7 @@ PinPlacer::EditItem* PinPlacer::findIbufByOldPin(const string& old_pin) const no
 
 string PinPlacer::translatePinName(const string& pinName, bool is_input) const noexcept {
   assert(not pinName.empty());
+
   if (is_input) {
     EditItem* buf = findIbufByOldPin(pinName);
     if (buf) {
@@ -1061,6 +1070,10 @@ string PinPlacer::translatePinName(const string& pinName, bool is_input) const n
       EditItem* root = buf->getRoot();
       assert(root);
       assert(not root->newPin_.empty());
+      if (isTopDesInput(root->newPin_)) {
+        // never translate an output to top-input. EDA-3040
+        return pinName;
+      }
       return root->newPin_;
     } else {
       return pinName;

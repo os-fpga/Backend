@@ -201,11 +201,15 @@ int PinPlacer::write_clocks_logical_to_physical() {
     ls << "   in_fn (--read_repack): " << in_fn << endl;
     lprintf("pin_c:  current directory= %s\n", cur_dir.c_str());
   }
-  if (not Fio::regularFileExists(in_fn)) {
-    CERROR << " no such file (--read_repack): " << in_fn << endl;
-    ls << " no such file (--read_repack): " << in_fn << endl;
+  CStr in_fnc = in_fn.c_str();
+  if (not Fio::regularFileExists(in_fnc)) {
+    flush_out(true); err_puts();
+    CStr m = "specified fpga_repack_constraints.xml (--read_repack) file does not exist";
+    lprintf2("[Error] %s: %s\n", m, in_fnc);
+    err_puts(); flush_out(true);
     return -1;
   }
+
   fio::MMapReader reReader(in_fn);
   rd_ok = reReader.read();
   if (not rd_ok) {
