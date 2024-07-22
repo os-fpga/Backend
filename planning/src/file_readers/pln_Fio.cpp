@@ -1,6 +1,7 @@
 // File IO - namespace fio
 #include "file_readers/pln_Fio.h"
 #include "file_readers/pln_tinyxml2.h"
+#include "util/geo/iv.h"
 
 #include <alloca.h>
 #include <errno.h>
@@ -769,11 +770,11 @@ uint64_t MMapReader::hashSum() const noexcept {
   for (size_t i = 0; i < k; i += i8) {
     char* p = buf_ + i;
     uint64_t a = *((uint64_t*)p);
-    sum = hashf::hashCombine(a, sum);
+    sum = hashComb(a, sum);
   }
 
   while (r) {
-    sum = hashf::hashCombine(buf_[sz_ - r], sum);
+    sum = hashComb(buf_[sz_ - r], sum);
     r--;
   }
 
@@ -1308,7 +1309,7 @@ uint64_t LineReader::hashSum() const noexcept {
   uint64_t sum = 0;
   reIterate2();
   do {
-    sum = hashf::hashCombine(getHash(curLine2_), sum);
+    sum = hashComb(getHash(curLine2_), sum);
   } while (advanceLine2());
   return sum;
 }

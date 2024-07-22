@@ -4,6 +4,7 @@
 
 #include "file_readers/pln_Fio.h"
 #include "file_readers/pln_primitives.h"
+#include "util/geo/xyz.h"
 
 namespace pln {
 
@@ -38,6 +39,12 @@ struct BLIF_file : public fio::MMapReader
     Node() noexcept = default;
     Node(CStr keyword, uint L) noexcept : lnum_(L) {
       if (keyword) kw_ = keyword;
+    }
+
+    uint64_t outHash() const noexcept { return str::hashf(out_.c_str()); }
+
+    uint64_t hashCode() const noexcept {
+      return hashComb(id_, is_top_, outHash());
     }
 
     bool isTopPort() const noexcept { return is_top_ != 0; }
@@ -97,8 +104,6 @@ struct BLIF_file : public fio::MMapReader
     string firstInputPin() const noexcept;
 
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
-
-    // CStr cType() const noexcept { return data_.empty() ? "{e}" : data_.front().c_str(); }
 
     CStr cPrimType() const noexcept { return ptype_ == A_ZERO ? "{e}" : primt_name(ptype_); }
 

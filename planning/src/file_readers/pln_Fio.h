@@ -163,11 +163,6 @@ inline bool file_exists_accessible(const string& fn) noexcept {
 
 namespace hashf {
 
-constexpr uint64_t hashCombine(uint64_t a, uint64_t b) noexcept {
-  constexpr uint64_t m = 0xc6a4a7935bd1e995;
-  return (a ^ (b * m + (a << 6) + (a >> 2))) + 0xe6546b64;
-}
-
 // Fowler,Noll,Vo FNV-64 hash function
 inline size_t hf_FNV64(CStr z) noexcept
 {
