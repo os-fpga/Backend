@@ -1,4 +1,5 @@
 #include "file_readers/pln_blif_file.h"
+#include "util/nw/Nw.h"
 
 namespace pln {
 
@@ -159,12 +160,6 @@ void BLIF_file::Node::place_output_at_back(vector<string>& dat) noexcept {
   size_t dsz = dat.size();
   if (dsz < 3) return;
   CStr cs = dat.back().c_str();
-  //if (1) {
-  //  lprintf("\t |||||  place_output_at_back()  dat.size()= %zu\n", dsz);
-  //  lprintf("\t |||||  kw_= %s  prim:%s\n", kw_.c_str(), primt_name(ptype_));
-  //  if (lnum_ == 76)
-  //    lputs9();
-  //}
   if (starts_w_R_eq(cs)) {
     std::swap(dat[dsz - 2], dat[dsz - 1]);
   }
@@ -389,18 +384,33 @@ bool BLIF_file::checkBlif() noexcept {
   }
 
   if (trace_ >= 3) {
-    lputs();
+    flush_out(true);
     printNodes(ls);
   }
 
   // 5. no undriven output ports
-  for (Node* port : topOutputs_) {
+  for (const Node* port : topOutputs_) {
     assert(port->isRoot());
     assert(port->inDeg() == 0);
     if (port->outDeg() == 0) {
       err_msg_ = "undriven output port: ";
       err_msg_ += port->out_;
       return false;
+    }
+  }
+
+  // 6. clock-data separation
+  if (!topInputs_.empty() and !topOutputs_.empty()) {
+    NW pinG;
+    pinG.trace_ = trace_;
+    for (const Node* port : topOutputs_) {
+      assert(port->isRoot());
+      assert(port->inDeg() == 0);
+      pinG.insK(port->hashCode());
+    }
+    if (trace_ >= 4) {
+      flush_out(true);
+      pinG.printSum(ls, 0);
     }
   }
 
