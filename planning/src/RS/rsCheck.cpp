@@ -1,16 +1,23 @@
 #include "RS/rsCheck.h"
 #include "file_readers/pln_blif_file.h"
 #include "file_readers/pln_csv_reader.h"
+#include "util/nw/Nw.h"
 
 namespace pln {
 
 using std::string;
 using std::endl;
 
+static void nw_test_01();
+
 static bool do_check_blif(CStr cfn) {
   assert(cfn);
   uint16_t tr = ltrace();
   auto& ls = lout();
+
+  if (::getenv("pln_nw_test_01")) {
+    nw_test_01();
+  }
 
   BLIF_file bfile(string{cfn});
 
@@ -46,13 +53,13 @@ static bool do_check_blif(CStr cfn) {
           bfile.numInputs(), bfile.numOutputs(), bfile.topModel_.c_str());
 
   if (tr >= 4) {
-    lputs();
+    flush_out(true);
     bfile.printInputs(ls);
-    lputs();
+    flush_out(true);
     bfile.printOutputs(ls);
   }
 
-  lputs();
+  flush_out(true);
   ls << ">>>>> checking BLIF " << cfn << "  ..." << endl;
 
   bool chk_ok = bfile.checkBlif();
@@ -157,6 +164,57 @@ bool do_check(const rsOpts& opts, bool blif_vs_csv) {
     lprintf("  do_check() status: %i\n", status);
   }
   return status;
+}
+
+// DEBUG new NW code:
+static void nw_test_01() {
+  flush_out(true);
+  pln::NW g;
+  uint64_t key_cnt = 100;
+  uint nid = g.insP(XY{0, 0}, key_cnt++);
+  assert(nid > 0);
+  assert(g.hasNode(nid));
+
+  g.addRoot(nid);
+  g.insP(XY{200, 0}, key_cnt++);
+  g.insP(XY{200, 200}, key_cnt++);
+  g.insP(XY{0, 200}, key_cnt++);
+
+  g.beComplete();
+
+  g.dump("\t  g is a complete graph");
+  lprintf("\t  g. numN()= %u   numE()= %u\n", g.numN(), g.numE());
+  assert(g.numE() == 6);
+
+  pln::vecu topo;
+  g.getTopo(topo);
+
+  flush_out(true);
+  lputs("==== **** DOT ****");
+
+  g.dumpDot("g");
+  std::ofstream fos("g.dot");
+  if (fos.is_open()) {
+    g.printDot(fos, nullptr, false);
+    lputs(" written g.dot");
+    fos.close();
+  } else {
+    flush_out(true);
+    lprintf2("[Error] NOT fos.is_open()\n");
+    flush_out(true);
+  }
+
+  flush_out(true);
+  lputs("==== **** METIS ****");
+
+  g.dumpMetis(true);
+
+  flush_out(true);
+
+  bool wr_ok = g.writeMetis("g.met", true);
+  lprintf("wr_ok:%i\n", wr_ok);
+  if (wr_ok)
+    lputs(" written g.met");
 }
 
 }

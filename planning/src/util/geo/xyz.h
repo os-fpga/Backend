@@ -1,15 +1,24 @@
 // class XY  - 2D Point
 // class XYZ - 3D Point
 #pragma once
+#ifndef _pln_util_geo_XYZ_H_1c192a5bf5646b833_
+#define _pln_util_geo_XYZ_H_1c192a5bf5646b833_
+
 #include "util/geo/iv.h"
 
+#undef XY
+#undef XYZ
+
 namespace pln {
+
+using ipair = std::pair<int, int>;
 
 struct XY {
   int x_ = INT_MIN, y_ = INT_MIN;
 
   XY() noexcept = default;
   XY(int a, int b) noexcept : x_(a), y_(b) {}
+  XY(ipair p) noexcept : x_(p.first), y_(p.second) {}
 
   bool valid() const noexcept { return x_ != INT_MIN; }
   bool nonNeg() const noexcept { return x_ >= 0; }
@@ -24,6 +33,12 @@ struct XY {
     x_ = 0;
     y_ = 0;
   }
+
+  void moveRel(int dx, int dy) noexcept {
+    x_ += dx;
+    y_ += dy;
+  }
+  void moveRel(XY d) noexcept { moveRel(d.x_, d.y_); }
 
   void negate() noexcept {
     x_ = -x_;
@@ -68,6 +83,11 @@ struct XY {
     y_ -= p.y_;
   }
 
+  void operator = (ipair p) noexcept {
+    x_ = p.first;
+    y_ = p.second;
+  }
+
   static constexpr int p_round(double x) noexcept {
     if (x >= 0) {
       if (x >= double(INT_MAX) - 0.5) return INT_MAX;
@@ -107,14 +127,41 @@ struct XY {
     return double(p.x_ - x_) * (p.x_ - x_) + double(p.y_ - y_) * (p.y_ - y_);
   }
 
-  std::string toString() const noexcept {
-    std::string s{"("};
-    s += std::to_string(x_);
-    s.push_back(' ');
-    s += std::to_string(y_);
-    s.push_back(')');
-    return s;
+  uint64_t cantorHash() const noexcept {
+    uint64_t a = x_;
+    uint64_t b = y_;
+    return ((a + b) >> 1) * (a + b + 1) + b;
   }
+  uint64_t fnvHash() const noexcept {
+    uint64_t a = x_;
+    uint64_t b = y_;
+    constexpr uint64_t m = 0xc6a4a7935bd1e995;
+    return (a ^ (b * m + (a << 6) + (a >> 2))) + 0xe6546b64;
+  }
+
+  static inline std::string i2s(int i) noexcept { return std::to_string(i); }
+
+  static inline std::string conc(const std::string& a, char ch, const std::string& b) noexcept {
+    std::string z;
+    z.reserve(a.length() + b.length() + 2);
+    z = a;
+    z.push_back(ch);
+    z += b;
+    return z;
+  }
+
+  static inline std::string conc(char a, const std::string& s, char b) noexcept {
+    std::string z;
+    z.reserve(s.length() + 3);
+    z.push_back(a);
+    z += s;
+    z.push_back(b);
+    return z;
+  }
+
+  std::string x_spc_y() const noexcept { return conc( i2s(x_), ' ', i2s(y_) ); }
+  std::string x_com_y() const noexcept { return conc( i2s(x_), ',', i2s(y_) ); }
+  std::string toString() const noexcept { return conc( '(', x_spc_y(), ')' ); }
 };
 
 struct XYZ : public XY {
@@ -137,6 +184,7 @@ struct XYZ : public XY {
     z_ = c;
   }
   void set3(XYZ u) noexcept { *this = u; }
+  void setZ(int zz) noexcept { z_ = zz; }
 
   bool operator==(XYZ u) const noexcept {
     return x_ == u.x_ && y_ == u.y_ && z_ == u.z_;
@@ -152,6 +200,17 @@ struct XYZ : public XY {
   }
 
   int dist3D(XYZ u) const noexcept { return dist(u) + std::abs(z_ - u.z_); }
+
+  std::string toString() const noexcept {
+    std::string s{"("};
+    s += std::to_string(x_);
+    s.push_back(' ');
+    s += std::to_string(y_);
+    s.push_back(' ');
+    s += std::to_string(z_);
+    s.push_back(')');
+    return s;
+  }
 };
 
 inline std::ostream& operator<<(std::ostream& os, XY p) {
@@ -167,6 +226,13 @@ inline std::ostream& operator<<(std::ostream& os, const XYZ& u) {
 inline int64_t dot(XY a, XY b) noexcept { return a.dot(b); }
 inline int64_t det(XY a, XY b) noexcept { return a.det(b); }
 
+inline XY operator-(XY a, XY b) noexcept {
+  return XY(a.x_ - b.x_, a.y_ - b.y_);
+}
+inline XY operator+(XY a, XY b) noexcept {
+  return XY(a.x_ + b.x_, a.y_ + b.y_);
+}
+
 inline int abc_ori(XY a, XY b, XY c) noexcept {
   int64_t det = XY::det3(a, b, c);
   if (det > 0) return 1;
@@ -174,4 +240,7 @@ inline int abc_ori(XY a, XY b, XY c) noexcept {
   return 0;
 }
 
-}  // namespace pln
+}
+
+#endif
+
