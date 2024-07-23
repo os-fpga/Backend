@@ -13,8 +13,9 @@ namespace {
   static const char* _enumNames[] = {
     "A_ZERO",
     "BOOT_CLOCK",
-    "CARRY_CHAIN",
+    "CARRY",
     "CLK_BUF",
+    "DFFNRE",
     "DFFRE",
     "DSP19X2",
     "DSP38",
@@ -52,136 +53,151 @@ namespace {
     {}, // 0
 
     { "O" },         // BOOT_CLOCK
-    { "O", "COUT" }, // CARRY_CHAIN
+    { "O", "COUT" }, // CARRY
 
     { "O" }, // CLK_BUF
 
+    { "Q" }, // DFFNRE
+
     { "Q" }, // DFFRE
 
-    { "Z1", "DLY_B1", "Z2", "DLY_B2" },  // DSP19X2  = 5,
+    { "Z1", "DLY_B1", "Z2", "DLY_B2" },  // DSP19X2
 
-    { "Z", "DLY_B" },    // DSP38  = 6,
+    { "Z", "DLY_B" },    // DSP38
 
-    // FIFO18KX2  = 7,
+    // FIFO18KX2
     { "RD_DATA1", "EMPTY1", "FULL1", "ALMOST_EMPTY1", "ALMOST_FULL1",
       "PROG_EMPTY1", "PROG_FULL1", "OVERFLOW1", "UNDERFLOW1",
       "RD_DATA2", "EMPTY2", "FULL2", "ALMOST_EMPTY2", "ALMOST_FULL2",
       "PROG_EMPTY2", "PROG_FULL2", "OVERFLOW2", "UNDERFLOW2"  },
 
-    // FIFO36K  = 8,
+    // FIFO36K
     { "RD_DATA", "EMPTY", "FULL", "ALMOST_EMPTY", "ALMOST_FULL",
       "PROG_EMPTY", "PROG_FULL", "OVERFLOW", "UNDERFLOW"  },
 
-    { "O" },  // I_BUF      = 9,
-    { "O" },  // I_BUF_DS   = 10,
+    { "O" },  // I_BUF
+    { "O" },  // I_BUF_DS
 
-    { "Q" },  // I_DDR      = 11,
+    { "Q" },  // I_DDR
 
-    { "O", "DLY_TAP_VALUE" },   // I_DELAY  = 12,
+    { "O", "DLY_TAP_VALUE" },   // I_DELAY
 
-    { "O" }, // IO_BUF        = 13,
-    { "O" }, // IO_BUF_DS     = 14,
+    { "O" }, // IO_BUF
+    { "O" }, // IO_BUF_DS
 
-
-    /* I_SERDES
-     CLK_OUT:
-       dir: output
-       desc: Fabric clock output
-     Q[WIDTH-1:0]:
-       dir: output
-       desc: Data output
-     DATA_VALID:
-       dir: output
-       desc: DATA_VALID output
-     DPA_LOCK:
-       dir: output
-       desc: DPA_LOCK output
-     DPA_ERROR:
-       dir: output
-       desc: DPA_ERROR output
-    */
+    // I_SERDES
     { "CLK_OUT", "Q", "DATA_VALID", "DPA_LOCK", "DPA_ERROR" },
 
+    { "Y" },   // LUT1
+    { "Y" },   // LUT2
+    { "Y" },   // LUT3
+    { "Y" },   // LUT4
+    { "Y" },   // LUT5
+    { "Y" },   // LUT6
 
-    { "Y" },   // LUT1  = 16,
-    { "Y" },   // LUT2  = 17,
-    { "Y" },   // LUT3  = 18,
-    { "Y" },   // LUT4  = 19,
-    { "Y" },   // LUT5  = 20,
-    { "Y" },   // LUT6  = 21,
+    { "O" },                 // O_BUF
+    { "O", "O_P", "O_N" },   // O_BUF_DS
 
-    { "O" },                 // O_BUF       = 22,
-    { "O", "O_P", "O_N" },   // O_BUF_DS    = 23,
+    { "O" },                // O_BUFT
+    { "O", "O_P", "O_N" },  // O_BUFT_DS
 
-    { "O" },                // O_BUFT       = 24,
-    { "O", "O_P", "O_N" },  // O_BUFT_DS    = 25,
+    { "Q" },  // O_DDR
 
-    { "Q" },  // O_DDR   = 26,
+    { "O", "DLY_TAP_VALUE" },  // O_DELAY
 
-    { "O", "DLY_TAP_VALUE" },  // O_DELAY   = 27,
-
-    /* O_SERDES
-     OE_OUT:
-       dir: output
-       desc: Output tri-state enable output (to O_BUFT or inferred tri-state signal)
-     Q:
-       dir: output
-       desc: Data output (Connect to output port, buffer or O_DELAY)
-     CHANNEL_BOND_SYNC_OUT:
-       dir: output
-    */
+    // O_SERDES
     { "OE_OUT", "Q", "CHANNEL_BOND_SYNC_OUT", "DLY_TAP_VALUE" },
 
-
-    /* O_SERDES_CLK
-     CLK_EN:
-       dir: input
-       desc: Gates output OUTPUT_CLK
-     OUTPUT_CLK:
-       dir: output
-       desc: Clock output (Connect to output port, buffer or O_DELAY)
-       type: reg
-       default: 1'b0
-     PLL_LOCK:
-       dir: input
-       desc: PLL lock input
-     PLL_CLK:
-       dir: input
-       desc: PLL clock input
-    */
+    // O_SERDES_CLK
     { "OUTPUT_CLK" },
 
-
-    /* PLL
-     CLK_OUT:
-       dir: output
-     CLK_OUT_DIV2:
-       dir: output
-     CLK_OUT_DIV3:
-       dir: output
-     CLK_OUT_DIV4:
-       dir: output
-     SERDES_FAST_CLK:
-       dir: output
-     LOCK:
-       dir: output
-    */
+    // PLL
     { "CLK_OUT", "CLK_OUT_DIV2",
       "CLK_OUT_DIV3", "CLK_OUT_DIV4",
       "SERDES_FAST_CLK", "LOCK" },
 
-
-    // TDP_RAM18KX2  = 31,
+    // TDP_RAM18KX2
     { "RDATA_A1", "RDATA_B1", "RDATA_A2", "RDATA_B2",
       "RPARITY_A1", "RPARITY_B1", "RPARITY_A2", "RPARITY_B2" },
 
-    // TDP_RAM36K  = 32,
+    // TDP_RAM36K
     { "RDATA_A", "RPARITY_A", "RDATA_B", "RPARITY_B" },
 
-    {}, // X_UNKNOWN     = 33,
-    {}, // Y_UPPER_GUARD = 34
+    {}, // X_UNKNOWN
+    {}, // Y_UPPER_GUARD
     {}
-};
+  }; // _id2outputs
+
+  static vector<string> _id2clocks[] = {
+    {}, // 0
+
+    { "O" },  // BOOT_CLOCK
+    {  },     // CARRY
+
+    { "I", "O" }, // CLK_BUF
+
+    { "C" },    // DFFNRE
+
+    { "C" },    // DFFRE
+
+    { "CLK" },  // DSP19X2
+
+    { "CLK" },  // DSP38
+
+    // FIFO18KX2
+    { "WR_CLK1", "RD_CLK1",
+      "WR_CLK2", "RD_CLK2" },
+
+    // FIFO36K
+    { "WR_CLK", "RD_CLK" },
+
+    {  },  // I_BUF
+    {  },  // I_BUF_DS
+
+    { "C" },  // I_DDR
+
+    { "CLK_IN" }, // I_DELAY
+
+    {  }, // IO_BUF
+    {  }, // IO_BUF_DS
+
+    // I_SERDES
+    { "CLK_IN", "CLK_OUT", "PLL_CLK" },
+
+    {  },   // LUT1
+    {  },   // LUT2
+    {  },   // LUT3
+    {  },   // LUT4
+    {  },   // LUT5
+    {  },   // LUT6
+
+    {  },   // O_BUF
+    {  },   // O_BUF_DS
+
+    {  },   // O_BUFT
+    {  },   // O_BUFT_DS
+
+    {  },   // O_DDR
+
+    {  },   // O_DELAY
+
+    { "CLK_IN", "PLL_CLK" },    // O_SERDES
+
+    { "PLL_CLK" },              // O_SERDES_CLK
+
+    { "CLK_OUT", "FAST_CLK" },  // PLL
+
+    // TDP_RAM18KX2
+    { "CLK_A1", "CLK_B1",
+      "CLK_A2", "CLK_B2" },
+    
+    // TDP_RAM36K
+    { "CLK_A", "CLK_B" },
+
+    {}, // X_UNKNOWN
+    {}, // Y_UPPER_GUARD
+    {}
+  }; // _id2clocks
 
 }
 
@@ -199,6 +215,15 @@ bool prim_cpin_is_output(Prim_t primId, CStr pinName) noexcept {
   if (i == 0 or !pinName or !pinName[0] or i > Prim_MAX_ID)
     return false;
   const vector<string>& V = _id2outputs[i];
+  return _vec_contains(V, pinName);
+}
+
+bool prim_cpin_is_clock(Prim_t primId, CStr pinName) noexcept {
+  uint i = primId;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or !pinName or !pinName[0] or i > Prim_MAX_ID)
+    return false;
+  const vector<string>& V = _id2clocks[i];
   return _vec_contains(V, pinName);
 }
 
@@ -374,14 +399,10 @@ Prim_t primt_id(CStr name) noexcept {
     return Y_UPPER_GUARD;
   if (starts_w_A(name))
     return A_ZERO;
-
-  if (::strcmp(name, "CARRY") == 0) // TMP
-    return CARRY_CHAIN;
   if (starts_w_CAR(name))
-    return CARRY_CHAIN;
+    return CARRY;
 
-  uint X = X_UNKNOWN;
-  for (uint i = 1; i < X; i++) {
+  for (uint i = 1; i < Prim_MAX_ID; i++) {
     if (::strcmp(_enumNames[i], name) == 0)
       return (Prim_t)i;
   }

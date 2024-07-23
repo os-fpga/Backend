@@ -76,6 +76,10 @@ static bool do_check_blif(CStr cfn) {
   flush_out(true);
   if (chk_ok) {
     ls << " === BLIF is OK." << endl;
+    if (tr >= 4 or bfile.trace_ >= 4) {
+      flush_out(true);
+      lprintf("     ltrace()= %u  pln_blif_trace= %u\n", tr, bfile.trace_);
+    }
     return true;
   }
 

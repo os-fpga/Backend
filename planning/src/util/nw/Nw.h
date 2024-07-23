@@ -49,7 +49,7 @@ struct NW {
     void inval() noexcept { ::memset(this, 0, sizeof(*this)); }
 
     void print(ostream& os) const noexcept {
-      os_printf(os, "eid:%u (%u %u) clr:", id_, n1_, n2_, color_);
+      os_printf(os, "eid:%u (%u %u) clr:%u", id_, n1_, n2_, color_);
     }
     void printl(ostream& os) const noexcept {
       print(os);

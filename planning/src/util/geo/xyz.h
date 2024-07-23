@@ -120,8 +120,14 @@ struct XY {
   int dist(int a, int b) const noexcept {
     return std::abs(x_ - a) + std::abs(y_ - b);
   }
+  int distL1(int a, int b) const noexcept {
+    return std::abs(x_ - a) + std::abs(y_ - b);
+  }
   int distL2(XY p) const noexcept {
     return p_round(::hypot(p.x_ - x_, p.y_ - y_));
+  }
+  int distL2(int a, int b) const noexcept {
+    return p_round(::hypot(a - x_, b - y_));
   }
   double sqDist(XY p) const noexcept {
     return double(p.x_ - x_) * (p.x_ - x_) + double(p.y_ - y_) * (p.y_ - y_);
