@@ -177,6 +177,7 @@ public:
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printOutputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printNodes(std::ostream& os) const noexcept;
+  uint printPrimitives(std::ostream& os) const noexcept;
 
   uint countCarryNodes() const noexcept;
   uint printCarryNodes(std::ostream& os) const noexcept;

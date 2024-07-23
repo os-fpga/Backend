@@ -65,7 +65,7 @@ void lprintf2(CStr format, ...) __attribute__((format(printf, 1, 2)));
 void lprintfl(CStr fn, uint l, CStr format, ...);
 
 // printf to output-stream 'os'
-void os_printf(std::ostream& os, CStr format, ...);
+void os_printf(std::ostream& os, CStr format, ...) __attribute__((format(printf, 2, 3)));
 
 void lputs(CStr cs = 0) noexcept;
 void lputs(const std::string& s) noexcept;

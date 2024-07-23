@@ -26,12 +26,12 @@
 
 namespace pln {
 
-constexpr uint64_t hashComb(uint64_t a, uint64_t b) noexcept {
+inline constexpr uint64_t hashComb(uint64_t a, uint64_t b) noexcept {
   constexpr uint64_t m = 0xc6a4a7935bd1e995;
   return (a ^ (b * m + (a << 6) + (a >> 2))) + 0xe6546b64;
 }
 
-constexpr uint64_t hashComb(uint64_t a, uint64_t b, uint64_t c) noexcept {
+inline constexpr uint64_t hashComb(uint64_t a, uint64_t b, uint64_t c) noexcept {
   return hashComb(a, hashComb(b, c));
 }
 

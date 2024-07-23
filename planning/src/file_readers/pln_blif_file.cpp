@@ -365,12 +365,13 @@ bool BLIF_file::checkBlif() noexcept {
   createNodes();
 
   if (trace_ >= 5) {
+    printPrimitives(ls);
     printNodes(ls);
-    lputs();
+    flush_out(true);
   }
   if (trace_ >= 6) {
     printCarryNodes(ls);
-    lputs();
+    flush_out(true);
   }
 
   bool link_ok = linkNodes();
@@ -491,6 +492,20 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
   return n;
 }
 
+uint BLIF_file::printPrimitives(std::ostream& os) const noexcept {
+  os << endl;
+  os_printf(os, "======== primitive types (%u) :\n", Prim_MAX_ID);
+  for (uint t = 1; t < Prim_MAX_ID; t++) {
+    CStr pn = primt_name(Prim_t(t));
+    assert(pn and pn[0]);
+    os_printf(os, "    [%u]  %s\n", t, pn);
+  }
+
+  os << endl;
+  os.flush();
+  return Prim_MAX_ID;
+}
+
 uint BLIF_file::countCarryNodes() const noexcept {
   uint nn = numNodes();
   if (nn == 0)
@@ -499,7 +514,7 @@ uint BLIF_file::countCarryNodes() const noexcept {
   uint cnt = 0;
   for (uint i = 1; i <= nn; i++) {
     const Node& nd = nodePool_[i];
-    if (nd.ptype_ == CARRY_CHAIN)
+    if (nd.ptype_ == CARRY)
       cnt++;
   }
 
@@ -523,7 +538,7 @@ uint BLIF_file::printCarryNodes(std::ostream& os) const noexcept {
 
   for (uint i = 1; i <= nn; i++) {
     const Node& nd = nodePool_[i];
-    if (nd.ptype_ != CARRY_CHAIN)
+    if (nd.ptype_ != CARRY)
       continue;
     CStr pts = nd.cPrimType();
     assert(pts);

@@ -11,41 +11,42 @@ enum Prim_t {
   A_ZERO         = 0,
 
   BOOT_CLOCK     = 1,
-  CARRY_CHAIN    = 2,
+  CARRY          = 2,
   CLK_BUF        = 3,
-  DFFRE          = 4,
-  DSP19X2        = 5,
-  DSP38          = 6,
-  FIFO18KX2      = 7,
-  FIFO36K        = 8,
-  I_BUF          = 9,
-  I_BUF_DS      = 10,
-  I_DDR         = 11,
-  I_DELAY       = 12,
-  IO_BUF        = 13,
-  IO_BUF_DS     = 14,
-  I_SERDES      = 15,
-  LUT1          = 16,
-  LUT2          = 17,
-  LUT3          = 18,
-  LUT4          = 19,
-  LUT5          = 20,
-  LUT6          = 21,
-  O_BUF         = 22,
-  O_BUF_DS      = 23,
-  O_BUFT        = 24,
-  O_BUFT_DS     = 25,
-  O_DDR         = 26,
-  O_DELAY       = 27,
-  O_SERDES      = 28,
-  O_SERDES_CLK  = 29,
-  PLL           = 30,
-  TDP_RAM18KX2  = 31,
-  TDP_RAM36K    = 32,
+  DFFNRE         = 4,
+  DFFRE          = 5,
+  DSP19X2        = 6,
+  DSP38          = 7,
+  FIFO18KX2      = 8,
+  FIFO36K        = 9,
+  I_BUF          =10,
+  I_BUF_DS      = 11,
+  I_DDR         = 12,
+  I_DELAY       = 13,
+  IO_BUF        = 14,
+  IO_BUF_DS     = 15,
+  I_SERDES      = 16,
+  LUT1          = 17,
+  LUT2          = 18,
+  LUT3          = 19,
+  LUT4          = 20,
+  LUT5          = 21,
+  LUT6          = 22,
+  O_BUF         = 23,
+  O_BUF_DS      = 24,
+  O_BUFT        = 25,
+  O_BUFT_DS     = 26,
+  O_DDR         = 27,
+  O_DELAY       = 28,
+  O_SERDES      = 29,
+  O_SERDES_CLK  = 30,
+  PLL           = 31,
+  TDP_RAM18KX2  = 32,
+  TDP_RAM36K    = 33,
 
-  X_UNKNOWN     = 33,
+  X_UNKNOWN     = 34,
 
-  Y_UPPER_GUARD = 34
+  Y_UPPER_GUARD = 35
 };
 
 // valid IDs are from 1 to Prim_MAX_ID inclusive
@@ -62,9 +63,13 @@ Prim_t primt_id(CStr name) noexcept;
 
 
 bool prim_cpin_is_output(Prim_t primId, CStr pinName) noexcept;
+bool prim_cpin_is_clock(Prim_t primId, CStr pinName) noexcept;
 
 inline bool prim_pin_is_output(Prim_t primId, const std::string& pinName) noexcept {
   return prim_cpin_is_output(primId, pinName.c_str());
+}
+inline bool prim_pin_is_clock(Prim_t primId, const std::string& pinName) noexcept {
+  return prim_cpin_is_clock(primId, pinName.c_str());
 }
 
 bool is_I_SERDES_output_term(const std::string& term) noexcept;
