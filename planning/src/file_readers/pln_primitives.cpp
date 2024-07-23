@@ -2,11 +2,10 @@
 #include <regex>
 
 namespace pln {
+namespace prim {
 
 using std::vector;
 using std::string;
-
-namespace {
 
   // _enumNames are sorted and Prim_t is sorted, it ensures
   // correct ID -> name mapping. Always keep them in sorted order.
@@ -108,8 +107,7 @@ namespace {
     // O_SERDES
     { "OE_OUT", "Q", "CHANNEL_BOND_SYNC_OUT", "DLY_TAP_VALUE" },
 
-    // O_SERDES_CLK
-    { "OUTPUT_CLK" },
+    { "OUTPUT_CLK" },   // O_SERDES_CLK
 
     // PLL
     { "CLK_OUT", "CLK_OUT_DIV2",
@@ -191,15 +189,12 @@ namespace {
     { "CLK_A1", "CLK_B1",
       "CLK_A2", "CLK_B2" },
     
-    // TDP_RAM36K
-    { "CLK_A", "CLK_B" },
+    { "CLK_A", "CLK_B" },       // TDP_RAM36K
 
     {}, // X_UNKNOWN
     {}, // Y_UPPER_GUARD
     {}
   }; // _id2clocks
-
-}
 
 static inline bool _vec_contains(const vector<string>& V, CStr name) noexcept {
   for (const string& s : V) {
@@ -209,7 +204,7 @@ static inline bool _vec_contains(const vector<string>& V, CStr name) noexcept {
   return false;
 }
 
-bool prim_cpin_is_output(Prim_t primId, CStr pinName) noexcept {
+bool pr_cpin_is_output(Prim_t primId, CStr pinName) noexcept {
   uint i = primId;
   assert(i <= Prim_MAX_ID);
   if (i == 0 or !pinName or !pinName[0] or i > Prim_MAX_ID)
@@ -218,7 +213,7 @@ bool prim_cpin_is_output(Prim_t primId, CStr pinName) noexcept {
   return _vec_contains(V, pinName);
 }
 
-bool prim_cpin_is_clock(Prim_t primId, CStr pinName) noexcept {
+bool pr_cpin_is_clock(Prim_t primId, CStr pinName) noexcept {
   uint i = primId;
   assert(i <= Prim_MAX_ID);
   if (i == 0 or !pinName or !pinName[0] or i > Prim_MAX_ID)
@@ -227,11 +222,29 @@ bool prim_cpin_is_clock(Prim_t primId, CStr pinName) noexcept {
   return _vec_contains(V, pinName);
 }
 
-CStr primt_name(Prim_t enu) noexcept {
+CStr pr_enum2str(Prim_t enu) noexcept {
   static_assert(sizeof(_enumNames) / sizeof(_enumNames[0]) == Y_UPPER_GUARD + 1);
   uint i = enu;
   assert(i <= Prim_MAX_ID);
   return _enumNames[i];
+}
+
+uint pr_num_outputs(Prim_t primId) noexcept {
+  uint i = primId;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or i > Prim_MAX_ID)
+    return 0;
+  const vector<string>& V = _id2outputs[i];
+  return V.size();
+}
+
+uint pr_num_clocks(Prim_t primId) noexcept {
+  uint i = primId;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or i > Prim_MAX_ID)
+    return 0;
+  const vector<string>& V = _id2clocks[i];
+  return V.size();
 }
 
 // "A_"
@@ -390,7 +403,7 @@ R"(CLK_OUT=|CLK_OUT_DIV2=|CLK_OUT_DIV3=|CLK_OUT_DIV4=|SERDES_FAST_CLK=|LOCK=)";
 }
 
 // string -> enum, returns A_ZERO on error
-Prim_t primt_id(CStr name) noexcept {
+Prim_t pr_str2enum(CStr name) noexcept {
   if (!name or !name[0])
     return A_ZERO;
   if (starts_w_X(name))
@@ -410,5 +423,5 @@ Prim_t primt_id(CStr name) noexcept {
   return A_ZERO;
 }
 
-}
+}}
 

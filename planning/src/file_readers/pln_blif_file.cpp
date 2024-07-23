@@ -5,6 +5,7 @@ namespace pln {
 
 using namespace fio;
 using namespace std;
+using namespace prim;
 
 BLIF_file::~BLIF_file() {}
 
@@ -364,10 +365,12 @@ bool BLIF_file::checkBlif() noexcept {
   // 4. create and link nodes
   createNodes();
 
-  if (trace_ >= 5) {
+  if (trace_ >= 4) {
     printPrimitives(ls);
-    printNodes(ls);
-    flush_out(true);
+    if (trace_ >= 5) {
+      printNodes(ls);
+      flush_out(true);
+    }
   }
   if (trace_ >= 6) {
     printCarryNodes(ls);
@@ -386,7 +389,20 @@ bool BLIF_file::checkBlif() noexcept {
 
   if (trace_ >= 3) {
     flush_out(true);
-    printNodes(ls);
+    if (trace_ >= 5) {
+      printNodes(ls);
+      lputs("====");
+    } else {
+      lprintf("==== node summary after linking ====\n");
+      uint nn = numNodes();
+      ls << "==== nodes (" << nn << ") :" << endl;
+      ls << "====    #topInputs_= " << topInputs_.size() << '\n';
+      ls << "       #topOutputs_= " << topOutputs_.size() << '\n';
+      ls << "      #fabricNodes_= " << fabricNodes_.size() << '\n';
+      ls << "          #latches_= " << latches_.size() << '\n';
+      ls << "    #constantNodes_= " << constantNodes_.size() << '\n';
+      flush_out(true);
+    }
   }
 
   // 5. no undriven output ports
@@ -409,7 +425,7 @@ bool BLIF_file::checkBlif() noexcept {
       assert(port->inDeg() == 0);
       pinG.insK(port->hashCode());
     }
-    if (trace_ >= 4) {
+    if (trace_ >= 14) {
       flush_out(true);
       pinG.printSum(ls, 0);
     }
@@ -494,11 +510,20 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
 
 uint BLIF_file::printPrimitives(std::ostream& os) const noexcept {
   os << endl;
-  os_printf(os, "======== primitive types (%u) :\n", Prim_MAX_ID);
+  os_printf(os, "======== primitive types (%u) :\n", Prim_MAX_ID - 1);
+  char ncs_buf[80] = {};
   for (uint t = 1; t < Prim_MAX_ID; t++) {
-    CStr pn = primt_name(Prim_t(t));
+    Prim_t pt = Prim_t(t);
+    CStr pn = pr_enum2str(pt);
     assert(pn and pn[0]);
-    os_printf(os, "    [%u]  %s\n", t, pn);
+    uint n_outputs = pr_num_outputs(pt);
+    uint n_clocks = pr_num_clocks(pt);
+    ncs_buf[0] = 0;
+    if (n_clocks) {
+      ::sprintf(ncs_buf, "   #clock_pins= %u", n_clocks);
+    }
+    os_printf(os, "    [%u]  %s   #outputs= %u%s\n",
+              t, pn, n_outputs, ncs_buf);
   }
 
   os << endl;
@@ -800,7 +825,7 @@ bool BLIF_file::createNodes() noexcept {
         nodePool_.emplace_back(".subckt", L);
         Node& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
-        nd.ptype_ = primt_id(nd.data_front());
+        nd.ptype_ = pr_str2enum(nd.data_front());
         nd.place_output_at_back(nd.data_);
       }
       continue;
@@ -813,7 +838,7 @@ bool BLIF_file::createNodes() noexcept {
         nodePool_.emplace_back(".gate", L);
         Node& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
-        nd.ptype_ = primt_id(nd.data_front());
+        nd.ptype_ = pr_str2enum(nd.data_front());
         nd.place_output_at_back(nd.data_);
       }
       continue;
@@ -1061,6 +1086,8 @@ bool BLIF_file::linkNodes() noexcept {
   if (inputs_.empty() and outputs_.empty()) return false;
   if (fabricNodes_.empty()) return false;
 
+  err_msg_.clear();
+
   // 1. start with fabricNodes_ which are rooted at output ports
   for (Node* fab_nd : fabricNodes_) {
     assert(fab_nd);
@@ -1086,8 +1113,13 @@ bool BLIF_file::linkNodes() noexcept {
       assert(!nd.out_.empty());
       Node* par = findFabricDriver(nd.id_, nd.out_);
       if (par) {
-        err_msg_ = "input port contacts fabric driver: ";
+        err_msg_.reserve(224);
+        err_msg_ = "input port contacts fabric driver:  port= ",
         err_msg_ += nd.out_;
+        err_msg_ += "  fab-driver= ";
+        err_msg_ += par->cPrimType();
+        err_msg_ += " @ line ";
+        err_msg_ += std::to_string(par->lnum_);
         err_lnum_ = nd.lnum_;
         return false;
       }
@@ -1101,7 +1133,6 @@ bool BLIF_file::linkNodes() noexcept {
       int pinIndex = -1;
       Node* par = findFabricParent(nd.id_, nd.out_, pinIndex);
       if (par) {
-        // lputs9();
         assert(pinIndex >= 0);
         assert(uint(pinIndex) < par->data_.size());
         const string& pinToken = par->data_[pinIndex];
@@ -1109,8 +1140,14 @@ bool BLIF_file::linkNodes() noexcept {
           lout() << pinToken << endl;
         if (not par->isLatch()) {
           // skipping latches for now
-          err_msg_ = "output port contacts fabric input: ";
+          // lputs9();
+          err_msg_.reserve(224);
+          err_msg_ = "output port contacts fabric input:  port= ",
           err_msg_ += nd.out_;
+          err_msg_ += "  fab-input= ";
+          err_msg_ += par->cPrimType();
+          err_msg_ += " @ line ";
+          err_msg_ += std::to_string(par->lnum_);
           err_lnum_ = nd.lnum_;
           return false;
         }
