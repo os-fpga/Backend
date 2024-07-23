@@ -366,7 +366,7 @@ bool BLIF_file::checkBlif() noexcept {
   createNodes();
 
   if (trace_ >= 4) {
-    printPrimitives(ls);
+    printPrimitives(ls, false);
     if (trace_ >= 5) {
       printNodes(ls);
       flush_out(true);
@@ -403,6 +403,8 @@ bool BLIF_file::checkBlif() noexcept {
       ls << "    #constantNodes_= " << constantNodes_.size() << '\n';
       flush_out(true);
     }
+    printPrimitives(ls, true);
+    flush_out(true);
   }
 
   // 5. no undriven output ports
@@ -508,27 +510,72 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
   return n;
 }
 
-uint BLIF_file::printPrimitives(std::ostream& os) const noexcept {
+uint BLIF_file::printPrimitives(std::ostream& os, bool instCounts) const noexcept {
   os << endl;
   os_printf(os, "======== primitive types (%u) :\n", Prim_MAX_ID - 1);
   char ncs_buf[80] = {};
-  for (uint t = 1; t < Prim_MAX_ID; t++) {
-    Prim_t pt = Prim_t(t);
-    CStr pn = pr_enum2str(pt);
-    assert(pn and pn[0]);
-    uint n_outputs = pr_num_outputs(pt);
-    uint n_clocks = pr_num_clocks(pt);
-    ncs_buf[0] = 0;
-    if (n_clocks) {
-      ::sprintf(ncs_buf, "   #clock_pins= %u", n_clocks);
+
+  if (instCounts) {
+    char ic_buf[80] = {};
+    uint n_clock_inst = 0;
+    std::array<uint, Prim_MAX_ID> IC = countTypes();
+    for (uint t = 1; t < Prim_MAX_ID; t++) {
+      Prim_t pt = Prim_t(t);
+      CStr pn = pr_enum2str(pt);
+      assert(pn and pn[0]);
+      uint n_clocks = pr_num_clocks(pt);
+      ncs_buf[0] = 0;
+      ic_buf[0] = 0;
+      if (IC[t]) {
+        ::sprintf(ic_buf, "   inst-count= %u", IC[t]);
+      }
+      if (n_clocks and IC[t]) {
+        ::sprintf(ncs_buf, "   #clock_pins= %u", n_clocks);
+        n_clock_inst++;
+      }
+      os_printf(os, "    [%u]  %s   %s%s\n",
+                t, pn, ic_buf, ncs_buf);
     }
-    os_printf(os, "    [%u]  %s   #outputs= %u%s\n",
-              t, pn, n_outputs, ncs_buf);
+    flush_out(true);
+    lprintf("==== number of instances with clock pins = %u\n", n_clock_inst);
+  }
+  else {
+    for (uint t = 1; t < Prim_MAX_ID; t++) {
+      Prim_t pt = Prim_t(t);
+      CStr pn = pr_enum2str(pt);
+      assert(pn and pn[0]);
+      uint n_outputs = pr_num_outputs(pt);
+      uint n_clocks = pr_num_clocks(pt);
+      ncs_buf[0] = 0;
+      if (n_clocks) {
+        ::sprintf(ncs_buf, "   #clock_pins= %u", n_clocks);
+      }
+      os_printf(os, "    [%u]  %s   #outputs= %u%s\n",
+                t, pn, n_outputs, ncs_buf);
+    }
   }
 
   os << endl;
   os.flush();
   return Prim_MAX_ID;
+}
+
+std::array<uint, Prim_MAX_ID> BLIF_file::countTypes() const noexcept {
+  std::array<uint, Prim_MAX_ID> A;
+  for (uint t = 0; t < Prim_MAX_ID; t++)
+    A[t] = 0;
+  uint nn = numNodes();
+  if (nn == 0)
+    return A;
+
+  for (uint i = 1; i <= nn; i++) {
+    const Node& nd = nodePool_[i];
+    uint t = nd.ptype_;
+    if (t > 0 and t < Prim_MAX_ID)
+      A[t]++;
+  }
+
+  return A;
 }
 
 uint BLIF_file::countCarryNodes() const noexcept {

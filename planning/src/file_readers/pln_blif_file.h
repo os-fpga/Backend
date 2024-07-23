@@ -178,10 +178,12 @@ public:
   uint numOutputs() const noexcept { return outputs_.size(); }
   uint numNodes() const noexcept { return nodePool_.empty() ? 0 : nodePool_.size() - 1; }
 
+  std::array<uint, prim::Prim_MAX_ID> countTypes() const noexcept;
+
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printOutputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printNodes(std::ostream& os) const noexcept;
-  uint printPrimitives(std::ostream& os) const noexcept;
+  uint printPrimitives(std::ostream& os, bool instCounts) const noexcept;
 
   uint countCarryNodes() const noexcept;
   uint printCarryNodes(std::ostream& os) const noexcept;

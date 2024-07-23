@@ -154,6 +154,7 @@ bool do_check(const rsOpts& opts, bool blif_vs_csv) {
   CStr fileType = blif_vs_csv ? "BLIF" : "CSV";
   CStr cfn = blif_vs_csv ? opts.input_ : opts.csvFile_;
   assert(cfn);
+  flush_out(true);
   lprintf("  checking %s file: %s\n", fileType, cfn);
 
   bool status;
