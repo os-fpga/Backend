@@ -30,7 +30,7 @@ struct BLIF_file : public fio::MMapReader
 
     uint virtualOrigin_ = 0; // node-ID from which this virtual MOG is created
 
-    Prim_t  ptype_ = A_ZERO;
+    prim::Prim_t  ptype_ = prim::A_ZERO;
 
     int16_t is_top_ = 0;     // -1:top input  1:top output
     bool is_mog_ = false;
@@ -64,7 +64,7 @@ struct BLIF_file : public fio::MMapReader
 
     bool hasPrimType() const noexcept {
       uint pt = ptype_;
-      return pt > 0 and pt < Prim_MAX_ID;
+      return pt > 0 and pt < prim::Prim_MAX_ID;
     }
 
     uint deg() const noexcept { return uint(!isRoot()) + chld_.size(); }
@@ -94,9 +94,11 @@ struct BLIF_file : public fio::MMapReader
     }
 
     bool is_IBUF() const noexcept {
+      using namespace prim;
       return ptype_ == I_BUF or ptype_ == I_BUF_DS;
     }
     bool is_OBUF() const noexcept {
+      using namespace prim;
       return ptype_ == O_BUF or ptype_ == O_BUF_DS or
              ptype_ == O_BUFT or ptype_ == O_BUFT_DS;
     }
@@ -105,7 +107,9 @@ struct BLIF_file : public fio::MMapReader
 
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
 
-    CStr cPrimType() const noexcept { return ptype_ == A_ZERO ? "{e}" : primt_name(ptype_); }
+    CStr cPrimType() const noexcept {
+      return ptype_ == prim::A_ZERO ? "{e}" : pr_enum2str(ptype_);
+    }
 
     struct CmpOut {
       bool operator()(const Node* a, const Node* b) const noexcept {
@@ -113,17 +117,17 @@ struct BLIF_file : public fio::MMapReader
       }
     };
     struct PinIsInput {
-      Prim_t pt_ = A_ZERO;
-      PinIsInput(Prim_t p) noexcept
+      prim::Prim_t pt_ = prim::A_ZERO;
+      PinIsInput(prim::Prim_t p) noexcept
         : pt_(p) {}
       bool operator()(const string& pinName) const noexcept {
-        return not prim_pin_is_output(pt_, pinName); 
+        return not pr_pin_is_output(pt_, pinName); 
       }
     };
 
     struct PinPatternIsInput {
-      Prim_t pt_ = A_ZERO;
-      PinPatternIsInput(Prim_t p) noexcept
+      prim::Prim_t pt_ = prim::A_ZERO;
+      PinPatternIsInput(prim::Prim_t p) noexcept
         : pt_(p) {}
       bool operator()(const string& pat) const noexcept {
         size_t len = pat.length();
@@ -138,7 +142,7 @@ struct BLIF_file : public fio::MMapReader
             break;
           }
         }
-        return not prim_cpin_is_output(pt_, buf);
+        return not pr_cpin_is_output(pt_, buf);
       }
     };
 

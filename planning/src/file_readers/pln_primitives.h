@@ -4,7 +4,12 @@
 
 #include "util/pln_log.h"
 
+#undef A_ZERO
+#undef CARRY
+#undef PLL
+
 namespace pln {
+namespace prim {
 
 enum Prim_t {
 
@@ -19,7 +24,7 @@ enum Prim_t {
   DSP38          = 7,
   FIFO18KX2      = 8,
   FIFO36K        = 9,
-  I_BUF          =10,
+  I_BUF         = 10,
   I_BUF_DS      = 11,
   I_DDR         = 12,
   I_DELAY       = 13,
@@ -55,22 +60,24 @@ constexpr uint Prim_MAX_ID = X_UNKNOWN;
 
 
 // enum -> string
-CStr primt_name(Prim_t enu) noexcept;
-
+CStr pr_enum2str(Prim_t enu) noexcept;
 
 // string -> enum, returns A_ZERO on error
-Prim_t primt_id(CStr name) noexcept;
+Prim_t pr_str2enum(CStr name) noexcept;
 
 
-bool prim_cpin_is_output(Prim_t primId, CStr pinName) noexcept;
-bool prim_cpin_is_clock(Prim_t primId, CStr pinName) noexcept;
+bool pr_cpin_is_output(Prim_t primId, CStr pinName) noexcept;
+bool pr_cpin_is_clock(Prim_t primId, CStr pinName) noexcept;
 
-inline bool prim_pin_is_output(Prim_t primId, const std::string& pinName) noexcept {
-  return prim_cpin_is_output(primId, pinName.c_str());
+inline bool pr_pin_is_output(Prim_t primId, const std::string& pinName) noexcept {
+  return pr_cpin_is_output(primId, pinName.c_str());
 }
-inline bool prim_pin_is_clock(Prim_t primId, const std::string& pinName) noexcept {
-  return prim_cpin_is_clock(primId, pinName.c_str());
+inline bool pr_pin_is_clock(Prim_t primId, const std::string& pinName) noexcept {
+  return pr_cpin_is_clock(primId, pinName.c_str());
 }
+
+uint pr_num_outputs(Prim_t primId) noexcept;
+uint pr_num_clocks(Prim_t primId) noexcept;
 
 bool is_I_SERDES_output_term(const std::string& term) noexcept;
 bool is_O_SERDES_output_term(const std::string& term) noexcept;
@@ -80,7 +87,7 @@ bool is_TDP_RAM18KX_output_term(const std::string& term) noexcept;
 
 bool is_PLL_output_term(const std::string& term) noexcept;
 
-}
+}}
 
 #endif
 
