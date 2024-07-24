@@ -378,7 +378,7 @@ bool BLIF_file::checkBlif() noexcept {
   }
 
   bool link_ok = linkNodes();
-  if (!link_ok) {
+  if (not link_ok) {
     string tmp = err_msg_;
     err_msg_ = "link failed at line ";
     err_msg_ += std::to_string(err_lnum_);
@@ -420,17 +420,28 @@ bool BLIF_file::checkBlif() noexcept {
 
   // 6. clock-data separation
   if (!topInputs_.empty() and !topOutputs_.empty()) {
-    NW pinG;
-    pinG.trace_ = trace_;
-    for (const Node* port : topOutputs_) {
-      assert(port->isRoot());
-      assert(port->inDeg() == 0);
-      pinG.insK(port->hashCode());
+    vector<const Node*> clocked;
+    collectClockedNodes(clocked);
+    uint clocked_sz = clocked.size();
+    if (trace_ >= 3) {
+      lprintf("(clock-data separation)  num_nodes= %u  num_clocked= %u\n",
+              numNodes(), clocked_sz);
     }
-    if (trace_ >= 14) {
-      flush_out(true);
-      pinG.printSum(ls, 0);
+    if (clocked_sz) {
+      bool separ_ok = checkClockSepar(clocked);
+      if (not separ_ok) {
+        string tmp = err_msg_;
+        err_msg_ = "clock-data separation issue at line ";
+        err_msg_ += std::to_string(err_lnum_);
+        err_msg_ += "  ";
+        err_msg_ += tmp;
+        flush_out(true);
+        return false;
+      }
+      if (trace_ >= 4)
+        lputs("(clock-data separation)  checked OK.");
     }
+    flush_out(true);
   }
 
   chk_ok_ = true;
@@ -531,7 +542,7 @@ uint BLIF_file::printPrimitives(std::ostream& os, bool instCounts) const noexcep
       }
       if (n_clocks and IC[t]) {
         ::sprintf(ncs_buf, "   #clock_pins= %u", n_clocks);
-        n_clock_inst++;
+        n_clock_inst += IC[t];
       }
       os_printf(os, "    [%u]  %s   %s%s\n",
                 t, pn, ic_buf, ncs_buf);
@@ -558,6 +569,24 @@ uint BLIF_file::printPrimitives(std::ostream& os, bool instCounts) const noexcep
   os << endl;
   os.flush();
   return Prim_MAX_ID;
+}
+
+void BLIF_file::collectClockedNodes(vector<const Node*>& V) noexcept {
+  V.clear();
+  uint nn = numNodes();
+  if (nn == 0)
+    return;
+
+  V.reserve(20);
+  for (uint i = 1; i <= nn; i++) {
+    const Node& nd = nodePool_[i];
+    uint t = nd.ptype_;
+    if (!t or t >= Prim_MAX_ID)
+      continue;
+    uint n_clocks = pr_num_clocks(nd.ptype_);
+    if (n_clocks)
+      V.push_back(&nd);
+  }
 }
 
 std::array<uint, Prim_MAX_ID> BLIF_file::countTypes() const noexcept {
@@ -1258,7 +1287,6 @@ bool BLIF_file::linkNodes() noexcept {
       continue;
     Node* drv_cell = findFabricDriver(nd.id_, inp1);
     if (!drv_cell) {
-      // lputs9();
       err_msg_ = "undriven cell input: ";
       err_msg_ += inp1;
       if (trace_ >= 2) {
@@ -1273,4 +1301,63 @@ bool BLIF_file::linkNodes() noexcept {
   return true;
 }
 
+bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) const noexcept {
+  if (1|| clocked.empty())
+    return true;
+
+  NW g;
+  auto& ls = lout();
+  char nm_buf[512] = {};
+
+  for (const Node* np : clocked) {
+    const Node& nd = *np;
+    if (not pr_num_clocks(nd.ptype_))
+      continue;
+    if (nd.ptype_ == CLK_BUF)
+      continue;
+    if (nd.parent_ == 0)
+      continue;
+    lprintf("...... checking clock-separ for node #%u of type %s\n",
+             nd.id_, nd.cPrimType());
+    lprintf("\t\t  parent= %u\n", nd.parent_);
+
+    g.clear();
+
+    uint64_t rhash = nd.hashCode();
+    uint g_rid = g.addNode(rhash);
+    g.addRoot(g_rid);
+
+    const Node& par = nodeRef(nd.parent_);
+
+    uint g_pid = g.insK(par.hashCode());
+    g.markSink(g_pid, true);
+
+    g.linkNodes(g_rid, g_pid, false);
+
+    ::snprintf(nm_buf, 510, "%s_%uL", nd.cPrimType(), nd.lnum_);
+    g.setNodeName(g_rid, nm_buf);
+
+    ::snprintf(nm_buf, 510, "%s_%uL", par.cPrimType(), par.lnum_);
+    g.setNodeName(g_pid, nm_buf);
+
+    uint bh_id = g.insK(111);
+    g.markSink(bh_id, true);
+    g.setNodeName(bh_id, "BH1");
+
+    g.linkNodes(g_pid, bh_id, false);
+
+    g.labelDepth();
+
+    g.dump("\t *** g separ ***");
+    lprintf("\t  g. numN()= %u   numE()= %u\n", g.numN(), g.numE());
+    g.printSum(ls, 0);
+
+    lputs("\n\t***** break; // TMP");
+    break; // TMP
+  }
+
+  return true;
 }
+
+}
+

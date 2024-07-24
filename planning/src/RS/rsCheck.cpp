@@ -87,7 +87,7 @@ static bool do_check_blif(CStr cfn) {
   ls << "[Error] !!! " << bfile.err_msg_ << endl;
 
   flush_out(true);
-  lprintf2("ERROR: BLIF verification failed at %s:%zu\n",
+  lprintf2("ERROR: BLIF verification failed at %s:%u\n",
             bfile.fnm_.c_str(), bfile.err_lnum_);
 
   return false;

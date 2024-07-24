@@ -158,7 +158,97 @@ uint NW::getRadius() noexcept {
   return ml >= 0 ? ml : 0;
 }
 
+using Nd = NW::Node;
+
+static void dfs_setD(NW& g, const Nd& fr, Nd& to) noexcept {
+  assert(to.lbl_ == UINT_MAX);
+  assert(fr.lbl_ != UINT_MAX);
+  assert(to.par_ > 0 and to.par_ == fr.id_);
+
+  to.lbl_ = fr.lbl_ + 1;
+
+  for (int i = to.degree() - 1; i >= 0; i--) {
+    uint ei = to.edges_[i];
+    NW::Edge& e = g.edgeRef(ei);
+    Nd& other = g.nodeRef(to.otherSide(e));
+    if (other.id_ == fr.id_) continue;
+    dfs_setD(g, to, other);
+  }
+}
+
+void NW::labelDepth() noexcept {
+  assert(not empty());
+  uint rootId = first_rid();
+  assert(rootId);
+  assert(verifyOneRoot());
+
+  Node& root = nodeRefCk(rootId);
+
+  for (NI I(*this); I.valid(); ++I) I->lbl_ = UINT_MAX;
+  root.lbl_ = 0;
+  if (size() == 1) {
+    return;
+  }
+  if (size() == 2) {
+    for (NI I(*this); I.valid(); ++I) {
+      Node& nd = *I;
+      if (nd.id_ != rootId)
+        nd.lbl_ = 1;
+    }
+    return;
+  }
+
+  for (int i = root.degree() - 1; i >= 0; i--) {
+    Edge& e = edStor_[root.edges_[i]];
+    Node& to = ndStor_[root.otherSide(e)];
+    dfs_setD(*this, root, to);
+  }
+}
+
+upair NW::getMinMaxDeg() const noexcept {
+  upair dg{0, 0};
+  if (empty()) return dg;
+
+  const Node& n0 = nodeRefCk(nids_[0]);
+  dg.first = n0.degree();
+  dg.second = dg.first;
+  for (cNI I(*this); I.valid(); ++I) {
+    const Node& nd = *I;
+    uint d = nd.degree();
+    if (d < dg.first) dg.first = d;
+    if (d > dg.second) dg.second = d;
+  }
+  return dg;
+}
+
+upair NW::getMinMaxLbl() const noexcept {
+  upair L{0, 0};
+  if (empty()) return L;
+
+  const Node& n0 = nodeRefCk(nids_[0]);
+  L.first = n0.lbl_;
+  L.second = n0.lbl_;
+  for (cNI I(*this); I.valid(); ++I) {
+    const Node& nd = *I;
+    uint x = nd.lbl_;
+    if (x < L.first) L.first = x;
+    if (x > L.second) L.second = x;
+  }
+  return L;
+}
+
 // ==== DEBUG
+
+void NW::dot_comment(ostream& os, uint16_t dotMode, CStr msg) noexcept {
+  if (!dotMode) return;
+  if (dotMode == 1) {
+    os << s_dotComment;
+  } else {
+    assert(dotMode == 2);
+    os << s_metisComment;
+  }
+  if (msg) os << msg;
+}
 
 bool NW::verifyOneRoot() const noexcept {
   if (empty()) return true;
@@ -194,21 +284,15 @@ void NW::Node::print(ostream& os) const noexcept {
     os << " r-";
   }
   if (sink_flag_) os << " S";
-  os << " par=" << par_;
-  os << " lbl=" << lbl_;
+  os_printf(os, " par=%u lbl=%u", par_, lbl_);
+  if (not name_.empty())
+    os << " nm= " << name_;
   os << endl;
 }
 
 void NW::Node::nprint_dot(ostream& os) const noexcept {
   os << "  " << getName();
-  if (isCell()) {
-    if (0) {
-    } else {
-      os << " [ shape=box";
-    }
-    os << " ] ";
-  } else if (0) {
-  }
+
   os_printf(os, "  // deg= %u;\n", degree());
 }
 
@@ -276,19 +360,21 @@ uint NW::printNodes(ostream& os, CStr msg, uint16_t forDot) const noexcept {
 uint NW::dumpNodes(CStr msg) const noexcept { return printNodes(lout(), msg, 0); }
 
 uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
-  using std::endl;
   dot_comment(os, forDot);
   if (empty()) {
-    os << "(empty NW)" << endl;
+    os_printf(os, "(empty NW)\n)");
     return 0;
   }
 
-  ipair mmD = getMinMaxDeg();
-  ipair mmL = getMinMaxLbl();
+  upair mmD = getMinMaxDeg();
+  upair mmL = getMinMaxLbl();
   upair rcnt = countRoots();
 
-  os_printf(os, "nn= %u  ne= %u  nr= %zu  r0= %u", numN(), numE(), rids_.size(), first_rid());
-  os << "  mm-deg: " << mmD << "  mm-lbl: " << mmL << endl;
+  os_printf(os, "nn= %u  ne= %u  nr= %zu  r0= %u",
+            numN(), numE(), rids_.size(), first_rid());
+
+  os_printf(os, "  mm-deg: (%u,%u)", mmD.first, mmD.second);
+  os_printf(os, "  mm-lbl: (%u,%u)\n", mmL.first, mmL.second);
 
   dot_comment(os, forDot);
   os_printf(os, "nr=(%u,%u)\n", rcnt.first, rcnt.second);
