@@ -62,10 +62,10 @@ struct NW {
   struct Node : public XY {
     Node() noexcept = default;
 
-    Node(const XY& a, uint64_t k, uint i, uint pa, int lb) noexcept
+    Node(const XY& a, uint64_t k, uint i, uint pa, uint lb) noexcept
         : XY(a), key_(k), id_(i), par_(pa), lbl_(lb) {}
 
-    Node(int c1, int c2, uint64_t k, uint i, uint pa, int lb) noexcept
+    Node(int c1, int c2, uint64_t k, uint i, uint pa, uint lb) noexcept
         : XY(c1, c2), key_(k), id_(i), par_(pa), lbl_(lb) {}
 
     bool valid() const noexcept { return id_; }
@@ -77,9 +77,12 @@ struct NW {
     }
 
     std::string getName() const noexcept {
-      std::string nm{"nd_"};
-      nm += std::to_string(id_);
-      return nm;
+      if (name_.empty()) {
+        std::string nm{"nd_"};
+        nm += std::to_string(id_);
+        return nm;
+      }
+      return name_;
     }
 
     const XY& xy() const noexcept { return *this; }
@@ -134,12 +137,13 @@ struct NW {
     uint par_ = 0;
     uint cid_ = 0;
 
-    int lbl_ = 0;
+    uint lbl_ = 0;
     int rad_ = 0;
 
     // DATA:
     bool root_flag_ = false;
     bool sink_flag_ = false;
+    std::string name_;
   };
 
   struct cNI {
@@ -224,11 +228,11 @@ struct NW {
 
   bool empty() const noexcept { return nids_.empty(); }
 
-  inline int getMaxLabel() const noexcept;
+  inline uint getMaxLabel() const noexcept;
   inline uint getMaxNid() const noexcept;
 
-  inline ipair getMinMaxDeg() const noexcept;
-  inline ipair getMinMaxLbl() const noexcept;
+  upair getMinMaxDeg() const noexcept;
+  upair getMinMaxLbl() const noexcept;
 
   Node& nodeRef(uint id) noexcept {
     assert(nids_.size() <= ndStor_.size());
@@ -273,6 +277,18 @@ struct NW {
   void markSink(uint id, bool val) noexcept {
     assert(hasNode(id));
     nodeRef(id).markSink(val);
+  }
+
+  void setNodeName(uint id, CStr nm) noexcept {
+    assert(hasNode(id));
+    if (nm)
+      nodeRefCk(id).name_ = nm;
+    else
+      nodeRefCk(id).name_.clear();
+  }
+  void setNodeName(uint id, const std::string& nm) noexcept {
+    assert(hasNode(id));
+    nodeRefCk(id).name_ = nm;
   }
 
   Edge& edgeRef(uint i) noexcept {
@@ -372,14 +388,14 @@ struct NW {
     return n1.cid_;
   }
 
-  void labelNodes(int label) noexcept {
+  void labelNodes(uint label) noexcept {
     for (NI I(*this); I.valid(); ++I) {
       I->lbl_ = label;
     }
   }
-  inline void labelNodes(int label, uint parent) noexcept;
-  inline void labelDepth() noexcept;
+  inline void labelNodes(uint label, uint parent) noexcept;
   inline void labelRadius() noexcept;
+  void labelDepth() noexcept;
 
   inline void sort_xy() noexcept;
   inline void sort_label(vecu& V) const noexcept;
@@ -460,11 +476,10 @@ struct NW {
   }
 
   inline uint addNode(const XY& p, uint64_t k) noexcept;
-  uint addNode(uint64_t k) noexcept { return addNode(XY{INT_MIN, INT_MIN}, k); }
+  uint addNode(uint64_t k) noexcept { return addNode(XY{}, k); }
 
   void rmNode(uint x) noexcept;
 
-  void dfsSetDepth(const Node& fr, Node& to) noexcept {}
   void dfsSetRadius(const Node& fr, Node& to) noexcept {}
   bool dfsOrientEdges(const Node& fr, Node& to) noexcept { return 0; }
 
@@ -473,16 +488,7 @@ struct NW {
     return 0;
   }
 
-  static void dot_comment(ostream& os, uint16_t dotMode, CStr msg = nullptr) noexcept {
-    if (!dotMode) return;
-    if (dotMode == 1) {
-      os << s_dotComment;
-    } else {
-      assert(dotMode == 2);
-      os << s_metisComment;
-    }
-    if (msg) os << msg;
-  }
+  static void dot_comment(ostream& os, uint16_t dotMode, CStr msg = nullptr) noexcept;
 
   // DATA:
   vecu nids_;
@@ -509,39 +515,6 @@ inline uint NW::addNode(const XY& p, uint64_t k) noexcept {
   ndStor_.emplace_back(p, k, id, 0, false);
   nids_.push_back(id);
   return id;
-}
-
-inline ipair NW::getMinMaxDeg() const noexcept {
-  ipair deg{0, 0};
-  if (empty()) return deg;
-
-  const Node& n0 = nodeRefCk(nids_[0]);
-  deg.first = n0.degree();
-  deg.second = deg.first;
-  for (cNI I(*this); I.valid(); ++I) {
-    const Node& nd = *I;
-    int d = nd.degree();
-    assert(d >= 0);
-    if (d < deg.first) deg.first = d;
-    if (d > deg.second) deg.second = d;
-  }
-  return deg;
-}
-
-inline ipair NW::getMinMaxLbl() const noexcept {
-  ipair L{0, 0};
-  if (empty()) return L;
-
-  const Node& n0 = nodeRefCk(nids_[0]);
-  L.first = n0.lbl_;
-  L.second = n0.lbl_;
-  for (cNI I(*this); I.valid(); ++I) {
-    const Node& nd = *I;
-    int x = nd.lbl_;
-    if (x < L.first) L.first = x;
-    if (x > L.second) L.second = x;
-  }
-  return L;
 }
 
 struct NW::OutgEI {
@@ -821,11 +794,13 @@ inline upair NW::countRoots() const noexcept {
   return {cnt, mark_cnt};
 }
 
-inline int NW::getMaxLabel() const noexcept {
+inline uint NW::getMaxLabel() const noexcept {
   if (empty()) return 0;
-  int maxLabel = 0;
+  uint maxLabel = 0;
   for (cNI I(*this); I.valid(); ++I) {
     const Node& nd = *I;
+    if (nd.lbl_ == UINT_MAX)
+      continue;
     if (nd.lbl_ > maxLabel) maxLabel = nd.lbl_;
   }
   return maxLabel;
@@ -855,27 +830,10 @@ inline void NW::sort_cid(vecu& V) const noexcept {
   std::stable_sort(V.begin(), V.end(), Cmpi_cid(*this));
 }
 
-inline void NW::labelNodes(int label, uint parent) noexcept {
+inline void NW::labelNodes(uint label, uint parent) noexcept {
   for (NI I(*this); I.valid(); ++I) {
     I->lbl_ = label;
     I->par_ = parent;
-  }
-}
-
-inline void NW::labelDepth() noexcept {
-  uint rootId = first_rid();
-  assert(rootId);
-  assert(verifyOneRoot());
-
-  Node& root = nodeRefCk(rootId);
-
-  for (NI I(*this); I.valid(); ++I) I->lbl_ = -1;
-  root.lbl_ = 0;
-
-  for (int i = root.degree() - 1; i >= 0; i--) {
-    Edge& e = edStor_[root.edges_[i]];
-    Node& to = ndStor_[root.otherSide(e)];
-    dfsSetDepth(root, to);
   }
 }
 
@@ -887,7 +845,7 @@ inline void NW::labelRadius() noexcept {
 
   Node& root = nodeRef(rootId);
 
-  for (NI I(*this); I.valid(); ++I) I->lbl_ = -1;
+  for (NI I(*this); I.valid(); ++I) I->lbl_ = UINT_MAX;
   root.lbl_ = 0;
 
   for (int i = root.degree() - 1; i >= 0; i--) {

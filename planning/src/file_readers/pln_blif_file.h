@@ -148,12 +148,22 @@ struct BLIF_file : public fio::MMapReader
 
   }; // Node
 
+  Node& nodeRef(uint id) noexcept {
+    assert(id > 0 and id < nodePool_.size());
+    return nodePool_[id];
+  }
+  const Node& nodeRef(uint id) const noexcept {
+    assert(id > 0 and id < nodePool_.size());
+    return nodePool_[id];
+  }
+
   string topModel_;
 
   vector<string> inputs_;
   vector<string> outputs_;
 
-  size_t inputs_lnum_ = 0, outputs_lnum_ = 0, err_lnum_ = 0;
+  size_t inputs_lnum_ = 0, outputs_lnum_ = 0;
+  mutable uint err_lnum_ = 0;
 
   string err_msg_;
   uint16_t trace_ = 0;
@@ -178,6 +188,7 @@ public:
   uint numOutputs() const noexcept { return outputs_.size(); }
   uint numNodes() const noexcept { return nodePool_.empty() ? 0 : nodePool_.size() - 1; }
 
+  void collectClockedNodes(vector<const Node*>& V) noexcept;
   std::array<uint, prim::Prim_MAX_ID> countTypes() const noexcept;
 
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
@@ -192,6 +203,8 @@ private:
   bool createNodes() noexcept;
   bool linkNodes() noexcept;
   void link(Node& from, Node& to) noexcept;
+
+  bool checkClockSepar(vector<const Node*>& clocked) const noexcept;
 
   Node* findOutputPort(const string& contact) noexcept;
   Node* findInputPort(const string& contact) noexcept;
