@@ -23,6 +23,7 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   inputs_lnum_ = outputs_lnum_ = 0;
   err_lnum_ = 0;
   err_msg_.clear();
+  pg_.clear();
 }
 
 // "model "
@@ -1149,7 +1150,7 @@ BLIF_file::Node* BLIF_file::findFabricDriver(uint of, const string& contact) noe
   return nullptr;
 }
 
-void BLIF_file::link(Node& from, Node& to) noexcept {
+void BLIF_file::link2(Node& from, Node& to) noexcept {
   assert(from.id_);
   assert(to.id_);
   assert(!to.parent_);
@@ -1178,7 +1179,7 @@ bool BLIF_file::linkNodes() noexcept {
     }
     Node* port = findOutputPort(nd.out_);
     if (port) {
-      link(*port, nd);
+      link2(*port, nd);
     }
   }
 
@@ -1248,7 +1249,7 @@ bool BLIF_file::linkNodes() noexcept {
       err_lnum_ = nd.lnum_;
       return false;
     }
-    link(*par, nd);
+    link2(*par, nd);
   }
 
   // 3. link input ports
@@ -1268,11 +1269,20 @@ bool BLIF_file::linkNodes() noexcept {
         err_lnum_ = nd.lnum_;
         return false;
       }
-      link(*par, nd);
+      link2(*par, nd);
     }
   }
 
-  // 4. every node except topInputs_ should be driven
+  // 4. set hashes
+  uint nn = numNodes();
+  for (uint i = 1; i <= nn; i++) {
+    Node& nd = nodePool_[i];
+    assert(nd.id_ == i);
+    nd.setCellHash();
+    nd.setOutHash();
+  }
+
+  // 5. every node except topInputs_ should be driven
   string inp1;
   for (Node* fab_nd : fabricNodes_) {
     Node& nd = *fab_nd;
@@ -1301,10 +1311,18 @@ bool BLIF_file::linkNodes() noexcept {
   return true;
 }
 
-bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) const noexcept {
+bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
   if (1|| clocked.empty())
     return true;
 
+  bool ok = createPinGraph();
+  if (!ok) {
+    flush_out(true); err_puts();
+    lprintf2("[Error] NOT createPinGraph()\n");
+    err_puts(); flush_out(true);
+  }
+
+#if 0
   NW g;
   auto& ls = lout();
   char nm_buf[512] = {};
@@ -1355,8 +1373,71 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) const noexcept {
     lputs("\n\t***** break; // TMP");
     break; // TMP
   }
+#endif //////////0000000000
 
   return true;
+}
+
+bool BLIF_file::createPinGraph() noexcept {
+  auto& ls = lout();
+  pg_.clear();
+  if (!rd_ok_) return false;
+  if (topInputs_.empty() and topOutputs_.empty()) return false;
+  if (fabricNodes_.empty()) return false;
+
+  err_msg_.clear();
+  uint64_t key = 0;
+  uint nid = 0, kid = 0, eid = 0;
+
+  // -- create pg-nodes for topInputs_
+  for (const Node* p : topInputs_) {
+    const Node& port = *p;
+    assert(!port.out_.empty());
+    nid = pg_.insK(port.id_);
+    assert(nid);
+    pg_.setNodeName(nid, port.out_);
+  }
+
+  // -- create pg-nodes for topOutputs_
+  for (const Node* p : topOutputs_) {
+    const Node& port = *p;
+    assert(!port.out_.empty());
+    nid = pg_.insK(port.id_);
+    assert(nid);
+    pg_.setNodeName(nid, port.out_);
+  }
+
+  // -- link from input ports to fabric
+  for (Node* p : topInputs_) {
+    Node& port = *p;
+    assert(!port.out_.empty());
+    int pinIndex = -1;
+    Node* par = findFabricParent(port.id_, port.out_, pinIndex);
+    if (!par) {
+      continue;
+    }
+    assert(par->cell_hc_);
+    key = hashComb(par->cell_hc_, pinIndex);
+    assert(key);
+    kid = pg_.insK(key);
+    assert(kid);
+
+    eid = pg_.linK(port.id_, kid);
+    assert(eid);
+  }
+
+  if (1) {
+
+    pg_.dump("\t *** pg_ separ ***");
+    lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
+    lputs();
+    pg_.printSum(ls, 0);
+    lputs();
+    pg_.dumpEdges("|edges|");
+
+  }
+
+  return false;
 }
 
 }

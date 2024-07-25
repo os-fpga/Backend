@@ -360,6 +360,7 @@ struct NW {
   }
 
   uint linkNodes(uint i1, uint i2, bool in_cel = false) noexcept;
+  inline uint linK(uint64_t k1, uint64_t k2) noexcept;
 
   uint insK(uint64_t k) noexcept;
 
@@ -369,8 +370,6 @@ struct NW {
     nodeRef(id).setPoint(p);
     return id;
   }
-
-  uint linK(uint64_t k1, uint64_t k2) noexcept;
 
   inline uint findEdge(uint a, uint b) const noexcept;
 
@@ -413,6 +412,8 @@ struct NW {
   uint dump(CStr msg = nullptr) const noexcept;
   uint printNodes(ostream& os, CStr msg, uint16_t forDot) const noexcept;
   uint dumpNodes(CStr msg = nullptr) const noexcept;
+  uint printEdges(ostream& os, CStr msg = nullptr) const noexcept;
+  uint dumpEdges(CStr msg = nullptr) const noexcept;
 
   uint printSum(ostream& os, uint16_t forDot) const noexcept;
 
@@ -499,24 +500,7 @@ struct NW {
   uint16_t trace_ = 0;
 };
 
-inline void NW::clear() noexcept {
-  nids_.clear();
-  rids_.clear();
-  ndStor_.clear();
-  edStor_.clear();
-  ndStor_.emplace_back();
-  edStor_.emplace_back();
-}
-
-inline uint NW::addNode(const XY& p, uint64_t k) noexcept {
-  if (ndStor_.empty()) ndStor_.emplace_back();
-
-  uint id = ndStor_.size();
-  ndStor_.emplace_back(p, k, id, 0, false);
-  nids_.push_back(id);
-  return id;
-}
-
+// ==== Outgoing Edge Iterator
 struct NW::OutgEI {
   OutgEI(const NW& g, uint nid) noexcept : g_(g), nid_(nid) { reset(); }
   OutgEI(const NW& g, const Node& nd) noexcept : g_(g), nid_(nd.id_) { reset(); }
@@ -560,6 +544,7 @@ struct NW::OutgEI {
   uint esz_ = 0;
 };
 
+// ==== Incoming Edge Iterator
 struct NW::IncoEI {
   IncoEI(const NW& g, uint nid) noexcept : g_(g), nid_(nid) { reset(); }
   IncoEI(const NW& g, const Node& nd) noexcept : g_(g), nid_(nd.id_) { reset(); }
@@ -604,6 +589,7 @@ struct NW::IncoEI {
   uint esz_ = 0;
 };
 
+// ==== Edge Iterator
 struct NW::EI {
   EI(NW& g) noexcept : stor_(g.edStor_), cur_(1) {
     while (valid() and !stor_[cur_].valid()) cur_++;
@@ -628,6 +614,7 @@ struct NW::EI {
   uint cur_ = 0;
 };
 
+// ==== const Edge Iterator
 struct NW::cEI {
   cEI(const NW& g) noexcept : stor_(g.edStor_), cur_(1) {
     while (valid() and !stor_[cur_].valid()) cur_++;
@@ -653,6 +640,7 @@ struct NW::cEI {
   uint cur_ = 0;
 };
 
+// ==== Child Node Iterator
 struct NW::ChldNI : public NW::OutgEI {
   ChldNI(const NW& g, uint nid) noexcept : OutgEI(g, nid) {}
   ChldNI& operator++() noexcept {
@@ -672,6 +660,24 @@ struct NW::ChldNI : public NW::OutgEI {
     return &(g_.ndStor_[nd.otherSide(e)]);
   }
 };
+
+inline void NW::clear() noexcept {
+  nids_.clear();
+  rids_.clear();
+  ndStor_.clear();
+  edStor_.clear();
+  ndStor_.emplace_back();
+  edStor_.emplace_back();
+}
+
+inline uint NW::addNode(const XY& p, uint64_t k) noexcept {
+  if (ndStor_.empty()) ndStor_.emplace_back();
+
+  uint id = ndStor_.size();
+  ndStor_.emplace_back(p, k, id, 0, false);
+  nids_.push_back(id);
+  return id;
+}
 
 inline uint NW::Node::outDeg(const NW& g) const noexcept {
   if (edges_.empty()) return 0;
@@ -781,6 +787,36 @@ inline uint NW::findEdge(uint a, uint b) const noexcept {
     if (A.otherSide(e) == b) return ei;
   }
   return 0;
+}
+
+inline uint NW::linK(uint64_t k1, uint64_t k2) noexcept {
+  assert(k1 != k2);
+  uint n1 = 0, n2 = 0;
+
+  if (empty()) {
+    uint e = 0;
+    if (k1 < k2) {
+      addNode(k1);
+      addNode(k2);
+      e = linkNodes(1, 2);
+    } else {
+      addNode(k2);
+      addNode(k1);
+      e = linkNodes(2, 1);
+    }
+    return e;
+  }
+
+  if (k1 < k2) {
+    n1 = insK(k1);
+    n2 = insK(k2);
+  } else {
+    n2 = insK(k2);
+    n1 = insK(k1);
+  }
+
+  assert(n1 and n2);
+  return linkNodes(n1, n2);
 }
 
 inline upair NW::countRoots() const noexcept {

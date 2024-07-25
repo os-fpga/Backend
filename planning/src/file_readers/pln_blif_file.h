@@ -5,6 +5,7 @@
 #include "file_readers/pln_Fio.h"
 #include "file_readers/pln_primitives.h"
 #include "util/geo/xyz.h"
+#include "util/nw/Nw.h"
 
 namespace pln {
 
@@ -32,6 +33,8 @@ struct BLIF_file : public fio::MMapReader
 
     prim::Prim_t  ptype_ = prim::A_ZERO;
 
+    uint64_t cell_hc_ = 0, out_hc_ = 0;
+
     int16_t is_top_ = 0;     // -1:top input  1:top output
     bool is_mog_ = false;
 
@@ -41,10 +44,19 @@ struct BLIF_file : public fio::MMapReader
       if (keyword) kw_ = keyword;
     }
 
-    uint64_t outHash() const noexcept { return str::hashf(out_.c_str()); }
+    void setOutHash() noexcept {
+      out_hc_ = str::hashf(out_.c_str());
+    }
+    uint64_t outHash() const noexcept {
+      return out_hc_ ? out_hc_ : str::hashf(out_.c_str());
+    }
 
-    uint64_t hashCode() const noexcept {
-      return hashComb(id_, is_top_, outHash());
+    void setCellHash() noexcept {
+      cell_hc_ = hashComb(id_, is_top_, str::hashf(out_.c_str()));
+    }
+    uint64_t cellHash() const noexcept {
+      if (cell_hc_) return cell_hc_;
+      return hashComb(id_, is_top_, str::hashf(out_.c_str()));
     }
 
     bool isTopPort() const noexcept { return is_top_ != 0; }
@@ -202,9 +214,12 @@ public:
 private:
   bool createNodes() noexcept;
   bool linkNodes() noexcept;
-  void link(Node& from, Node& to) noexcept;
+  void link2(Node& from, Node& to) noexcept;
 
-  bool checkClockSepar(vector<const Node*>& clocked) const noexcept;
+  bool createPinGraph() noexcept;
+  bool linkPinGraph() noexcept;
+
+  bool checkClockSepar(vector<const Node*>& clocked) noexcept;
 
   Node* findOutputPort(const string& contact) noexcept;
   Node* findInputPort(const string& contact) noexcept;
@@ -218,6 +233,8 @@ private:
   std::vector<Node*> fabricNodes_, constantNodes_;
 
   std::vector<Node*> latches_; // latches are not checked for now
+
+  NW pg_; // Pin Graph
 };
 
 }
