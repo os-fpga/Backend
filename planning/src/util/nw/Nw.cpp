@@ -14,6 +14,7 @@
 namespace pln {
 
 uint NW::insK(uint64_t k) noexcept {
+  assert(k);
   if (empty()) return addNode(k);
 
   uint newNid = 0;
@@ -358,6 +359,22 @@ uint NW::printNodes(ostream& os, CStr msg, uint16_t forDot) const noexcept {
   return size();
 }
 uint NW::dumpNodes(CStr msg) const noexcept { return printNodes(lout(), msg, 0); }
+
+uint NW::printEdges(ostream& os, CStr msg) const noexcept {
+  using std::endl;
+  if (msg) os << msg << endl;
+
+  uint esz = numE();
+  os_printf(os, "  esz= %u\n", esz);
+  if (esz) {
+    for (cEI I(*this); I.valid(); ++I) {
+      I->print(os);
+      os << endl;
+    }
+  }
+  return esz;
+}
+uint NW::dumpEdges(CStr msg) const noexcept { return printEdges(lout(), msg); }
 
 uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
   dot_comment(os, forDot);
