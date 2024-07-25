@@ -66,18 +66,21 @@ CStr pr_enum2str(Prim_t enu) noexcept;
 Prim_t pr_str2enum(CStr name) noexcept;
 
 
-bool pr_cpin_is_output(Prim_t primId, CStr pinName) noexcept;
-bool pr_cpin_is_clock(Prim_t primId, CStr pinName) noexcept;
+bool pr_cpin_is_output(Prim_t pt, CStr pinName) noexcept;
+bool pr_cpin_is_clock(Prim_t pt, CStr pinName) noexcept;
 
-inline bool pr_pin_is_output(Prim_t primId, const std::string& pinName) noexcept {
-  return pr_cpin_is_output(primId, pinName.c_str());
+inline bool pr_pin_is_output(Prim_t pt, const std::string& pinName) noexcept {
+  return pr_cpin_is_output(pt, pinName.c_str());
 }
-inline bool pr_pin_is_clock(Prim_t primId, const std::string& pinName) noexcept {
-  return pr_cpin_is_clock(primId, pinName.c_str());
+inline bool pr_pin_is_clock(Prim_t pt, const std::string& pinName) noexcept {
+  return pr_cpin_is_clock(pt, pinName.c_str());
 }
 
-uint pr_num_outputs(Prim_t primId) noexcept;
-uint pr_num_clocks(Prim_t primId) noexcept;
+uint pr_num_inputs(Prim_t pt) noexcept;
+uint pr_num_outputs(Prim_t pt) noexcept;
+uint pr_num_clocks(Prim_t pt) noexcept;
+
+void pr_get_inputs(Prim_t pt, std::vector<std::string>& INP);
 
 bool is_I_SERDES_output_term(const std::string& term) noexcept;
 bool is_O_SERDES_output_term(const std::string& term) noexcept;

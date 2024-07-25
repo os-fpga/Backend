@@ -126,6 +126,89 @@ using std::string;
     {}
   }; // _id2outputs
 
+  static vector<string> _id2inputs[] = {
+    {}, // 0
+
+    {  },                // BOOT_CLOCK
+    { "P", "G", "CIN" }, // CARRY
+
+    { "I" }, // CLK_BUF
+
+    { "D", "R", "E", "C" }, // DFFNRE
+
+    { "D", "R", "E", "C" }, // DFFRE
+
+    // DSP19X2
+    { "CLK", "RESET", "LOAD_ACC", "UNSIGNED_A", "UNSIGNED_B",
+      "SATURATE", "ROUND", "SUBTRACT" }, // TMP. INCOMPLETE.
+
+    {  },    // DSP38
+
+    // FIFO18KX2
+    {  },
+
+    // FIFO36K
+    {  },
+
+    { "I", "EN" },           // I_BUF
+    { "I_P", "I_N", "EN" },  // I_BUF_DS
+
+    { "D", "R", "E", "C" },  // I_DDR
+
+    // I_DELAY
+    { "I", "DLY_LOAD", "DLY_ADJ",
+      "DLY_INCDEC", "CLK_IN" },
+
+    { "I" }, // IO_BUF
+    { "I" }, // IO_BUF_DS
+
+    // I_SERDES
+    { "D", "RST", "BITSLIP_ADJ", "EN", "CLK_IN",
+      "PLL_LOCK", "PLL_CLK" },
+
+    { "A" },                     // LUT1
+    { "A[1]", "A[0]" },          // LUT2
+    { "A[2]", "A[1]", "A[0]"},   // LUT3
+    { "A[3]", "A[2]", "A[1]", "A[0]" },                 // LUT4
+    { "A[4]", "A[3]", "A[2]", "A[1]", "A[0]" },         // LUT5
+    { "A[5]", "A[4]", "A[3]", "A[2]", "A[1]", "A[0]" }, // LUT6
+
+    { "I" },   // O_BUF
+    { "I" },   // O_BUF_DS
+
+    { "I", "T" },   // O_BUFT
+    { "I", "T" },   // O_BUFT_DS
+
+    // O_DDR
+    { "D[1]", "D[0]", "R", "E", "C" },
+
+    // O_DELAY
+    { "I", "DLY_LOAD", "DLY_ADJ",
+      "DLY_INCDEC", "CLK_IN" },
+
+    // O_SERDES  // TMP. INCOMPLETE: D is a bus
+    { "D", "RST", "DATA_VALID", "CLK_IN", "OE_IN",
+      "CHANNEL_BOND_SYNC_IN", "PLL_LOCK", "PLL_CLK" },
+
+    // O_SERDES_CLK
+    { "CLK_EN", "PLL_LOCK", "PLL_CLK" },
+
+    // PLL
+    { "PLL_EN", "CLK_IN" },
+
+    // TDP_RAM18KX2  // TMP. INCOMPLETE
+    { "WEN_A1", "WEN_B1", "REN_A1", "REN_B1",
+      "CLK_A1", "CLK_B1" },
+
+    // TDP_RAM36K  // TMP. INCOMPLETE
+    { "WEN_A", "WEN_B", "REN_A", "REN_B",
+      "CLK_A", "CLK_B" },
+
+    {}, // X_UNKNOWN
+    {}, // Y_UPPER_GUARD
+    {}
+  }; // _id2inputs
+
   static vector<string> _id2clocks[] = {
     {}, // 0
 
@@ -204,8 +287,8 @@ static inline bool _vec_contains(const vector<string>& V, CStr name) noexcept {
   return false;
 }
 
-bool pr_cpin_is_output(Prim_t primId, CStr pinName) noexcept {
-  uint i = primId;
+bool pr_cpin_is_output(Prim_t pt, CStr pinName) noexcept {
+  uint i = pt;
   assert(i <= Prim_MAX_ID);
   if (i == 0 or !pinName or !pinName[0] or i > Prim_MAX_ID)
     return false;
@@ -213,8 +296,8 @@ bool pr_cpin_is_output(Prim_t primId, CStr pinName) noexcept {
   return _vec_contains(V, pinName);
 }
 
-bool pr_cpin_is_clock(Prim_t primId, CStr pinName) noexcept {
-  uint i = primId;
+bool pr_cpin_is_clock(Prim_t pt, CStr pinName) noexcept {
+  uint i = pt;
   assert(i <= Prim_MAX_ID);
   if (i == 0 or !pinName or !pinName[0] or i > Prim_MAX_ID)
     return false;
@@ -229,8 +312,8 @@ CStr pr_enum2str(Prim_t enu) noexcept {
   return _enumNames[i];
 }
 
-uint pr_num_outputs(Prim_t primId) noexcept {
-  uint i = primId;
+uint pr_num_outputs(Prim_t pt) noexcept {
+  uint i = pt;
   assert(i <= Prim_MAX_ID);
   if (i == 0 or i > Prim_MAX_ID)
     return 0;
@@ -238,13 +321,31 @@ uint pr_num_outputs(Prim_t primId) noexcept {
   return V.size();
 }
 
-uint pr_num_clocks(Prim_t primId) noexcept {
-  uint i = primId;
+uint pr_num_inputs(Prim_t pt) noexcept {
+  uint i = pt;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or i > Prim_MAX_ID)
+    return 0;
+  const vector<string>& V = _id2inputs[i];
+  return V.size();
+}
+
+uint pr_num_clocks(Prim_t pt) noexcept {
+  uint i = pt;
   assert(i <= Prim_MAX_ID);
   if (i == 0 or i > Prim_MAX_ID)
     return 0;
   const vector<string>& V = _id2clocks[i];
   return V.size();
+}
+
+void pr_get_inputs(Prim_t pt, std::vector<std::string>& INP) {
+  INP.clear();
+  uint i = pt;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or i > Prim_MAX_ID)
+    return;
+  INP = _id2inputs[i];
 }
 
 // "A_"

@@ -562,8 +562,8 @@ uint BLIF_file::printPrimitives(std::ostream& os, bool instCounts) const noexcep
       if (n_clocks) {
         ::sprintf(ncs_buf, "   #clock_pins= %u", n_clocks);
       }
-      os_printf(os, "    [%u]  %s   #outputs= %u%s\n",
-                t, pn, n_outputs, ncs_buf);
+      os_printf(os, "    [%u]  %s    i:%u  o:%u   %s\n",
+                t, pn, pr_num_inputs(pt), n_outputs, ncs_buf);
     }
   }
 
@@ -1097,6 +1097,35 @@ string BLIF_file::Node::firstInputPin() const noexcept {
   return {};
 }
 
+void BLIF_file::Node::allInputPins(vector<string>& V) const noexcept {
+  V.clear();
+
+  if (data_.size() < 2) return;
+  if (kw_ == ".names") {
+    if (data_[0] != out_) {
+      V.push_back(data_[0]);
+      return;
+    }
+  }
+  if (kw_ == ".latch") {
+    if (data_[1] != out_) {
+      V.push_back(data_[1]);
+      return;
+    }
+  }
+  if (data_.size() < 3) return;
+  if (kw_ == ".subckt" or kw_ == ".gate") {
+    CStr dat1 = data_[1].c_str();
+    if (starts_w_I_eq(dat1)) {
+      V.push_back(dat1 + 2); // TMP. WRONG.
+      return;
+    }
+  }
+  return;
+}
+
+// void BLIF_file::Node:: allInputSignals(vector<string>& V) const noexcept;
+
 BLIF_file::Node* BLIF_file::findOutputPort(const string& contact) noexcept {
   assert(not contact.empty());
   if (topOutputs_.empty()) return nullptr;
@@ -1312,7 +1341,9 @@ bool BLIF_file::linkNodes() noexcept {
 }
 
 bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
-  if (1|| clocked.empty())
+  if (not ::getenv("pln_check_clock_separation"))
+    return true;
+  if (clocked.empty())
     return true;
 
   bool ok = createPinGraph();
@@ -1388,6 +1419,7 @@ bool BLIF_file::createPinGraph() noexcept {
   err_msg_.clear();
   uint64_t key = 0;
   uint nid = 0, kid = 0, eid = 0;
+  vector<string> INP;
 
   // -- create pg-nodes for topInputs_
   for (const Node* p : topInputs_) {
@@ -1408,14 +1440,33 @@ bool BLIF_file::createPinGraph() noexcept {
   }
 
   // -- link from input ports to fabric
+  lputs9();
   for (Node* p : topInputs_) {
+    INP.clear();
     Node& port = *p;
     assert(!port.out_.empty());
+
+    if (trace_ >= 5) {
+      lprintf("    TopInput:  lnum_= %u   %s\n",
+              port.lnum_, port.out_.c_str());
+    }
+
     int pinIndex = -1;
     Node* par = findFabricParent(port.id_, port.out_, pinIndex);
     if (!par) {
       continue;
     }
+
+    pr_get_inputs(par->ptype_, INP);
+
+    if (trace_ >= 5) {
+      lprintf("    FabricParent par:  lnum_= %u  kw_= %s  ptype_= %s  #inputs= %u\n",
+              par->lnum_, par->kw_.c_str(), par->cPrimType(),
+              pr_num_inputs(par->ptype_));
+      logVec(INP, "    [par_inputs] ");
+      lputs();
+    }
+
     assert(par->cell_hc_);
     key = hashComb(par->cell_hc_, pinIndex);
     assert(key);

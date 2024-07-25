@@ -117,6 +117,10 @@ struct BLIF_file : public fio::MMapReader
 
     string firstInputPin() const noexcept;
 
+    void allInputPins(vector<string>& V) const noexcept;
+
+    void allInputSignals(vector<string>& V) const noexcept;
+
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
 
     CStr cPrimType() const noexcept {
