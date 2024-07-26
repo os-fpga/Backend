@@ -27,6 +27,9 @@ struct BLIF_file : public fio::MMapReader
     string kw_;              // keyword: .names, .latch, .subckt, .gate, etc.
     vector<string> data_;    // everything on the line ater kw, tokenized
 
+    vector<string> inPins_;  // input pins from Prim-DB
+    vector<string> inSigs_;  // input signals from blif-file
+
     string out_;             // SOG output (real or virtual)
 
     uint virtualOrigin_ = 0; // node-ID from which this virtual MOG is created
@@ -230,6 +233,10 @@ private:
 
   Node* findFabricParent(uint of, const string& contact, int& pinIndex) noexcept;  // searches inputs
   Node* findFabricDriver(uint of, const string& contact) noexcept;                 // matches out_
+
+  // collects matching input pins from all cells
+  // pair: 1st - nodeId, 2nd - pinIndex
+  void getFabricParents(uint of, const string& contact, vector<upair>& PAR) noexcept;
 
   std::vector<Node> nodePool_;  // nodePool_[0] is a fake node "parent of root"
 

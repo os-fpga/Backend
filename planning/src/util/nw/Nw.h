@@ -25,6 +25,7 @@ using vecu = std::vector<uint>;
 using ipair = std::pair<int, int>;
 using upair = std::pair<uint, uint>;
 using std::ostream;
+using std::string;
 
 struct NW {
   struct Node;
@@ -76,9 +77,9 @@ struct NW {
       key_ = 0;
     }
 
-    std::string getName() const noexcept {
+    string getName() const noexcept {
       if (name_.empty()) {
-        std::string nm{"nd_"};
+        string nm{"nd_"};
         nm += std::to_string(id_);
         return nm;
       }
@@ -143,7 +144,7 @@ struct NW {
     // DATA:
     bool root_flag_ = false;
     bool sink_flag_ = false;
-    std::string name_;
+    string name_;
   };
 
   struct cNI {
@@ -286,10 +287,21 @@ struct NW {
     else
       nodeRefCk(id).name_.clear();
   }
-  void setNodeName(uint id, const std::string& nm) noexcept {
+  void setNodeName(uint id, const string& nm) noexcept {
     assert(hasNode(id));
     nodeRefCk(id).name_ = nm;
   }
+
+  void setNwName(CStr nm) noexcept {
+    if (nm and nm[0])
+      nw_name_ = nm;
+    else
+      nw_name_.clear();
+  }
+  void setNwName(const string& nm) noexcept {
+    nw_name_ = nm;
+  }
+  const string& name() const noexcept { return nw_name_; }
 
   Edge& edgeRef(uint i) noexcept {
     assert(i and i < edStor_.size());
@@ -497,6 +509,7 @@ struct NW {
   NodeStor ndStor_;
   EdgeStor edStor_;
 
+  string nw_name_;
   uint16_t trace_ = 0;
 };
 

@@ -365,7 +365,7 @@ uint NW::printEdges(ostream& os, CStr msg) const noexcept {
   if (msg) os << msg << endl;
 
   uint esz = numE();
-  os_printf(os, "  esz= %u\n", esz);
+  os_printf(os, "  nw:%s  esz= %u\n", nw_name_.c_str(), esz);
   if (esz) {
     for (cEI I(*this); I.valid(); ++I) {
       I->print(os);
@@ -379,9 +379,10 @@ uint NW::dumpEdges(CStr msg) const noexcept { return printEdges(lout(), msg); }
 uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
   dot_comment(os, forDot);
   if (empty()) {
-    os_printf(os, "(empty NW)\n)");
+    os_printf(os, "  nw:%s  (empty NW)\n)", nw_name_.c_str());
     return 0;
   }
+  os_printf(os, "nw:%s\n", nw_name_.c_str());
 
   upair mmD = getMinMaxDeg();
   upair mmL = getMinMaxLbl();
@@ -448,7 +449,12 @@ uint NW::printDot(ostream& os, CStr nwNm, bool nodeTable) const noexcept {
     printNodes(os, nullptr, 1);
     os_printf(os, "%s====\n", s_dotComment);
   }
-  os_printf(os, "digraph %s {\n", nwNm ? nwNm : "G");
+
+  if (!nwNm or !nwNm[0]) {
+    if (not nw_name_.empty())
+      nwNm = nw_name_.c_str();
+  }
+  os_printf(os, "digraph %s {\n", (nwNm and nwNm[0]) ? nwNm : "G");
 
   // os << "  node [rankdir=LR];\n";
   os << "  node [shape = circle];\n";
