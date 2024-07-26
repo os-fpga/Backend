@@ -373,7 +373,7 @@ bool BLIF_file::checkBlif() noexcept {
       flush_out(true);
     }
   }
-  if (trace_ >= 6) {
+  if (trace_ >= 7) {
     printCarryNodes(ls);
     flush_out(true);
   }
@@ -503,6 +503,10 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
     const Node& nd = nodePool_[i];
     CStr pts = nd.cPrimType();
     assert(pts);
+
+    if (trace_ >= 5)
+      lputs();
+
     os_printf(os,
               "  |%u| L:%u  %s  ptype:%s  inDeg=%u outDeg=%u  par=%u  out:%s  mog:%i/%i  ",
               i, nd.lnum_, nd.kw_.c_str(), pts,
@@ -513,6 +517,18 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
     } else {
       const string* A = nd.data_.data();
       size_t sz = nd.data_.size();
+      prnArray(os, A, sz, "  ");
+    }
+
+    if (trace_ >= 5) {
+      const string* A = nd.inPins_.data();
+      size_t sz = nd.inPins_.size();
+      os_printf(os, "    ##inPins=%zu  ", sz);
+      prnArray(os, A, sz, "  ");
+      //
+      A = nd.inSigs_.data();
+      sz = nd.inSigs_.size();
+      os_printf(os, "    ##inSigs=%zu  ", sz);
       prnArray(os, A, sz, "  ");
     }
   }
@@ -1002,7 +1018,7 @@ bool BLIF_file::createNodes() noexcept {
       if (nd.data_.size() > 1) {
         const string& last = nd.data_.back();
         size_t llen = last.length();
-        if (!last.empty() && llen < 2047) {
+        if (!last.empty() and llen < 2047) {
           // replace '=' by 'space' and tokenize:
           ::strcpy(buf, last.c_str());
           for (uint k = 0; k < llen; k++) {
@@ -1010,6 +1026,37 @@ bool BLIF_file::createNodes() noexcept {
           }
           Fio::split_spa(buf, V);
           if (not V.empty()) nd.out_ = V.back();
+        }
+        // lputs9();
+        // fill inPins_, inSigs_:
+        nd.inPins_.clear();
+        nd.inSigs_.clear();
+        const string* DA = nd.data_.data();
+        size_t DA_sz = nd.data_.size();
+        if (DA_sz > 2 and nd.kw_ == ".subckt") {
+          // skip 1st (type) and last (output) terms in data_
+          nd.inSigs_.reserve(DA_sz - 1);
+          for (uint di = 1; di < DA_sz - 1; di++) {
+            nd.inSigs_.push_back(DA[di]);
+          }
+        }
+        if (not nd.inSigs_.empty()) {
+          std::sort(nd.inSigs_.begin(), nd.inSigs_.end());
+          pr_get_inputs(nd.ptype_, nd.inPins_);
+          assert(nd.inPins_.size() == nd.inSigs_.size());
+          std::sort(nd.inPins_.begin(), nd.inPins_.end());
+          // strip everything before '=' in inSigs_, e.g. A[1]=sig_a --> sig_a
+          for (string& ss : nd.inSigs_) {
+            assert(!ss.empty());
+            V.clear();
+            ::strcpy(buf, ss.c_str());
+            size_t len = ss.length();
+            for (uint k = 0; k < len; k++) {
+              if (buf[k] == '=') buf[k] = ' ';
+            }
+            Fio::split_spa(buf, V);
+            if (not V.empty()) ss = V.back();
+          }
         }
       }
       fabricNodes_.push_back(&nd);
@@ -1149,8 +1196,8 @@ BLIF_file::Node* BLIF_file::findInputPort(const string& contact) noexcept {
 }
 
 // searches inputs
-BLIF_file::Node* BLIF_file::findFabricParent(uint of, const string& contact, int& pinIndex) noexcept {
-  pinIndex = -1;
+BLIF_file::Node* BLIF_file::findFabricParent(uint of, const string& contact, int& pin) noexcept {
+  pin = -1;
   assert(not contact.empty());
   if (fabricNodes_.empty()) return nullptr;
 
@@ -1159,11 +1206,31 @@ BLIF_file::Node* BLIF_file::findFabricParent(uint of, const string& contact, int
     if (x->id_ == of) continue;
     int pinIdx = x->in_contact(contact);
     if (pinIdx >= 0) {
-      pinIndex = pinIdx;
+      pin = pinIdx;
       return x;
     }
   }
   return nullptr;
+}
+
+void BLIF_file::getFabricParents(uint of, const string& contact, vector<upair>& PAR) noexcept {
+  assert(not contact.empty());
+  if (fabricNodes_.empty()) return;
+
+  // TMP linear
+  for (const Node* x : fabricNodes_) {
+    if (x->id_ == of) continue;
+    const Node& nx = *x;
+    if (nx.inSigs_.empty())
+      continue;
+    size_t in_sz = nx.inSigs_.size();
+    assert(nx.inPins_.size() == in_sz);
+    for (uint k = 0; k < in_sz; k++) {
+      if (nx.inSigs_[k] == contact) {
+        PAR.emplace_back(nx.id_, k);
+      }
+    }
+  }
 }
 
 // matches out_
@@ -1420,6 +1487,7 @@ bool BLIF_file::createPinGraph() noexcept {
   uint64_t key = 0;
   uint nid = 0, kid = 0, eid = 0;
   vector<string> INP;
+  vector<upair> PAR;
 
   // -- create pg-nodes for topInputs_
   for (const Node* p : topInputs_) {
@@ -1440,51 +1508,60 @@ bool BLIF_file::createPinGraph() noexcept {
   }
 
   // -- link from input ports to fabric
-  lputs9();
+  // lputs9();
   for (Node* p : topInputs_) {
     INP.clear();
     Node& port = *p;
     assert(!port.out_.empty());
 
-    if (trace_ >= 5) {
-      lprintf("    TopInput:  lnum_= %u   %s\n",
-              port.lnum_, port.out_.c_str());
-    }
-
-    int pinIndex = -1;
-    Node* par = findFabricParent(port.id_, port.out_, pinIndex);
-    if (!par) {
-      continue;
-    }
-
-    pr_get_inputs(par->ptype_, INP);
+    PAR.clear();
+    getFabricParents(port.id_, port.out_, PAR);
 
     if (trace_ >= 5) {
-      lprintf("    FabricParent par:  lnum_= %u  kw_= %s  ptype_= %s  #inputs= %u\n",
-              par->lnum_, par->kw_.c_str(), par->cPrimType(),
-              pr_num_inputs(par->ptype_));
-      logVec(INP, "    [par_inputs] ");
       lputs();
+      lprintf("    TopInput:  lnum_= %u   %s   PAR.size()= %zu\n",
+              port.lnum_, port.out_.c_str(), PAR.size());
     }
 
-    assert(par->cell_hc_);
-    key = hashComb(par->cell_hc_, pinIndex);
-    assert(key);
-    kid = pg_.insK(key);
-    assert(kid);
+    for (const upair& pa : PAR) {
+      const Node& par = nodeRef(pa.first);
+      uint pinIndex = pa.second;
 
-    eid = pg_.linK(port.id_, kid);
-    assert(eid);
+      INP.clear();
+      pr_get_inputs(par.ptype_, INP);
+
+      if (trace_ >= 5) {
+        lprintf("        FabricParent par:  lnum_= %u  kw_= %s  ptype_= %s  #inputs= %u\n",
+                par.lnum_, par.kw_.c_str(), par.cPrimType(),
+                pr_num_inputs(par.ptype_));
+        logVec(INP, "        [par_inputs] ");
+        lputs();
+      }
+
+      assert(par.cell_hc_);
+      key = hashComb(par.cell_hc_, pinIndex);
+      assert(key);
+      kid = pg_.insK(key);
+      assert(kid);
+
+      eid = pg_.linK(port.id_, kid);
+      assert(eid);
+    }
   }
 
   if (1) {
 
+    pg_.setNwName("pin_graph");
     pg_.dump("\t *** pg_ separ ***");
     lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
     lputs();
     pg_.printSum(ls, 0);
     lputs();
     pg_.dumpEdges("|edges|");
+    lputs();
+
+    bool wrDot_ok = pg_.writeDot("pinGraph.dot", nullptr, true);
+    lprintf("wrDot_ok:%i\n", wrDot_ok);
 
   }
 
