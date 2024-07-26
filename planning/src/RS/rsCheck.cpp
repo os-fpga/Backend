@@ -200,7 +200,7 @@ static void nw_test_01() {
   g.dumpDot("g");
   std::ofstream fos("g.dot");
   if (fos.is_open()) {
-    g.printDot(fos, nullptr, false);
+    g.printDot(fos, nullptr, false, false);
     lputs(" written g.dot");
     fos.close();
   } else {

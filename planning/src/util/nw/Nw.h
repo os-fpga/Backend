@@ -85,6 +85,14 @@ struct NW {
       }
       return name_;
     }
+    void getName(char* buf) const noexcept {
+      if (!buf) return;
+      if (name_.empty()) {
+        ::sprintf(buf, "nd_%u", id_);
+      } else {
+        ::strncpy(buf, name_.c_str(), 2000);
+      }
+    }
 
     const XY& xy() const noexcept { return *this; }
     bool hasCoord() const noexcept { return valid() ? XY::valid() : false; }
@@ -121,6 +129,8 @@ struct NW {
     bool isFlagRoot() const noexcept { return root_flag_; }
     void markRoot(bool val) noexcept { root_flag_ = val; }
     void markSink(bool val) noexcept { sink_flag_ = val; }
+    void markInp(bool val) noexcept { inp_flag_ = val; }
+    void markOut(bool val) noexcept { out_flag_ = val; }
     bool terminal() const noexcept { return sink_flag_ or root_flag_; }
 
     void print(ostream& os) const noexcept;
@@ -144,6 +154,8 @@ struct NW {
     // DATA:
     bool root_flag_ = false;
     bool sink_flag_ = false;
+    bool inp_flag_ = false;
+    bool out_flag_ = false;
     string name_;
   };
 
@@ -385,10 +397,8 @@ struct NW {
 
   inline uint findEdge(uint a, uint b) const noexcept;
 
-  uint findNode(uint64_t k) const noexcept {
-    assert(0);
-    return 0;
-  }
+  uint findNode(uint64_t k) const noexcept;
+  bool hasKey(uint64_t k) const noexcept { return findNode(k); }
 
   uint cid(const Edge& e) const noexcept {
     assert(e.n1_ and e.n2_);
@@ -433,9 +443,9 @@ struct NW {
   uint dumpMetis(bool nodeTable) const noexcept;
   bool writeMetis(CStr fn, bool nodeTable) const noexcept;
 
-  uint printDot(ostream& os, CStr nwNm, bool nodeTable = false) const noexcept;
+  uint printDot(ostream& os, CStr nwNm, bool nodeTable, bool noDeg0) const noexcept;
   uint dumpDot(CStr nwNm) const noexcept;
-  bool writeDot(CStr fn, CStr nwNm, bool nodeTable = false) const noexcept;
+  bool writeDot(CStr fn, CStr nwNm, bool nodeTable, bool noDeg0) const noexcept;
 
   void beComplete() noexcept;
 

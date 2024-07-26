@@ -238,6 +238,19 @@ upair NW::getMinMaxLbl() const noexcept {
   return L;
 }
 
+uint NW::findNode(uint64_t k) const noexcept {
+  assert(k);
+  if (!k) return 0;
+
+  // TMP. LINEAR.
+  for (cNI I(*this); I.valid(); ++I) {
+    const Node& nd = *I;
+    if (nd.key_ == k)
+      return nd.id_;
+  }
+  return 0;
+}
+
 // ==== DEBUG
 
 void NW::dot_comment(ostream& os, uint16_t dotMode, CStr msg) noexcept {
@@ -291,27 +304,44 @@ void NW::Node::print(ostream& os) const noexcept {
   os << endl;
 }
 
-void NW::Node::nprint_dot(ostream& os) const noexcept {
-  os << "  " << getName();
+static void replace_bus_for_dot(char* buf) noexcept {
+  assert(buf);
+  // replace [] by __
+  for (char* p = buf; *p; p++) {
+    if (*p == '[' or *p == ']')
+      *p = '_';
+  }
+}
 
-  os_printf(os, "  // deg= %u;\n", degree());
+void NW::Node::nprint_dot(ostream& os) const noexcept {
+  char buf[2048] = {};
+  getName(buf);
+  replace_bus_for_dot(buf);
+
+  CStr attrib = "[ shape=record, style=rounded ];";
+  if (inp_flag_)
+    attrib = "[ shape=box, color=gray, style=filled ];";
+
+  os_printf(os, "%s  %s  // deg= %u;\n",
+            buf, attrib, degree());
 }
 
 void NW::Edge::eprint_dot(ostream& os, char arrow, const NW& g) const noexcept {
   assert(arrow == '>' or arrow == '-');
+  char buf[2048] = {};
+  g.nodeRef(n1_).getName(buf);
+  replace_bus_for_dot(buf);
+  os_printf(os, "%s -%c ", buf, arrow);
 
-  os << g.nodeRef(n1_).getName();
-
-  os << " -" << arrow << ' ';
-
-  os << g.nodeRef(n2_).getName();
+  buf[0] = 0;
+  g.nodeRef(n2_).getName(buf);
+  replace_bus_for_dot(buf);
+  os << buf;
 
   if (inCell_) {
-    os << " [ style=dashed";
-    os << " ] ";
+    os_printf(os, " [ style=dashed ] ");
   }
-
-  os << ";\n";
+  os_printf(os, ";\n");
 }
 
 uint NW::print(ostream& os, CStr msg) const noexcept {
@@ -388,6 +418,7 @@ uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
   upair mmL = getMinMaxLbl();
   upair rcnt = countRoots();
 
+  dot_comment(os, forDot);
   os_printf(os, "nn= %u  ne= %u  nr= %zu  r0= %u",
             numN(), numE(), rids_.size(), first_rid());
 
@@ -443,7 +474,7 @@ bool NW::writeMetis(CStr fn, bool nodeTable) const noexcept {
   return (ok and status > 0);
 }
 
-uint NW::printDot(ostream& os, CStr nwNm, bool nodeTable) const noexcept {
+uint NW::printDot(ostream& os, CStr nwNm, bool nodeTable, bool noDeg0) const noexcept {
   if (!printSum(os, 1)) return 0;
   if (nodeTable) {
     printNodes(os, nullptr, 1);
@@ -454,13 +485,17 @@ uint NW::printDot(ostream& os, CStr nwNm, bool nodeTable) const noexcept {
     if (not nw_name_.empty())
       nwNm = nw_name_.c_str();
   }
-  os_printf(os, "digraph %s {\n", (nwNm and nwNm[0]) ? nwNm : "G");
+  os_printf(os, "\ndigraph %s {\n", (nwNm and nwNm[0]) ? nwNm : "G");
+ 	os_printf(os, "  label=\"%s\";\n", (nwNm and nwNm[0]) ? nwNm : "G");
 
   // os << "  node [rankdir=LR];\n";
-  os << "  node [shape = circle];\n";
+  os << "  node [shape = record];\n";
 
   for (cNI I(*this); I.valid(); ++I) {
-    I->nprint_dot(os);
+    const Node& ii = *I;
+    if (noDeg0 and ii.degree() == 0)
+      continue;
+    ii.nprint_dot(os);
   }
   os << std::endl;
 
@@ -471,9 +506,9 @@ uint NW::printDot(ostream& os, CStr nwNm, bool nodeTable) const noexcept {
   os_printf(os, "}\n");
   return size();
 }
-uint NW::dumpDot(CStr nwNm) const noexcept { return printDot(lout(), nwNm, false); }
+uint NW::dumpDot(CStr nwNm) const noexcept { return printDot(lout(), nwNm, false, false); }
 
-bool NW::writeDot(CStr fn, CStr nwNm, bool nodeTable) const noexcept {
+bool NW::writeDot(CStr fn, CStr nwNm, bool nodeTable, bool noDeg0) const noexcept {
   assert(fn);
   if (!fn or !fn[0]) return false;
   if (empty()) return false;
@@ -483,7 +518,7 @@ bool NW::writeDot(CStr fn, CStr nwNm, bool nodeTable) const noexcept {
 
   std::ofstream f(fn);
   if (f.is_open()) {
-    status = printDot(f, nwNm, nodeTable);
+    status = printDot(f, nwNm, nodeTable, noDeg0);
     if (trace_ >= 3) lprintf(" written %s  status: %u\n\n", fn, status);
     f.close();
   } else {

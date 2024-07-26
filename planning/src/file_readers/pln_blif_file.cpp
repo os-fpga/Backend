@@ -1042,10 +1042,16 @@ bool BLIF_file::createNodes() noexcept {
         }
         if (not nd.inSigs_.empty()) {
           std::sort(nd.inSigs_.begin(), nd.inSigs_.end());
-          pr_get_inputs(nd.ptype_, nd.inPins_);
-          assert(nd.inPins_.size() == nd.inSigs_.size());
-          std::sort(nd.inPins_.begin(), nd.inPins_.end());
-          // strip everything before '=' in inSigs_, e.g. A[1]=sig_a --> sig_a
+          if (0) {
+            // if we get inPins_ from Prim-DB, sometimes they won't match
+            // the signals. The blif may be generated with an old version
+            // of Prim-DB. But the checker should be robust.
+            pr_get_inputs(nd.ptype_, nd.inPins_);
+            assert(nd.inPins_.size() == nd.inSigs_.size());
+          }
+          nd.inPins_.clear();
+          nd.inPins_.reserve(nd.inSigs_.size());
+          // strip the name before '=' in inSigs_, e.g. A[1]=sig_a --> sig_a
           for (string& ss : nd.inSigs_) {
             assert(!ss.empty());
             V.clear();
@@ -1055,8 +1061,13 @@ bool BLIF_file::createNodes() noexcept {
               if (buf[k] == '=') buf[k] = ' ';
             }
             Fio::split_spa(buf, V);
-            if (not V.empty()) ss = V.back();
+            if (V.size() > 1) {
+              ss = V.back();
+              nd.inPins_.push_back(V.front());
+            }
           }
+          assert(nd.inPins_.size() == nd.inSigs_.size());
+          // std::sort(nd.inPins_.begin(), nd.inPins_.end());
         }
       }
       fabricNodes_.push_back(&nd);
@@ -1420,59 +1431,6 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
     err_puts(); flush_out(true);
   }
 
-#if 0
-  NW g;
-  auto& ls = lout();
-  char nm_buf[512] = {};
-
-  for (const Node* np : clocked) {
-    const Node& nd = *np;
-    if (not pr_num_clocks(nd.ptype_))
-      continue;
-    if (nd.ptype_ == CLK_BUF)
-      continue;
-    if (nd.parent_ == 0)
-      continue;
-    lprintf("...... checking clock-separ for node #%u of type %s\n",
-             nd.id_, nd.cPrimType());
-    lprintf("\t\t  parent= %u\n", nd.parent_);
-
-    g.clear();
-
-    uint64_t rhash = nd.hashCode();
-    uint g_rid = g.addNode(rhash);
-    g.addRoot(g_rid);
-
-    const Node& par = nodeRef(nd.parent_);
-
-    uint g_pid = g.insK(par.hashCode());
-    g.markSink(g_pid, true);
-
-    g.linkNodes(g_rid, g_pid, false);
-
-    ::snprintf(nm_buf, 510, "%s_%uL", nd.cPrimType(), nd.lnum_);
-    g.setNodeName(g_rid, nm_buf);
-
-    ::snprintf(nm_buf, 510, "%s_%uL", par.cPrimType(), par.lnum_);
-    g.setNodeName(g_pid, nm_buf);
-
-    uint bh_id = g.insK(111);
-    g.markSink(bh_id, true);
-    g.setNodeName(bh_id, "BH1");
-
-    g.linkNodes(g_pid, bh_id, false);
-
-    g.labelDepth();
-
-    g.dump("\t *** g separ ***");
-    lprintf("\t  g. numN()= %u   numE()= %u\n", g.numN(), g.numE());
-    g.printSum(ls, 0);
-
-    lputs("\n\t***** break; // TMP");
-    break; // TMP
-  }
-#endif //////////0000000000
-
   return true;
 }
 
@@ -1488,6 +1446,7 @@ bool BLIF_file::createPinGraph() noexcept {
   uint nid = 0, kid = 0, eid = 0;
   vector<string> INP;
   vector<upair> PAR;
+  char nm_buf[512] = {};
 
   // -- create pg-nodes for topInputs_
   for (const Node* p : topInputs_) {
@@ -1496,6 +1455,7 @@ bool BLIF_file::createPinGraph() noexcept {
     nid = pg_.insK(port.id_);
     assert(nid);
     pg_.setNodeName(nid, port.out_);
+    pg_.nodeRef(nid).markInp(true);
   }
 
   // -- create pg-nodes for topOutputs_
@@ -1505,6 +1465,7 @@ bool BLIF_file::createPinGraph() noexcept {
     nid = pg_.insK(port.id_);
     assert(nid);
     pg_.setNodeName(nid, port.out_);
+    pg_.nodeRef(nid).markOut(true);
   }
 
   // -- link from input ports to fabric
@@ -1524,6 +1485,8 @@ bool BLIF_file::createPinGraph() noexcept {
     }
 
     for (const upair& pa : PAR) {
+      if (pa.first == port.id_)
+        continue;
       const Node& par = nodeRef(pa.first);
       uint pinIndex = pa.second;
 
@@ -1541,10 +1504,18 @@ bool BLIF_file::createPinGraph() noexcept {
       assert(par.cell_hc_);
       key = hashComb(par.cell_hc_, pinIndex);
       assert(key);
+      assert(not pg_.hasKey(key));
       kid = pg_.insK(key);
       assert(kid);
+      assert(key != port.id_);      // bc port.id_ is a key for port
+      assert(pg_.hasKey(port.id_)); //
 
-      eid = pg_.linK(port.id_, kid);
+      pg_.nodeRef(kid).setCid(par.id_);
+      ::snprintf(nm_buf, 510, "%s_%uL",
+                 par.hasPrimType() ? par.cPrimType() : "NP", par.lnum_);
+      pg_.setNodeName(kid, nm_buf);
+
+      eid = pg_.linK(port.id_, key);
       assert(eid);
     }
   }
@@ -1560,7 +1531,7 @@ bool BLIF_file::createPinGraph() noexcept {
     pg_.dumpEdges("|edges|");
     lputs();
 
-    bool wrDot_ok = pg_.writeDot("pinGraph.dot", nullptr, true);
+    bool wrDot_ok = pg_.writeDot("pinGraph.dot", nullptr, true, true);
     lprintf("wrDot_ok:%i\n", wrDot_ok);
 
   }
