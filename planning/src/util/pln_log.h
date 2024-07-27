@@ -255,6 +255,11 @@ inline size_t hashf(CStr z) noexcept {
   std::hash<std::string_view> h;
   return h(std::string_view{z});
 }
+inline size_t hashf(const std::string& s) noexcept {
+  if (s.empty()) return 1;
+  std::hash<std::string> h;
+  return h(s);
+}
 
 }  // NS str
 

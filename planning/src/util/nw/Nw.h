@@ -20,16 +20,23 @@
 
 namespace pln {
 
+using std::string;
+using std::ostream;
 using veci = std::vector<int>;
 using vecu = std::vector<uint>;
 using ipair = std::pair<int, int>;
 using upair = std::pair<uint, uint>;
-using std::ostream;
-using std::string;
+using uspair = std::pair<uint, string>;
 
 struct NW {
   struct Node;
   using NodeStor = std::deque<Node>;
+
+  static constexpr uint c_Red = 1;
+  static constexpr uint c_Orange = 2;
+  static constexpr uint c_Yellow = 3;
+  static constexpr uint c_Green = 4;
+  static constexpr uint c_Blue = 5;
 
   struct Edge {
     uint id_ = 0;
@@ -45,6 +52,10 @@ struct NW {
       assert(n1 and n2);
       assert(n1 != n2);
     }
+
+    void paint(uint col) noexcept { color_ = col; }
+    void paintRed() noexcept { color_ = c_Red; }
+    bool isRed() const noexcept { return color_ == c_Red; }
 
     bool valid() const noexcept { return n1_; }
     void inval() noexcept { ::memset(this, 0, sizeof(*this)); }
@@ -131,6 +142,8 @@ struct NW {
     void markSink(bool val) noexcept { sink_flag_ = val; }
     void markInp(bool val) noexcept { inp_flag_ = val; }
     void markOut(bool val) noexcept { out_flag_ = val; }
+    void markClk(bool val) noexcept { clk_flag_ = val; }
+    bool isClk() const noexcept { return clk_flag_; }
     bool terminal() const noexcept { return sink_flag_ or root_flag_; }
 
     void print(ostream& os) const noexcept;
@@ -138,6 +151,10 @@ struct NW {
 
     bool isCell() const noexcept { return cid_; }
     void setCid(uint ci) noexcept { cid_ = ci; }
+
+    void paint(uint col) noexcept { color_ = col; }
+    void paintRed() noexcept { color_ = c_Red; }
+    bool isRed() const noexcept { return color_ == c_Red; }
 
     // DATA:
     vecu edges_;
@@ -147,6 +164,7 @@ struct NW {
     uint id_ = 0;
     uint par_ = 0;
     uint cid_ = 0;
+    uint color_ = 0;
 
     uint lbl_ = 0;
     int rad_ = 0;
@@ -156,6 +174,7 @@ struct NW {
     bool sink_flag_ = false;
     bool inp_flag_ = false;
     bool out_flag_ = false;
+    bool clk_flag_ = false;
     string name_;
   };
 
@@ -236,6 +255,8 @@ struct NW {
   inline uint numE() const noexcept;
 
   inline upair countRoots() const noexcept;
+  bool hasClockNodes() const noexcept;
+  uint countClockNodes() const noexcept;
 
   void getNodes(vecu& V) const noexcept { V = nids_; }
 

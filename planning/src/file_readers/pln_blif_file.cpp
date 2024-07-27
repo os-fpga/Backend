@@ -1429,10 +1429,47 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
     flush_out(true); err_puts();
     lprintf2("[Error] NOT createPinGraph()\n");
     err_puts(); flush_out(true);
+    return true;
+  }
+  if (pg_.size() < 3)
+    return true;
+
+  if (not pg_.hasClockNodes())
+    return true;
+
+  // -- paint clock nodes and their incoming edges Red
+  for (NW::NI I(pg_); I.valid(); ++I) {
+    NW::Node& nd = *I;
+    if (nd.isClk()) {
+      nd.paintRed();
+      for (NW::IncoEI J(pg_, nd); J.valid(); ++J) {
+        uint eid = J->id_;
+        pg_.edgeRef(eid).paintRed();
+      }
+    }
   }
 
   return true;
 }
+
+struct qTup {
+  uint inpNid_ = 0;
+  uint cellId_ = 0;
+  uint inputPin_ = 0;
+  CStr outNet_ = nullptr;
+
+  qTup() noexcept = default;
+
+  qTup(uint inid, uint cid, uint ip, CStr z) noexcept
+    : inpNid_(inid),
+      cellId_(cid),
+      inputPin_(ip),
+      outNet_(z) {
+    assert(inid);
+    assert(cid);
+    assert(z and z[0]);
+  }
+};
 
 bool BLIF_file::createPinGraph() noexcept {
   auto& ls = lout();
@@ -1468,8 +1505,10 @@ bool BLIF_file::createPinGraph() noexcept {
     pg_.nodeRef(nid).markOut(true);
   }
 
+  vector<qTup> Q;
+  Q.reserve(topInputs_.size());
+
   // -- link from input ports to fabric
-  // lputs9();
   for (Node* p : topInputs_) {
     INP.clear();
     Node& port = *p;
@@ -1493,11 +1532,17 @@ bool BLIF_file::createPinGraph() noexcept {
       INP.clear();
       pr_get_inputs(par.ptype_, INP);
 
+      const string& pinName = par.getInPin(pinIndex);
+      bool is_clock = pr_pin_is_clock(par.ptype_, pinName);
+
       if (trace_ >= 5) {
-        lprintf("        FabricParent par:  lnum_= %u  kw_= %s  ptype_= %s  #inputs= %u\n",
+        lprintf("      FabricParent par:  lnum_= %u  kw_= %s  ptype_= %s  pin[%u nm= %s%s]\n",
                 par.lnum_, par.kw_.c_str(), par.cPrimType(),
-                pr_num_inputs(par.ptype_));
-        logVec(INP, "        [par_inputs] ");
+                pinIndex, pinName.c_str(), is_clock ? " <C>" : "");
+        logVec(INP, "      [par_inputs] ");
+        logVec(par.inPins_, "         [inPins_] ");
+        if (trace_ >= 7)
+          logVec(par.inSigs_, "        [inSigs_] ");
         lputs();
       }
 
@@ -1511,19 +1556,47 @@ bool BLIF_file::createPinGraph() noexcept {
       assert(pg_.hasKey(port.id_)); //
 
       pg_.nodeRef(kid).setCid(par.id_);
-      ::snprintf(nm_buf, 510, "%s_%uL",
-                 par.hasPrimType() ? par.cPrimType() : "NP", par.lnum_);
+      ::snprintf(nm_buf, 510, "%s_%uL_%up%u",
+                 par.hasPrimType() ? par.cPrimType() : "NP",
+                 par.lnum_, par.id_, pinIndex);
       pg_.setNodeName(kid, nm_buf);
+      pg_.nodeRef(kid).markClk(is_clock);
 
       eid = pg_.linK(port.id_, key);
       assert(eid);
+
+      Q.emplace_back(kid, par.id_, pinIndex, par.out_.c_str());
+    }
+  }
+
+  // -- link cell-edges and next level
+  if (trace_ >= 5) {
+    lprintf("|Q| .sz= %zu\n", Q.size());
+    for (uint i = 0; i < Q.size(); i++) {
+      const qTup& q = Q[i];
+      lprintf("   |%u|  ( nid:%u  %u.%u  %s )\n",
+              i, q.inpNid_, q.cellId_, q.inputPin_, q.outNet_);
+    }
+  }
+  if (not Q.empty()) {
+    for (uint i = 0; i < Q.size(); i++) {
+      const qTup& q = Q[i];
+      uint64_t qk = hashComb(q.cellId_, q.outNet_);
+      assert(qk);
+      kid = pg_.insK(qk);
+      eid = pg_.linkNodes(q.inpNid_, kid, true);
+
+      ::snprintf(nm_buf, 510, "nd%u_L%u_Q%u",
+                kid, nodeRef(q.cellId_).lnum_, q.cellId_);
+      pg_.setNodeName(kid, nm_buf);
     }
   }
 
   if (1) {
 
+    flush_out(true);
     pg_.setNwName("pin_graph");
-    pg_.dump("\t *** pg_ separ ***");
+    pg_.dump("\t *** pin_graph for clock-data separation ***");
     lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
     lputs();
     pg_.printSum(ls, 0);
@@ -1536,7 +1609,7 @@ bool BLIF_file::createPinGraph() noexcept {
 
   }
 
-  return false;
+  return true;
 }
 
 }
