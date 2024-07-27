@@ -47,6 +47,17 @@ struct BLIF_file : public fio::MMapReader
       if (keyword) kw_ = keyword;
     }
 
+    const string& getInPin(uint pinIndex) const noexcept {
+      assert(inPins_.size() == inSigs_.size());
+      assert(pinIndex < inPins_.size());
+      return inPins_[pinIndex];
+    }
+    const string& getInSig(uint pinIndex) const noexcept {
+      assert(inPins_.size() == inSigs_.size());
+      assert(pinIndex < inSigs_.size());
+      return inSigs_[pinIndex];
+    }
+
     void setOutHash() noexcept {
       out_hc_ = str::hashf(out_.c_str());
     }

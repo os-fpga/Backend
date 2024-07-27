@@ -24,6 +24,8 @@
 #include <utility>
 #include <vector>
 
+#include "util/pln_log.h"
+
 namespace pln {
 
 inline constexpr uint64_t hashComb(uint64_t a, uint64_t b) noexcept {
@@ -33,6 +35,13 @@ inline constexpr uint64_t hashComb(uint64_t a, uint64_t b) noexcept {
 
 inline constexpr uint64_t hashComb(uint64_t a, uint64_t b, uint64_t c) noexcept {
   return hashComb(a, hashComb(b, c));
+}
+
+inline uint64_t hashComb(uint64_t a, CStr s) noexcept {
+  return hashComb(a, str::hashf(s));
+}
+inline uint64_t hashComb(uint64_t a, const std::string& s) noexcept {
+  return hashComb(a, str::hashf(s));
 }
 
 inline constexpr int protectedAdd(int a, int b) noexcept {

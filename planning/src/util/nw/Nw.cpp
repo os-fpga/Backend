@@ -251,6 +251,25 @@ uint NW::findNode(uint64_t k) const noexcept {
   return 0;
 }
 
+uint NW::countClockNodes() const noexcept {
+  uint cnt = 0;
+  if (empty()) return 0;
+  for (cNI I(*this); I.valid(); ++I) {
+    if (I->isClk())
+      cnt++;
+  }
+  return cnt;
+}
+
+bool NW::hasClockNodes() const noexcept {
+  if (empty()) return false;
+  for (cNI I(*this); I.valid(); ++I) {
+    if (I->isClk())
+      return true;
+  }
+  return false;
+}
+
 // ==== DEBUG
 
 void NW::dot_comment(ostream& os, uint16_t dotMode, CStr msg) noexcept {
@@ -314,16 +333,31 @@ static void replace_bus_for_dot(char* buf) noexcept {
 }
 
 void NW::Node::nprint_dot(ostream& os) const noexcept {
-  char buf[2048] = {};
-  getName(buf);
-  replace_bus_for_dot(buf);
+  char name_buf[2048] = {};
+  getName(name_buf);
+  replace_bus_for_dot(name_buf);
 
-  CStr attrib = "[ shape=record, style=rounded ];";
-  if (inp_flag_)
-    attrib = "[ shape=box, color=gray, style=filled ];";
+  char attrib[512] = {};
+
+  if (!inp_flag_ and !clk_flag_) {
+    if (isRed())
+      ::strcpy(attrib, "[ shape=record, color=red, style=rounded ];");
+    else
+      ::strcpy(attrib, "[ shape=record, style=rounded ];");
+  }
+  else {
+    if (inp_flag_) {
+      CStr cs = isRed() ? "red" : "gray";
+      ::sprintf(attrib, "[ shape=box, color=%s, style=filled ];", cs);
+    }
+    else if (clk_flag_) {
+      CStr cs = isRed() ? "red" : "orange";
+      ::sprintf(attrib, "[ shape=record, color=%s, style=filled ];", cs);
+    }
+  }
 
   os_printf(os, "%s  %s  // deg= %u;\n",
-            buf, attrib, degree());
+            name_buf, attrib, degree());
 }
 
 void NW::Edge::eprint_dot(ostream& os, char arrow, const NW& g) const noexcept {
@@ -417,10 +451,11 @@ uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
   upair mmD = getMinMaxDeg();
   upair mmL = getMinMaxLbl();
   upair rcnt = countRoots();
+  uint numClkNodes = countClockNodes();
 
   dot_comment(os, forDot);
-  os_printf(os, "nn= %u  ne= %u  nr= %zu  r0= %u",
-            numN(), numE(), rids_.size(), first_rid());
+  os_printf(os, "nn= %u  ne= %u  nr= %zu  r0= %u  #clkn= %u",
+            numN(), numE(), rids_.size(), first_rid(), numClkNodes);
 
   os_printf(os, "  mm-deg: (%u,%u)", mmD.first, mmD.second);
   os_printf(os, "  mm-lbl: (%u,%u)\n", mmL.first, mmL.second);
