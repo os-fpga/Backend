@@ -1,0 +1,6 @@
+flowscripts contains minor and major scripts for:
+fabric generation: core tasks and assisting tasks;
+LVSDIE: compare routing graph against fabric Verilog;
+BITGEN: from VPR inputs/outputs generate bitstream;
+LVSBIT: compare VPR inputs/outputs against bitstream;
+and many related tasks.
