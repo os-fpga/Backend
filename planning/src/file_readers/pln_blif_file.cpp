@@ -439,8 +439,16 @@ bool BLIF_file::checkBlif() noexcept {
         flush_out(true);
         return false;
       }
-      if (trace_ >= 4)
+      if (trace_ >= 4) {
         lputs("(clock-data separation)  checked OK.");
+        if (trace_ >= 5) {
+          flush_out(true);
+          pg_.print(ls, " [[ final pinGraph ]]");
+          flush_out(true);
+          pg_.printEdges(ls, "[[ edges of pinGraph ]]");
+          flush_out(true);
+        }
+      }
     }
     flush_out(true);
   }
@@ -1027,7 +1035,6 @@ bool BLIF_file::createNodes() noexcept {
           Fio::split_spa(buf, V);
           if (not V.empty()) nd.out_ = V.back();
         }
-        // lputs9();
         // fill inPins_, inSigs_:
         nd.inPins_.clear();
         nd.inSigs_.clear();
@@ -1324,7 +1331,6 @@ bool BLIF_file::linkNodes() noexcept {
           lout() << pinToken << endl;
         if (not par->isLatch()) {
           // skipping latches for now
-          // lputs9();
           err_msg_.reserve(224);
           err_msg_ = "output port contacts fabric input:  port= ",
           err_msg_ += nd.out_;
@@ -1434,6 +1440,11 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
   if (pg_.size() < 3)
     return true;
 
+  if (trace_ >= 3) {
+    lprintf("    number of clock nodes = %u\n",
+            pg_.countClockNodes());
+  }
+
   if (not pg_.hasClockNodes())
     return true;
 
@@ -1448,8 +1459,43 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
       }
     }
   }
+  // -- paint nodes contacted by red edges
+  for (NW::cEI E(pg_); E.valid(); ++E) {
+    const NW::Edge& ed = *E;
+    if (ed.isRed()) {
+      pg_.nodeRef(ed.n1_).paintRed();
+      pg_.nodeRef(ed.n2_).paintRed();
+    }
+  }
+  // -- for red input ports, paint their outgoing edges Red
+  for (const Node* p : topInputs_) {
+    const Node& port = *p;
+    assert(port.nw_id_);
+    NW::Node& nw_node = pg_.nodeRefCk(port.nw_id_);
+    for (NW::OutgEI J(pg_, nw_node); J.valid(); ++J) {
+      uint eid = J->id_;
+      pg_.edgeRef(eid).paintRed();
+    }
+  }
 
-  return true;
+  writePinGraph("pin_graph_2.dot");
+
+  bool color_ok = true;
+
+  // -- check that end-points of red edges are red
+  for (NW::cEI E(pg_); E.valid(); ++E) {
+    const NW::Edge& ed = *E;
+    if (not ed.isRed())
+      continue;
+    const NW::Node& p1 = pg_.nodeRef(ed.n1_);
+    const NW::Node& p2 = pg_.nodeRef(ed.n2_);
+    if (!p1.isRed() or !p2.isRed()) {
+      color_ok = false;
+      break;
+    }
+  }
+
+  return color_ok;
 }
 
 struct qTup {
@@ -1472,7 +1518,6 @@ struct qTup {
 };
 
 bool BLIF_file::createPinGraph() noexcept {
-  auto& ls = lout();
   pg_.clear();
   if (!rd_ok_) return false;
   if (topInputs_.empty() and topOutputs_.empty()) return false;
@@ -1486,23 +1531,25 @@ bool BLIF_file::createPinGraph() noexcept {
   char nm_buf[512] = {};
 
   // -- create pg-nodes for topInputs_
-  for (const Node* p : topInputs_) {
-    const Node& port = *p;
+  for (Node* p : topInputs_) {
+    Node& port = *p;
     assert(!port.out_.empty());
     nid = pg_.insK(port.id_);
     assert(nid);
     pg_.setNodeName(nid, port.out_);
     pg_.nodeRef(nid).markInp(true);
+    port.nw_id_ = nid;
   }
 
   // -- create pg-nodes for topOutputs_
-  for (const Node* p : topOutputs_) {
-    const Node& port = *p;
+  for (Node* p : topOutputs_) {
+    Node& port = *p;
     assert(!port.out_.empty());
     nid = pg_.insK(port.id_);
     assert(nid);
     pg_.setNodeName(nid, port.out_);
     pg_.nodeRef(nid).markOut(true);
+    port.nw_id_ = nid;
   }
 
   vector<qTup> Q;
@@ -1592,24 +1639,39 @@ bool BLIF_file::createPinGraph() noexcept {
     }
   }
 
-  if (1) {
+  pg_.setNwName("pin_graph");
 
-    flush_out(true);
-    pg_.setNwName("pin_graph");
-    pg_.dump("\t *** pin_graph for clock-data separation ***");
-    lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
-    lputs();
-    pg_.printSum(ls, 0);
-    lputs();
-    pg_.dumpEdges("|edges|");
-    lputs();
-
-    bool wrDot_ok = pg_.writeDot("pinGraph.dot", nullptr, true, true);
-    lprintf("wrDot_ok:%i\n", wrDot_ok);
-
-  }
+  // writePinGraph("pin_graph_1.dot");
 
   return true;
+}
+
+bool BLIF_file::writePinGraph(CStr fn) const noexcept {
+  auto& ls = lout();
+  flush_out(true);
+  pg_.print(ls, "\t *** pin_graph for clock-data separation ***");
+  lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
+  lputs();
+  pg_.printSum(ls, 0);
+  lputs();
+  pg_.printEdges(ls, "|edges|");
+  flush_out(true);
+
+  if (!fn or !fn[0])
+    fn = "pinGraph.dot";
+
+  bool wrDot_ok = pg_.writeDot(fn, nullptr, true, true);
+  if (!wrDot_ok) {
+    flush_out(true); err_puts();
+    lprintf2("[Error] could not write pin_graph to file '%s'\n", fn);
+    err_puts(); flush_out(true);
+  }
+
+  lprintf("(writePinGraph)  status:%i  file: %s\n",
+          wrDot_ok, fn);
+
+  flush_out(true);
+  return wrDot_ok;
 }
 
 }

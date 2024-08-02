@@ -37,6 +37,17 @@ struct NW {
   static constexpr uint c_Yellow = 3;
   static constexpr uint c_Green = 4;
   static constexpr uint c_Blue = 5;
+  static constexpr uint c_firebrick = 6;
+  static constexpr uint c_darkslategray = 7;
+  static constexpr uint c_purple = 8;
+  static constexpr uint c_aquamarine3 = 9;
+  static constexpr uint c_chocolate4 = 10;
+  static constexpr uint c_cadetblue4 = 11;
+  static constexpr uint c_darkolivegreen4 = 12;
+  static constexpr uint c_darkorchid4 = 13;
+  static constexpr uint c_cyan = 14;
+  static constexpr uint c_goldenrod3 = 15;
+  static constexpr uint c_MAX_COLOR = 15;
 
   struct Edge {
     uint id_ = 0;
@@ -437,19 +448,21 @@ struct NW {
   }
   inline void labelNodes(uint label, uint parent) noexcept;
   inline void labelRadius() noexcept;
-  void labelDepth() noexcept;
+  bool labelDepth() noexcept;
 
   inline void sort_xy() noexcept;
   inline void sort_label(vecu& V) const noexcept;
   inline void sort_cid(vecu& V) const noexcept;
 
-  void getTopo(vecu& topo) noexcept;
+  bool getTopo(vecu& topo) noexcept;
   uint getRadius() noexcept;
 
   inline bool selfCheck() const noexcept { return true; }
   inline bool checkConn() const noexcept { return true; }
 
   bool verifyOneRoot() const noexcept;
+
+  static CStr i2color(uint i) noexcept;
 
   uint print(ostream& os, CStr msg = nullptr) const noexcept;
   uint dump(CStr msg = nullptr) const noexcept;
