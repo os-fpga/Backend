@@ -18,8 +18,10 @@ struct BLIF_file : public fio::MMapReader
   // Input ports are leaves.
   // Output ports are roots of fanin cones.
   struct Node {
-    uint id_ = 0;    // index+1 in pool
-    uint lnum_ = 0;  // line number in blif
+    uint id_ = 0;      // index+1 in pool
+    uint nw_id_ = 0;   // node-id in NW, for ports only
+
+    uint lnum_ = 0;    // line number in blif
     uint parent_ = 0;
     uint depth_ = 0;
     vector<uint> chld_;
@@ -236,6 +238,7 @@ private:
 
   bool createPinGraph() noexcept;
   bool linkPinGraph() noexcept;
+  bool writePinGraph(CStr fn) const noexcept;
 
   bool checkClockSepar(vector<const Node*>& clocked) noexcept;
 

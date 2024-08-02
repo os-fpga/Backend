@@ -144,12 +144,15 @@ void NW::rmNode(uint x) noexcept {
   rm.inval();
 }
 
-void NW::getTopo(vecu& topo) noexcept {
+bool NW::getTopo(vecu& topo) noexcept {
   topo.clear();
-  if (empty()) return;
-  labelDepth();
+  if (empty()) return true;
+  bool ok = labelDepth();
+  if (not ok)
+    return false;
   getNodes(topo);
   sort_label(topo);
+  return true;
 }
 
 uint NW::getRadius() noexcept {
@@ -161,10 +164,12 @@ uint NW::getRadius() noexcept {
 
 using Nd = NW::Node;
 
-static void dfs_setD(NW& g, const Nd& fr, Nd& to) noexcept {
+static bool dfs_setD(NW& g, const Nd& fr, Nd& to) noexcept {
   assert(to.lbl_ == UINT_MAX);
   assert(fr.lbl_ != UINT_MAX);
-  assert(to.par_ > 0 and to.par_ == fr.id_);
+  assert(to.par_ > 0);
+  if (to.par_ != fr.id_)
+    return false;
 
   to.lbl_ = fr.lbl_ + 1;
 
@@ -173,11 +178,14 @@ static void dfs_setD(NW& g, const Nd& fr, Nd& to) noexcept {
     NW::Edge& e = g.edgeRef(ei);
     Nd& other = g.nodeRef(to.otherSide(e));
     if (other.id_ == fr.id_) continue;
-    dfs_setD(g, to, other);
+    if (not dfs_setD(g, to, other))
+      return false;
   }
+
+  return true;
 }
 
-void NW::labelDepth() noexcept {
+bool NW::labelDepth() noexcept {
   assert(not empty());
   uint rootId = first_rid();
   assert(rootId);
@@ -188,7 +196,7 @@ void NW::labelDepth() noexcept {
   for (NI I(*this); I.valid(); ++I) I->lbl_ = UINT_MAX;
   root.lbl_ = 0;
   if (size() == 1) {
-    return;
+    return true;
   }
   if (size() == 2) {
     for (NI I(*this); I.valid(); ++I) {
@@ -196,14 +204,17 @@ void NW::labelDepth() noexcept {
       if (nd.id_ != rootId)
         nd.lbl_ = 1;
     }
-    return;
+    return true;
   }
 
   for (int i = root.degree() - 1; i >= 0; i--) {
     Edge& e = edStor_[root.edges_[i]];
     Node& to = ndStor_[root.otherSide(e)];
-    dfs_setD(*this, root, to);
+    if (not dfs_setD(*this, root, to))
+      return false;
   }
+
+  return true;
 }
 
 upair NW::getMinMaxDeg() const noexcept {
@@ -372,10 +383,16 @@ void NW::Edge::eprint_dot(ostream& os, char arrow, const NW& g) const noexcept {
   replace_bus_for_dot(buf);
   os << buf;
 
-  if (inCell_) {
-    os_printf(os, " [ style=dashed ] ");
-  }
-  os_printf(os, ";\n");
+  char attrib[512] = {};
+  ::sprintf(attrib, " [%s %s",
+      inCell_ ? "style=dashed" : "",
+      color_ ? "color=" : ""
+      );
+  if (color_)
+    ::strcat(attrib, i2color(color_));
+  ::strcat(attrib, " ]");
+
+  os_printf(os, "%s;\n", attrib);
 }
 
 uint NW::print(ostream& os, CStr msg) const noexcept {
@@ -581,6 +598,37 @@ void NW::beComplete() noexcept {
     }
   }
   assert(selfCheck());
+
+  for (EI I(*this); I.valid(); ++I) {
+    Edge& e = *I;
+    e.paint( e.id_ % (c_MAX_COLOR + 1) );
+  }
+}
+
+static const char* _colorNames[] = {
+  "black",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "blue",
+  "firebrick",
+  "darkslategray",
+  "purple",
+  "aquamarine3",
+  "chocolate4",
+  "cadetblue4",
+  "darkolivegreen4",
+  "darkorchid4",
+  "cyan",
+  "goldenrod3",
+  "black",
+  "black",
+  "black"
+};
+
+CStr NW::i2color(uint i) noexcept {
+  return _colorNames[ i % (c_MAX_COLOR + 1) ];
 }
 
 }
