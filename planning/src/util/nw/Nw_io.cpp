@@ -1,4 +1,4 @@
-#include "util/nw/Nw.h"
+#include "util/nw/Nw_table.h"
 #include "file_readers/pln_Fio.h"
 
 //
@@ -48,17 +48,17 @@ namespace pln {
 
 static const char* _colLabels[] = {
 
-  "NdEd",    // A
-  "Id",      // B
-  "color",   // C
-  "depth",   // D
-  nullptr,   // E
-  "flags",   // F
-  nullptr,   // G
-  nullptr,   // H
-  "n1",      // I
-  "n2",      // J
-  "key",     // K
+  "NdEd",    // A-0
+  "Id",      // B-1
+  "color",   // C-2
+  "depth",   // D-3
+  nullptr,   // E-4
+  "flags",   // F-5
+  nullptr,   // G-6
+  nullptr,   // H-7
+  "n1",      // I-8
+  "n2",      // J-9
+  "key",     // K-10
   "label",   // L
   nullptr,   // M
   "name",    // N
@@ -83,8 +83,158 @@ static const char* _colLabels[] = {
 
 using std::endl;
 
-uint NW::printCsv(ostream& os) const noexcept {
+NwTable::NwTable(const NW& g) noexcept {
+  if (g.size() < 2)
+    return;
 
+  size_t nn = g.numN(), ne = g.numN();
+  nc_ = 27;
+  nr_ = nn + ne;
+  beginEdges_ = nn;
+
+  alloc_num_matrix();
+  alloc_str_matrix();
+
+  header_.reserve(nc_ + 1);
+  header_.resize(26);
+  assert(_colLabels[0]);
+  header_[0] = _colLabels[0];
+
+  for (uint i = 1; i < 26; i++) {
+    CStr label = _colLabels[i];
+    if (label)
+      header_[i] = label;
+  }
+
+  // nodes:
+  uint row_cnt = 0;
+  for (NW::cNI I(g); I.valid(); ++I, row_cnt++) {
+    const NW::Node& ii = *I;
+    smat_[row_cnt][0] = "Nd";
+    nmat_[row_cnt][1] = ii.id_;
+    nmat_[row_cnt][2] = ii.color_;
+    nmat_[row_cnt][3] = ii.par_;
+
+    nmat_[row_cnt][10] = ii.key_;
+  }
+
+  // edges:
+  beginEdges_ = row_cnt;
+  for (NW::cEI I(g); I.valid(); ++I, row_cnt++) {
+    const NW::Edge& e = *I;
+    smat_[row_cnt][0] = "Ed";
+    nmat_[row_cnt][1] = e.id_;
+    nmat_[row_cnt][2] = e.color_;
+
+    nmat_[row_cnt][8] = e.n1_;
+    nmat_[row_cnt][9] = e.n2_;
+  }
+}
+
+NwTable::~NwTable() {
+  free_num_matrix();
+  free_str_matrix();
+}
+
+void NwTable::alloc_num_matrix() noexcept {
+  assert(!nmat_);
+  assert(nr_ > 0 && nc_ > 1);
+
+  nmat_ = new size_t*[nr_ + 2];
+  for (size_t r = 0; r < nr_ + 2; r++) {
+    nmat_[r] = new size_t[nc_ + 2];
+    ::memset(nmat_[r], 0, (nc_ + 2) * sizeof(size_t));
+  }
+}
+
+void NwTable::alloc_str_matrix() noexcept {
+  assert(!smat_);
+  assert(nr_ > 0 && nc_ > 1);
+
+  smat_ = new string*[nr_ + 2];
+  for (size_t r = 0; r < nr_ + 2; r++) {
+    smat_[r] = new string[nc_ + 2];
+  }
+}
+
+void NwTable::free_num_matrix() noexcept {
+  if (!nmat_) {
+    nr_ = nc_ = 0;
+    return;
+  }
+  if (nr_ < 2) {
+    nmat_ = nullptr;
+    return;
+  }
+
+  for (size_t r = 0; r < nr_ + 2; r++)
+    delete[] nmat_[r];
+
+  delete[] nmat_;
+  nmat_ = nullptr;
+}
+
+void NwTable::free_str_matrix() noexcept {
+  if (!smat_) {
+    nr_ = nc_ = 0;
+    return;
+  }
+  if (nr_ < 2) {
+    smat_ = nullptr;
+    return;
+  }
+
+  for (size_t r = 0; r < nr_ + 2; r++)
+    delete[] smat_[r];
+
+  delete[] smat_;
+  smat_ = nullptr;
+}
+
+uint NwTable::printMatrix(ostream& os) noexcept {
+  if (!nc_ or !nr_ or !nmat_)
+    return 0;
+  assert(smat_);
+  assert(beginEdges_ > 0);
+
+  // nodes:
+  for (size_t r = 0; r < beginEdges_; r++) {
+    size_t* row_nums = nmat_[r];
+    string* row_strs = smat_[r];
+    assert(row_nums);
+    assert(row_strs);
+    for (size_t c = 0; c < nc_; c++) {
+      if (c) os << ',';
+      if (row_strs[c].empty())
+        os << row_nums[c];
+      else
+        os << row_strs[c];
+    }
+    os << endl;
+  }
+
+  // edges:
+  for (size_t r = beginEdges_; r < nr_; r++) {
+    size_t* row_nums = nmat_[r];
+    string* row_strs = smat_[r];
+    assert(row_nums);
+    assert(row_strs);
+    for (size_t c = 0; c < nc_; c++) {
+      if (c) os << ',';
+      if (row_strs[c].empty())
+        os << row_nums[c];
+      else
+        os << row_strs[c];
+    }
+    os << endl;
+  }
+
+  return nr_;
+}
+
+uint NW::printCsv(ostream& os) const noexcept {
+  if (size() < 2)
+    return 0;
   for (uint i = 0; i < 26; i++) {
     CStr label = _colLabels[i];
     if (!label) {
@@ -97,7 +247,10 @@ uint NW::printCsv(ostream& os) const noexcept {
   }
   os << endl;
 
-  return 1;
+  NwTable nwt(*this);
+  nwt.printMatrix(os);
+
+  return numN() + numE();
 }
 
 uint NW::dumpCsv() const noexcept {
