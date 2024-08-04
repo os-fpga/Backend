@@ -462,6 +462,8 @@ struct NW {
 
   bool verifyOneRoot() const noexcept;
 
+  // -- DEBUG and IO:
+
   static CStr i2color(uint i) noexcept;
 
   uint print(ostream& os, CStr msg = nullptr) const noexcept;
@@ -481,7 +483,12 @@ struct NW {
   uint dumpDot(CStr nwNm) const noexcept;
   bool writeDot(CStr fn, CStr nwNm, bool nodeTable, bool noDeg0) const noexcept;
 
+  uint printCsv(ostream& os) const noexcept;
+  uint dumpCsv() const noexcept;
+  bool writeCsv(CStr fn) const noexcept;
+
   void beComplete() noexcept;
+  void beStar() noexcept;
 
   static constexpr CStr s_metisComment = R"(%% )";
   static constexpr CStr s_dotComment = R"(// )";
