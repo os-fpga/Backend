@@ -7,6 +7,8 @@
 #include "util/geo/xyz.h"
 #include "util/nw/Nw.h"
 
+#include <unordered_map>
+
 namespace pln {
 
 using std::string;
@@ -180,11 +182,11 @@ struct BLIF_file : public fio::MMapReader
 
   }; // Node
 
-  Node& nodeRef(uint id) noexcept {
+  Node& bnodeRef(uint id) noexcept {
     assert(id > 0 and id < nodePool_.size());
     return nodePool_[id];
   }
-  const Node& nodeRef(uint id) const noexcept {
+  const Node& bnodeRef(uint id) const noexcept {
     assert(id > 0 and id < nodePool_.size());
     return nodePool_[id];
   }
@@ -195,7 +197,7 @@ struct BLIF_file : public fio::MMapReader
   vector<string> outputs_;
 
   size_t inputs_lnum_ = 0, outputs_lnum_ = 0;
-  mutable uint err_lnum_ = 0;
+  mutable uint err_lnum_ = 0, err_lnum2_ = 0;
 
   string err_msg_;
   uint16_t trace_ = 0;
@@ -252,12 +254,25 @@ private:
   // pair: 1st - nodeId, 2nd - pinIndex
   void getFabricParents(uint of, const string& contact, vector<upair>& PAR) noexcept;
 
+  uint map_pg2blif(uint pg_nid) const noexcept {
+    assert(pg_nid);
+    assert(not pg2blif_.empty());
+    const auto F = pg2blif_.find(pg_nid);
+    assert(F != pg2blif_.end());
+    if (F == pg2blif_.end())
+      return 0;
+    return F->second;
+  }
+
+// DATA:
   std::vector<Node> nodePool_;  // nodePool_[0] is a fake node "parent of root"
 
   std::vector<Node*> topInputs_, topOutputs_;
   std::vector<Node*> fabricNodes_, constantNodes_;
 
   std::vector<Node*> latches_; // latches are not checked for now
+
+  std::unordered_map<uint, uint> pg2blif_; // map IDs from NW to BLIF_file::Node::id_
 
   NW pg_; // Pin Graph
 };

@@ -21,9 +21,10 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   constantNodes_.clear();
   rd_ok_ = chk_ok_ = false;
   inputs_lnum_ = outputs_lnum_ = 0;
-  err_lnum_ = 0;
+  err_lnum_ = err_lnum2_ = 0;
   err_msg_.clear();
   pg_.clear();
+  pg2blif_.clear();
 }
 
 // "model "
@@ -251,7 +252,7 @@ bool BLIF_file::readBlif() noexcept {
   V.reserve(16);
 
   inputs_lnum_ = outputs_lnum_ = 0;
-  err_lnum_ = 0;
+  err_lnum_ = err_lnum2_ = 0;
   for (size_t i = 1; i < lsz; i++) {
     CStr cs = lines_[i];
     if (!cs || !cs[0]) continue;
@@ -432,8 +433,10 @@ bool BLIF_file::checkBlif() noexcept {
       bool separ_ok = checkClockSepar(clocked);
       if (not separ_ok) {
         string tmp = err_msg_;
-        err_msg_ = "clock-data separation issue at line ";
+        err_msg_ = "clock-data separation issue at lines: ";
         err_msg_ += std::to_string(err_lnum_);
+        err_msg_ += ", ";
+        err_msg_ += std::to_string(err_lnum2_);
         err_msg_ += "  ";
         err_msg_ += tmp;
         flush_out(true);
@@ -1478,9 +1481,11 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
     }
   }
 
-  writePinGraph("pin_graph_2.dot");
+  if (trace_ >= 4)
+    writePinGraph("pin_graph_2.dot");
 
   bool color_ok = true;
+  CStr viol_prefix = "    ===>>> clock color violation";
 
   // -- check that end-points of red edges are red
   for (NW::cEI E(pg_); E.valid(); ++E) {
@@ -1491,6 +1496,28 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
     const NW::Node& p2 = pg_.nodeRef(ed.n2_);
     if (!p1.isRed() or !p2.isRed()) {
       color_ok = false;
+      if (pg2blif_.count(p1.id_) and pg2blif_.count(p2.id_)) {
+        uint b1 = map_pg2blif(p1.id_);
+        uint b2 = map_pg2blif(p2.id_);
+        string nm1 = p1.getName();
+        string nm2 = p2.getName();
+        const Node& bnode1 = bnodeRef(b1);
+        const Node& bnode2 = bnodeRef(b2);
+        err_lnum_  = bnode1.lnum_;
+        err_lnum2_ = bnode2.lnum_;
+        flush_out(true);
+        lprintf("%s: pin-graph nodes:  #%u:%s - #%u:%s\n",
+                viol_prefix, p1.id_, nm1.c_str(), p2.id_, nm2.c_str());
+        flush_out(true);
+        lprintf("%s: blif lines:  %u - %u\n",
+                viol_prefix, err_lnum_, err_lnum2_);
+        char B[512] = {};
+        ::sprintf(B, "      line %u :  %s  ", err_lnum_, bnode1.kw_.c_str());
+        logVec(bnode1.data_, B);
+        ::sprintf(B, "      line %u :  %s  ", err_lnum2_, bnode2.kw_.c_str());
+        logVec(bnode2.data_, B);
+        flush_out(true);
+      }
       break;
     }
   }
@@ -1519,6 +1546,7 @@ struct qTup {
 
 bool BLIF_file::createPinGraph() noexcept {
   pg_.clear();
+  pg2blif_.clear();
   if (!rd_ok_) return false;
   if (topInputs_.empty() and topOutputs_.empty()) return false;
   if (fabricNodes_.empty()) return false;
@@ -1530,6 +1558,8 @@ bool BLIF_file::createPinGraph() noexcept {
   vector<upair> PAR;
   char nm_buf[512] = {};
 
+  pg2blif_.reserve(2 * nodePool_.size() + 1);
+
   // -- create pg-nodes for topInputs_
   for (Node* p : topInputs_) {
     Node& port = *p;
@@ -1539,6 +1569,7 @@ bool BLIF_file::createPinGraph() noexcept {
     pg_.setNodeName(nid, port.out_);
     pg_.nodeRef(nid).markInp(true);
     port.nw_id_ = nid;
+    pg2blif_.emplace(nid, port.id_);
   }
 
   // -- create pg-nodes for topOutputs_
@@ -1550,6 +1581,7 @@ bool BLIF_file::createPinGraph() noexcept {
     pg_.setNodeName(nid, port.out_);
     pg_.nodeRef(nid).markOut(true);
     port.nw_id_ = nid;
+    pg2blif_.emplace(nid, port.id_);
   }
 
   vector<qTup> Q;
@@ -1573,7 +1605,7 @@ bool BLIF_file::createPinGraph() noexcept {
     for (const upair& pa : PAR) {
       if (pa.first == port.id_)
         continue;
-      const Node& par = nodeRef(pa.first);
+      const Node& par = bnodeRef(pa.first);
       uint pinIndex = pa.second;
 
       INP.clear();
@@ -1601,6 +1633,7 @@ bool BLIF_file::createPinGraph() noexcept {
       assert(kid);
       assert(key != port.id_);      // bc port.id_ is a key for port
       assert(pg_.hasKey(port.id_)); //
+      pg2blif_.emplace(kid, par.id_);
 
       pg_.nodeRef(kid).setCid(par.id_);
       ::snprintf(nm_buf, 510, "%s_%uL_%up%u",
@@ -1634,8 +1667,9 @@ bool BLIF_file::createPinGraph() noexcept {
       eid = pg_.linkNodes(q.inpNid_, kid, true);
 
       ::snprintf(nm_buf, 510, "nd%u_L%u_Q%u",
-                kid, nodeRef(q.cellId_).lnum_, q.cellId_);
+                kid, bnodeRef(q.cellId_).lnum_, q.cellId_);
       pg_.setNodeName(kid, nm_buf);
+      pg2blif_.emplace(kid, q.cellId_);
     }
   }
 
