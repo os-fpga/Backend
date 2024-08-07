@@ -7,10 +7,9 @@
 //
 
 #include "pin_loc/pin_placer.h"
-#include "file_readers/blif_reader.h"
-#include "file_readers/pln_csv_reader.h"
-#include "file_readers/xml_reader.h"
-#include "file_readers/pln_Fio.h"
+#include "file_io/pln_csv_reader.h"
+#include "file_io/xml_reader.h"
+#include "file_io/pln_Fio.h"
 #include "util/cmd_line.h"
 
 #include <map>

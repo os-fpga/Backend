@@ -1,4 +1,4 @@
-#include "file_readers/pln_blif_file.h"
+#include "file_io/pln_blif_file.h"
 #include "util/nw/Nw.h"
 
 namespace pln {
