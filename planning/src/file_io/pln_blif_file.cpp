@@ -444,7 +444,7 @@ bool BLIF_file::checkBlif() noexcept {
       }
       if (trace_ >= 4) {
         lputs("(clock-data separation)  checked OK.");
-        if (trace_ >= 5) {
+        if (trace_ >= 6) {
           flush_out(true);
           pg_.print(ls, " [[ final pinGraph ]]");
           flush_out(true);
@@ -454,6 +454,29 @@ bool BLIF_file::checkBlif() noexcept {
       }
     }
     flush_out(true);
+  }
+
+  // -- write yaml file to check prim-DB:
+  if (trace_ >= 5) {
+    //string written = pr_write_yaml(LUT1);
+    //string written = pr_write_yaml(LUT5);
+    //string written = pr_write_yaml(DFFRE);
+    //string written = pr_write_yaml( DSP19X2 );
+    string written = pr_write_yaml( DSP38 );
+    flush_out(true);
+    if (written.empty()) {
+      lprintf("\t\t  FAIL: pr_write_yaml() FAILED\n\n");
+    } else {
+      lprintf("\t  written: %s\n\n", written.c_str());
+      if (0) {
+        lprintf("\n    ");
+        for (int bb = 17; bb >= 0; bb--) {
+          lprintf(" \"B[%i]\",", bb);
+        }
+        lputs();
+        lputs();
+      }
+    }
   }
 
   chk_ok_ = true;

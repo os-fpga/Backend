@@ -18,6 +18,7 @@ using std::string;
     "DFFRE",
     "DSP19X2",
     "DSP38",
+    "FCLK_BUF",
     "FIFO18KX2",
     "FIFO36K",
     "I_BUF",
@@ -63,6 +64,8 @@ using std::string;
     { "Z1", "DLY_B1", "Z2", "DLY_B2" },  // DSP19X2
 
     { "Z", "DLY_B" },    // DSP38
+
+    { "O" },  // FCLK_BUF
 
     // FIFO18KX2
     { "RD_DATA1", "EMPTY1", "FULL1", "ALMOST_EMPTY1", "ALMOST_FULL1",
@@ -138,11 +141,24 @@ using std::string;
 
     { "D", "R", "E", "C" }, // DFFRE
 
-    // DSP19X2
-    { "CLK", "RESET", "LOAD_ACC", "UNSIGNED_A", "UNSIGNED_B",
-      "SATURATE", "ROUND", "SUBTRACT" }, // TMP. INCOMPLETE.
+  // DSP19X2
+  {
+  "A1[8]", "A1[7]", "A1[6]", "A1[5]", "A1[4]", "A1[3]", "A1[2]", "A1[1]", "A1[0]",
+  "B1[9]", "B1[8]", "B1[7]", "B1[6]", "B1[5]", "B1[4]", "B1[3]", "B1[2]", "B1[1]", "B1[0]",
+  "CLK", "RESET", "LOAD_ACC", "UNSIGNED_A", "UNSIGNED_B",
+  "SATURATE", "ROUND", "SUBTRACT"
+  },
 
-    {  },    // DSP38
+  // DSP38
+  {
+  "A[19]", "A[18]", "A[17]", "A[16]", "A[15]", "A[14]", "A[13]", "A[12]", "A[11]", "A[10]",
+  "A[9]", "A[8]", "A[7]", "A[6]", "A[5]", "A[4]", "A[3]", "A[2]", "A[1]", "A[0]",
+  "B[17]", "B[16]", "B[15]", "B[14]", "B[13]", "B[12]", "B[11]", "B[10]", "B[9]", "B[8]",
+  "B[7]", "B[6]", "B[5]", "B[4]", "B[3]", "B[2]", "B[1]", "B[0]",
+  "CLK",
+  },
+
+    { "I" },  // FCLK_BUF
 
     // FIFO18KX2
     {  },
@@ -224,6 +240,8 @@ using std::string;
     { "CLK" },  // DSP19X2
 
     { "CLK" },  // DSP38
+
+    { "I", "O" },  // FCLK_BUF
 
     // FIFO18KX2
     { "WR_CLK1", "RD_CLK1",
@@ -339,13 +357,22 @@ uint pr_num_clocks(Prim_t pt) noexcept {
   return V.size();
 }
 
-void pr_get_inputs(Prim_t pt, std::vector<std::string>& INP) {
+void pr_get_inputs(Prim_t pt, vector<string>& INP) {
   INP.clear();
   uint i = pt;
   assert(i <= Prim_MAX_ID);
   if (i == 0 or i > Prim_MAX_ID)
     return;
   INP = _id2inputs[i];
+}
+
+void pr_get_outputs(Prim_t pt, vector<string>& OUT) {
+  OUT.clear();
+  uint i = pt;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or i > Prim_MAX_ID)
+    return;
+  OUT = _id2outputs[i];
 }
 
 // "A_"
@@ -379,7 +406,7 @@ static inline bool starts_w_CAR(CStr z) noexcept {
   return z[0] == 'C' and z[1] == 'A' and z[2] == 'R';
 }
 
-bool is_I_SERDES_output_term(const std::string& term) noexcept {
+bool is_I_SERDES_output_term(const string& term) noexcept {
   assert(!term.empty());
   if (term.empty()) return false;
 
@@ -402,7 +429,7 @@ bool is_I_SERDES_output_term(const std::string& term) noexcept {
   return b;
 }
 
-bool is_O_SERDES_output_term(const std::string& term) noexcept {
+bool is_O_SERDES_output_term(const string& term) noexcept {
   assert(!term.empty());
   if (term.empty()) return false;
 
@@ -425,7 +452,7 @@ bool is_O_SERDES_output_term(const std::string& term) noexcept {
   return b;
 }
 
-bool is_TDP_RAM36K_output_term(const std::string& term) noexcept {
+bool is_TDP_RAM36K_output_term(const string& term) noexcept {
   assert(!term.empty());
   if (term.empty()) return false;
 
@@ -449,7 +476,7 @@ bool is_TDP_RAM36K_output_term(const std::string& term) noexcept {
   return b;
 }
 
-bool is_TDP_RAM18KX_output_term(const std::string& term) noexcept {
+bool is_TDP_RAM18KX_output_term(const string& term) noexcept {
   assert(!term.empty());
   if (term.empty()) return false;
 
@@ -474,7 +501,7 @@ R"(RDATA_A1=|RDATA_A1\[\d+\]=|RDATA_A2=|RDATA_A2\[\d+\]=|RDATA_B1=|RDATA_B1\[\d+
   return b;
 }
 
-bool is_PLL_output_term(const std::string& term) noexcept {
+bool is_PLL_output_term(const string& term) noexcept {
   assert(!term.empty());
   if (term.empty()) return false;
 
@@ -522,6 +549,65 @@ Prim_t pr_str2enum(CStr name) noexcept {
   }
 
   return A_ZERO;
+}
+
+// ==== DEBUG:
+
+string pr_write_yaml(Prim_t pt) noexcept {
+  using std::endl;
+  CStr primName = pr_enum2str(pt);
+  assert(primName);
+  assert(primName[0]);
+  if (!primName or !primName[0])
+    return {};
+
+  string fn = str::concat(primName, "_pln.yaml");
+
+  flush_out(true);
+  lprintf("  pr_write_yaml( %s )  to file:  %s\n", primName, fn.c_str());
+
+  std::ofstream fos(fn);
+  if (not fos.is_open()) {
+    flush_out(true);
+    lprintf("pr_write_yaml: could not open file for writing:  %s\n\n", fn.c_str());
+    return {};
+  }
+
+  fos << "name: " << primName << endl;
+  fos << "desc: ";
+  if (pt >= LUT1 and pt <= LUT6)
+    os_printf(fos, "%u-input lookup table (LUT)", pr_num_inputs(pt));
+  fos << endl;
+
+  fos << "category: core_fabric" << endl;
+  fos << endl;
+
+  fos << "ports:" << endl;
+
+  vector<string> V;
+
+  pr_get_inputs(pt, V);
+  for (const string& port : V) {
+    os_printf(fos, "   %s:\n", port.c_str());
+    os_printf(fos, "     dir: input\n");
+    os_printf(fos, "     desc:");
+    if (pr_pin_is_clock(pt, port))
+      fos << " Clock";
+    fos << endl;
+  }
+  pr_get_outputs(pt, V);
+  for (const string& port : V) {
+    os_printf(fos, "   %s:\n", port.c_str());
+    os_printf(fos, "     dir: output\n");
+    os_printf(fos, "     desc:");
+    if (pr_pin_is_clock(pt, port))
+      fos << " Clock";
+    fos << endl;
+  }
+
+  fos << endl;
+
+  return fn;
 }
 
 }}
