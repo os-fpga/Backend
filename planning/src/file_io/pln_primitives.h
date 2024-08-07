@@ -29,30 +29,32 @@ enum Prim_t {
   I_BUF_DS      = 12,
   I_DDR         = 13,
   I_DELAY       = 14,
-  IO_BUF        = 15,
-  IO_BUF_DS     = 16,
-  I_SERDES      = 17,
-  LUT1          = 18,
-  LUT2          = 19,
-  LUT3          = 20,
-  LUT4          = 21,
-  LUT5          = 22,
-  LUT6          = 23,
-  O_BUF         = 24,
-  O_BUF_DS      = 25,
-  O_BUFT        = 26,
-  O_BUFT_DS     = 27,
-  O_DDR         = 28,
-  O_DELAY       = 29,
-  O_SERDES      = 30,
-  O_SERDES_CLK  = 31,
-  PLL           = 32,
-  TDP_RAM18KX2  = 33,
-  TDP_RAM36K    = 34,
+  I_FAB         = 15,
+  IO_BUF        = 16,
+  IO_BUF_DS     = 17,
+  I_SERDES      = 18,
+  LUT1          = 19,
+  LUT2          = 20,
+  LUT3          = 21,
+  LUT4          = 22,
+  LUT5          = 23,
+  LUT6          = 24,
+  O_BUF         = 25,
+  O_BUF_DS      = 26,
+  O_BUFT        = 27,
+  O_BUFT_DS     = 28,
+  O_DDR         = 29,
+  O_DELAY       = 30,
+  O_FAB         = 31,
+  O_SERDES      = 32,
+  O_SERDES_CLK  = 33,
+  PLL           = 34,
+  TDP_RAM18KX2  = 35,
+  TDP_RAM36K    = 36,
 
-  X_UNKNOWN     = 35,
+  X_UNKNOWN     = 37,
 
-  Y_UPPER_GUARD = 36
+  Y_UPPER_GUARD = 38
 };
 
 // valid IDs are from 1 to Prim_MAX_ID inclusive
@@ -81,8 +83,19 @@ uint pr_num_inputs(Prim_t pt) noexcept;
 uint pr_num_outputs(Prim_t pt) noexcept;
 uint pr_num_clocks(Prim_t pt) noexcept;
 
-void pr_get_inputs(Prim_t pt, std::vector<std::string>& INP);
-void pr_get_outputs(Prim_t pt, std::vector<std::string>& OUT);
+inline bool pr_is_LUT(Prim_t t) noexcept  { return t >= LUT1 and t <= LUT6; }
+inline bool pr_is_DSP(Prim_t t) noexcept  { return t == DSP19X2 or t == DSP38; }
+inline bool pr_is_DFF(Prim_t t) noexcept  { return t == DFFNRE or t == DFFRE; }
+inline bool pr_is_FIFO(Prim_t t) noexcept { return t == FIFO18KX2 or t == FIFO36K; }
+
+inline bool pr_is_RAM(Prim_t t) noexcept {
+  return t == TDP_RAM18KX2 or t == TDP_RAM36K;
+}
+
+bool pr_is_core_fabric(Prim_t t) noexcept;
+
+void pr_get_inputs(Prim_t pt, std::vector<std::string>& INP) noexcept;
+void pr_get_outputs(Prim_t pt, std::vector<std::string>& OUT) noexcept;
 
 bool is_I_SERDES_output_term(const std::string& term) noexcept;
 bool is_O_SERDES_output_term(const std::string& term) noexcept;
