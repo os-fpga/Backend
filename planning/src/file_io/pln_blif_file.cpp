@@ -462,7 +462,8 @@ bool BLIF_file::checkBlif() noexcept {
     //string written = pr_write_yaml(LUT5);
     //string written = pr_write_yaml(DFFRE);
     //string written = pr_write_yaml( DSP19X2 );
-    string written = pr_write_yaml( DSP38 );
+    //string written = pr_write_yaml( DSP38 );
+    string written = pr_write_yaml( FIFO36K );
     flush_out(true);
     if (written.empty()) {
       lprintf("\t\t  FAIL: pr_write_yaml() FAILED\n\n");
@@ -470,8 +471,8 @@ bool BLIF_file::checkBlif() noexcept {
       lprintf("\t  written: %s\n\n", written.c_str());
       if (0) {
         lprintf("\n    ");
-        for (int bb = 17; bb >= 0; bb--) {
-          lprintf(" \"B[%i]\",", bb);
+        for (int bb = 35; bb >= 0; bb--) {
+          lprintf(" \"WR_DATA[%i]\",", bb);
         }
         lputs();
         lputs();
@@ -612,8 +613,9 @@ uint BLIF_file::printPrimitives(std::ostream& os, bool instCounts) const noexcep
       if (n_clocks) {
         ::sprintf(ncs_buf, "   #clock_pins= %u", n_clocks);
       }
-      os_printf(os, "    [%u]  %s    i:%u  o:%u   %s\n",
-                t, pn, pr_num_inputs(pt), n_outputs, ncs_buf);
+      os_printf(os, "    [%u]  %s    i:%u  o:%u   %s   %s\n",
+                t, pn, pr_num_inputs(pt), n_outputs, ncs_buf,
+                pr_is_core_fabric(pt) ? "core" : "");
     }
   }
 
