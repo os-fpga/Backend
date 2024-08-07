@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _pln_file_readers_BLIF_READER_H
-#define _pln_file_readers_BLIF_READER_H
+#ifndef _pln_BLIF_READER_H_4e501fa40b33e91_
+#define _pln_BLIF_READER_H_4e501fa40b33e91_
 
 #include "util/pln_log.h"
 

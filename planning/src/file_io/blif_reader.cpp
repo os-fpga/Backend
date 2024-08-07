@@ -1,5 +1,5 @@
-#include "file_readers/blif_reader.h"
-#include "file_readers/pln_blif_file.h"
+#include "file_io/blif_reader.h"
+#include "file_io/pln_blif_file.h"
 
 namespace pln {
 

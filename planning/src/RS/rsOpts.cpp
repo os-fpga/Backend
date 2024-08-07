@@ -1,5 +1,5 @@
 #include "RS/rsOpts.h"
-#include "file_readers/pln_Fio.h"
+#include "file_io/pln_Fio.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -21,7 +21,7 @@ static CStr _help_[] = {"H", "h", "help", "hel", "hlp", "he", nullptr};
 
 static CStr _fun_[] = {"F", "fu", "fun", "func", "funct", "function", nullptr};
 
-static CStr _check_[] = {"CH", "ch", "che", "chec", "check", nullptr};
+static CStr _check_[] = {"CH", "ch", "CC", "cc", "che", "chec", "check", nullptr};
 
 static CStr _csv_[] = {"CSV", "cs", "csv", nullptr};
 
