@@ -458,12 +458,11 @@ bool BLIF_file::checkBlif() noexcept {
 
   // -- write yaml file to check prim-DB:
   if (trace_ >= 5) {
-    //string written = pr_write_yaml(LUT1);
-    //string written = pr_write_yaml(LUT5);
-    //string written = pr_write_yaml(DFFRE);
+    //string written = pr_write_yaml( DFFRE );
     //string written = pr_write_yaml( DSP19X2 );
     //string written = pr_write_yaml( DSP38 );
-    string written = pr_write_yaml( FIFO36K );
+    //string written = pr_write_yaml( FIFO36K );
+    string written = pr_write_yaml( FIFO18KX2 );
     flush_out(true);
     if (written.empty()) {
       lprintf("\t\t  FAIL: pr_write_yaml() FAILED\n\n");
@@ -471,8 +470,8 @@ bool BLIF_file::checkBlif() noexcept {
       lprintf("\t  written: %s\n\n", written.c_str());
       if (0) {
         lprintf("\n    ");
-        for (int bb = 35; bb >= 0; bb--) {
-          lprintf(" \"WR_DATA[%i]\",", bb);
+        for (int bb = 18; bb >= 0; bb--) {
+          lprintf(" \"RD_DATA2[%i]\",", bb);
         }
         lputs();
         lputs();

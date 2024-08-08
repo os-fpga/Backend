@@ -100,11 +100,30 @@ using std::string;
 
     { "O" },  // FCLK_BUF
 
-    // FIFO18KX2
-    { "RD_DATA1", "EMPTY1", "FULL1", "ALMOST_EMPTY1", "ALMOST_FULL1",
-      "PROG_EMPTY1", "PROG_FULL1", "OVERFLOW1", "UNDERFLOW1",
-      "RD_DATA2", "EMPTY2", "FULL2", "ALMOST_EMPTY2", "ALMOST_FULL2",
-      "PROG_EMPTY2", "PROG_FULL2", "OVERFLOW2", "UNDERFLOW2"  },
+  // FIFO18KX2
+  {
+    "EMPTY1", "FULL1",
+    "ALMOST_EMPTY1", "ALMOST_FULL1",
+    "PROG_EMPTY1", "PROG_FULL1",
+    "OVERFLOW1", "UNDERFLOW1",
+
+    "EMPTY2", "FULL2",
+    "ALMOST_EMPTY2", "ALMOST_FULL2",
+    "PROG_EMPTY2", "PROG_FULL2",
+    "OVERFLOW2", "UNDERFLOW2",
+
+    // RD_DATA1[DATA_READ_WIDTH1-1:0]:
+    "RD_DATA1[18]", "RD_DATA1[17]", "RD_DATA1[16]", "RD_DATA1[15]", "RD_DATA1[14]",
+    "RD_DATA1[13]", "RD_DATA1[12]", "RD_DATA1[11]", "RD_DATA1[10]", "RD_DATA1[9]",
+    "RD_DATA1[8]", "RD_DATA1[7]", "RD_DATA1[6]", "RD_DATA1[5]", "RD_DATA1[4]",
+    "RD_DATA1[3]", "RD_DATA1[2]", "RD_DATA1[1]", "RD_DATA1[0]",
+
+    // RD_DATA2[DATA_READ_WIDTH2-1:0]:
+    "RD_DATA2[18]", "RD_DATA2[17]", "RD_DATA2[16]", "RD_DATA2[15]", "RD_DATA2[14]",
+    "RD_DATA2[13]", "RD_DATA2[12]", "RD_DATA2[11]", "RD_DATA2[10]", "RD_DATA2[9]",
+    "RD_DATA2[8]", "RD_DATA2[7]", "RD_DATA2[6]", "RD_DATA2[5]", "RD_DATA2[4]",
+    "RD_DATA2[3]", "RD_DATA2[2]", "RD_DATA2[1]", "RD_DATA2[0]"
+  },
 
   // FIFO36K
   {
@@ -253,8 +272,28 @@ using std::string;
 
     { "I" },  // FCLK_BUF
 
-    // FIFO18KX2
-    {  },
+  // FIFO18KX2
+  {
+    "RESET1",
+    "WR_CLK1", "RD_CLK1",
+    "WR_EN1", "RD_EN1",
+
+    "RESET2",
+    "WR_CLK2", "RD_CLK2",
+    "WR_EN2", "RD_EN2",
+
+    // WR_DATA1[DATA_WRITE_WIDTH1-1:0]:
+    "WR_DATA1[18]", "WR_DATA1[17]", "WR_DATA1[16]", "WR_DATA1[15]", "WR_DATA1[14]",
+    "WR_DATA1[13]", "WR_DATA1[12]", "WR_DATA1[11]", "WR_DATA1[10]", "WR_DATA1[9]",
+    "WR_DATA1[8]", "WR_DATA1[7]", "WR_DATA1[6]", "WR_DATA1[5]", "WR_DATA1[4]",
+    "WR_DATA1[3]", "WR_DATA1[2]", "WR_DATA1[1]", "WR_DATA1[0]",
+
+    // WR_DATA2[DATA_WRITE_WIDTH2-1:0]:
+    "WR_DATA2[18]", "WR_DATA2[17]", "WR_DATA2[16]", "WR_DATA2[15]", "WR_DATA2[14]",
+    "WR_DATA2[13]", "WR_DATA2[12]", "WR_DATA2[11]", "WR_DATA2[10]", "WR_DATA2[9]",
+    "WR_DATA2[8]", "WR_DATA2[7]", "WR_DATA2[6]", "WR_DATA2[5]", "WR_DATA2[4]",
+    "WR_DATA2[3]", "WR_DATA2[2]", "WR_DATA2[1]", "WR_DATA2[0]"
+  },
 
   // FIFO36K
   { "RESET", "WR_CLK", "RD_CLK", "WR_EN", "RD_EN",
