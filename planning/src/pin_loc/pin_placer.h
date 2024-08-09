@@ -87,6 +87,18 @@ struct PinPlacer {
     };
   };
 
+  struct BlifReader {
+    vector<string> inputs_;
+    vector<string> outputs_;
+
+    BlifReader() noexcept = default;
+    BlifReader(const string& f) { read_blif(f); }
+    bool read_blif(const string& f);
+
+    const vector<string>& get_inputs() const noexcept { return inputs_; }
+    const vector<string>& get_outputs() const noexcept { return outputs_; }
+  };
+
 private:
 
   cmd_line cl_;
