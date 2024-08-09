@@ -15,8 +15,13 @@ using std::cout;
 using std::endl;
 
 rsEnv::rsEnv() noexcept {
-  CStr ts = getenv("pln_trace_marker");
+  CStr ts = ::getenv("pln_trace_marker");
   if (ts) traceMarker_ = ts;
+
+  ts = ::getenv("pln_no_logfile");
+  if (not ts) {
+    open_pln_logfile("rs_planner.log");
+  }
 
   init();
 }
@@ -240,64 +245,64 @@ bool rsEnv::getPidExePath(int pid, std::string& out) noexcept { return true; }
     cout.setf(origF); }
 
 void rsEnv::listDevEnv() const noexcept {
-  lprintf("\n\t   PLN ver.  %s\n", shortVer_.c_str());
-  lprintf("\t compiled:  %s\n", compTimeCS());
+  printf("\n\t   PLN ver.  %s\n", shortVer_.c_str());
+  printf("\t compiled:  %s\n", compTimeCS());
 
   size_t cxxstd = __cplusplus;
-  lprintf("\n(compiler) -- c++std= %zu\n", cxxstd);
+  printf("\n(compiler) -- c++std= %zu\n", cxxstd);
 #ifdef __GNUC__
-  lprintf("\t  __GNUC__ \t\t %i\n", __GNUC__);
+  printf("\t  __GNUC__ \t\t %i\n", __GNUC__);
 #endif
 #ifdef __GNUC_MINOR__
-  lprintf("\t  __GNUC_MINOR__ \t %i\n", __GNUC_MINOR__);
+  printf("\t  __GNUC_MINOR__ \t %i\n", __GNUC_MINOR__);
 #endif
 #ifdef __VERSION__
-  lprintf("\t  __VERSION__ \t\t %s\n", __VERSION__);
+  printf("\t  __VERSION__ \t\t %s\n", __VERSION__);
 #endif
 #ifdef __OPTIMIZE__
-  lprintf("\t  __OPTIMIZE__ \t\t %i\n", __OPTIMIZE__);
+  printf("\t  __OPTIMIZE__ \t\t %i\n", __OPTIMIZE__);
 #else
-  lprintf("\t  __OPTIMIZE__  :\t NOT DEFINED  => deb binary\n");
+  printf("\t  __OPTIMIZE__  :\t NOT DEFINED  => deb binary\n");
 #endif
 #ifdef __NO_INLINE__
-  lprintf("\t  __NO_INLINE__ :\t (defined)\n");
+  printf("\t  __NO_INLINE__ :\t (defined)\n");
 #endif
 #ifdef NDEBUG
-  lprintf("\t  NDEBUG :  (defined)  => assert() is disabled\n");
+  printf("\t  NDEBUG :  (defined)  => assert() is disabled\n");
 #else
-  lprintf("\t  NDEBUG :  NOT DEFINED  => assert() is enabled\n");
+  printf("\t  NDEBUG :  NOT DEFINED  => assert() is enabled\n");
 #endif
 
-  lprintf("\n(modes)\n");
+  printf("\n(modes)\n");
 #ifdef NO_GRAPHICS
-  lprintf("\t  NO_GRAPHICS :  \t (defined)\n");
+  printf("\t  NO_GRAPHICS :  \t (defined)\n");
 #endif
 #ifdef RS_PC_MODE
-  lprintf("\t  RS_PC_MODE :\t (defined)\n");
+  printf("\t  RS_PC_MODE :\t (defined)\n");
 #endif
 #ifdef PINC_DEVEL_MODE
-  lprintf("\t  PINC_DEVEL_MODE :\t (defined)\n");
+  printf("\t  PINC_DEVEL_MODE :\t (defined)\n");
 #endif
 #ifdef NN_FAST_BUILD
-  lprintf("\t  NN_FAST_BUILD :\t (defined)\n");
+  printf("\t  NN_FAST_BUILD :\t (defined)\n");
 #endif
 #ifdef ENABLE_ANALYTIC_PLACE
-  lprintf("\t  ENABLE_ANALYTIC_PLACE :\t (defined)\n");
+  printf("\t  ENABLE_ANALYTIC_PLACE :\t (defined)\n");
 #endif
 
-  lputs();
+  cout << endl;
 
 #ifdef _PLN_VEC_BOUNDS_CHECK
-  lprintf("\t  _PLN_VEC_BOUNDS_CHECK :   ON  => stl_vector BC enabled\n");
+  printf("\t  _PLN_VEC_BOUNDS_CHECK :   ON  => stl_vector BC enabled\n");
 #else
-  lprintf("\t  _PLN_VEC_BOUNDS_CHECK :   OFF => std_vector BC disabled\n");
+  printf("\t  _PLN_VEC_BOUNDS_CHECK :   OFF => std_vector BC disabled\n");
 #endif
 
 #ifdef PLN_JEMALLOC
     LIST_DEC(PLN_JEMALLOC);
 #endif
 
-  pln::flush_out(true);
+  cout << endl;
 }
 
 }
