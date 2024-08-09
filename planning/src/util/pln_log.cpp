@@ -12,17 +12,19 @@ namespace pln {
 
 using namespace std;
 
-static void flush_all() noexcept;
-
 // log-trace value (debug print verbosity)
 // can be set in main() by calling set_ltrace()
 static uint16_t s_logLevel = 0;
 
+static constexpr size_t LOut_buf_cap = 32756;
+static std::ofstream __attribute__((init_priority(103)))  _plnLF; // log file
+static LOut __attribute__((init_priority(104)))           _plnLS; // log splitter
+
 uint16_t ltrace() noexcept { return s_logLevel; }
 
 void set_ltrace(int t) noexcept {
-  flush_all();
   cerr.tie(&cout);
+  _plnLS.doFlush(false);
   if (t <= 0) {
     s_logLevel = 0;
     return;
@@ -39,162 +41,233 @@ void set_ltrace(int t) noexcept {
 // i.e. it prints to a file (logfile) and to stdout.
 /////////////
 
-static constexpr size_t LOut_buf_cap = 65518;
+LOut& getLOut() noexcept { return _plnLS; }
+std::ostream& lout() noexcept { return _plnLS; }
+
+bool open_pln_logfile(CStr fn) noexcept {
+  assert(not _plnLF.is_open());
+  assert(fn and fn[0]);
+  if (_plnLF.is_open())
+    return false;
+  if (!fn or !fn[0])
+    return false;
+
+  _plnLF.open(fn);
+  if (not _plnLF.is_open()) {
+    cout << endl;
+    cerr << endl;
+    cerr << "pln: could not open logfile: " << fn << endl;
+    cout << endl;
+    return false;
+  }
+  return true;
+}
 
 LOut::LOut() noexcept : std::ostream(this), buf_sz_(0) {
-  buf_ = (char*)::calloc(LOut_buf_cap + 2, 1);
-  assert(buf_);
+  static char s_buf[LOut_buf_cap + 4];
+  buf_ = s_buf;
+  buf_[0] = 0;
+  buf_[1] = 0;
 }
 
 LOut::~LOut() {
-  if (buf_sz_) cout << buf_ << endl;
+  if (buf_sz_) {
+    cout << buf_ << endl;
+    if (_plnLF.is_open()) {
+      _plnLF << buf_ << endl;
+      _plnLF.flush();
+    }
+  }
   fflush(stdout);
   fflush(stderr);
   cout.flush();
   cerr.flush();
 }
 
+void LOut::flushBuf() noexcept {
+  if (!buf_[0]) {
+    cout.flush();
+    fflush(stdout);
+    if (_plnLF.is_open())
+      _plnLF.flush();
+    return;
+  }
+  cout << buf_;
+  cout.flush();
+  fflush(stdout);
+  if (_plnLF.is_open()) {
+    _plnLF << buf_;
+    _plnLF.flush();
+  }
+  buf_sz_ = 0;
+  buf_[0] = 0;
+  buf_[1] = 0;
+}
+
+void LOut::doFlush(bool nl) noexcept {
+  flushBuf();
+  if (nl) {
+    cout << endl;
+    if (_plnLF.is_open())
+      _plnLF << endl;
+  }
+  fflush(stdout);
+  fflush(stderr);
+  cout.flush();
+  cerr.flush();
+}
+
+void LOut::putS(CStr z, bool nl) noexcept {
+  if (buf_[0])
+    doFlush(false);
+  if (z and z[0]) {
+    cout << z;
+    if (nl) cout << endl;
+    cout.flush();
+    fflush(stdout);
+    if (_plnLF.is_open()) {
+      _plnLF << z;
+      if (nl) _plnLF << endl;
+      _plnLF.flush();
+    }
+    return;
+  }
+  if (nl) {
+    cout << endl;
+    if (_plnLF.is_open())
+      _plnLF << endl;
+  }
+}
+
 int LOut::overflow(int c) {
+  CStr cs = buf_;
   if (c == '\n') {
-    cout << buf_;
-    flush_out(true);
-    if (buf_sz_)
-      buf_sz_--;
+    putS(cs, false);
+    doFlush(true);
+    buf_sz_ = 0;
+    buf_[0] = 0;
+    buf_[1] = 0;
     return 0;
   }
-  assert(buf_sz_ < LOut_buf_cap);
-  buf_[buf_sz_++] = c;
+  if (buf_sz_ < LOut_buf_cap - 2) {
+    buf_[buf_sz_++] = c;
+    buf_[buf_sz_] = 0;
+    return 0;
+  }
+  // reached buffer capacity.
+  // flush, but without endl:
+  putS(cs, false);
+  doFlush(false);
+  buf_sz_ = 0;
+  buf_[0] = 0;
+  buf_[1] = 0;
   return 0;
 }
 
 /////////////
 
-static void flush_all() noexcept {
-  // Flushing does not prevent interleaved stdout and stderr
-  // becauses FOEDAG messes with child process stdout.
-  // pin_c will create a separate 'pin_c.log' sometime.
-  fflush(stdout);
-  fflush(stderr);
-  cout.flush();
-  cerr.flush();
-  // ::fsync(1);
-}
-
-#define LPUT if (cs && cs[0]) cout << cs;
-#define LEND cout << endl; fflush(stdout);
-
 void lputs(CStr cs) noexcept {
-  if (s_logLevel >= 3) {
-    flush_all();
+  if (s_logLevel >= 4) {
+    _plnLS.doFlush(false);
   }
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void err_puts(CStr cs) noexcept {
-  flush_all();
+  _plnLS.doFlush(false);
   if (cs && cs[0]) cerr << cs;
   cerr << endl; fflush(stdout);
 }
 
 void lputs0(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs1(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs2(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs3(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs4(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs5(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs6(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs7(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs8(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputs9(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 void lputsX(CStr cs) noexcept {
-  LPUT
-  LEND
+  _plnLS.putS(cs, false);
+  _plnLS.doFlush(true);
 }
 
 void lputs(const string& s) noexcept {
-  if (s_logLevel >= 3) flush_all();
+  if (s_logLevel >= 4) _plnLS.doFlush(false);
   if (s.empty())
-    cout << endl;
+    _plnLS.doFlush(true);
   else
     lputs(s.c_str());
 }
 void err_puts(const string& s) noexcept {
-  flush_all();
+  _plnLS.doFlush(false);
   if (s.empty())
     cerr << endl;
   else
     err_puts(s.c_str());
 }
 
-static constexpr char q = '\'';
 void bh1(CStr fn, int l, CStr s) noexcept {
   if (!s) return;
-  cout << "\n bh1: " << fn << ':' << l << q << s << q << endl;
+  char msg[512] = {};
+  ::snprintf(msg, 510, "\n bh1: %s:%i '%s'", fn, l, s);
+  _plnLS.putS(msg, false);
+  _plnLS.doFlush(true);
 }
 void bh2(CStr fn, int l, CStr s) noexcept {
   if (!s) return;
-  cout << "\n bh2: " << fn << ':' << l << q << s << q << endl;
+  char msg[512] = {};
+  ::snprintf(msg, 510, "\n bh2: %s:%i '%s'", fn, l, s);
+  _plnLS.putS(msg, false);
+  _plnLS.doFlush(true);
 }
 void bh3(CStr fn, int l, CStr s) noexcept {
   if (!s) return;
-  cout << "\n bh3: " << fn << ':' << l << q << s << q << endl;
-}
-void bh4(CStr fn, int l, CStr s) noexcept {
-  if (!s) return;
-  cout << "\n bh4: " << fn << ':' << l << q << s << q << endl;
-}
-void bh5(CStr fn, int l, CStr s) noexcept {
-  if (!s) return;
-  cout << "\n bh5: " << fn << ':' << l << q << s << q << endl;
-}
-void bh6(CStr fn, int l, CStr s) noexcept {
-  if (!s) return;
-  cout << "\n bh6: " << fn << ':' << l << q << s << q << endl;
-}
-void bh7(CStr fn, int l, CStr s) noexcept {
-  if (!s) return;
-  cout << "\n bh7: " << fn << ':' << l << q << s << q << endl;
+  char msg[512] = {};
+  ::snprintf(msg, 510, "\n bh3: %s:%i '%s'", fn, l, s);
+  _plnLS.putS(msg, false);
+  _plnLS.doFlush(true);
 }
 
 void flush_out(bool nl) noexcept {
-  if (nl)
-    cout << endl;
-  flush_all();
+  _plnLS.doFlush(nl);
 }
 
 void lprintf(CStr format, ...) {
-  if (s_logLevel >= 3)
-    flush_all();
+  if (s_logLevel >= 4)
+    _plnLS.doFlush(false);
   char buf[32768];
   va_list args;
   va_start(args, format);
@@ -202,19 +275,19 @@ void lprintf(CStr format, ...) {
   buf[32767] = 0;
   va_end(args);
 
-  size_t len = strlen(buf);
+  size_t len = ::strlen(buf);
   if (!len) return;
 
-  cout << buf;
+  _plnLS.putS(buf, false);
+
   if ((len > 2 && buf[len - 1] == '\n') || len > 128) {
-    cout.flush();
-    fflush(stdout);
+    _plnLS.doFlush(false);
   }
 }
 
 // lprintf2 : log-printf with CC to stderr
 void lprintf2(CStr format, ...) {
-  flush_all();
+  _plnLS.doFlush(false);
   char buf[32768];
   va_list args;
   va_start(args, format);
@@ -225,9 +298,8 @@ void lprintf2(CStr format, ...) {
   size_t len = strlen(buf);
   if (!len) return;
 
-  cout << buf;
-  cout.flush();
-  fflush(stdout);
+  _plnLS.putS(buf, false);
+  _plnLS.doFlush(false);
 
   cerr << buf;
   cerr.flush();
@@ -236,7 +308,7 @@ void lprintf2(CStr format, ...) {
 
 // lprintfl : log-printf with file:line
 void lprintfl(CStr fn, uint l, CStr format, ...) {
-  flush_all();
+  _plnLS.doFlush(false);
   char buf[32768];
   va_list args;
   va_start(args, format);
@@ -249,8 +321,8 @@ void lprintfl(CStr fn, uint l, CStr format, ...) {
 
   if (!fn)
     fn = "";
-  cout << ' ' << fn << " : " << l << "  " << buf << endl;
-  fflush(stdout);
+  _plnLS << ' ' << fn << " : " << l << "  " << buf;
+  _plnLS.doFlush(true);
 }
 
 // printf to output-stream 'os'
@@ -316,7 +388,7 @@ static bool s_readLink(const string& path, string& out) noexcept {
 }
 
 void traceEnv(int argc, CStr* argv) noexcept {
-  flush_all();
+  _plnLS.doFlush(false);
   int pid  = ::getpid();
   int ppid = ::getppid();
   string selfPath, parentPath, exe_link;
@@ -327,10 +399,12 @@ void traceEnv(int argc, CStr* argv) noexcept {
   exe_link = str::concat("/proc/", std::to_string(ppid), "/exe");
   s_readLink(exe_link, parentPath);
 
+  string work_dir = get_CWD();
+
   lprintf("    PID: %i   parentPID: %i\n", pid, ppid);
-  lout() << "      self-path: " << selfPath << endl;
-  lout() << "    parent-path: " << parentPath << endl;
-  lout() << "    CWD: " << get_CWD() << endl;
+  lprintf("      self-path: %s\n", selfPath.c_str());
+  lprintf("    parent-path: %s\n", parentPath.c_str());
+  lprintf("    CWD: %s\n", work_dir.c_str());
 
   if (argc > 0 && argv) {
     lprintf("    argc= %i\n", argc);

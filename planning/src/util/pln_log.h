@@ -16,8 +16,8 @@
 //  "BH" stands for Break Here, inspired by purify_stop_here().
 //
 #pragma once
-#ifndef __pln_PINC_LOG_H__5b74600299d7_
-#define __pln_PINC_LOG_H__5b74600299d7_
+#ifndef _pln_UTIL_LOG_H__9acc8907c045af_
+#define _pln_UTIL_LOG_H__9acc8907c045af_
 
 #include <algorithm>
 #include <cassert>
@@ -50,19 +50,24 @@
 namespace pln {
 
 using CStr = const char*;
+struct LOut;
 
 // log-trace value (debug print verbosity)
 // can be set in main() by calling set_ltrace()
 uint16_t ltrace() noexcept;
 void set_ltrace(int t) noexcept;
 
+LOut& getLOut() noexcept;      // global log-splitter
+std::ostream& lout() noexcept; // global log-splitter as ostream
+
+// log-printf - output goes to stdout and to logfile
 void lprintf(CStr format, ...) __attribute__((format(printf, 1, 2)));
 
 // lprintf2 : log-printf with CC to stderr
 void lprintf2(CStr format, ...) __attribute__((format(printf, 1, 2)));
 
 // lprintfl : log-printf with file:line
-void lprintfl(CStr fn, uint l, CStr format, ...);
+void lprintfl(CStr fn, uint l, CStr format, ...) __attribute__((format(printf, 3, 4)));
 
 // printf to output-stream 'os'
 void os_printf(std::ostream& os, CStr format, ...) __attribute__((format(printf, 2, 3)));
@@ -88,20 +93,15 @@ void err_puts(const std::string& s) noexcept;
 void bh1(CStr fn, int l, CStr s = 0) noexcept;
 void bh2(CStr fn, int l, CStr s = 0) noexcept;
 void bh3(CStr fn, int l, CStr s = 0) noexcept;
-void bh4(CStr fn, int l, CStr s = 0) noexcept;
-void bh5(CStr fn, int l, CStr s = 0) noexcept;
-void bh6(CStr fn, int l, CStr s = 0) noexcept;
-void bh7(CStr fn, int l, CStr s = 0) noexcept;
 
 void flush_out(bool nl = false) noexcept;
-
-inline std::ostream& lout() noexcept { return std::cout; }
 
 inline char* p_strdup(CStr p) noexcept {
   if (!p) return nullptr;
   return ::strdup(p);
 }
 inline size_t p_strlen(CStr p) noexcept { return p ? ::strlen(p) : 0; }
+
 inline void p_free(void* p) noexcept {
   if (p) ::free(p);
 }
@@ -339,9 +339,19 @@ struct LOut : public std::ostream, public std::streambuf {
 
   virtual int overflow(int c) override;
 
+  void putS(CStr z, bool nl) noexcept;
+  void putS(const std::string& s, bool nl) noexcept { putS(s.c_str(), nl); }
+
+  void doFlush(bool nl) noexcept;
+
+  bool bufEmpty() const noexcept { return !buf_[0]; }
+  void flushBuf() noexcept;
+
   LOut(const LOut&) = delete;
   LOut& operator = (const LOut&) = delete;
 };
+
+bool open_pln_logfile(CStr fn) noexcept;
 
 }  // namespace pln
 

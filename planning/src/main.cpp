@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0314";
+static const char* _pln_VERSION_STR = "pln0315";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -419,7 +419,7 @@ static void deal_help(const rsOpts& opts) {
     return;
   }
   if (opts.version_) {
-    lputs();
+    cout << endl;
     return;
   }
   if (opts.help_) {
@@ -459,11 +459,6 @@ int main(int argc, char** argv) {
 
   s_env.initVersions(_pln_VERSION_STR);
 
-  if (ltrace() >= 3) {
-    lprintf("\t %s\n", _pln_VERSION_STR);
-    lprintf("\t compiled:  %s\n", s_env.compTimeCS());
-  }
-
   s_env.parse(argc, argv);
 
   if (opts.trace_ >= 8 || ltrace() >= 9 || getenv("pln_trace_env")) {
@@ -472,11 +467,19 @@ int main(int argc, char** argv) {
   }
 
   if (opts.ver_or_help()) {
+    if (ltrace() >= 2) {
+      printf("\t %s\n", _pln_VERSION_STR);
+      printf("\t compiled:  %s\n", s_env.compTimeCS());
+    }
     deal_help(opts);
     pln::flush_out();
     std::quick_exit(0);
   }
 
+  if (ltrace() >= 2) {
+    lprintf("\t %s\n", _pln_VERSION_STR);
+    lprintf("\t compiled:  %s\n", s_env.compTimeCS());
+  }
   if (ltrace() >= 4) {
     lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
   }
