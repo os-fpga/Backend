@@ -9,6 +9,8 @@ namespace pln {
 
 bool do_check(const rsOpts& opts, bool blif_vs_csv);
 
+bool do_check_blif(CStr cfn);
+
 }
 
 #endif

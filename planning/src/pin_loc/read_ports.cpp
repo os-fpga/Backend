@@ -1,3 +1,4 @@
+#include "RS/rsCheck.h"
 #include "pin_loc/pin_placer.h"
 #include "file_io/pln_blif_file.h"
 #include "file_io/nlohmann3_11_2_json.h"
@@ -1095,8 +1096,6 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn) {
 
   bool exi = false;
   exi = bfile.fileExists();
-  if (tr >= 8)
-    ls << int(exi) << endl;
   if (not exi) {
     flush_out(true); err_puts();
     lprintf2("[Error] BLIF file '%s' does not exist\n", cfn); 
@@ -1105,8 +1104,6 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn) {
   }
 
   exi = bfile.fileAccessible();
-  if (tr >= 8)
-    ls << int(exi) << endl;
   if (not exi) {
     flush_out(true); err_puts();
     lprintf2("[Error] BLIF file '%s' is not accessible\n", cfn); 
@@ -1114,9 +1111,18 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn) {
     return false;
   }
 
+  if (::getenv("pinc_check_blif")) {
+    flush_out(true);
+    lprintf("____ BEGIN pinc_check_blif:  %s\n", cfn);
+    bool check_blif_ok = do_check_blif(cfn);
+    flush_out(true);
+    lprintf("           pinc_check_blif STATUS = %s\n\n",
+            check_blif_ok ? "PASS" : "FAIL");
+    lprintf("------ END pinc_check_blif:  %s\n", cfn);
+    flush_out(true);
+  }
+
   bool rd_ok = bfile.readBlif();
-  if (tr >= 8)
-    ls << int(rd_ok) << endl;
   if (not rd_ok) {
     flush_out(true); err_puts();
     lprintf2("[Error] failed reading BLIF file '%s'\n", cfn); 
