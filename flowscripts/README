@@ -1,6 +1,165 @@
-flowscripts contains minor and major scripts for:
-fabric generation: core tasks and assisting tasks;
-LVSDIE: compare routing graph against fabric Verilog;
-BITGEN: from VPR inputs/outputs generate bitstream;
-LVSBIT: compare VPR inputs/outputs against bitstream;
-and many related tasks.
+sched.py
+ - pull runtimes out of raptor.log + *.script, create scripts to balance jobs across multiple slots all running raptor_pin_vgl.sh
+
+raptor_pin_vgl.sh
+ - modify bit_sim.sh to run raptor, run repin.py to improve pin locations, and run rerunvpr.sh to (re-)run VPR and/or validation.
+
+repin.py
+ - read an old placement and create a new _pin_loc.place file with improved pin locations.
+
+rerunvpr.sh
+ - depending on flag argument, re-run VPR pack/place/route/analysis, route2repack.py, bitgen.py, and lvsbit.py
+
+route2repack.py
+ - read .route from VPR and update clock assignments in <design>_repack_constrains.xml needed by bitgen/OpenFPGA/...
+
+bitgen.py
+ - read MANY files produced by synthesis and VPR and generate bitstreams for FPGA arrays.
+ - can also (partially) analyze bitstream differences and create Verilog source for routing blocks.
+
+cbmapping.py
+cbmapping.tcl
+ - create config bit mapping from array Verilog to support .bit format in bitgen. former uses vwalk, latter uses StarVision.
+
+lvsbit.py
+ - read basenets (all nets, muxes, and .subckt/leaf pb_types) and bitstream, convert to netlist, and compare using gemini.
+cbpath.py
+ - (debug) load basenets and settings into networkx, try to find paths
+
+basenets.py
+basenets.tcl
+ - create basenets (all nets, muxes, and .subckt/leaf pb_types) from array Verilog to support lvsbit. former uses vwalk, latter uses StarVision.
+
+vwalk.py
+ - Verilog reader and enumerator
+
+pack_dm.py
+ - parser for VPR .net files
+arch_lib/
+ - parser for vpr.xml and openfpga.xml files.
+arch_etc/
+ - untested schemas for arch_lib
+analyze_vpr_hierarchies.py
+ - sample client
+dump_vpr_xml.py
+ - sample client
+dump_arch_xml.py
+ - sample client
+
+lvsdie.py
+ - read routing graph, read basenets, produce letter maps of unique routing tiles as an array check
+
+runs2vars.py
+ - pull out VPR command arguments across many raptor.log files, make vars.sh files
+
+pv.py
+ - "Python Verilog": support module for producing structural Verilog modules instantiating and connecting others.
+
+uf.py
+ - UNION-FIND implementation
+
+xml2map.py
+ - produce a generic csv config bit map file (for bitgen.py) from an XML bitstream
+xml2csv.sh
+ - convert verbose OpenFPGA bitstream XML into compact csv for bitgen.py regressions
+genxyf.py
+ - produce diagnostic files for bitgen.py debug
+vprwords.py
+ - detect/present bad words/bits in bitgen.py output
+cats.sh
+ - pull out categories of bits
+lutdiff.sh
+ - extract/compare LUT contents from golden vs experimental
+vprfindnets.py
+ - find misrouted nets using .csv and other files
+vprfindluts.py
+ - find misfilled LUTs using .csv and other files
+cdiff.py
+ - compare sorted bitstream files
+gb.sh
+ - obsolete developmental/regression driver for bitgen.py
+
+*.mux *.json
+ - very rough first-cut tile-level routing patterns from FPGA2024 paper
+genb.py
+genl.py
+ - scripts to produce them
+mux2stat.py
+ - produce stat table for .mux file
+lr2mux.py
+ - obsolete LUTRAM experiment
+fgraph.py
+ - compute max flow through CB/LR as sanity check
+
+stamp.py
+ - read old graph, read *.mux, stamp copies throughout, write out again
+loop.py
+ - obsolete/incomplete/experimental: looping attempt from FPGA2024 paper
+make_stamped_graph.sh
+ - obsolete wrapper/driver for stamp.py
+make_rb.sh
+ - obsolete wrapper/driver for bitgen.py's routing tile writing function
+
+rrpath.py
+ - load a routing graph into networkx and look for paths between nodes
+
+rrgvgsb.py
+rrgvgsb
+ - obsolete/incomplete/experimental: compare routing graph to OpenFPGA GSBs + wrapper
+
+genfab.sh
+ - NEW BUILD: bash wrapper to run OpenFPGA directly. we use only sub_module/ and lb/.
+tiles.py
+ - NEW BUILD: produce array tiles from lb/ and /route made by bitgen.py special function.
+fpga_top.py
+ - NEW BUILD: produce array top-level
+genmuxmem.py
+ - NEW BUILD: augment mux-defining file with new muxes we referred to.
+reusetiles.py
+ - NEW BUILD: in a large array, reuse tiles from a smaller arrray
+simreplace.sh
+ - NEW BUILD: obsolete handling of fabric Verilog changes
+
+Makefile
+ - OLD BUILD: stamp flow
+pgen
+ - OLD BUILD: extensive StarVision script to fix OpenFPGA errors and deficiences, and add in stamped routing
+fixiotiles2
+ - OLD BUILD: follow-up smaller step to previous
+make_gemini_release_basenets.sh
+ - OLD BUILD: make basenets.pin.gz
+make_gemini_release_cbmapping.sh
+ - OLD BUILD: make cbmapping.csv.gz
+
+nodes
+ - duplicate attributes and order of how VPR creates nodes (CHANX/Y)
+
+v2sel.py
+ - figure out select signals in Verilog mux source
+
+pincanon.py
+ - extract/canonicalize PIN/NET (basenets) files in various ways
+
+xml2json.py
+ - old XML --> JSON formatting experiment
+p2x.py
+ - old PYX --> XML experiment
+yml2csv.py
+ - convert simple YAML to csv
+
+vparse.py
+ - verilog parser module. never used.
+
+place_opt/
+ - incomplete experiment to reorder CLB contents to improve inter-tile routing
+
+ptbit/
+ - translate bitstreams into set_case_analysis commands and run PT/STA on a configured design
+
+muxopt/
+ - use Yosys to improve muxes used inside array Verilog
+
+evalroute/
+ - collect statistics from experiments for FPGA2024 paper
+evalroute/flute-3.1/
+ - FLUTE-3.1 Steiner tree library (copy)

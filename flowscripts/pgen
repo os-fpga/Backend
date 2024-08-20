@@ -1,0 +1,2960 @@
+#!/nfs_cadtools/softwares/starvision/starvision-7.2.1/bin/starsh
+
+# "Hungarian notation" used for all variable names
+#
+# b* Boolean
+# c* Counts something (ordinal)
+# d* Dictionary value
+# f* File
+# i* Index for loop (controlling)
+# l* List
+# n* Numeric
+# o* OID for StarVision
+# r* Regular expression
+# s* String
+#
+# EXAMPLE: dstile2lsmod_oport
+#	Dictionary mapping String tile *2* a List of String module and Oid port
+# First letter is always correct, some variation and interpretation after that.
+# Additional naming added after type designation if needed.
+#
+# Can't change tcl standard names like argc/argv/stdout/stderr/etc.
+
+# defaults
+set bdebug 0
+set stopmod "fpga_top"
+set szdbfile "starvision/$stopmod/$stopmod.zdb"
+# save path to this script so we can later look for companions
+if { ![regsub {^(.*)/[^/]*$} [exec readlink -f $argv0] {\1} scriptpath] } {
+	error "Could not understand command path to $argv0"
+}
+
+# process args and defaults
+for {set i 0} { $i < [llength $argv] } { incr i } {
+	set sa [lindex $argv $i]
+	# options with no arguments
+	if { $sa == "-d" } {
+		set bdebug 1
+		continue
+	}
+	# options with arguments
+	incr i
+	if { $i >= [llength $argv] } {
+		error "unrecognized option or missing argument: $sa"
+	}
+	set sa2 [lindex $argv $i]
+	if { $sa == "-z" } {
+		set szdbfile $sa2
+		continue
+	}
+	if { $sa == "-t" } {
+		set stopmod $sa2
+		continue
+	}
+	error "unrecognized option: $sa"
+}
+
+# misc constants: look ahead to see how used
+set sdquote "\""
+set slbrace "{"
+set srbrace "}"
+set slbracket "\["
+set srbracket "\]"
+# RE to match & extract (base bus name) and (bit index)
+set rchan {^.*(chan[xy]_[a-z_]*)\[([0-9][0-9]*)\].?$}
+# RE to match & extract (base bus name) and (bit index)
+set rchanm {^.*(chan[xy]_[a-z_]*)([0-9]*\[)([0-9][0-9]*)\].?$}
+# RE to match & extract FULL (base bus name) and (bit index)
+set rchanfull {^(.*)(chan[xy]_[a-z_]*)\[([0-9][0-9]*)\].?$}
+# RE to match OPIN net names
+set ropin {_width_[0-9]*_height_[0-9]*_subtile_[0-9]*__pin_}
+# RE for busses in general
+set rbus {^[^a-zA-Z_$]?(.*)\[([0-9][0-9]*)\].?$}
+# RE for tile base and coordinates
+set rmxy {^(.*)_([0-9][0-9]*)__([0-9][0-9]*)_$}
+
+# load the database and establish top mod
+puts "Reading $szdbfile for $stopmod"
+set db [zdb open $szdbfile]
+set otopmod [list "module" $stopmod $stopmod]
+
+# debugging proc -- not currently used
+proc dump1net {tag db otopmod} {
+	puts ""
+	puts "DEBUG: START $tag"
+	# let's watch this net
+	set snewnet {cby_5__5__0_chany_top_out[131]}
+	set onet [$db oid createFromString net $otopmod $snewnet "/"]
+	set osignal [$db flat signalOf $onet]
+	puts $osignal
+	set dstile2cports [dict create]
+	set dstile2cpins [dict create]
+	set dsdir2count [dict create]
+	$db flat foreach pin -addHier -stopHier $osignal opin {
+		set stype [$db oid type $opin]
+		set lspath [$db oid path $opin]
+		set cpath [llength $lspath]
+		if { $stype == "port" && $cpath == 1 } {
+			set stile [lindex $lspath 0]
+			dict incr dstile2cports $stile 1
+			#puts $opin
+		}
+		if { $stype == "pin" && ![$db isModule $opin] } {
+			set stile [lindex $lspath 0]
+			dict incr dstile2cpins $stile 1
+			dict incr dsdir2count [$db directionOf $opin] 1
+			#puts $opin
+		}
+	}
+	set cports [dict size $dstile2cports]
+	set cpins [dict size $dstile2cpins]
+	puts "port_tiles=$cports pin_tiles=$cpins $dsdir2count"
+	puts "DEBUG: END $tag"
+	puts ""
+}
+
+# where output files go
+set ssrcdir "_run_dir/SRCphys"
+file mkdir $ssrcdir
+set srootdir $ssrcdir
+set stiledir "${ssrcdir}/tile"
+file mkdir $stiledir
+set spindir "${ssrcdir}/pins"
+file mkdir $spindir
+set sflowdir "fabric_task/flow_inputs"
+file mkdir $sflowdir
+
+# open edit log
+set svarifile "$srootdir/edited.rpt"
+set fv [open $svarifile w]
+puts "Writing $svarifile"
+
+# get rid of all direct_interc connections, instances, module
+#$db flag [list "module" "direct_interc" "direct_interc"] set zombie
+#$db deleteZombies
+# Argh!! This deleted too much. Later delete top-level insts
+
+# these tile pins are connected using ugly net names.
+# when we later group them, these names would become ugly port names.
+# instead, we blow nets away and replace with understandable net names
+# that short all similar pins together. these will become new port names,
+# and then we will connect properly using related & consistent net names.
+# the tiles (which will be hidden inside phystiles) can retain ugly port names:
+# no one will see them.
+puts "Disconnecting globals and chains we will later reconnect"
+puts $fv "Edits to prepare for phystile creation"
+set cpin 0
+set dnets_in_bus [dict create]
+set loinstkills {}
+set bdecoder 0
+# step through tiles in top module (which will become parts of phystiles)
+$db foreach inst $otopmod osubtile {
+	set smod [$db oid cname $osubtile]
+	if { $smod == "direct_interc" } {
+		lappend loinstkills $osubtile
+		continue
+	}
+	if { [string match decoder* $smod] } {
+		lappend loinstkills $osubtile
+		set bdecoder 1
+		continue
+	}
+	set sinst [$db oid oname $osubtile]
+	# step through pins on inst
+	$db foreach pin $osubtile opin {
+		set spin [$db oid pname $opin]
+		set snewnet ""
+		set csub 1
+		# based on pin name, csub=1 means connect it to snewnet
+		# the switch glob patterns are strange OpenFPGA names.
+		# the regsub commands shorten these names.
+		switch -glob $spin {
+			prog_clock?0?						-
+			global_resetn?0?					-
+			ccff_head?0?						-
+			ccff_tail?0?						-
+			test_en?0?						-
+			scan_mode?0?						-
+			scan_clk?0?						{
+				# use as-is
+				set snewnet $spin
+			}
+			*_width_*_height_*_subtile_*__pin_global_reset_0_?0?	{
+				# translate this one
+				set snewnet {global_resetn[0]}
+			}
+			*_width_*_height_*_subtile_*__pin_sc_in_*_?0?		-
+			*_width_*_height_*_subtile_*__pin_sc_out_*_?0?		-
+			*_width_*_height_*_subtile_*__pin_sr_in_*_?0?		-
+			*_width_*_height_*_subtile_*__pin_sr_out_*_?0?		-
+			*_width_*_height_*_subtile_*__pin_clk_*_?0?		-
+			*_width_*_height_*_subtile_*__pin_RAM_ID_i_*_?0?	-
+			*_width_*_height_*_subtile_*__pin_PL_WEN_i_*_?0?	-
+			*_width_*_height_*_subtile_*__pin_PL_ADDR_i_*_?0?	-
+			*_width_*_height_*_subtile_*__pin_PL_DATA_i_*_?0?	-
+			*_width_*_height_*_subtile_*__pin_PL_WEN_o_*_?0?	-
+			*_width_*_height_*_subtile_*__pin_PL_ADDR_o_*_?0?	-
+			*_width_*_height_*_subtile_*__pin_PL_DATA_o_*_?0?	-
+			*_width_*_height_*_subtile_*__pin_plr_i_*_?0?		-
+			*_width_*_height_*_subtile_*__pin_plr_o_*_?0?		{
+				# use # near end of name as bus idx, not [0]
+				set csub [regsub	{^.*__pin_(.*)_([0-9]*)_\[0\]$}	\
+						$spin {\1[\2]} snewnet]
+			}
+			*_width_*_height_*_subtile_*__pin_scan_reset_0_?0?	-
+			*_width_*_height_*_subtile_*__pin_cin_0_?0?		-
+			*_width_*_height_*_subtile_*__pin_cout_0_?0?		-
+			*_width_*_height_*_subtile_*__pin_PL_*_0_?0?		{
+				# drop extra zeroes from name
+				set csub [regsub	{^.*__pin_(.*)_0_\[0\]$}	\
+						$spin {\1} snewnet]
+			}
+		}
+		#puts "inst=$sinst pin=$spin csub=$csub snewnet=$snewnet"
+		if { !$csub } {
+			# a regsub command failed
+			error "Could not understand $spin"
+		}
+		# no reconnection was requested
+		if { $snewnet == "" } { continue }
+
+		puts $fv "Reconnecting $opin"
+		# throw away current connection
+		if { [$db isConnected $opin] } {
+			set onet [$db connectedNet $opin]
+			# disconnect port
+			$db oper disconnect $opin
+			puts $fv "\tDisconnected from $onet"
+		}
+		# connect to net named $snewnet
+		$db reloadModule $stopmod
+		$db load net $snewnet
+		set onet [$db oid createFromString net $otopmod $snewnet "/"]
+		$db oper connect $opin $onet
+		puts $fv "\tConnected to $onet"
+		# save all nets created so can declare buses below
+		dict set dnets_in_bus $snewnet 0
+		incr cpin
+	}
+}
+# there are other routable connections changed later
+
+# delete direct_interc instances at top level
+# (don't change things inside loops)
+foreach osubtile $loinstkills {
+	$db flag $osubtile set zombie
+}
+$db deleteZombies
+
+# collect information about buses we should declare
+set dnewbus [dict create]	; # busname --> list of nets
+foreach snewnet [lsort -dictionary [dict keys $dnets_in_bus]] {
+	# pull out bus (base) name and bit index
+	if { ![regsub $rbus $snewnet {\1 \2} sbasebit] } {
+		# nah, didn't use base[bit] format
+		continue
+	}
+	foreach {sbase nbit} $sbasebit  { }
+	# save nets grouped by bus name
+	dict lappend dnewbus $sbase $snewnet
+}
+# declare the buses. already appropriately named nets.
+# if this is not done, then individual nets are bit-blasted
+# and the Verilog is longer.
+$db reloadModule $stopmod	; # which module "$db load netBus" applies to
+set cb 0
+puts $fv "Creating busses"
+dict for {sbase lnets} $dnewbus { 
+	set onet [$db oid createFromString net $otopmod [lindex $lnets 0] "/"]
+	# sometimes StarVision already declared the bus, so avoid an error
+	# the "switch" above doesn't discriminate
+	if { [$db isBusMember $onet] } {
+		continue
+	}
+	set nw [llength $lnets]
+	# nasty trick: $lnets interpolated as if individual args
+	$db load netBus $sbase $nw {*}$lnets
+	# it looks like nets are real, and buses are just groupings
+	puts $fv "\tMade bus: $sbase $nw <== $lnets"
+	incr cb
+}
+puts "$cpin tile pins dis/reconnected and $cb buses declared"
+
+# 1. singlize instances (safer but now disabled since didn't need it)
+# 2. figure out subtile-->tile mappings based on tile sizes and location
+puts "Enumerating tiles"
+set dvpr2tile [dict create]	; # map "x y" to "x y". identity except 0-->1.
+set nxmin 9999			; # deduce array size here 
+set nxmax 0
+set nymin 9999
+set nymax 0
+set dcol2type [dict create]	; # map x-coordinate to clb/bram/dsp
+set dbram2id [dict create]	; # map tile_#__#_ to 0 (change later) if BRAM
+set dtile2ht [dict create]	; # map tile_#__#_ to # rows tall
+$db foreach inst $otopmod osubtile {
+
+	set scname [$db oid cname $osubtile]
+	set soname [$db oid oname $osubtile]
+	#puts "DEBUG scname=$scname soname=$soname"
+	# do not alter direct_interc modules
+	if { $scname == "direct_interc" } { continue }
+
+	# singlize this instance
+	if { 0 } {
+		$db oper singlize $osubtile
+	}
+
+	# turn inst name into tile name it will live in
+	set csub [regsub $rmxy $soname {\1 \2 \3} smxy]
+	if { !$csub } {
+		error "Could not understand $soname"
+	}
+	foreach {sm1 nx1 ny1} $smxy { }
+	set nx1 [expr {int($nx1)}]	; # python-brain
+	set ny1 [expr {int($ny1)}]
+	set nx2 $nx1 ; set ny2 $ny1
+	# map 0,* to 1,* and *,0 to *,1
+	if { $nx2 == 0 } { set nx2 1 }
+	if { $ny2 == 0 } { set ny2 1 }
+	if { $nx1 != $nx2 || $ny1 != $ny2 } {
+		dict set dvpr2tile "$nx1 $ny1" "$nx2 $ny2"
+		# puts DEBUG: Mapping zero $nx1 $ny1 -->
+		# $nx2 $ny2 scname=$scname soname=$soname
+	}
+
+	# detect multiple height cells
+	# this could be done by detecting "holes" in the list of tiles,
+	# but here we just hardwire the heights.
+	#puts "DEBUG match? scname=$scname"
+	set stile "tile_${nx1}__${ny1}_"
+	if { [string match grid_bram* $scname] } {
+		set nh 3		; # height of BRAM
+		dict set dcol2type $nx1 bram
+		# fill this in later
+		dict set dbram2id $stile 0
+	} elseif { [string match grid_dsp* $scname] } {
+		set nh 3		; # height of DSP
+		dict set dcol2type $nx1 dsp
+	} elseif { [string match grid_clb* $scname] } {
+		set nh 1
+		dict set dcol2type $nx1 clb
+	} else {
+		set nh 1
+	}
+	# is this tile clb/bram/dsp/io rather than sb/cb?
+	if { [string match grid_* $scname] } {
+		dict set dtile2ht $stile $nh
+		#puts "SAVING scname=$scname stile=$stile height=$nh"
+		for {set io 0} {$io < $nh} {incr io} {
+			set ny1 [expr {$ny2 + $io}]
+			dict set dvpr2tile "$nx1 $ny1" "$nx2 $ny2"
+			if { $nx1 < $nxmin } { set nxmin $nx1 }
+			if { $ny1 < $nymin } { set nymin $ny1 }
+			if { $nx1 > $nxmax } { set nxmax $nx1 }
+			if { $ny1 > $nymax } { set nymax $ny1 }
+			#puts DEBUG: Mapping $nx1 $ny1 -->
+			# $nx2 $ny2 scname=$scname soname=$soname
+		}
+	}
+	# do not let SBs or CBs determine any x-only mapping since they will overwrite it
+}
+
+# save IDs for all BRAMs. DO this separately in case we need to number them.
+foreach sbram [lsort -dictionary [dict keys $dbram2id]] {
+	set csub [regsub $rmxy $sbram {\1 \2 \3} smxy]
+	if { !$csub } {
+		error "Could not understand $sbram"
+	}
+	foreach {sm nx ny} $smxy { }
+	# id is X in upper 10b, and Y in lower 10b
+	set nid [expr {$nx << 10 | $ny}]
+	dict set dbram2id $sbram $nid
+}
+
+puts "Determining new phystile names"
+# determine base master name based on whether we're on the edge
+# and what the column type is.
+set dtile2master [dict create]	; # tile_#__#_ (instance) --> clb_#__#_ (master)
+for {set nx $nxmin} {$nx <= $nxmax} {incr nx} {
+	for {set ny $nymin} {$ny <= $nymax} {incr ny} {
+		# no magic here, just lots of cases
+		if { $nx == $nxmin } {
+			if { $ny == $nymin } {
+				set sm bottom_left_io_tile
+			} elseif { $ny < $nymax } {
+				set sm left_io_tile
+			} else {
+				set sm top_left_io_tile
+			}
+		} elseif { $nx < $nxmax } {
+			set sm [dict get $dcol2type $nx]
+			if { $nymin < $ny && $ny < $nymax } {
+				set sm [string cat "grid_" $sm "_tile"]
+			} else {
+				if { $sm == "clb" } {
+					set sm ""
+				} else {
+					set sm [string cat $sm _ ]
+				}
+				if { $nymin == $ny } {
+					set sm [string cat bottom_ $sm io_tile ]
+				} else {
+					set sm [string cat top_ $sm io_tile ]
+				}
+			}
+		} else {
+			if { $ny == $nymin } {
+				set sm bottom_right_io_tile
+			} elseif { $ny < $nymax } {
+				set sm right_io_tile
+			} else {
+				set sm top_right_io_tile
+			}
+		}
+		set stile [string cat "tile_" $nx "__" $ny "_"]
+		# we have to prove these are equivalent later
+		# in this script we will create a module for each x,y
+		set smaster [string cat $sm "_" $nx "__" $ny "_"]
+		dict set dtile2master $stile $smaster
+	}
+}
+
+# build list of subtiles in each phys tile
+set dtile2subtiles [dict create]	; # tile_#__#_ --> list of instance OIDs
+$db foreach inst $otopmod osubtile {
+
+	# master
+	set scname [$db oid cname $osubtile]
+	# instance
+	set soname [$db oid oname $osubtile]
+	# do not alter direct_interc modules
+	if { $scname == "direct_interc" } { continue }
+
+	# turn inst name into tile name it will live in
+	set csub [regsub $rmxy $soname {\1 \2 \3} smxy]
+	if { !$csub } {
+		error "Could not understand $soname"
+	}
+	foreach {sm nx ny} $smxy { }
+	set sxy [dict get $dvpr2tile "$nx $ny"]
+	foreach {nx ny} $sxy { }
+	set stile [string cat "tile_" $nx "__" $ny "_"]
+
+	# save the substile instance in the new tile
+	dict lappend dtile2subtiles $stile $osubtile
+}
+
+# write to grouping.tcl equivalent commands for what we are going to create
+set sgrpfile "${srootdir}/grouping.tcl"
+set fg [open $sgrpfile "w"]
+puts "Writing $sgrpfile"
+set lstiles [lsort -dictionary [dict keys $dtile2subtiles]]
+foreach stile $lstiles {
+	set smaster [dict get $dtile2master $stile]
+	set losubtiles [dict get $dtile2subtiles $stile]
+	set lsnames {}
+	foreach osubtile $losubtiles {lappend lsnames [$db oid oname $osubtile]}
+	puts $fg "group -design_name $smaster -cell_name $stile $slbrace$lsnames$srbrace"
+}
+close $fg
+
+# determine wordline (h) and bitline (v) stuff if present
+# build map BL#-->col,bit and WL#-->row,bit
+set dbl2colbit [dict create]
+set dwl2rowbit [dict create]
+set bmemory 0
+foreach stile $lstiles {
+	set losubtiles [dict get $dtile2subtiles $stile]
+	foreach osubtile $losubtiles {
+
+		set ssubtile [$db oid oname $osubtile]
+		set csub [regsub $rmxy $ssubtile {\1 \2 \3} smxy1]
+		if { !$csub } {
+			error "Could not understand instance $stile"
+		}
+		foreach {sm1 nx1 ny1} $smxy1 { }
+		# fill these in below
+		if { $sm1 == "grid_bram" || $sm1 == "grid_dsp" } { continue }
+
+		$db foreach pinBus $osubtile opinBus {
+			set spinbus [$db oid pname $opinBus]
+			if { ![string match {[bw]l} $spinbus] } { continue }
+			set bmemory 1
+			$db foreach pin $opinBus opin {
+				if { ![$db isConnected $opin] } { continue }
+
+				set spin [$db oid pname $opin]
+				if { ![regsub $rbus $spin {\1 \2} spbasebit] } {
+					error "pin bus component unrecognized"
+				}
+				foreach {spbase npbit} $spbasebit { }
+
+				set onet [$db connectedNet $opin]
+				set snet [$db oid oname $onet]
+				if { ![regsub $rbus $snet {\1 \2} snbasebit] } {
+					error "net bus component unrecognized"
+				}
+				foreach {snbase nnbit} $snbasebit  { }
+
+				if { $spinbus == "bl" } {
+					dict set dbl2colbit $nnbit "$nx1 -1"
+				} else {
+					dict set dwl2rowbit $nnbit "$ny1 -1"
+				}
+			}
+		}
+	}
+}
+# fill in holes left by ignoring BRAM and DSP
+set ncolmax [lindex [lsort -dictionary -decreasing [dict keys $dbl2colbit]] 0]
+for { set ncol $ncolmax } { $ncol >= 0 } { incr ncol -1 } {
+	if { [dict exists $dbl2colbit $ncol] } {
+		foreach {nx1 njunk} [dict get $dbl2colbit $ncol] { }
+	} else {
+		dict set dbl2colbit $ncol "$nx1 -1"
+	}
+}
+set nrowmax [lindex [lsort -dictionary -decreasing [dict keys $dwl2rowbit]] 0]
+for { set nrow 0 } { $nrow < $nrowmax } { incr nrow } {
+	if { [dict exists $dwl2rowbit $nrow] } {
+		foreach {nx1 njunk} [dict get $dwl2rowbit $nrow] { }
+	} else {
+		dict set dwl2rowbit $nrow "$nx1 -1"
+	}
+}
+# update col/row,-1 to col/row,bit
+set nprev -2
+set dnx2blrange [dict create]
+for { set ncol 0 } { $ncol <= $ncolmax } { incr ncol } {
+	foreach {nx1 njunk} [dict get $dbl2colbit $ncol] { }
+	if { !$nx1 } { incr nx1 }
+	if { $nx1 != $nprev } {
+		set nprev $nx1
+		set nbase $ncol
+	}
+	set noff [expr {$ncol - $nbase}]
+	dict set dbl2colbit $ncol "$nx1 $noff"
+	dict set dnx2blrange $nx1 "$nbase $ncol"
+}
+set nprev -2
+set dny2wlrange [dict create]
+for { set nrow 0 } { $nrow <= $nrowmax } { incr nrow } {
+	foreach {ny1 njunk} [dict get $dwl2rowbit $nrow] { }
+	if { !$ny1 } { incr ny1 }
+	if { $ny1 != $nprev } {
+		set nprev $ny1
+		set nbase $nrow
+	}
+	set noff [expr {$nrow - $nbase}]
+	dict set dwl2rowbit $nrow "$ny1 $noff"
+	dict set dny2wlrange $ny1 "$nbase $nrow"
+}
+set dnxbit2gbl [dict create]
+dict for {ngbl spair} $dbl2colbit {
+	foreach {nx1 noff} $spair { }
+	dict set dnxbit2gbl $nx1 $noff $ngbl
+}
+set dnybit2gwl [dict create]
+dict for {ngwl spair} $dwl2rowbit {
+	foreach {ny1 noff} $spair { }
+	dict set dnybit2gwl $ny1 $noff $ngwl
+}
+#puts "dbl2colbit = $dbl2colbit"		; # 0..400 --> 1..10 0..49
+#puts "dwl2rowbit = $dwl2rowbit"		; # 0..500 --> 1..8  0..49
+#puts "dnx2blrange = $dnx2blrange"	; # 1..10 --> 300 349
+#puts "dny2wlrange = $dny2wlrange"	; # 1..8  --> 400 449
+#puts "dnxbit2gbl = $dnxbit2gbl"		; # 1..10 0..49 --> 0.400
+#puts "dnybit2gwl = $dnybit2gwl"		; # 1..8  0..49 --> 0.500
+
+####
+
+# declare all bl/wl nets and busses
+$db reloadModule $stopmod	; # creating new nets here
+set nxminm1 [expr {$nxmin - 1}]
+for { set ny $nxmin } { $ny <= $nymax } { incr ny } {
+	if { !$bmemory } { continue }
+	foreach {nbmin nbmax} [dict get $dny2wlrange $ny] { }
+	set nw [expr {1 + $nbmax - $nbmin}]
+	set bport 1
+	for { set nx $nxminm1 } { $nx <= $nxmax } { incr nx } {
+		# make one bus and its bits
+		set sbus "wl__abut_${nx}__${ny}_"
+		set lnets {}
+		for { set nb 0 } { $nb < $nw } { incr nb } {
+			set sbit "$sbus$slbracket$nb$srbracket"
+			$db load net $sbit
+			if { $bport } {
+				$db load port $sbit "input"
+				set onet [$db oid createFromString net $otopmod $sbit "/"]
+				set oport [$db oid createFromString port $otopmod $sbit "/"]
+				$db oper connect $oport $onet
+			}
+			lappend lnets $sbit
+		}
+		$db load netBus $sbus $nw {*}$lnets
+		if { $bport } {
+			$db load portBus $sbus "input" $nw {*}$lnets
+		}
+		set bport 0
+	}
+}
+set nymaxp1 [expr {$nymax + 1}]
+for { set nx $nxmin } { $nx <= $nxmax } { incr nx } {
+	if { !$bmemory } { continue }
+	foreach {nbmin nbmax} [dict get $dnx2blrange $nx] { }
+	set nw [expr {1 + $nbmax - $nbmin}]
+	set bport 1
+	for { set ny $nymaxp1 } { $ny >= $nymin } { incr ny -1 } {
+		# make one bus and its bits
+		set sbus "bl__abut_${nx}__${ny}_"
+		set lnets {}
+		for { set nb 0 } { $nb < $nw } { incr nb } {
+			set sbit "$sbus$slbracket$nb$srbracket"
+			$db load net $sbit
+			if { $bport } {
+				$db load port $sbit "input"
+				set onet [$db oid createFromString net $otopmod $sbit "/"]
+				set oport [$db oid createFromString port $otopmod $sbit "/"]
+				$db oper connect $oport $onet
+			}
+			#set onet [$db oid createFromString net $otopmod $sbit "/"]
+			lappend lnets $sbit
+		}
+		$db load netBus $sbus $nw {*}$lnets
+		if { $bport } {
+			$db load portBus $sbus "input" $nw {*}$lnets
+		}
+		set bport 0
+	}
+}
+
+foreach stile $lstiles {
+
+	set csub [regsub $rmxy $stile {\1 \2 \3} smxy1]
+	if { !$csub } {
+		error "Could not understand instance $stile"
+	}
+	foreach {sm1 nx1 ny1} $smxy1 { }
+	#puts "BL/WL starts on stile=$stile nx1=$nx1 ny1=$ny1"
+	set nht [dict get $dtile2ht $stile]
+
+	set losubtiles [dict get $dtile2subtiles $stile]
+	set dx2osubtiles [dict create]
+	set dy2osubtiles [dict create]
+	foreach osubtile $losubtiles {
+		set bmem 0
+		$db foreach pinBus $osubtile opinBus {
+			set spname [$db oid pname $opinBus]
+			if { ![string match {[bw]l} $spname] } { continue }
+			set bmem 1
+			break
+		}
+		if { !$bmem } { continue }
+
+		set ssubtile [$db oid oname $osubtile]
+		set csub [regsub $rmxy $ssubtile {\1 \2 \3} smxy2]
+		set sm2 "x"
+		if { !$csub } {
+			error "Could not understand instance $stile"
+		} else {
+			foreach {sm2 nx2 ny2} $smxy2 { }
+		}
+		set nx [expr {$nx2 * 2}] ; set ny [expr {$ny2 * 2}]
+		      if { $sm2 == "cbx" } {
+			incr nx 0 ; incr ny 1
+		} elseif { $sm2 == "cby" } {
+			incr nx 1 ; incr ny 0
+		} elseif { $sm2 == "sb"  } {
+			incr nx 1 ; incr ny 1
+		} else {
+			incr nx 0 ; incr ny 0
+		}
+		dict lappend dx2osubtiles $nx $ny $osubtile
+		dict lappend dy2osubtiles $ny $nx $osubtile
+	}
+	if { ![dict size $dx2osubtiles] } { continue }
+	# in each column, ensure largest coordinate first
+	dict for {nx osubtiles} $dx2osubtiles {
+		set osubtiles [lsort -stride 2 -decreasing $osubtiles]
+		dict set dx2osubtiles $nx $osubtiles
+		#puts "nx=$nx osubtiles=$osubtiles"
+	}
+	# in each row, ensure smallest coordinate first
+	dict for {ny osubtiles} $dy2osubtiles {
+		set osubtiles [lsort -stride 2 -increasing $osubtiles]
+		dict set dy2osubtiles $ny $osubtiles
+		#puts "ny=$ny osubtiles=$osubtiles"
+	}
+	# connect bitlines
+	dict for {nx osubtiles} $dx2osubtiles {
+		incr ny1 $nht; set sabut "bl__abut_${nx1}__${ny1}_" ; incr ny1 -$nht
+		# step through cbx, sb, guts, cby
+		foreach {ny osubtile} $osubtiles {
+			$db foreach pin $osubtile opin {
+				# get bl pin info, skip if not bl connection
+				set spin [$db oid pname $opin]
+				if { ![regsub $rbus $spin {\1 \2} spbasebit] } { continue }
+				foreach {spbase npbit} $spbasebit  { }
+				if { $spbase != "bl" } { continue }
+
+				set onet [$db connectedNet $opin]	; # get old net
+				set snet [$db oid oname $onet]		; # get bus bit
+				if { ![regsub $rbus $snet {\1 \2} snbasebit] } {
+					error "non-bus connected to bl bus port"
+				}
+				foreach {snbase nnbit} $snbasebit  { }
+
+				# create new net for this pin
+				foreach {ncol nb} [dict get $dbl2colbit $nnbit] { }
+				set snewnet "$sabut$slbracket$nb$srbracket"
+				set onet [$db oid createFromString net $otopmod $snewnet "/"]
+				$db oper disconnect $opin
+				$db oper    connect $opin $onet
+			}
+			set sabut "bl__abut_${nx1}__${ny1}_"
+		}
+	}
+	# connect wordlines
+	dict for {ny osubtiles} $dy2osubtiles {
+		set nyd2 [expr {$ny >> 1}]
+		set ny7 [expr {($nyd2 < $ny1) ? $ny1 : $nyd2}]
+		incr nx1 -1 ; set sabut "wl__abut_${nx1}__${ny7}_" ; incr nx1
+		# step through cbx, sb, guts, cby
+		foreach {nx osubtile} $osubtiles {
+			$db foreach pin $osubtile opin {
+				# get wl pin info, skip if not wl connection
+				set spin [$db oid pname $opin]
+				if { ![regsub $rbus $spin {\1 \2} spbasebit] } { continue }
+				foreach {spbase npbit} $spbasebit  { }
+				if { $spbase != "wl" } { continue }
+
+				set onet [$db connectedNet $opin]	; # get old net
+				set snet [$db oid oname $onet]		; # get bus bit
+				if { ![regsub $rbus $snet {\1 \2} snbasebit] } {
+					error "non-bus connected to bl bus port"
+				}
+				foreach {snbase nnbit} $snbasebit  { }
+
+				# create new net for this pin
+				foreach {nrow nb} [dict get $dwl2rowbit $nnbit] { }
+				set snewnet "$sabut$slbracket$nb$srbracket"
+				set onet [$db oid createFromString net $otopmod $snewnet "/"]
+				$db oper disconnect $opin
+				$db oper    connect $opin $onet
+			}
+			set sabut "wl__abut_${nx1}__${ny7}_"
+		}
+	}
+}
+
+# create IOTile-specific peripheral buses
+set dnflags2side [dict create 1 left 2 right 4 bottom 8 top]
+set dsionetbus2snets [dict create]
+set dsioportbus2sports [dict create]
+set lopin_snet_bport {}
+$db reloadModule $stopmod	; # creating new nets & ports
+set sm "pinMapping.csv"
+set fm [open $sm w]
+puts "Writing $sm"
+foreach {sbus suffix sdir} {
+		gfpga_pad_QL_PREIO_A2F		a2f	input
+		gfpga_pad_QL_PREIO_F2A		f2a	output
+		gfpga_pad_QL_PREIO_F2A_CLK	clk_out	output	} {
+	set onetbus [$db oid create [list "netBus" $stopmod $sbus]]
+	$db foreach net $onetbus onet {
+		$db foreach pinCon $onet opin {
+			set snet0 [$db oid oname $onet]
+			set susename [$db oid oname $opin]
+			set csub [regsub $rmxy $susename {\1 \2 \3} smxy]
+			if { !$csub } {
+				error "Could not understand instance $susename"
+			}
+			foreach {sm nx ny} $smxy { }
+			if { ![string match grid_io* $sm] } {
+				error "IOTiles busses connected to non-IOTile $susename"
+			}
+
+			set spinname [$db oid pname $opin]
+			if { ![regsub $rbus $spinname {\1 \2} sbasebit] } {
+				error "Could not understand instance $spinname"
+			}
+			foreach {spinbase npinbit} $sbasebit  { }
+
+			set bport 1
+			set nflags 0
+			if { $nx == $nxmin } { incr nflags 1 }
+			if { $nx == $nxmax } { incr nflags 2 }
+			if { $ny == $nymin } { incr nflags 4 }
+			if { $ny == $nymax } { incr nflags 8 }
+			if { ![dict exists $dnflags2side $nflags] } {
+				set sbase "corner_${nx}_${ny}_$suffix"
+				set bport 0
+			} else {
+				set sbase [dict get $dnflags2side $nflags]
+				if { $nflags >= 4 } {
+					set sbase "${sbase}_${nx}_$suffix"
+				} else {
+					set sbase "${sbase}_${ny}_$suffix"
+				}
+				if { $suffix == "a2f" } {
+					# 23..0 are for ASIC to fabric
+					if { $npinbit >= 24 } {
+						incr npinbit -24
+						set bport 0
+					}
+				} else {
+					# 71..24 are for fabric to ASIC
+					if { $npinbit >= 24 } {
+						incr npinbit -24
+					} else {
+						set bport 0
+					}
+				}
+			}
+
+			# an input we are keeping internal: tie off to ground
+			if  { !$bport && $suffix == "a2f" } {
+				if { [$db isConnected $opin] } {
+					$db oper disconnect $opin
+				}
+				set snet "vss"
+				$db load net $snet -value 0
+				set onet [$db oid createFromString net $otopmod $snet "/"]
+				$db oper connect $opin $onet
+				continue
+			}
+
+			# make nets and ports here, netBuses and portBuses later
+			if { !$bport } {
+				set sbase "${sbase}_unused"
+			}
+			set snet "$sbase$slbracket$npinbit$srbracket"
+			$db load net $snet
+			dict set dsionetbus2snets $sbase $snet 0
+			if { $bport } {
+				$db load port $snet $sdir
+				dict set dsioportbus2sports $sbase $snet $sdir
+				puts $fm "$snet0,$snet"
+			}
+
+			# remember to make needed mods outside enumeration
+			lappend lopin_snet_bport $opin $snet $bport
+		}
+	}
+}
+close $fm
+# foreach (opin, snet, bport):
+#	disconnect opin
+#	connect opin to snet
+#	if bport: connect to same-named port
+#	elseif a2f: connect to ground
+foreach {opin snet bport} $lopin_snet_bport {
+	if { [$db isConnected $opin] } {
+		$db oper disconnect $opin
+	}
+	set onet [$db oid createFromString net $otopmod $snet "/"]
+	$db oper connect $opin $onet
+	if { !$bport } { continue }
+	set oport [$db oid createFromString port $otopmod $snet "/"]
+	$db oper connect $oport $onet
+}
+# create netBus's for nets just created
+dict for {sbase dsnets} $dsionetbus2snets {
+	set lsnets [lsort -dictionary -decreasing [dict keys $dsnets]]
+	set nw [llength $lsnets]
+	if { $nw % 24 } {
+		error "netBus $sbase has $nw components: $lsnets"
+	}
+	#puts "netBus: sbase=$sbase nw=$nw lsnets=$lsnets"
+	$db load netBus $sbase $nw {*}$lsnets
+}
+# create portBus's for ports just created
+dict for {sbase dsports} $dsioportbus2sports {
+	set lsports [lsort -dictionary -decreasing [dict keys $dsports]]
+	set nw [llength $lsports]
+	if { $nw % 24 } {
+		error "portBus $sbase has $nw components: $lsports"
+	}
+	set sdir [dict get $dsports [lindex $lsports 0]]
+	#puts "load portBus $sbase $sdir $nw $lsports"
+	$db load portBus $sbase $sdir $nw {*}$lsports
+}
+# blow away this nonsense
+set lopin {}
+foreach {sbus} {gfpga_pad_QL_PREIO_F2A_DEF0 gfpga_pad_QL_PREIO_F2A_DEF1} {
+	set lbus [list "netBus" $stopmod $sbus]
+	if { ![$db oid exists $lbus] } { continue }
+	set onetbus [$db oid create $lbus]
+	$db foreach net $onetbus onet {
+		$db foreach pinCon $onet opin {
+			lappend lopin $opin
+		}
+	}
+}
+foreach {opin} $lopin {
+	if { [$db isConnected $opin] } {
+		$db oper disconnect $opin
+	}
+}
+
+# connect the scan chain through the IOTiles
+$db reloadModule $stopmod	; # creating new nets here
+set riouse {^grid_io_(left|right|top|bottom)_([0-9]*)__([0-9]*)_$}
+set riopin {^([^_]*)_width_.*_height_.*_subtile_([0-9]*)__pin_sc_(in|out)_0_\[0\]$}
+set nsubtilemax 71
+$db foreach inst $otopmod osubtile {
+	# instance
+	set soname [$db oid oname $osubtile]
+	if { ![regexp $riouse $soname smatch side nx0 ny0] } {
+		continue
+	}
+	#puts "IOSC: found $soname"
+	$db foreach pin $osubtile opin {
+		set spin [$db oid pname $opin]
+		#puts "IOSC:\tCANDIDATE $spin"
+		if { ![regexp $riopin $spin smatch side nsubtile sdir] } {
+			continue
+		}
+		#puts "IOSC:\tfound $soname.$spin"
+		if { [$db isConnected $opin] } {
+			$db oper disconnect $opin
+		}
+		# nets are named by driving tile/slot,
+		# so for inputs determine the driving output.
+		# --> computing reverse of data flow.
+		set nx $nx0
+		set ny $ny0
+		set bport 0
+		# shift order: 0leftdown -> 1bottomright -> 2rightup -> 3topleft
+		if { $sdir == "in" } {
+			if { $nx == $nxmin } {
+				# 0leftdown
+				if { $nsubtile == $nsubtilemax } {
+					incr ny
+					set nsubtile 0
+					if { $ny > $nymax } {
+						set bport 1
+					}
+				} else {
+					incr nsubtile
+				}
+			} elseif { $nx == $nxmax } {
+				# 2rightup
+				if { $nsubtile == 0 } {
+					if { $ny == $nymin } {
+						# turn!
+						incr nx -1
+					} else {
+						incr ny -1
+					}
+					set nsubtile $nsubtilemax
+				} else {
+					incr nsubtile -1
+				}
+			} elseif { $ny == $nymin } {
+				# 1bottomright (note 1,1:0 --> 2,1:0)
+				if { $nsubtile == 0 } {
+					incr nx -1
+					if { $nx != $nxmin } {
+						set nsubtile $nsubtilemax
+					}
+				} else {
+					incr nsubtile -1
+				}
+			} elseif { $ny == $nymax } {
+				# 3topleft (note 10,8:79 --> 9,8:79)
+				if { $nsubtile == $nsubtilemax } {
+					incr nx
+					if { $nx != $nxmax } {
+						set nsubtile 0
+					}
+				} else {
+					incr nsubtile
+				}
+			} else {
+				error "strange IOTile/pin $soname.$spin"
+			}
+		} else {
+			if { $nx == $nxmin + 1 && $ny == $nymax && $nsubtile == 0 } {
+				set bport 1
+			}
+		}
+
+		# create the net
+		set snet "iosc__abut_${nx}__${ny}_${nsubtile}"
+		$db load net $snet
+		set onet [$db oid createFromString net $otopmod $snet "/"]
+		# connect the pin to the net
+		$db oper connect $opin $onet
+		#puts "IOSC:\tport=$bport net=$snet"
+		# create a port on the net?
+		if { $bport } {
+			$db load port $snet "${sdir}put"
+			set oport [$db oid createFromString port $otopmod $snet "/"]
+			$db oper connect $oport $onet
+		}
+	}
+}
+
+# run companion IOTile-fixing script if it exists
+set script "$scriptpath/fixiotiles1"
+if { [file exists $script] } {
+	set nfixiotilesphase 1
+	puts "Running $script"
+	source $script
+}
+
+proc rename_port_bus {db oportbus snewname sdir} {
+	#puts "Rename $snewname $sdir <== $oportbus"
+	$db oper rename $oportbus $snewname
+	$db oper setDirection $oportbus $sdir -updatePins
+	$db foreach port $oportbus oport {
+		set sport [$db oid oname $oport]
+		if { ![regsub $::rbus $sport {\1 \2} sbasebit] } {
+			error "port in portbus not recognizable"
+		}
+		foreach {sbase nbit} $sbasebit  { }
+		$db oper rename $oport "$snewname$::slbracket$nbit$::srbracket"
+		$db oper setDirection $oport $sdir -updatePins
+	}
+}
+
+# note write verilog command doesn't write red cells nor blue ports.
+# we write each module to its own file by ensuring only one module is non-red.
+# blue is set on ports we have completely disconnected and hence they disappear.
+# search for "blue".
+proc wrverilog {db lstiles stopmod srootdir stiledir dtile2master suffix} {
+	if { $suffix == "" } {
+		set bnoisy 1
+	} else {
+		set bnoisy 0
+	}
+	# write out the results
+	# mark all modules as do-not-netlist, then clear individually
+	$db flag -db set red
+	set ctiles [llength $lstiles]
+	incr ctiles
+	set ci 0
+	if { $bnoisy } {
+		puts "Writing Verilog file(s)"
+	}
+	foreach stile [concat $lstiles [list $stopmod]] {
+		if { $stile == $stopmod } {
+			set smod $stile
+			set svfile "$srootdir/$smod$suffix.v"
+		} else {
+			set smod [dict get $dtile2master $stile]
+			set svfile "$stiledir/$smod.v"
+		}
+		incr ci
+		if { $bnoisy } {
+			puts -nonewline "  Writing $ci/$ctiles $svfile         \r"
+		} else {
+			puts "Writing $svfile"
+		}
+		flush stdout
+		# there's an "official" way to build a module reference
+		set omod [list "module" $smod $smod]
+		# write only one module to this file
+		$db flag $omod clear red
+		$db write verilog -named -ignorecell red -ignoreport blue $svfile
+		$db flag $omod set   red
+	}
+	set sblank [string repeat " " 80]
+	if { $bnoisy } {
+		puts -nonewline "$sblank\r"
+		flush stdout
+		puts "Wrote $ci Verilog files (phystiles + top)"
+	}
+}
+if { 1 } {
+	wrverilog $db   {}     $stopmod $srootdir $stiledir $dtile2master _tiles
+}
+
+# create the new hierarchy.
+# StarVision addhier makes new module, moves instances into it, instantiates where they were.
+# new ports come from net names which is why changed them above.
+puts "Adding phystile hierarchy"
+puts $fv "Adding phystile hierarchy"
+set ctiles [dict size $dtile2subtiles]
+set ct 0
+set dfixed [dict create]	; # gating set to ensure fix each module only once
+# below in clean-up #3, rename routable bus ports. too complicated to do before.
+# idea: OpenFPGA/StarVision prefer net names attached nets with output pins.
+# this works when we have an output port, but for input ports need to flip direction.
+# <something>chanx_left_output --> chanx_left_ + (input from port dir) --> chanx_right_in
+set dchanrename [dict create				\
+	"chanx_left_output"	"chanx_left_out"	\
+	"chanx_left_input"	"chanx_right_in"	\
+	"chanx_right_output"	"chanx_right_out"	\
+	"chanx_right_input"	"chanx_left_in"		\
+	"chany_bottom_output"	"chany_bottom_out"	\
+	"chany_bottom_input"	"chany_top_in"		\
+	"chany_top_output"	"chany_top_out"		\
+	"chany_top_input"	"chany_bottom_in"	\
+]
+dict for {stile losubtiles} $dtile2subtiles {
+	# make new module and instantiate it in place of its children
+	set smname [dict get $dtile2master $stile]
+	#                 smname iname instlist
+	$db oper addhier $smname $stile $losubtiles
+
+	# if haven't yet done so, carry out three clean-ups
+	if { ![dict exists $dfixed $smname] } {
+		puts $fv "Cleaning up new phystile $smname"
+		# Clean-up #1
+		# change inout ==> output on new modules
+		# remember we shorted many ports together (to be rewired later).
+		# OK for inputs, but not outputs, which get changed to inout.
+		# here change inout to output
+		dict set dfixed $smname 0
+		set omod [list "module" $smname $smname]
+		$db foreach oPort inout $omod oport {
+			$db oper setDirection $oport "output" -updatePins
+		}
+		# when tie outputs together, addhier makes inout ports
+
+		# Clean-up #1.5a
+		# remove coordinates from some port names
+		set ropinjump {^.*_([^_][^_]*_width_.*_height_.*_subtile_.*__pin_.*)$}
+		$db foreach port $omod oport {
+			if { [$db isBusMember $oport] } {
+				continue
+			}
+			set sport [$db oid oname $oport]
+			if { ![regsub $ropinjump $sport {\1} shead] } {
+				continue
+			}
+			# tolerate ports with = names but != directions
+			set sdir [string range [$db directionOf $oport] 0 0]
+			set shead "${sdir}_$shead"
+			#puts "Changing OPIN port $sport --> $shead"
+			$db oper rename $oport $shead
+		}
+
+		# Clean-up #1.5b
+		# remove coordinates from some IOTile port bus names
+		set riobus {^(left|right|top|bottom)_[1-9][0-9]*_(a2f|f2a|clk_out)$}
+		$db foreach portBus $omod oportbus {
+			set sport [$db oid oname $oportbus]
+			if { ![regexp $riobus $sport smatch side stype] } {
+				continue
+			}
+			#puts "Changing IOTile portbus $smatch --> $stype"
+			$db oper rename $oportbus $stype
+			$db foreach port $oportbus oport {
+				set sport [$db oid oname $oport]
+				set snew [string map [list $smatch $stype] $sport]
+				#puts "Changing IOTile port $sport --> $snew"
+				$db oper rename $oport $snew
+			}
+		}
+
+		# Clean-up #1.5c
+		# change iosc__abut__ to iosc_in/out
+		$db foreach port $omod oport {
+			set sport [$db oid oname $oport]
+			if { ![string match iosc__abut_* $sport] } {
+				continue
+			}
+			# input --> in (inout --> in) output --> out
+			set sdir [string range [$db directionOf $oport] 0 end-3]
+			set shead "iosc_$sdir"
+			#puts "Changing $smname $stile sdir=$sdir port $sport --> $shead"
+			$db oper rename $oport $shead
+		}
+		# note we DONT'T change the similarly strange net names
+
+		# Clean-up #2
+		# declare port busses
+		# (StarVision forgets to declare bus when only one bit,
+		#  and then you get \bus[0] unless you do all this)
+		# COLLECT busses and bits in these dicts for #2 *AND* #3
+		set dsbase2lsports [dict create]	; # use for clean-up #2
+		set dschan2l3ports [dict create]	; # use for clean-up #3
+		$db foreach port $omod oport {
+			set sport [$db oid oname $oport]
+			if { [regsub $rbus $sport {\1 \2} sbasebit] } {
+				foreach {sbase nbit} $sbasebit { }
+				dict lappend dsbase2lsports $sbase $sport
+			}
+			if { [regsub $rchanfull $sport {\1\2 \3} schanbit] } {
+				foreach {schan nbit} $schanbit { }
+				set sdir [$db directionOf $oport]
+				dict lappend dschan2l3ports $schan $sdir $nbit $oport
+			}
+		}
+		# buses found?
+		if { [dict size $dsbase2lsports] } {
+			# reopen module for changes (declaring buses)
+			$db reloadModule $smname
+			dict for {sbase lsports} $dsbase2lsports {
+				# get first port in this bus
+				set sport [lindex $lsports 0]
+				set oport [$db oid createFromString port $omod $sport "/"]
+				# skip rest if bus already declared
+				if { [$db isBusMember $oport] } {
+					continue
+				}
+				# get dir and width
+				set sdir [$db directionOf $oport]
+				set nw [llength $lsports]
+				# declare the bus
+				# nasty trick: $lnets interpolated as if individual args
+				$db load portBus $sbase $sdir $nw {*}$lsports
+				puts $fv "\tMade bus: $sbase $nw <== $lsports"
+			}
+		}
+
+		# Clean-up #3: give phystiles shorter more meaningful routable bus port names
+		# one complexity not explained with dchanrename above:
+		# maybe multiple instances of routable bus port (IOTile @ l/b, multi-ht cells)
+		# add "", "1", "2", ... to discriminate
+		set dnewseen [dict create]	; # new name group --> list of old names
+		foreach schan [lsort -dictionary [dict keys $dschan2l3ports]] {
+			set l3info [dict get $dschan2l3ports $schan]
+			# sort and compare the ends: ensure differences are detected
+			set l3info [lsort -dictionary -stride 3 $l3info]
+			if { [lindex $l3info 0] != [lindex $l3info end-2] } {
+				error "inconsistent directions on bus"
+			}
+			# pull out chan?_DIR_, drop previous uniquifying stuff
+			if { ![regsub {^.*(chan[xy]_[^_]*_).*$} $schan {\1} shead] } {
+				error "could not determine chan name"
+			}
+			# sdir is the port direction (not changing this, but changing NAME)
+			set sdir [lindex $l3info 0]
+			# key to table to determine new name (w/o discriminating suffix)
+			# chan?_DIR_ + (input/output)
+			set schanraw "$shead$sdir"
+			# save them grouped by new base name.
+			# each group size 1 unless have multiple bus ports to discriminate
+			dict lappend dnewseen [dict get $dchanrename $schanraw] $schan
+		}
+		# since buses are just groupings, need to rename each constituent bit
+		# snew0 is the group name
+		set dschan2snew [dict create]	; # schan --> snew (old to new for portbus)
+		foreach snew0 [lsort -dictionary [dict keys $dnewseen]] {
+			# for each element in the group
+			set ci 0
+			foreach schan [lsort -dictionary [dict get $dnewseen $snew0]] {
+				set l3info [dict get $dschan2l3ports $schan]
+				set sdir [lindex $l3info 0]
+				# discriminating suffix if not the first
+				if { $ci } {
+					set snew "$snew0$ci"
+				} else {
+					set snew  $snew0
+				}
+				dict set dschan2snew $schan $snew
+				puts $fv "\tRename $schan ($sdir)--> $snew"
+				# actual renames for each net in bus
+				foreach {sdir nb oport} $l3info {
+					$db oper rename $oport "$snew$slbracket$nb$srbracket"
+				}
+				incr ci
+			}
+		}
+		# now rename the entire portbus as well
+		$db foreach portBus $omod obus {
+			set schan [$db oid oname $obus]
+			if { ![dict exists $dschan2snew $schan] } { continue }
+			set snew [dict get $dschan2snew $schan]
+			puts $fv "\tRename $schan (BUSPORT)--> $snew"
+			$db oper rename $obus $snew
+		}
+
+		# Clean-up #4: rename BL/WL port busses, fix direction, and short them
+		set lbl {}
+		set lwl {}
+		$db foreach portBus $omod obus {
+			set sname [$db oid oname $obus]
+			if { [regsub {bl__abut_([0-9]*)__([0-9]*)_} $sname {\1,\2} sname2] } {
+				lappend lbl $sname2 $obus
+			}
+			if { [regsub {wl__abut_([0-9]*)__([0-9]*)_} $sname {\2,\1} sname2] } {
+				lappend lwl $sname2 $obus
+			}
+		}
+		set nbl [llength $lbl]
+		set nwl [llength $lwl]
+		if { $nbl == 0 && $nwl == 0 } { continue }
+		set lbl [lsort -dictionary -stride 2 $lbl]
+		set lwl [lsort -dictionary -stride 2 $lwl]
+		if { $nbl == 0 || ($nbl % 4) || $nwl == 0 || ($nwl % 4) } {
+			puts \
+"WARNING: strange number of bl/wl bus ports ($nbl/$nwl)\n$lbl\n$lwl\n\n"
+			continue
+		}
+		# change name and direction of port buses and their constituents
+		set lbuspairs {}
+		set dbuses [dict create]
+		set np 0 ; set sp ""
+		foreach {sbl0 obl0 sbl1 obl1} $lbl {
+			set si "bl${sp}_in" ; set so "bl${sp}_out"
+			rename_port_bus $db $obl1 $si  "input"
+			rename_port_bus $db $obl0 $so "output"
+			lappend lbuspairs $si $so
+			dict incr dbuses $si
+			dict incr dbuses $so
+			incr np ; set sp $np
+		}
+		set np 0 ; set sp ""
+		foreach {swl0 owl0 swl1 owl1} $lwl {
+			set si "wl${sp}_in" ; set so "wl${sp}_out"
+			rename_port_bus $db $owl0 $si  "input"
+			rename_port_bus $db $owl1 $so "output"
+			lappend lbuspairs $si $so
+			dict incr dbuses $si
+			dict incr dbuses $so
+			incr np ; set sp $np
+		}
+		# short them through
+		# 1. collect info to short
+		set dnbitsbus2oport [dict create]
+		$db foreach port $omod oport {
+			set sport [$db oid oname $oport]
+			if { ![regsub $rbus $sport {\1 \2} sbasebit] } { continue }
+			foreach {sbase nbit} $sbasebit { }
+			if { ![dict exists $dbuses $sbase] } { continue }
+			dict set dnbitsbus2oport $nbit $sbase $oport
+		}
+		# 2. perform shorts
+		dict for {nbit dsbus2oport} $dnbitsbus2oport {
+			# this should be parametered to the height of this cell
+			foreach {si so} $lbuspairs {
+				if { ![dict exists $dsbus2oport $si] } { continue }
+				if { ![dict exists $dsbus2oport $so] } { continue }
+				set oport1 [dict get $dsbus2oport $si]
+				set oport2 [dict get $dsbus2oport $so]
+				set onet1 [$db connectedNet $oport1]
+				set onet2 [$db connectedNet $oport2]
+				$db oper mergeNet $onet1 $onet2
+			}
+		}
+	}
+
+	incr ct
+	puts -nonewline "  $ct/$ctiles $stile         \r"
+	flush stdout
+}
+$db oid resetAllOIDs	; # since we changed names above
+set sblank [string repeat " " 80]
+puts -nonewline "$sblank\r"
+flush stdout
+puts $fv "Finished phystile hierarchy -- instance paths have one more leading component"
+
+puts "Counting flat nets"
+set cflat [$db flat count signal $otopmod]
+
+# compare OIDs. Needed when we can't uniquely pick the output.
+# instead sort and use the first.
+proc cmp_oid {oa ob} {
+	return [$::db oid cmp $oa $ob]
+}
+
+# get rid of varicose and wormhole nets.
+# see comments below for definitions of these nets.
+# removing varicose nets drops local phystile-level ports and abutted connections.
+# removing wormhole nets reduces number of routing tracks needed inside routable ports.
+# Step 1: identify port groups
+set dsdir2nmask [dict create output 1 input 2 inout 4 unknown 8]	; # OR into bitmask
+# Str modname --> least port OID --> list of port OIDs
+set dsmod2oportkey2loports [dict create]	; # collect info about varicose nets
+set cvaricose 0
+# Str modname --> least port OID --> list of 4 port OIDs
+set dsmod2oportkey2l4oports [dict create]	; # collect info about wormhole nets
+set cwormhole 0
+# set of routable ports (bits not buses)
+set dsbasebits [dict create]
+set ci 0
+puts "Traversing $cflat flat nets to find varicose and wormhole nets"
+#puts "MARK A"
+set cstep1 0
+set cstep2 0
+set cstep3 0
+set cstep4 0
+set cstep5 0
+set cstep6 0
+set cstep7 0
+set cstep8 0
+set ctopnets 0
+$db flat foreach signal $otopmod osignal {
+
+	incr ci
+	if { ![expr {$ci % 10000}] } {
+		puts -nonewline "  $ci/$cflat\r"
+		flush stdout
+	}
+
+	# only nets in root are interesting
+	# 0:signal 1:root 2:top_name
+	if { [llength $osignal] > 3 } { continue }
+	incr ctopnets
+
+	# determine phystiles touched by phystile ports or primitive pins
+	set bhas_top 0				; # any top-level ports?
+	set dsmod2loport [dict create]		; # modname --> [ports]
+	set dstile2nmask [dict create]		; # modname --> bitmask
+	# Str tile_#__#_ --> module name --> list of module port OIDs
+	set dstile2lsmod_oport [dict create]
+	set lopins {}				; # list of pin OIDs
+	$db flat foreach pin -addHier -stopHier $osignal opin {
+		set stype [$db oid type $opin]
+		set lspath [$db oid path $opin]
+		set cpath [llength $lspath]
+		if { $stype == "port" && $cpath == 0 } {
+			set bhas_top 1
+			continue
+		}
+		if { $stype == "port" && $cpath == 1 } {
+			# port on tile?
+			# save list <module> <port> <bit>
+			set stile [lindex $lspath 0]
+			set oinst [list "inst" $stopmod $stile]
+			set oinstmod [$db moduleOf $oinst]
+			set smodname [$db oid oname $oinstmod]
+			set omodport [$db oid createModBased $opin]
+			dict lappend dsmod2loport $smodname $omodport
+			# note add smodname/oport PAIRS
+			dict lappend dstile2lsmod_oport $stile $smodname $omodport
+			lappend lopins $opin
+			continue
+		}
+		if { $stype == "pin" && ![$db isModule $opin] } {
+			# pin on primitive?
+			set stile [lindex $lspath 0]
+			# update bit mask in dstile2nmask
+			set nmask [dict get $dsdir2nmask [$db directionOf $opin]]
+			if { [dict exists $dstile2nmask $stile] } {
+				set nv [dict get $dstile2nmask $stile]
+			} else {
+				set nv 0
+			}
+			dict set dstile2nmask $stile [expr {$nv | $nmask}]
+			# acumulate pins
+			lappend lopins $opin
+			continue
+		}
+	}
+
+	# keep track of which bits are used on inter-tile chan busses 
+	if { [dict size $dstile2nmask] > 1 } {
+		# is this a chan bus?
+		if { [regsub $rchan $osignal {\1 \2} sbasebit] } {
+			dict set dsbasebits $sbasebit 0
+			if { 0 } {
+				if { $sbasebit == "chany_bottom_out 191" } {
+					puts $osignal
+					foreach opin $lopins {
+						puts "\t$opin"
+					}
+				}
+			}
+		}
+	}
+
+	set ctiles [dict size $dstile2nmask]
+
+	# handle varicose nets caused by outputs flowing through N0s
+	# must be only one tile with primitive pins,
+	# but that tile and another tile have 2 ports each
+	# for the "varicose bulge" want to eliminate
+	while { $ctiles == 1 } {
+		# can't have a top port
+		if { $bhas_top } { break }
+		# that tile must have input and output primitive
+		if { [lindex [dict values $dstile2nmask] 0] != 3 } {
+			#puts stderr "WARNING strange varicose net $osignal"
+			break
+		}
+		# must have 2 tiles with ports
+		if { [dict size $dsmod2loport] != 2 } { break }
+		# each tile must have 2 ports
+		set bad 0
+		dict for {smod loports} $dsmod2loport {
+			if { [llength $loports] != 2 } {
+				set bad 1
+				break
+			}
+		}
+		if { $bad } { break }
+		# save for later editing
+		dict for {smod loports} $dsmod2loport {
+			# use port with least OID as key
+			set loports [lsort -command cmp_oid $loports]
+			set oportkey [lindex $loports 0]
+			# save if nothing for least OID port seen yet
+			if { ![dict exists $dsmod2oportkey2loports $smod $oportkey] } {
+				dict set dsmod2oportkey2loports $smod $oportkey $loports
+				incr cvaricose
+				continue
+			}
+			# if multi-save, ensure it's a match
+			set loports_prev [dict get $dsmod2oportkey2loports $smod $oportkey]
+			if { [llength $loports_prev] == [llength $loports] } {
+				set bequal 1
+				foreach oportl $loports_prev oportr $loports {
+					if { ![$db oid isequal $oportl $oportr] } {
+						set bequal 0
+						break
+					}
+				}
+				if { $bequal } { continue }
+			}
+			# ERROR REPORT
+			puts "VARICOSE modname = $smod key = $oportkey"
+			puts "previous setting"
+			foreach oport $loports_prev {
+				puts "\t$oport"
+			}
+			puts "new setting"
+			foreach oport $loports {
+				puts "\t$oport"
+			}
+			flush stdout
+			error "inconsistent port group"
+		}
+		break
+	}
+
+	# handle double-indexed nets caused by CHANXs flowing through S0s
+	# more specifically, a wormhole net exits a phystile on one track and
+	# returns on another. Short this out so greater track no longer used.
+	while { $ctiles == 2 } {
+		incr cstep1
+		# can't have a top port
+		if { $bhas_top } { break }
+		incr cstep2
+		# the ports must touch 3 different tiles
+		if { [dict size $dstile2lsmod_oport] < 3 } { break }
+		incr cstep3
+		set csz 0
+		dict for {stile lsmod_oport} $dstile2lsmod_oport {
+			incr csz [llength $lsmod_oport]
+		}
+		# there must be 4 ports total (each of which is a pair)
+		# (could be even more which we ignore)
+		if { $csz < 8 } { break }
+		incr cstep4
+
+		# ports must be CHANX/Y with two unique indices
+		set bad 0
+		set dnbits [dict create]
+		dict for {stile lsmod_oport} $dstile2lsmod_oport {
+			foreach {smod oport} $lsmod_oport {
+				set sport [$db oid oname $oport]
+				set csub [regsub $rchan $sport {\1 \2} sbasebit]
+				if { !$csub } {
+					set bad 1
+					break
+				}
+				foreach {sbase nbit} $sbasebit { }
+				dict set dnbits $nbit 0
+			}
+			if { $bad } { break }
+		}
+		if { $bad || [dict size $dnbits] != 2 } { break }
+		incr cstep5
+		# lower than upper index
+		set lnbits [lsort -dictionary [dict keys $dnbits]]
+		foreach {nbit0 nbit1} $lnbits { }
+
+		# ensure the 4 ports follow the rules and are saved in canonical order
+		set nseen 0	; # each octal digit flags we've seen 1 of 4 ports
+		dict for {stile lsmod_oport} $dstile2lsmod_oport {
+			# remember this has PAIRS so all numbers will be doubled
+			set cpairs [llength $lsmod_oport]
+			foreach {smod oport} $lsmod_oport {
+				set sport [$db oid oname $oport]
+				set csub [regsub $rchan $sport {\1 \2} sbasebit]
+				if { !$csub } {
+					error "Could not understand $oport"
+				}
+				foreach {sbase nbit} $sbasebit { }
+				# no entry in this dict = no primitive pins in this stile
+				if { ![dict exists $dstile2nmask $stile] } {
+					if { $cpairs == 2 } {
+						# index 0 has no prim pins & only upper idx
+						if { $nbit != $nbit1 } {
+							set bad 1
+							break
+						}
+						set oport0 $oport
+						incr nseen 00001
+					} elseif { $cpairs == 4 } {
+						# ignore feedthrough with no local conns
+					} else {
+						# no idea what this is
+						set bad 1
+						break
+					}
+				} elseif  { [dict get $dstile2nmask $stile] == 1 } {
+					# index 1 has output pin and only lower index
+					if { $nbit != $nbit0 } {
+						set bad 1
+						break
+					}
+					set oport1 $oport
+					incr nseen 00010
+				} elseif { [dict get $dstile2nmask $stile] == 2 } {
+					# index 2 has input pins and both indices
+					if { $nbit == $nbit0 } {
+						set oport2 $oport
+						incr nseen 00100
+					} else {
+						set oport3 $oport
+						incr nseen 01000
+					}
+				} else {
+					set bad 1
+					break
+				}
+			}
+			if { $bad } { break }
+		}
+		if { $bad || $nseen != 01111 } { break }
+		incr cstep6
+		set l4oports [list $oport0 $oport1 $oport2 $oport3]
+
+		# FIXME it's not clear how smod gets set
+
+		# save after checking for match
+		set oportkey [lindex $l4oports 1]
+		if { ![dict exists $dsmod2oportkey2l4oports $smod $oportkey] } {
+			dict set dsmod2oportkey2l4oports $smod $oportkey $l4oports
+			incr cwormhole
+			break
+		}
+		# if already seen under oportkey, ensure no change
+		incr cstep7
+		set l4oports_prev [dict get $dsmod2oportkey2l4oports $smod $oportkey]
+		set bequal 1
+		foreach oportl $l4oports_prev oportr $l4oports {
+			if { ![$db oid isequal $oportl $oportr] } {
+				set bequal 0
+				break
+			}
+		}
+		incr cstep8
+		if { $bequal } { break }
+		# ERROR REPORT
+		puts "WORMHOLE modname = $smod key = $oportkey"
+		puts "previous setting"
+		foreach oport $l4oports_prev {
+			puts "\t$oport"
+		}
+		puts "new setting"
+		foreach oport $l4oports {
+			puts "\t$oport"
+		}
+		flush stdout
+		error "inconsistent port group"
+
+		break
+	}
+}
+set sblank [string repeat " " 80]
+puts -nonewline "$sblank\r"
+flush stdout
+#puts "MARK B"
+puts "Analyzed $ctopnets top level flat nets"
+puts "[llength [dict keys $dsmod2oportkey2loports]] phystiles have $cvaricose varicose nets"
+puts "[llength [dict keys $dsmod2oportkey2l4oports ]] phystiles have $cwormhole wormhole nets"
+
+# show what's used in the channels
+set dschan2nmax [dict create]
+#puts "dsbasebits=$dsbasebits"	; # DEBUG
+dict for {sbasebit nzero} $dsbasebits {
+	foreach {sbase nbit} $sbasebit { }
+	if { ![dict exists $dschan2nmax $sbase] } {
+		dict set dschan2nmax $sbase $nbit
+	} elseif { $nbit > [dict get $dschan2nmax $sbase] } {
+		dict set dschan2nmax $sbase $nbit
+	}
+}
+#puts "dschan2nmax=$dschan2nmax"	; # DEBUG
+puts "Channel maxima"
+foreach schan [lsort -dictionary [dict keys $dschan2nmax]] {
+	set max [dict get $dschan2nmax $schan]
+	puts "\t$max\t$schan"
+}
+
+puts "Rewiring varicose and wormhole nets"
+# Step 2: Correct varicose nets
+# a. Merge nets on ports in same group
+# b. Disconnect ports from their nets
+# c. Mark ports as blue (if not a bus)
+#    This means these ports won't be written out by Verilog writer.
+# createModBased above makes this independent of flat enumeration.
+$db flag -db clear blue
+dict for {smod doportkey2loports} $dsmod2oportkey2loports {
+	puts $fv "Module $smod has [dict size $doportkey2loports] varicose nets"
+	dict for {oportkey loports} $doportkey2loports {
+		puts $fv "\tnew net"
+		set onets {}
+		foreach oport $loports {
+			puts $fv "\t\tport=$oport"
+			# if connected...
+			if { [$db isConnected $oport] } {
+				# save old net
+				set onet [$db connectedNet $oport]
+				lappend onets $onet
+				# disconnect port
+				$db oper disconnect $oport
+				puts $fv "\t\t\tDisconnet net = $onet"
+			}
+			# if not part of a bus
+			if { ![$db isBusMember $oport] } {
+				# mark the port blue
+				$db flag $oport set blue
+				if { [$db isConnected $oport] } {
+					# rename net so it gets wire declaration
+					set snet [$db oid oname $onet]
+					$db oper rename $onet "internal_$snet"
+				}
+				puts $fv "\t\t\tMarked BLUE"
+			}
+		}
+		# if we saw two nets
+		# (since broken up by module, won't be more than 2 nets)
+		if { [llength $onets] != 2 } { continue }
+		# then merge them
+		$db oper mergeNet [lindex $onets 0] [lindex $onets 1]
+		puts $fv "\tnets merged"
+	}
+}
+$db oid resetAllOIDs	; # since we changed names above
+
+# Step 3: Correct wormhole nets
+# @0: TILE1, no primitive, upper index: disconnect
+# @1: TILE2, driver, lower index: do nothing
+# @2: TILE3, inputs, lower index: merge with next
+# @3: TILE3, inputs, upper index: disconnect
+# nothing is marked blue since these are all bus members
+# set dsmod2oportkey2l4oports [dict create]		; # uncomment = disable edits
+dict for {smod doportkey2l4oports} $dsmod2oportkey2l4oports {
+	puts $fv "Module $smod has [dict size $doportkey2l4oports] wormhole nets"
+	dict for {oportkey l4oports} $doportkey2l4oports {
+		puts $fv "\tnew net"
+		# pull out 4 ports
+		foreach {onoprim odriver oinputs ospare} $l4oports { }
+		# merging
+		if { [$db isConnected $oinputs] } {
+			if { [$db isConnected $ospare] } {
+				set onet_inputs [$db connectedNet $oinputs]
+				set onet_spare  [$db connectedNet $ospare]
+				$db oper mergeNet $onet_inputs $onet_spare
+				puts $fv "\tmerged"
+				puts $fv "\t\t$onet_inputs"
+				puts $fv "\t\t$onet_spare"
+			}
+		}
+		# disconnecting
+		puts $fv "\tdisconnect"
+		$db oper disconnect $onoprim
+		puts $fv "\t\t$onoprim"
+		$db oper disconnect $ospare
+		puts $fv "\t\t$ospare"
+	}
+}
+
+# let's be safe since we edited the netlist
+# this blows away flat enum tree. SV will auto rebuild it later.
+$db flat free
+
+puts "Counting flat nets"
+set cflat [$db flat count signal $otopmod]
+
+puts "Traversing $cflat flat nets to confirm track usage"
+set ci 0
+set ctopnets 0
+set dsbasebits [dict create]
+$db flat foreach signal $otopmod osignal {
+
+	incr ci
+	if { ![expr {$ci % 10000}] } {
+		puts -nonewline "  $ci/$cflat\r"
+		flush stdout
+	}
+
+	# only nets in root are interesting
+	if { [llength $osignal] > 3 } { continue }
+	incr ctopnets
+
+	# determine tiles touched by primitives (stdcells)
+	set dstiles [dict create]
+	$db flat foreach pin -addHier -stopHier $osignal opin {
+		set stype [$db oid type $opin]
+		set lspath [$db oid path $opin]
+		set cpath [llength $lspath]
+		if { $stype == "pin" } {
+			# pin on primitive?
+			if { $cpath > 2 && ![$db isModule $opin] } {
+				set stile [lindex $lspath 0]
+				dict set dstiles $stile 0
+			}
+		}
+	}
+
+	# here we keep track of which bits are used on inter-tile chan busses 
+	if { [dict size $dstiles] > 1 } {
+		# is this a chan bus?
+		if { [regsub $rchan $osignal {\1 \2} sbasebit] } {
+			dict set dsbasebits $sbasebit 0
+		}
+	}
+}
+set sblank [string repeat " " 80]
+puts -nonewline "$sblank\r"
+flush stdout
+puts "Analyzed $ctopnets top level flat nets"
+
+# show what's used in the channels
+set dschan2nmax [dict create]
+set dschan2dnbits [dict create]
+dict for {sbasebit nzero} $dsbasebits {
+	foreach {sbase nbit} $sbasebit { }
+
+	if { ![dict exists $dschan2nmax $sbase] } {
+		dict set dschan2nmax $sbase $nbit
+	} elseif { $nbit > [dict get $dschan2nmax $sbase] } {
+		dict set dschan2nmax $sbase $nbit
+	}
+
+	dict set dschan2dnbits $sbase $nbit 0
+
+}
+puts "Channel maxima"
+set nmaxall 0
+foreach sbase [lsort -dictionary [dict keys $dschan2nmax]] {
+	set nmax [dict get $dschan2nmax $sbase]
+	# attempt to show track groups which didn't work
+	set dgroup2missing [dict create]
+	for {set i 0} {$i <= $nmax} {incr i} {
+		if { [dict exists $dschan2dnbits $sbase $i] } {
+		} else {
+			if { $i < 32 } {
+				dict set dgroup2missing "a[expr { $i       % 2}]" $i 0
+			} else {
+				dict set dgroup2missing "b[expr {($i - 32) % 5}]" $i 0
+			}
+		}
+	}
+	set lgroups [dict keys $dgroup2missing]
+	if { [llength $lgroups] } {
+		set linfo {}
+		foreach group [lsort -dictionary $lgroups] {
+			set dmissing [dict get $dgroup2missing $group]
+			set c [dict size $dmissing]
+			lappend linfo "$group#$c"
+		}
+		puts "\t$nmax\t$sbase $linfo"
+	} else {
+		puts "\t$nmax\t$sbase"
+	}
+	if { $nmax > $nmaxall } { set nmaxall $nmax }
+}
+
+# disconnect phystile ports above the channel maxima
+puts "Traversing $cflat flat nets to find phystile ports above channel maxima"
+set ci 0
+set domod2doports_disc [dict create]
+# nets use only names on right, but ports use both after port renamings
+dict set dschan2nmax "chanx_right_in"	[dict get $dschan2nmax "chanx_left_out"]
+dict set dschan2nmax "chanx_left_in"	[dict get $dschan2nmax "chanx_right_out"]
+dict set dschan2nmax "chany_top_in"	[dict get $dschan2nmax "chany_bottom_out"]
+dict set dschan2nmax "chany_bottom_in"	[dict get $dschan2nmax "chany_top_out"]
+$db flat foreach signal $otopmod osignal {
+	incr ci
+	if { ![expr {$ci % 10000}] } {
+		puts -nonewline "  $ci/$cflat\r"
+		flush stdout
+	}
+	# only nets in root are interesting
+	if { [llength $osignal] > 3 } { continue }
+
+	# visit all tile ports
+	$db flat foreach pin -addHier -stopHier $osignal opin {
+		set stype [$db oid type $opin]
+		set lspath [$db oid path $opin]
+		set cpath [llength $lspath]
+		if { $stype == "port" && $cpath == 1 } {
+			# port on tile?
+			# save list <module> <port> <bit>
+			set stile [lindex $lspath 0]
+			set oinst [list "inst" $stopmod $stile]
+			set omod [$db moduleOf $oinst]
+			set oport [$db oid createModBased $opin]
+			set sport [$db oid oname $oport]
+			# is this a fabric wiring port?
+			if { ![regsub $rchan $sport {\1 \2} sbasebit] } {
+				continue
+			}
+			# is its bus index above dschan2nmax?
+			foreach {sbase nbit} $sbasebit { }
+			if { $nbit <= [dict get $dschan2nmax $sbase] } {
+				continue
+			}
+			# will disconnect below inside the module
+			dict set domod2doports_disc $omod $oport 0
+			# inside so metal text needn't touch anything
+		}
+	}
+}
+set sblank [string repeat " " 80]
+puts -nonewline "$sblank\r"
+flush stdout
+set cmod 0
+set cport 0
+puts $fv "Disconnecting ports above channel maxima"
+dict for {omod doports} $domod2doports_disc {
+	incr cmod
+	dict for {oport nzero} $doports {
+		incr cport
+		$db oper disconnect $oport
+		puts $fv "\t$oport"
+	}
+}
+puts "Disconnected $cport unused routing ports inside $cmod phystiles"
+
+# Reconnect nonroutable abutted signals previously disconnected
+# globals can stay as-is
+# this is for various tie-off and abutted connections
+
+puts "Making array-level special connections"
+set dsmod_ccff_fixed [dict create]	; # test whether smod in this or not
+set dnx2l6subtiles [dict create]	; # save info for fabric key by x (region)
+# this sort order is derived from how VPR docs always show cbx/clb/sb/cby
+# non-routing blocks have sort order 1
+set dsubtile2norder [dict create cbx 0 sb 2 cby 3]
+# things to connect inside phystiles between tiles
+set dccff_names [dict create ccff_head 1 ccff_tail 1]
+set dnets_in_bus [dict create]		; # track new nets to later declare as busses
+puts $fv "Making final array-level connections"
+$db foreach inst $otopmod ophysinst {
+	set smod [$db oid cname $ophysinst]
+	if { $smod == "direct_interc" } { continue }
+	set sinst [$db oid oname $ophysinst]
+	set nht [dict get $dtile2ht $sinst]
+	set csub [regsub $rmxy $sinst {\1 \2 \3} smxy]
+	if { !$csub } {
+		error "Could not understand instance $ophysinst"
+	}
+	foreach {sm nx ny} $smxy { }
+
+	# this section rewires chained/abutted pins on this phystile
+	# if output, name net based on coordinate of tile
+	# if input, name net based on coordinate of tile higher in column (driver)
+	$db foreach pin $ophysinst opin {
+		set spin [$db oid pname $opin]
+		set saction ""
+		# these pin names are all results of our initial rewiring
+		# before inserting the phystile hierarchy
+		# ramid is special, otherwise:
+		# output pin actions start with =
+		# input pin actions start with ^ v < > to point to driver
+		# remainder is letters to drop to get common part in netname
+		switch -glob $spin {
+			RAM_ID_i*	{ set saction "ramid"	}
+			ccff_tail*	{ set saction "=_tail"	}
+			sc_out*		{ set saction "=_out"	}
+			cout*		{ set saction "=out"	}
+			PL_*_o*		{ set saction "=_o"	}
+			cin*		{ set saction "^in"	}
+			ccff_head*	{ set saction "^_head"	}
+			sc_in*		{ set saction "^_in"	}
+			PL_*_i*		{ set saction "^_i"	}
+			sr_out*		{ set saction "=_out"	}
+			sr_in*		{ set saction "v_in"	}
+			plr_o*		{ set saction "=_o"	}
+			plr_i*		{ set saction "v_i"	}
+		}
+		if { $saction == "" } { continue }
+
+		if { [string match sc_* $spin] } {
+			# don't change scan chains on IOTiles
+			if { $nx <= $nxmin || $nx >= $nxmax } { continue }
+			if { $ny <= $nymin || $ny >= $nymax } { continue }
+		}
+
+		puts $fv "Reconnecting $opin"
+		# throw away current connection
+		if { [$db isConnected $opin] } {
+			set onet [$db connectedNet $opin]
+			# disconnect port
+			$db oper disconnect $opin
+			puts $fv "\tDisconnected from $onet"
+		}
+		# needed so subsequent "$db load net" commands work
+		$db reloadModule $stopmod
+		# calculate new net name in $snewnet
+		if { $saction == "ramid" } {
+			# RAMID is special: figure out which constant bit needed
+			set nramid [dict get $dbram2id $sinst]
+			set csub [regsub {^.*\[([0-9][0-9]*)\].?$} $spin {\1} nbit]
+			if { !$csub } {
+				error "Could not understand $spin"
+			}
+			if { [expr {$nramid & (1 << $nbit)}] } {
+				set snewnet "vdd"
+				$db load net $snewnet -value 1
+			} else {
+				set snewnet "vss"
+				$db load net $snewnet -value 0
+			}
+		} else {
+			set nx0 $nx ; set ny0 $ny
+			#  coordinate relationships: ^ v < >
+			if { [string index $saction 0] == "^" } {
+				incr ny0  $nht
+			}
+			if { [string index $saction 0] == "v" } {
+				incr ny0 -$nht
+			}
+			#puts "HEIGHT pinname=$spin instname=$sinst y=$ny y0=$ny0"
+
+			if { [regsub $rbus $spin {\1 \2} sbasebit] } {
+				foreach {sbase nbit} $sbasebit { }
+				set sbit "$slbracket$nbit$srbracket"
+			} else {
+				set sbase $spin
+				set nbit -1
+				set sbit ""
+			}
+
+			set sdrop [string range $saction 1 end]
+			if { ![string match "*$sdrop" $sbase] } {
+				error "Pin $spin lacked ending $sdrop"
+			}
+			set sbase [string range $sbase 0 end-[string length $sdrop]]
+
+			# loopbacks at bottom for scan and BRAM preload
+			if { $ny0 < $nymin + 1 } {
+				if { $sbase == "sr" } {
+					set ny0 [expr {$nymin + 1}]
+					set sbase "sc"
+				} elseif { $sbase == "plr" } {
+					set ny0 [expr {$nymin + 1}]
+					set sbase "PL_DATA"
+				}
+			}
+
+			# should we tie off this pin?
+			if { $ny0 == $nymax && $sbase == "c" } {
+				# topmost cin
+				set snewnet "vss"
+				$db load net $snewnet -value 0
+			} else {
+				set sadd "__abut_${nx0}__${ny0}_"
+				set snewnet "$sbase$sadd$sbit"
+				$db load net $snewnet
+			}
+		}
+		# convert snewnet to OID and connect pin to it
+		set onet [$db oid createFromString net $otopmod $snewnet "/"]
+		$db oper connect $opin $onet
+		puts $fv "\tConnected to $onet"
+
+		# promote to port?
+		set sdir ""
+		if { $ny0 == $nymax && [string match PL_* $sbase] } {
+			# BRAM preload inputs
+			set sdir "input"
+		}
+		if { $ny0 == $nymax - $nht && $sbase == "plr" } {
+			# BRAM preload return
+			set sdir "output"
+		}
+		if { $ny0 == $nymax && $sbase == "sc" } {
+			# scan inputs
+			set sdir "input"
+		}
+		if { $ny0 == $nymax - $nht && $sbase == "sr" } {
+			# scan return
+			set sdir "output"
+		}
+		if { $sdir != "" } {
+			$db load port $snewnet $sdir
+		}
+
+		# saves nets we newly created/connected to for possible later bus grouping
+		dict set dnets_in_bus $snewnet $sdir
+	}
+
+	# collect info about "subtiles" under(in) the physinst.
+	# used to build the shift order (fabric key) and
+	# chain ccff head/tail inside the physinst.
+	set ophysmod [$db moduleOf $ophysinst]
+	set l5subtiles {}
+	$db foreach inst $ophysmod osubinst {
+		set ssubmod [$db oid cname $osubinst]
+		if { $ssubmod == "direct_interc" } { continue }
+		set ssubinst [$db oid oname $osubinst]
+		set csub [regsub $rmxy $ssubinst {\1 \2 \3} smxy]
+		if { !$csub } {
+			error "Could not understand instance $osubinst"
+		}
+		foreach {sm nx2 ny2} $smxy { }
+		# get sort suborder based on (sub)tile type
+		if { [dict exists $dsubtile2norder $sm] } {
+			set no [dict get $dsubtile2norder $sm]
+		} else {
+			# non-routing blocks default to sort order 1
+			set no 1
+		}
+		# save information for fabric key
+		dict lappend dnx2l6subtiles $nx $nx2 $ny $ny2 $no $ophysinst $osubinst
+
+		# check for ccff pins
+		set bfound 0
+		$db foreach oPin output $osubinst opin {
+			if { [dict exists $dccff_names [$db oid pname $opin]] } {
+				set bfound 1
+				break
+			}
+		}
+		if { !$bfound } { continue }
+		# save info to chain ccff subtiles inside physinst
+		     lappend l5subtiles    $nx2    $ny2 $no $ophysinst $osubinst
+		#puts "FOUND ccff"
+	}
+
+	# fix ccff chains inside phys tile
+	# fix each master only once
+	if { [dict exists $dsmod_ccff_fixed $smod] } {
+		continue
+	}
+	dict set dsmod_ccff_fixed $smod 1
+
+	# we need to sort the subtiles inside the physinst to get predictable
+	# shifting order. keys are x2, y2, and o, where o is 0/1/2/3 for cbx/clb/sb/cby.
+	# lsort is stable so we sort from minor key to major key.
+	# this is how 1920s IBM punched card sorters worked.
+	set l5subtiles [lsort -stride 5 -index 2             $l5subtiles]	; # o
+	set l5subtiles [lsort -stride 5 -index 1 -decreasing $l5subtiles]	; # y2
+	set l5subtiles [lsort -stride 5 -index 0             $l5subtiles]	; # x2
+	# move through subtiles and:
+	# first(0)	connect down to ccff1
+	# middle(n)	connect down to ccff(n+1)	connect up to ccffn
+	# last(m)					connect up to ccffm
+	# we don't need to compute the coordinate of the other end of the net this time:
+	# all the instances are in one list
+	# the next two variables are stepped so:
+	# first true on all but first (sub)tile, 2nd true on all but last (sub)tile
+	set iup 0
+	set idn [llength $l5subtiles]
+	set ci 0		; # for numbering nets
+	set onet ""		; # invalid
+	set sbit0 "${slbracket}0$srbracket"
+	foreach {nx2 ny2 no ophysinst osubinst} $l5subtiles {
+		set ssubinst [$db oid oname $osubinst]
+		incr idn -5
+		puts $fv "Reconnecting $osubinst"
+
+		# connect up on all but first
+		if { $iup } {
+			set opin \
+[$db oid createFromString pin $ophysmod "$ssubinst/ccff_head$sbit0" "/"]
+			if { [$db isConnected $opin] } {
+				set onet0 [$db connectedNet $opin]
+				# disconnect port
+				$db oper disconnect $opin
+				puts $fv "\tDisconnected ccff_head from $onet0"
+			}
+			$db oper connect $opin $onet
+			puts $fv "\tConnected ccff_head to $onet"
+		}
+
+		incr ci
+		# the new net is inside the physical tile
+		$db reloadModule $smod
+		$db load net "ccff$ci"
+		set onet [$db oid createFromString net $ophysmod "ccff$ci" "/"]
+
+		# connect down on all but last
+		if { $idn } {
+			set opin  \
+[$db oid createFromString pin $ophysmod "$ssubinst/ccff_tail$sbit0" "/"]
+			if { [$db isConnected $opin] } {
+				set onet0 [$db connectedNet $opin]
+				# disconnect port
+				$db oper disconnect $opin
+				puts $fv "\tDisconnected ccff_tail from $onet0"
+			}
+			$db oper connect $opin $onet
+			puts $fv "\tConnected ccff_tail to $onet"
+		}
+		incr iup  5
+	}
+}
+
+# introduce bus groupings on new nets to simplify top-level netlist
+# first group by bus
+set dnewbus [dict create]
+foreach snewnet [lsort -dictionary [dict keys $dnets_in_bus]] {
+	if { ![regsub $rbus $snewnet {\1 \2} sbasebit] } {
+		continue
+	}
+	foreach {sbase nbit} $sbasebit  { }
+	dict lappend dnewbus $sbase $snewnet
+}
+# second declare/create busses
+$db reloadModule $stopmod
+set cb 0
+puts $fv "Creating busses"
+dict for {sbase lsnets} $dnewbus { 
+	# this should be an isBusMember test
+	if { $sbase == "clk" } { continue }
+	set nw [llength $lsnets]
+	# nasty trick: $lsnets interpolated as if individual args
+	$db load netBus $sbase $nw {*}$lsnets
+	puts $fv "\tMade bus: $sbase $nw <== $lsnets"
+	incr cb
+	# create portBus as well?
+	set sdir [dict get $dnets_in_bus [lindex $lsnets 0]]
+	if { $sdir != "" } {
+		#puts "START sbase=$sbase nw=$nw lsnets=$lsnets"
+		$db load portBus $sbase $sdir $nw {*}$lsnets
+		#puts "END"
+	}
+}
+
+# no longer export these absurd device-wide buses
+foreach sbus {	gfpga_pad_QL_PREIO_A2F gfpga_pad_QL_PREIO_F2A gfpga_pad_QL_PREIO_F2A_CLK
+		gfpga_pad_QL_PREIO_F2A_DEF0 gfpga_pad_QL_PREIO_F2A_DEF1 } {
+	set lbus [list "portBus" $stopmod $sbus]
+	if { ![$db oid exists $lbus] } { continue }
+	set oport [$db oid create $lbus]
+	$db flag $oport set blue
+}
+
+# Write out fabric key
+# Using the WORST language to write out the WORST data format
+# Am I in Dante's sixth circle (heresy) or eighth circle (fraud)?
+set skeyfile "${sflowdir}/fabric_key.xml"
+set fk [open $skeyfile w]
+puts "Writing $skeyfile"
+puts $fk "<fabric_key>"
+set cg 0		; # reGion
+set sq $sdquote
+set ci 0		; # Id
+# use info saved while wiring up abutments
+# each column is a bitstream region
+foreach nx [lsort -dictionary [dict keys $dnx2l6subtiles]] {
+	puts $fk "\t<region id=$sq$cg$sq>"
+
+	# need to sort info by major-->minor keys x/x2/y/y2/o
+	# x was already sorted by foreach/lsort above
+	# here sort by remaining keys
+	# see previous comment about multiple lsort's in sequence
+	set l6subtiles [dict get $dnx2l6subtiles $nx]
+	set l6subtiles [lsort -stride 6 -index 3             $l6subtiles]	; # o
+	set l6subtiles [lsort -stride 6 -index 2 -decreasing $l6subtiles]	; # y2
+	set l6subtiles [lsort -stride 6 -index 1 -decreasing $l6subtiles]	; # y
+	set l6subtiles [lsort -stride 6 -index 0             $l6subtiles]	; # x2
+
+	# write out each subtile in sort order
+	foreach {nx2 ny ny2 no ophysinst osubinst} $l6subtiles {
+		set sn [$db oid cname $osubinst]
+		set sa [$db oid oname $osubinst]
+		# the column/row in the fabric key is actually TWICE x/y used in VPR.
+		# this is since each site has cbx/clb/sb/cby in a 2x2 subgrid.
+		      if { [string match sb*  $sn] } {
+			set nc [expr {2*$nx+1}] ; set nr [expr {2*$ny+1}]
+		} elseif { [string match cby* $sn] } {
+			set nc [expr {2*$nx+1}] ; set nr [expr {2*$ny  }]
+		} elseif { [string match cbx* $sn] } {
+			set nc [expr {2*$nx  }] ; set nr [expr {2*$ny+1}]
+		} else   {
+			set nc [expr {2*$nx  }] ; set nr [expr {2*$ny  }]
+		}
+		# "exceptions" for phantom row/col
+		if { [string match *_0__* $sa] } { incr nc -2 }
+		if { [string match *__0_* $sa] } { incr nr -2 }
+		# NB not generating value="#" any more
+		puts $fk \
+"\t\t<key id=$sq$ci$sq name=$sq$sn$sq alias=$sq$sa$sq column=$sq$nc$sq row=$sq$nr$sq/>"
+		incr ci
+	}
+	puts $fk "\t</region>"
+	incr cg
+}
+puts $fk "</fabric_key>"
+close $fk
+
+# suppress bl/wl ports OpenFPGA generated
+if { $bdecoder } {
+	foreach sbus {enable bl_address data_in wl_address} {
+		set oport [$db oid create [list "portBus" $stopmod $sbus]]
+		$db flag $oport set blue
+	}
+} elseif { $bmemory } {
+	foreach sbus {bl_config_region_0 wl_config_region_0} {
+		set oport [$db oid create [list "portBus" $stopmod $sbus]]
+		$db flag $oport set blue
+	}
+}
+
+# here we short together nets which StarVision renamed for some reason
+# apparently pgen can't see these!
+if { 0 } {
+	puts "MERGE NET START"
+	set rabut {^(.*__abut_[0-9][0-9]*__[0-9][0-9]*_)([^[]*)(.*)$}
+	set dsnet2dups [dict create]
+	$db foreach net $otopmod onet {
+		set snet [$db oid oname $onet]
+		set bloud 0
+		if { [string match PL_INIT* $snet] } {
+			puts "Found: $snet"
+			set bloud 1
+		}
+		if { [string match iosc* $snet] } { continue }
+		if { $bloud } { puts "AAA" }
+		if { ![regexp $rabut $snet smatch slead stail sbit] } {
+			continue
+		}
+		if { $bloud } { puts "BBB" }
+		if { [string match iosc* $slead] } { continue }
+		if { $bloud } { puts "CCC" }
+		if { $stail == "" } { continue }
+		if { $bloud } { puts "DDD" }
+		puts "Found: slead=$slead stail=$stail sbit=$sbit snet=$snet"
+		dict set dsnet2dups "$slead$sbit" $snet 0
+	}
+	dict for {slead dups} $dsnet2dups {
+		if { [dict size $dups] <= 1 } { continue }
+		set lsnets [dict keys $dups]
+		puts "Merging nets: $slead <= $lsnets"
+		set onet [$db oid createFromString net $otopmod $slead "/"]
+		foreach {snet} $lsnets {
+			set onet2 [$db oid createFromString net $otopmod $snet "/"]
+			$db oper mergeNet $onet $onet2
+		}
+	}
+	puts "MERGE NET END"
+}
+
+# renamings from external duplication detector
+set bremapped 0
+if { [file exists physmapIGNORE.csv] } {	; # DISABLE FOR NOW
+	puts "Reading physmap.csv"
+	set fp [open physmap.csv r]
+	set sphysmap [read $fp]
+	set dreplace [dict create]
+	set nports 0
+	set ncells 0
+	foreach sline [split $sphysmap "\n"] {
+		set lf [split $sline ","]
+		if { [llength $lf] == 0 } { continue }
+		if { [lindex $lf 0] == "module" } {
+			set bremapped 1
+			set lastmod $lf
+			set smodnew [lindex $lf 1]
+			for { set i 2 } { $i < [llength $lf] } { incr i } {
+				dict set dreplace [lindex $lf $i] $smodnew
+			}
+			continue
+		}
+		if {  [lindex $lf 0] == "port" } {
+			set bremapped 1
+			set sportnew [lindex $lf 1]
+			for { set i 2 } { $i < [llength $lf] } { incr i } {
+				set sport [lindex $lf $i]
+				if { $sport == "" } { continue }
+				set smod [lindex $lastmod $i]
+				set omod [list "module" $smod $smod]
+				set oport [$db oid convertTo port $omod $sport]
+				# change smod.sport to smod.1
+				$db oper rename $oport $sportnew
+				incr nports
+			}
+			continue
+		}
+	}
+	$db foreach inst $otopmod oinst {
+		set omod [$db moduleOf $oinst]
+		set smod [$db oid oname $omod]
+		if { ![dict exists $dreplace $smod] } { continue }
+		set smodnew [dict get $dreplace $smod]
+		$db oper changecellref $oinst $smodnew
+		incr ncells
+	}
+	puts "Replaced $ncells cell references and renamed $nports ports"
+}
+if { $bremapped } {
+	$db oid resetAllOIDs
+} else {
+	puts "No physmap renamings specified"
+}
+
+# run companion IOTile-fixing script if it exists
+set script "$scriptpath/fixiotiles2"
+if { [file exists $script] } {
+	set nfixiotilesphase 2
+	puts "Running $script"
+	source $script
+}
+
+# remove non-bus top nets connecting to nothing
+$db oper removeDangle -all
+set ci 0
+$db foreach net $otopmod onet {
+	if { [$db isBusMember $onet] } { continue }
+	if { [$db count pin $onet] } { continue }
+	$db flag $onet set zombie
+	incr ci
+}
+$db deleteZombies
+$db oper removeDangle -all
+puts "Removed $ci unconnected nets (final clean-up)"
+close $fv
+
+# write out csv pin pairing guide.
+# routable bus ports appear in el/er, wl/wr, nb/nt, or sb/nt pairs.
+# (east/west/north/south, left/right/bottom/top).
+# items in same pair are in same track spanning entire phystile.
+# tracks are indexed by bus port index or other key.
+set dschandir2side [dict create			\
+	"chanx_left_in input"		el	\
+	"chanx_right_out output"	er 	\
+	"chanx_left_out output"		wl	\
+	"chanx_right_in input"		wr	\
+	"chany_bottom_in input"		nb	\
+	"chany_top_out output"		nt 	\
+	"chany_bottom_out output"	sb 	\
+	"chany_top_in input"		st	]
+puts "Writing pin guides"
+set ci 0
+set dsmod_good [dict create]
+set dsmod_bad [dict create]
+foreach stile $lstiles {
+	set stilemod [dict get $dtile2master $stile]
+	set otilemod [list "module" $stilemod $stilemod]
+	set dgroup2side2port_routable [dict create]		; # group --> side --> name
+	set dgroup2side2port_nonroutable [dict create]		; # group --> side --> name
+	set lglobals {}				; # list
+	set spfile "$spindir/$stilemod.csv"
+	set fp [open $spfile "w"]
+	puts -nonewline "  Writing $spfile              \r"
+	flush stdout
+	incr ci
+	set bcollide 0
+	$db foreach port $otilemod oport {
+		set sport [$db oid oname $oport]
+		# FIXME happens when varicose fix broken due to not finding outputs
+		# shouldn't happen any more
+		if { [string match *__pin_* $sport] } {
+			continue
+		}
+		# save routing connections so can later print in desired order
+		set smsg "routable track collision"
+		if { [regsub $rchanm $sport {\1 \2 \3} sbasebusbit] } {
+			# nasty trick: \2 is \d*[ --> [ is included so never empty.
+			# this statement would misbehave if \2 empty
+			foreach {sbase sbus nbit} $sbasebusbit { }
+			# drop [
+			set sbus [string range $sbus 0 end-1]
+			if { $sbus == "" } { set sbus 0 }
+			set sphysdir [$db directionOf $oport]
+			# translate to side
+			set skey [concat $sbus $nbit]
+			set side [dict get $dschandir2side "$sbase $sphysdir"]
+			if { [dict exists $dgroup2side2port_routable $skey $side] } {
+				#puts "Warning: $smsg bit=$skey side=$side oname=$sport"
+				set bcollide 1
+			}
+			dict set dgroup2side2port_routable $skey $side $sport
+			continue
+		}
+		# globals or abutment
+		set smsg "nonroutable track collision"
+		      if { [regsub {^(.*)(head|in|_i)(.*)$}  $sport {\1\3} sbasetail] } {
+			if { [dict exists $dgroup2side2port_nonroutable $sbasetail "st"] } {
+				#uts "Warning: $smsg basetail=$sbasetail side=st oname=$sport"
+				set bcollide 1
+			}
+			dict set dgroup2side2port_nonroutable $sbasetail "st" $sport
+		} elseif { [regsub {^(.*)(tail|out|_o)(.*)$} $sport {\1\3} sbasetail] } {
+			if { [dict exists $dgroup2side2port_nonroutable $sbasetail "sb"] } {
+				#uts "Warning: $smsg basetail=$sbasetail side=sb oname=$sport"
+				set bcollide 1
+			}
+			dict set dgroup2side2port_nonroutable $sbasetail "sb" $sport
+		} else   {
+			lappend lglobals $sport
+		}
+	}
+	# write globals
+	foreach sg [lsort -dictionary $lglobals] {
+		puts $fp "g,$sg"
+	}
+	set cg [llength $lglobals]
+	# write nonroutable then routable track pairs
+	set daxis2tracks [dict create]
+	set daxis2pins [dict create]
+	# will print out tracks in this order:
+	# first group (by bit within group):
+	#	south-going bottom and south-going top
+	#	north-going bottom and north-going top
+	# second group (by bit within group):
+	#	west-going left and west-going right
+	#	east-going left and east-going right
+	foreach lsides [list [list "sb" "st" "nb" "nt"] [list "wl" "wr" "el" "er"] ] {
+		set ld [list $dgroup2side2port_nonroutable $dgroup2side2port_routable]
+		foreach dgroup2side2port $ld {
+			foreach sgroup [lsort -dictionary [dict keys $dgroup2side2port]] {
+				# technically nmaxall should be chan specific but this works
+				if { [llength $sgroup] == 2 && \
+				     [lindex $sgroup 1] > $nmaxall } {
+				     	# Not Connected if above channel maxima
+					set bnc 1
+				} else {
+					set bnc 0
+				}
+				# print out ONE track (both ends)
+				set dside2port [dict get $dgroup2side2port $sgroup]
+				foreach {sb sc} $lsides {
+					if { [dict exists $dside2port $sb] } {
+						set sbv [dict get $dside2port $sb]
+					} else {
+						# no signal here
+						set sbv ""
+					}
+					if { [dict exists $dside2port $sc] } {
+						set scv [dict get $dside2port $sc]
+					} else {
+						# no signal here
+						set scv ""
+					}
+					if { $sbv == "" && $scv == "" } { continue }
+					set s1 [string range $sc 1 1]
+					set s "$sb$s1"
+					if { $bnc } {
+						# unconnected: texting doesn't matter
+						set s "u"
+					} else {
+						dict incr daxis2tracks $s1
+						if { $sbv != "" } {
+							dict incr daxis2pins $s1
+						}
+						if { $scv != "" } {
+							dict incr daxis2pins $s1
+						}
+					}
+					puts $fp "$s,$sbv,$scv"
+				}
+			}
+		}
+	}
+	# summary line (last line in csv)
+	set nht [dict get $daxis2tracks "r"]
+	set nvt [dict get $daxis2tracks "t"]
+	set nhp [dict get $daxis2pins "r"]
+	set nvp [dict get $daxis2pins "t"]
+	puts $fp "i,$cg globals,$nhp lr pins,$nht h tracks,$nvp bt pins,$nvt v tracks"
+	if { ![regsub $rmxy $stilemod {\1 \2 \3} smxy] } {
+		error "Could not understand $stilemod"
+	}
+	foreach {sm nx ny} $smxy { }
+	if { $bcollide } {
+		dict incr dsmod_bad $sm 1
+	} else {
+		dict incr dsmod_good $sm 1
+	}
+	#puts "collide=$bcollide for mname=$stilemod"
+	close $fp
+}
+foreach sm $dsmod_bad {
+	dict unset dsmod_good $sm
+}
+set sblank [string repeat " " 80]
+puts -nonewline "$sblank\r"
+flush stdout
+set cgood [dict size $dsmod_good]
+set cbad [dict size $dsmod_bad]
+puts "Wrote $ci pin guides ($cgood types all good $cbad bad)"
+
+# write out Verilog files.
+if { $bremapped } {
+	wrverilog $db   {}     $stopmod $srootdir $stiledir $dtile2master .remapped
+} else {
+	wrverilog $db $lstiles $stopmod $srootdir $stiledir $dtile2master ""
+}
+
+# early exit?
+puts "Done"
+if { !$bdebug } {
+	exit 0
+}
+
+# NOTE
+#
+# The remainder of this script writes pin classification files.
+# Not yet fully cleaned up(*) and it is not necessary to understand it.
+# This is a debugging tool.
+# (*) Hungarian notation incomplete for dicts and lists.
+
+# collect information about the design
+# the key info
+set tile2sig2ports [dict create]	; # tile --> signal --> [port]
+set sig2sinktiles [dict create]		; # signal --> tile --> 0
+set sig2porttiles [dict create]		; # signal --> tile --> 0
+set sig2tops [dict create]		; # signal --> [top_ports]
+set tile2sig2pin2dir [dict create]	; # tile --> signal --> primprin --> direction
+
+puts "Counting flat nets"
+$db flat free		; # since we just edited
+set cflat [$db flat count signal $otopmod]
+
+set sdumpfile "flat.dump"
+set fd [open $sdumpfile "w"]
+puts "Writing $sdumpfile"
+
+puts "Traversing $cflat flat nets to classify ports and pins"
+set ci 0
+set ctopnets 0
+$db flat foreach signal $otopmod osignal {
+
+	incr ci
+	if { ![expr {$ci % 10000}] } {
+		puts -nonewline "  $ci/$cflat\r"
+		flush stdout
+	}
+
+	# only nets in root are interesting
+	# 0:signal 1:root 2:top_name
+	if { [llength $osignal] > 3 } { continue }
+	incr ctopnets
+	puts $fd $osignal
+
+	# determine tiles touched
+	$db flat foreach pin -addHier -stopHier $osignal opin {
+		set stype [$db oid type $opin]
+		set lspath [$db oid path $opin]
+		set cpath [llength $lspath]
+		puts $fd $opin
+		if { $stype == "port" } {
+			# port on device?
+			if { $cpath == 0 } {
+				dict lappend sig2tops $osignal $opin
+			}
+			# port on tile?
+			if { $cpath == 1 } {
+				set stile [lindex $lspath 0]
+				dict set sig2porttiles $osignal $stile 0
+
+				if { [dict exists $tile2sig2ports $stile $osignal] } {
+					set lv [dict get $tile2sig2ports $stile $osignal]
+				} else {
+					set lv {}
+				}
+				lappend lv "$opin"
+				dict set tile2sig2ports $stile $osignal $lv
+			}
+		}
+		if { $stype == "pin" } {
+			# pin on primitive?
+			if { $cpath > 2 && ![$db isModule $opin] } {
+				set stile [lindex $lspath 0]
+				dict set sig2sinktiles $osignal $stile 0
+				# save primitive pin and its direction
+				dict set tile2sig2pin2dir $stile $osignal $opin \
+					[$db directionOf $opin]
+			}
+		}
+	}
+}
+set sblank [string repeat " " 80]
+puts -nonewline "$sblank\r"
+flush stdout
+close $fd
+puts "Analyzed $ctopnets top level flat nets"
+
+proc putsn {ff m} {
+	foreach f $ff {
+		puts $f $m 
+	}
+}
+
+# we use M for W so we get E/W/N/S sort order
+set vprdirs [dict create					\
+	chanx_right_out		E	chanx_right_in	M	\
+	chanx_left_out		M	chanx_left_in	E	\
+	chany_top_out		N	chany_top_in	S	\
+	chany_bottom_out	S	chany_bottom_in	N	\
+]
+set class2name [dict create						\
+	/	fixed		0	varicose			\
+	1E0	E0	1M0	W0	1N0	N0	1S0	S0	\
+	2E0	E1a	2M0	W1a	2N0	N1a	2S0	S1a	\
+	2E1	E1b	2M1	W1b	2N1	N1b	2S1	S1b	\
+	5E0	E4a	5M0	W4a	5N0	N4a	5S0	S4a	\
+	5E1	E4b	5M1	W4b	5N1	N4b	5S1	S4b	\
+	5E2	E4c	5M2	W4c	5N2	N4c	5S2	S4c	\
+	5E3	E4d	5M3	W4d	5N3	N4d	5S3	S4d	\
+	5E4	E4e	5M4	W4e	5N4	N4e	5S4	S4e	\
+]
+
+set ctiles [llength $lstiles]
+set ci 0 
+puts "Writing port classification files"
+set nonessential [dict create noconnect 1 feed 1 symfeed 1]
+set calltsuper 0
+foreach tile $lstiles {
+	# produce a pin report
+	set smname [dict get $dtile2master $tile]
+	set oroot [list  "module" $smname $smname]
+	set sallportfile "$spindir/$smname.allports"
+	set fall [open $sallportfile "w"]
+	set sminportfile "$spindir/$smname.minports"
+	set fmin [open $sminportfile "w"]
+	set lboth [list $fall $fmin]	; # where essential connections go
+	set lmore [list $fall]		; # where non-essential connections go
+	incr ci
+	puts -nonewline "  Writing $ci/$ctiles $sallportfile         \r"
+	flush stdout
+
+	putsn $lboth "Within each signal:"
+	putsn $lboth "attr mysink     = 1/0 this tile has sinks"
+	putsn $lboth "attr myfeed     = 1/0 this tile has 2+ ports/0 sinks"
+	putsn $lboth "attr myports    = # module ports"
+	putsn $lboth "attr othersinks = # other tiles w sinks"
+	putsn $lboth "attr otherfeeds = # other tiles w feeds (2+ ports/0 sinks)"
+	putsn $lboth "type connecting = mysink othersinks myports=1"
+	putsn $lboth "type tapping    = mysink othersinks myports>1"
+	putsn $lboth "type isolated   = mysink !othersinks myports=1"
+	putsn $lboth "type varicose   = mysink !othersinks myports>1 otherfeeds"
+	putsn $lboth "type feed       = myfeed othersinks"
+	putsn $lboth "type symfeed    = myfeed !othersinks"
+	putsn $lboth "type noconnect  = !mysink !myfeed"
+	putsn $lboth "Note: a top-level port is counted as an othersink"
+	putsn $lboth ""
+
+	set sig2ports [dict get $tile2sig2ports $tile]
+	set losignals [dict keys $sig2ports]
+
+	# minor sort by name/bit
+	set losignals [lsort -dictionary $losignals]
+
+	# major sort by class
+	set classes [dict create]
+	foreach osignal $losignals {
+		if { [regsub $rchan $osignal {\1 \2} sbasebit] } {
+			foreach {sbase nbit} $sbasebit { }
+			# NOTE: these tests encode the channel structure
+			if { $nbit < 32 } {
+				set len 2
+			} elseif { $nbit < 112 } {
+				set len 5
+				incr nbit -32
+			} else {
+				set len 1
+			}
+			set sc "$len[dict get $vprdirs $sbase][expr {$nbit % $len}]"
+			dict lappend classes $sc $osignal
+		} elseif { [regexp $ropin $osignal] } {
+			dict lappend classes "0" $osignal
+		} else {
+			dict lappend classes "/" $osignal
+		}
+	}
+
+	set groups [dict create]
+	set callt 0
+	foreach sclass [lsort [dict keys $classes]] {
+
+		set oclass_sigs [dict get $classes $sclass]
+		set types [dict create]
+
+		foreach osignal $oclass_sigs {
+			set ports [dict get $sig2ports $osignal]
+			set ports [lsort -dictionary $ports]
+			set cports [llength $ports]
+
+			# WANT bmysink: does this tile have sinks on this signal
+			# WANT cothersinks: how many other tiles with sinks
+			set bmysink 0
+			set cothersinks 0
+			if { [dict exists $sig2sinktiles $osignal] } {
+				set tile2zero [dict get $sig2sinktiles $osignal]
+				set cothersinks [llength [dict keys $tile2zero]]
+				if { [dict exists $tile2zero $tile] } {
+					set bmysink 1
+					incr cothersinks -1
+				}
+			}
+			# add top-level ports
+			set tops {}
+			if { [dict exists $sig2tops $osignal] } {
+				set tops [dict get $sig2tops $osignal]
+				incr cothersinks [llength $tops]
+			}
+
+			# WANT cmyports: how many ports on my tile
+			set myportlist [dict get $tile2sig2ports $tile $osignal]
+			set cmyports [llength $myportlist]
+
+			# WANT bmyfeed: does this tile have a feed
+			# WANT cotherfeeds: how many other tiles with ports>1 and sinks=0
+			set bmyfeed 0
+			set cotherfeeds 0
+			dict for {tile2 nzero} [dict get $sig2porttiles $osignal] {
+				if { [dict exists $sig2sinktiles $osignal $tile2] } {
+					continue
+				}
+				set v [dict get $tile2sig2ports $tile2 $osignal]
+				if { [llength $v] < 2 } {
+					continue
+				}
+				if { $tile == $tile2 } {
+					set bmyfeed 1
+				} else {
+					incr cotherfeeds
+				}
+			}
+			# note: unaffected by top-level ports on this signal
+
+			# count primitive pins as inputs/outputs/others
+			set primcounts [dict create input 0 output 0 inout 0 unknown 0]
+			if { [dict exists $tile2sig2pin2dir $tile $osignal] } { 
+				set pins [dict get $tile2sig2pin2dir $tile $osignal]
+				dict for {pin direction} $pins {
+					dict incr primcounts $direction 1
+				}
+			}
+			dict set primcounts other 			\
+				[expr {	[dict get $primcounts inout] +	\
+					[dict get $primcounts unknown]}]
+			dict unset primcounts inout
+			dict unset primcounts unknown
+
+			# note bmyfeed=1 implies bmysink=0
+
+			## determine local nets on ports in my tile
+			set net2zero [dict create]
+			foreach oport $myportlist {
+				set omodport [$db oid createModBased $oport]
+				if { ![$db isConnected $omodport] } { continue }
+				set omodnet [$db connectedNet $omodport]
+				dict set net2zero $omodnet 0
+			}
+			set nets [dict keys $net2zero]
+			set nets [lsort -dictionary $nets]
+
+			# classify
+			set type {}
+			if { $bmysink } {
+				if { $cothersinks } {
+					if { $cmyports == 1 } {
+						lappend type "connecting"
+					}
+					if { $cmyports > 1 } {
+						lappend type "tapping"
+					}
+				} else {
+					if { $cmyports == 1 } {
+						lappend type "isolated"
+					}
+					if { $cmyports > 1 && $cotherfeeds } {
+						lappend type "varicose"
+					}
+					if { $cmyports > 1 && !$cotherfeeds } {
+						lappend type "isolatedn"
+					}
+				}
+			} elseif { $bmyfeed } {
+				if { $cothersinks } {
+					lappend type "feed"
+				} else {
+					lappend type "symfeed"
+				}
+			} else {
+				lappend type "noconnect"
+			}
+
+			set attrs [concat 						\
+				"mysink=$bmysink" "myfeed=$bmyfeed"			\
+				"myports=$cmyports"					\
+				"othersinks=$cothersinks" "otherfeeds=$cotherfeeds"	\
+				"inputs=[dict get $primcounts input]"			\
+				"outputs=[dict get $primcounts output]"			\
+				"others=[dict get $primcounts other]"			\
+			]
+
+			if { [llength $type] != 1 } {
+				error "unknown: $slbrace$type$srbrace $attrs signal=$osignal"
+			}
+
+			dict incr groups "$type $cports" 1
+
+			# choose which file(s) this signal/ports description goes to
+			if { [dict exists $nonessential $type] } {
+				set outs $lmore	; # fall
+			} else {
+				set outs $lboth	; # fall fmin
+			}
+
+			# dump out all info for this signal in this tile
+			dict incr types $type
+			putsn $outs "attributes type=$type $attrs"
+			putsn $outs $osignal
+			foreach port $ports {
+				putsn $outs $port
+			}
+			# more info for debugging
+			if { 0 } {
+				foreach topport $tops {
+					putsn $outs $topport
+				}
+				foreach net $nets {
+					putsn $outs $net
+				}
+				# show primitive pins with directions
+				if { [dict exists $tile2sig2pin2dir $tile $osignal] } { 
+					set pins [dict get $tile2sig2pin2dir $tile $osignal]
+					set pinlist [dict keys $pins]
+					set pinlist [lsort -dictionary $pinlist]
+					foreach pin $pinlist {
+						set direction [dict get $pins $pin]
+						putsn $outs "$direction $pin"
+					}
+				}
+			}
+			putsn $outs ""
+		}
+
+		set ct [llength $oclass_sigs]
+		incr callt $ct
+		set smsg [concat [lmap	n [lsort [dict keys $types]]		\
+					{set junk "$n=[dict get $types $n]"}]]
+		putsn $lboth "group class=[dict get $class2name $sclass] signals=$ct $smsg"
+		putsn $lboth ""
+	}
+
+	putsn $lboth "group class=all signals=$callt"
+	putsn $lboth ""
+	incr calltsuper $callt
+
+	set ctotal 0
+	foreach tysize [lsort -dictionary [dict keys $groups]] {
+		set ng [dict get $groups $tysize]
+		foreach {type size} $tysize { }
+		putsn $lboth "$ng $type groups of ports with $size ports each"
+		incr ctotal [expr {$ng * $size}]
+	}
+	putsn $lboth "$ctotal ports on [llength $losignals] signals"
+
+	close $fall
+	close $fmin
+}
+set sblank [string repeat " " 80]
+puts -nonewline "$sblank\r"
+flush stdout
+puts "Wrote $ci*2 port classification files with $calltsuper ports"
+
+puts "Done"
+
+
+# vim: filetype=tcl
+# vim: syntax=on fileformat=unix autoindent hlsearch

@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+"""duplicate VPR's CHANX/Y node set, order, and ptc numbers"""
+import sys ; import itertools
+
+# xm, ym: max coordinates excluding EMPTY grids
+# ln: length of wires for this node's segment_id
+# mi: index of node in list with matching ax, dc, p0, xl, xh, yl, yh sorted by node id
+# ax: axis: 0=CHANX node, 1=CHANY node
+# dc: decrement: 0=INC_DIR node, 1=DEC_DIR node
+# p0: lowest ptc number assigned to this node's segment_id
+# xl, xh, yl, yh: coordinates of this CHANX/CHANY node
+def tileptc(xm, ym, ln, mi, ax, dc, p0, xl, xh, yl, yh):
+    """compute tileable ptc from other info"""
+    (lo, hi, mx) = (yl, yh, ym) if ax else (xl, xh, xm) 
+    ptc = p0 + mi * 2 * ln
+
+    reps = 1 if lo > 1 else ln
+    if reps <= 1:
+        if dc: ptc += 2 * ln - 1
+    else:
+        rep = min(lo + ln - 1, mx) - hi
+        if dc: rep = reps - 1 - rep
+        ptc += rep * 2 + dc
+
+    return ptc
+# def tileptc
+
+def toplogic():
+    """everything"""
+    (tile, n, xmax, ymax, *info) = [int(a) for a in sys.argv[1:]] ; nn = n
+    lengths = info[0::2] ; per_dir = info[1::2]
+    ptcbase = [l * p * 2 for l, p in zip(lengths, per_dir)]
+    ptcbase = [sum(ptcbase[:i]) for i in range(1 + len(ptcbase))]
+    width = ptcbase.pop(-1)
+
+    m = 0 ; dname = [ "INC_DIR", "DEC_DIR", ]
+    for ax in range(2):
+        ty = ["CHANX", "CHANY"][ax]
+        (alongmax, awaymax) = (ymax, xmax) if ax else (xmax, ymax)
+        for away, along in itertools.product(range(awaymax + 1), range(1, alongmax + 1)):
+            for sid, ln in enumerate(lengths, start=0):
+                if not ln: continue
+                reps = 1 if along > 1 else ln
+                base = ptcbase[sid] ; w = 0
+                for bit, rep, dec in itertools.product(range(per_dir[sid]), range(reps), range(2)):
+                    (lo, hi) = (along, min(along + ln - 1, alongmax))
+                    ptc = base + bit * 2 * ln
+                    if reps <= 1:
+                        ptc += ((2 * ln - 1) * dec) if tile else (((away + lo - 1) % ln) * 2 + dec)
+                    else:
+                        hi -= ((reps - rep - 1) if dec else rep) if tile else ((away + reps - rep) % ln)
+                        ptc += rep * 2 + dec
+                    (xl, xh, yl, yh) = (away, away, lo, hi) if ax else (lo, hi, away, away)
+                    if tile:
+                        assert ptc == tileptc(xmax, ymax, ln, bit, ax, dec, base, xl, xh, yl, yh)
+                    print(
+f'''<node capacity="1" direction="{dname[dec]}" id="{n}" type="{ty}"><loc ptc="{ptc}" xhigh="{xh}" xlow="{xl}" yhigh="{yh}" ylow="{yl}"/>
+<segment segment_id="{sid}"/>
+</node>''')
+                    n += 1 ; w += 1
+                sys.stderr.write(
+f"{m:3d} ax={ax} along={along} away={away} len={ln} reps={reps} wrote={w}\n")
+                m += 1
+    sys.stderr.write(f"Wrote {n-nn} nodes with channel width {width}\n")
+# def toplogic
+
+toplogic()
+
+
+# vim: tabstop=4 softtabstop=4 shiftwidth=4 expandtab smarttab
+# vim: filetype=python autoindent hlsearch syntax=on fileformat=unix

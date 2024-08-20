@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:element name="openfpga_architecture">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="technology_library"/>
+        <xs:element ref="circuit_library"/>
+        <xs:element ref="configuration_protocol"/>
+        <xs:element ref="connection_block"/>
+        <xs:element ref="switch_block"/>
+        <xs:element ref="routing_segment"/>
+        <xs:element ref="direct_connection"/>
+        <xs:element ref="tile_annotations"/>
+        <xs:element ref="pb_type_annotations"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="technology_library">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="device_library"/>
+        <xs:element ref="variation_library"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="device_library">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="device_model"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="device_model">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="lib"/>
+        <xs:element ref="design"/>
+        <xs:element ref="pmos"/>
+        <xs:element ref="nmos"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+      <xs:attribute name="type" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="lib">
+    <xs:complexType>
+      <xs:attribute name="corner" type="xs:NCName"/>
+      <xs:attribute name="path" use="required"/>
+      <xs:attribute name="ref" use="required" type="xs:NCName"/>
+      <xs:attribute name="type" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="design">
+    <xs:complexType>
+      <xs:attribute name="pn_ratio" use="required" type="xs:integer"/>
+      <xs:attribute name="vdd" use="required" type="xs:decimal"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="pmos">
+    <xs:complexType>
+      <xs:attribute name="chan_length" use="required" type="xs:double"/>
+      <xs:attribute name="min_width" use="required" type="xs:double"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+      <xs:attribute name="variation" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="nmos">
+    <xs:complexType>
+      <xs:attribute name="chan_length" use="required" type="xs:double"/>
+      <xs:attribute name="min_width" use="required" type="xs:double"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+      <xs:attribute name="variation" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="variation_library">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="variation"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="variation">
+    <xs:complexType>
+      <xs:attribute name="abs_deviation" use="required" type="xs:decimal"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+      <xs:attribute name="num_sigma" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="circuit_library">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="circuit_model"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="circuit_model">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="design_technology"/>
+        <xs:element minOccurs="0" ref="device_technology"/>
+        <xs:sequence minOccurs="0">
+          <xs:element ref="input_buffer"/>
+          <xs:element ref="output_buffer"/>
+        </xs:sequence>
+        <xs:sequence minOccurs="0">
+          <xs:element ref="lut_input_inverter"/>
+          <xs:element ref="lut_input_buffer"/>
+          <xs:element ref="lut_intermediate_buffer"/>
+        </xs:sequence>
+        <xs:element minOccurs="0" ref="pass_gate_logic"/>
+        <xs:element maxOccurs="unbounded" ref="port"/>
+        <xs:choice>
+          <xs:element ref="wire_param"/>
+          <xs:element minOccurs="0" maxOccurs="unbounded" ref="delay_matrix"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="dump_structural_verilog" type="xs:boolean"/>
+      <xs:attribute name="is_default" type="xs:boolean"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+      <xs:attribute name="prefix" use="required" type="xs:NCName"/>
+      <xs:attribute name="type" use="required" type="xs:NCName"/>
+      <xs:attribute name="verilog_netlist"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="design_technology">
+    <xs:complexType>
+      <xs:attribute name="add_const_input" type="xs:boolean"/>
+      <xs:attribute name="fracturable_lut" type="xs:boolean"/>
+      <xs:attribute name="size" type="xs:integer"/>
+      <xs:attribute name="structure" type="xs:NCName"/>
+      <xs:attribute name="topology" type="xs:NCName"/>
+      <xs:attribute name="type" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="device_technology">
+    <xs:complexType>
+      <xs:attribute name="device_model_name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="input_buffer">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" type="xs:NCName"/>
+      <xs:attribute name="exist" use="required" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="output_buffer">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" type="xs:NCName"/>
+      <xs:attribute name="exist" use="required" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="lut_input_inverter">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="exist" use="required" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="lut_input_buffer">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="exist" use="required" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="lut_intermediate_buffer">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="exist" use="required" type="xs:boolean"/>
+      <xs:attribute name="location_map" use="required" type="xs:NMTOKEN"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="pass_gate_logic">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="wire_param">
+    <xs:complexType>
+      <xs:attribute name="C" use="required" type="xs:double"/>
+      <xs:attribute name="R" use="required" type="xs:integer"/>
+      <xs:attribute name="model_type" use="required" type="xs:NCName"/>
+      <xs:attribute name="num_level" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="delay_matrix">
+    <xs:complexType mixed="true">
+      <xs:attribute name="in_port" use="required"/>
+      <xs:attribute name="out_port" use="required" type="xs:NCName"/>
+      <xs:attribute name="type" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="configuration_protocol">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="organization"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="organization">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="num_regions" use="required" type="xs:integer"/>
+      <xs:attribute name="type" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="connection_block">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="switch"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="switch_block">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="switch"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="routing_segment">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="segment"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="segment">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="direct_connection">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="direct"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="direct">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="tile_annotations">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="pb_type_annotations">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="pb_type"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="pb_type">
+    <xs:complexType>
+      <xs:choice>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="port"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="interconnect"/>
+      </xs:choice>
+      <xs:attribute name="circuit_model_name" type="xs:NCName"/>
+      <xs:attribute name="mode_bits" type="xs:integer"/>
+      <xs:attribute name="name" use="required"/>
+      <xs:attribute name="physical_mode_name" type="xs:NCName"/>
+      <xs:attribute name="physical_pb_type_index_factor" type="xs:decimal"/>
+      <xs:attribute name="physical_pb_type_index_offset" type="xs:integer"/>
+      <xs:attribute name="physical_pb_type_name"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="interconnect">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="port">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" type="xs:NCName"/>
+      <xs:attribute name="default_val" type="xs:integer"/>
+      <xs:attribute name="is_clock" type="xs:boolean"/>
+      <xs:attribute name="is_config_enable" type="xs:boolean"/>
+      <xs:attribute name="is_data_io" type="xs:boolean"/>
+      <xs:attribute name="is_global" type="xs:boolean"/>
+      <xs:attribute name="is_io" type="xs:boolean"/>
+      <xs:attribute name="is_prog" type="xs:boolean"/>
+      <xs:attribute name="lib_name" type="xs:NCName"/>
+      <xs:attribute name="lut_frac_level" type="xs:integer"/>
+      <xs:attribute name="lut_output_mask"/>
+      <xs:attribute name="mode_select" type="xs:boolean"/>
+      <xs:attribute name="name" type="xs:NCName"/>
+      <xs:attribute name="physical_mode_pin_rotate_offset" type="xs:integer"/>
+      <xs:attribute name="physical_mode_port"/>
+      <xs:attribute name="prefix" type="xs:NCName"/>
+      <xs:attribute name="size" type="xs:integer"/>
+      <xs:attribute name="tri_state_map" type="xs:NMTOKEN"/>
+      <xs:attribute name="type" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="switch">
+    <xs:complexType>
+      <xs:attribute name="circuit_model_name" use="required" type="xs:NCName"/>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
