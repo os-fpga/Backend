@@ -1,0 +1,6 @@
+make clean
+make generate_arch TILEABLE=false STAMPER_OPT="-gs"
+make generate_rrgraph TILEABLE=false STAMPER_OPT="-gs"
+make stamped_rrgraph TILEABLE=false STAMPER_OPT="-gs"
+rm run_openfpga_rrgraph
+make run_openfpga_rrgraph TILEABLE=false STAMPER_OPT="-gs"

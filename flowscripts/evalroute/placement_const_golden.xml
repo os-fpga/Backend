@@ -1,0 +1,8 @@
+<vpr_constraints tool_name="vpr">
+        <partition_list>
+        <partition name="f2a_i">
+         </partition>
+         <partition name="a2f_o">
+         </partition>
+        </partition_list>
+</vpr_constraints>

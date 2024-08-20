@@ -1,0 +1,63 @@
+# Reloading the top module
+$db reloadModule $stopmod
+# Decalaring the required variables
+set variable_PL_IN "PL_IN"
+set variable_PL_OUT "PL_DATA_OUT"
+set variableA2F "A2F"
+set variableF2A_CLK "F2A_CLK"
+set pattern "top_bram_io_tile_*__*_"
+set variable_sr_in "sr_in"
+set variable_sr_out "sr_out"
+set msb_pl_in "73"
+set msb_pl_out "35"
+set msb_sr "311"
+set lsb "0"
+set slbrace "{"
+set srbrace "}"
+
+# Following section of the code is related to sr_in/sr_out 
+#set lst_sr_in  {}
+#for {set bit $msb_sr} {$bit>=$lsb} {incr bit -1} {
+#    set sr_in_ "$variable_sr_in$slbrace$bit$srbrace"
+#    # puts $sr_in_
+#    lappend lst_sr_in $sr_in_ }
+#    # puts $lst_sr_in
+#    $db load portBus $variable_sr_in output 312 {*}$lst_sr_in -range {311} {0}
+#
+#set lst_sr_out  {}
+#for {set bit $msb_sr} {$bit>=$lsb} {incr bit -1} {
+#    set sr_out_ "$variable_sr_out$slbrace$bit$srbrace"
+#    # puts $sr_out_
+#    lappend lst_sr_out $sr_out_ }
+#    # puts $lst_sr_out
+#    $db load portBus $variable_sr_out output 312 {*}$lst_sr_out -range {311} {0}
+
+# Following section of the code is related to PL_IN/PL_OUT
+$db foreach inst $otopmod osubtile {
+        continue
+        set smod [$db oid cname $osubtile]
+        set sinst [$db oid oname $osubtile]
+        if {[string match $pattern $smod]} {
+        # puts "Pattern Matched"
+        # puts $smod
+        set split_string [split $smod "_"]
+        # puts $split_string
+        set coordinate [lindex $split_string 4]
+        set new_port_pl_in "${variable_PL_IN}_${coordinate}"
+        set new_port_pl_out "${variable_PL_OUT}_${coordinate}"
+        set  pl_in_lst_    {}
+        for {set bit $msb_pl_in} {$bit>=$lsb} {incr bit -1} {
+            set pl_in_ "$new_port_pl_in$slbrace$bit$srbrace"
+            lappend pl_in_lst_ $pl_in_ }
+            $db load portBus $new_port_pl_in input 74 {*}$pl_in_lst_ -range {73} {0}
+
+        set  pl_out_lst_    {}
+        for {set bit $msb_pl_out} {$bit>=$lsb} {incr bit -1} {
+            set pl_out_ "$new_port_pl_out$slbrace$bit$srbrace"
+            lappend pl_out_lst_ $pl_out_ }
+            $db load portBus $new_port_pl_out output 36 {*}$pl_out_lst_ -range {35} {0}
+
+         }
+  }
+
+

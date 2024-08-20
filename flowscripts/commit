@@ -1,0 +1,8 @@
+support --flat_routing, debug flag, fixes
+bitgen.py: bugfix when comparing bitstreams;
+cbmapping.py: ideas to make more robust;
+rerunvpr.sh: add debug flag for python scripts, pass flat flag to VPR, no bit compare when c, f, or l;
+raptor_pin_vgl.sh: pass "flat" thru to Raptor & rerunvpr.sh;
+sched.py: pass flat flag to raptor_pin_vgl.sh, clean-ups;
+vwalk.py: support `undef MACRO;
+add make_gemini_release_{basenets,cbmapping}.sh: for old devices make newly needed files.

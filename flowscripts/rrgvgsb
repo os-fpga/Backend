@@ -1,0 +1,50 @@
+#!/bin/bash
+
+run=run001
+args=
+gdir=
+while [ "x$*" != "x" ] ; do
+	if [ "x$1" == "x-i" ]; then
+		echo IPINs will not be checked
+		args="$args $1" ; shift ; continue
+	fi
+	if [ "x$1" == "x-o" ]; then
+		echo OPINs will not be checked
+		args="$args $1" ; shift ; continue
+	fi
+	if [ "x$1" == "x-s" ]; then
+		echo Stamper GSBs will be compared
+		gdir=s ; shift ; continue
+	fi
+	if [ "x$1" == "x-r" ]; then
+		shift
+		if [ "x$*" == "x" ] ; then
+			echo Option -r lacks argument
+			exit 1
+		fi
+		echo Run directory will be $1
+		run=$1 ; shift ; continue
+	fi
+	echo Unrecognized option: $1
+	exit 1
+done 
+
+script=fabric_task/arch/rr_graph_builder/rrgvgsb.py
+rrg=fabric_task/flow_inputs/rr_graph.stamped.xml
+if [ "x$gdir" == "xs" ] ; then
+	gsb_dir=fabric_task/flow_inputs/gsb_stamp_dir
+else
+	gsb_dir=fabric_task/$run/_nontile_arch/top/MIN_ROUTE_CHAN_WIDTH/gsb
+fi
+
+# run the comparison
+echo Execute: $script $args $rrg $gsb_dir/"*.xml"
+if [ x == x ] ; then
+	echo "<gsbs>"		>  gsbs.xml
+	cat $gsb_dir/*.xml	>> gsbs.xml
+	echo "</gsbs>"		>> gsbs.xml
+	echo Built gsbs.xml
+	$script $args $rrg gsbs.xml
+else
+	$script $args $rrg $gsb_dir/*.xml
+fi
