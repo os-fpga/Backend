@@ -457,7 +457,7 @@ bool BLIF_file::checkBlif() noexcept {
   }
 
   // -- write yaml file to check prim-DB:
-  if (trace_ >= 5) {
+  if (trace_ >= 7) {
     //string written = pr_write_yaml( DFFRE );
     //string written = pr_write_yaml( DSP19X2 );
     //string written = pr_write_yaml( DSP38 );
@@ -1472,8 +1472,9 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
             pg_.countClockNodes());
   }
 
-  if (not pg_.hasClockNodes())
+  if (not pg_.hasClockNodes()) {
     return true;
+  }
 
   // -- paint clock nodes and their incoming edges Red
   for (NW::NI I(pg_); I.valid(); ++I) {
@@ -1580,7 +1581,7 @@ bool BLIF_file::createPinGraph() noexcept {
   uint nid = 0, kid = 0, eid = 0;
   vector<string> INP;
   vector<upair> PAR;
-  char nm_buf[512] = {};
+  char nm_buf[520] = {};
 
   pg2blif_.reserve(2 * nodePool_.size() + 1);
 
@@ -1694,6 +1695,59 @@ bool BLIF_file::createPinGraph() noexcept {
                 kid, bnodeRef(q.cellId_).lnum_, q.cellId_);
       pg_.setNodeName(kid, nm_buf);
       pg2blif_.emplace(kid, q.cellId_);
+    }
+  }
+
+  // -- create pg-nodes for sequential input pins
+  vector<const Node*> clocked;
+  collectClockedNodes(clocked);
+  if (trace_ >= 4)
+    lprintf("  createPinGraph:  clocked.size()= %zu\n", clocked.size());
+  if (not clocked.empty()) {
+    for (const Node* cnp : clocked) {
+      const Node& cn = *cnp;
+      assert(cn.hasPrimType());
+      if (cn.ptype_ == prim::CLK_BUF or cn.ptype_ == prim::FCLK_BUF)
+        continue;
+      lputs9();
+      for (uint i = 0; i < cn.inPins_.size(); i++) {
+        const string& inp = cn.inPins_[i];
+        assert(not inp.empty());
+        if (not pr_pin_is_clock(cn.ptype_, inp))
+          continue;
+        assert(cn.cell_hc_);
+        key = hashComb(cn.cell_hc_, inp);
+        assert(key);
+        assert(not pg_.hasKey(key));
+        kid = pg_.insK(key);
+        assert(kid);
+        pg_.nodeRef(kid).markClk(true);
+
+        ::snprintf(nm_buf, 510, "nd%u_L%u_cn",
+                   kid, cn.lnum_);
+        pg_.setNodeName(kid, nm_buf);
+
+        pg2blif_.emplace(kid, cn.id_);
+
+        const string& inet = cn.inSigs_[i];
+        assert(not inet.empty());
+        const Node* driver = findFabricDriver(cn.id_, inet);
+        if (!driver)
+          continue;
+
+        uint64_t qk = hashComb(driver->id_, driver->out_);
+        assert(qk);
+        uint pid = pg_.insK(qk);
+
+        ::snprintf(nm_buf, 510, "nd%u_L%u_",
+                   pid, driver->lnum_);
+        if (driver->ptype_ == prim::CLK_BUF)
+          ::strcat(nm_buf, "CBUF");
+        pg_.setNodeName(pid, nm_buf);
+
+        eid = pg_.linK(qk, key);
+        assert(eid);
+      }
     }
   }
 
