@@ -519,7 +519,7 @@ uint NW::printDot(ostream& os, CStr nwNm, bool nodeTable, bool noDeg0) const noe
 
   for (cNI I(*this); I.valid(); ++I) {
     const Node& ii = *I;
-    if (noDeg0 and ii.degree() == 0)
+    if (noDeg0 and ii.degree() == 0 and not ii.isClk())
       continue;
     ii.nprint_dot(os);
   }
