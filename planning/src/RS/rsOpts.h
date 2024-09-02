@@ -92,11 +92,12 @@ struct rsOpts {
   void printHelp() const noexcept;
 
   bool unit_specified() const noexcept {
-    return unit1_ || unit2_ || unit3_ || unit4_ || unit5_ || unit6_ || unit7_;
+    return unit1_ or unit2_ or unit3_ or unit4_ or unit5_ or unit6_
+           or unit7_;
   }
-  bool ver_or_help() const noexcept { return version_ || det_ver_ || help_; }
+  bool ver_or_help() const noexcept { return version_ or det_ver_ or help_; }
 
-  bool trace_specified() const noexcept { return traceIndex_ > 0; }
+  bool trace_specified() const noexcept { return traceIndex_ > 0 and trace_ > 0; }
   bool test_id_specified() const noexcept { return test_id_ > 0; }
 
   bool set_STA_testCase(int TC_id) noexcept;

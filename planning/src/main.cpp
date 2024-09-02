@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0318";
+static const char* _pln_VERSION_STR = "pln0319";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -449,19 +449,21 @@ int main(int argc, char** argv) {
   using std::string;
 
   rsOpts& opts = s_env.opts_;
-  const char* trace = getenv("pln_trace");
+  const char* trace = ::getenv("pln_trace");
   if (trace)
-    set_ltrace(atoi(trace));
+    set_ltrace(::atoi(trace));
   else
-    set_ltrace(opts.trace_);
+    set_ltrace(3);
 
   cout << s_env.traceMarker_ << endl;
 
   s_env.initVersions(_pln_VERSION_STR);
 
   s_env.parse(argc, argv);
+  if (opts.trace_specified())
+    set_ltrace(opts.trace_);
 
-  if (opts.trace_ >= 8 || ltrace() >= 9 || getenv("pln_trace_env")) {
+  if (opts.trace_ >= 8 or ltrace() >= 9 or ::getenv("pln_trace_env")) {
     s_env.dump("\n----env----\n");
     lout() << "-----------" << endl;
   }
@@ -469,7 +471,7 @@ int main(int argc, char** argv) {
   if (opts.ver_or_help()) {
     if (ltrace() >= 2) {
       printf("\t %s\n", _pln_VERSION_STR);
-      printf("\t compiled:  %s\n", s_env.compTimeCS());
+      printf("\t compiled:    %s\n", s_env.compTimeCS());
     }
     deal_help(opts);
     pln::flush_out();

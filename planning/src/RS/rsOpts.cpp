@@ -40,7 +40,7 @@ static CStr _output_[] = {"OU", "ou", "out", "outp", "output", nullptr};
 
 static CStr _assOrd_[] = {"ASS", "ass", "assign", "assign_unconstrained", "assign_unconstrained_pins", nullptr};
 
-static CStr _trace_[] = {"TR", "trace", "tr", "tra", nullptr};
+static CStr _trace_[] = {"TR", "T", "TT", "tt", "trace", "Trace", "Tr", "tr", "tra", "trac", nullptr};
 
 static CStr _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst", "test_case", "test_c", nullptr};
 
@@ -156,6 +156,7 @@ void rsOpts::printHelp() const noexcept {
   static CStr tab1[] = {
     "--help,-H", "Help",
     "--version,-V", "Version",
+    "--trace,-T <number>", "Trace level, default 3",
     "--check <blif_file_name>", "BLIF or EBLIF file to check",
     "--csv <csv_file_name>", "CSV file (pin table) to check",
     nullptr, nullptr, nullptr };
