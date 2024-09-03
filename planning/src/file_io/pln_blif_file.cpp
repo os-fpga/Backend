@@ -1343,30 +1343,33 @@ bool BLIF_file::linkNodes() noexcept {
       }
     }
   }
-  // 1b. output ports should not contact fabric inputs
-  if (not topOutputs_.empty()) {
-    for (Node* out_nd : topOutputs_) {
-      Node& nd = *out_nd;
-      assert(!nd.out_.empty());
-      int pinIndex = -1;
-      Node* par = findFabricParent(nd.id_, nd.out_, pinIndex);
-      if (par) {
-        assert(pinIndex >= 0);
-        assert(uint(pinIndex) < par->data_.size());
-        const string& pinToken = par->data_[pinIndex];
-        if (trace_ >= 20)
-          lout() << pinToken << endl;
-        if (not par->isLatch()) {
-          // skipping latches for now
-          err_msg_.reserve(224);
-          err_msg_ = "output port contacts fabric input:  port= ",
-          err_msg_ += nd.out_;
-          err_msg_ += "  fab-input= ";
-          err_msg_ += par->cPrimType();
-          err_msg_ += " @ line ";
-          err_msg_ += std::to_string(par->lnum_);
-          err_lnum_ = nd.lnum_;
-          return false;
+
+  if (::getenv("pln_check_output_port_loopback")) {
+    // 1b. output ports should not contact fabric inputs
+    if (not topOutputs_.empty()) {
+      for (Node* out_nd : topOutputs_) {
+        Node& nd = *out_nd;
+        assert(!nd.out_.empty());
+        int pinIndex = -1;
+        Node* par = findFabricParent(nd.id_, nd.out_, pinIndex);
+        if (par) {
+          assert(pinIndex >= 0);
+          assert(uint(pinIndex) < par->data_.size());
+          const string& pinToken = par->data_[pinIndex];
+          if (trace_ >= 20)
+            lout() << pinToken << endl;
+          if (not par->isLatch()) {
+            // skipping latches for now
+            err_msg_.reserve(224);
+            err_msg_ = "output port contacts fabric input:  port= ",
+            err_msg_ += nd.out_;
+            err_msg_ += "  fab-input= ";
+            err_msg_ += par->cPrimType();
+            err_msg_ += " @ line ";
+            err_msg_ += std::to_string(par->lnum_);
+            err_lnum_ = nd.lnum_;
+            return false;
+          }
         }
       }
     }
