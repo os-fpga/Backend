@@ -132,6 +132,9 @@ struct BLIF_file : public fio::MMapReader
       return ptype_ == O_BUF or ptype_ == O_BUF_DS or
              ptype_ == O_BUFT or ptype_ == O_BUFT_DS;
     }
+    bool is_CLK_BUF() const noexcept {
+      return ptype_ == prim::CLK_BUF;
+    }
 
     string firstInputPin() const noexcept;
 
@@ -249,6 +252,8 @@ private:
 
   Node* findFabricParent(uint of, const string& contact, int& pinIndex) noexcept;  // searches inputs
   Node* findFabricDriver(uint of, const string& contact) noexcept;                 // matches out_
+
+  Node* findDriverNode(uint of, const string& contact) noexcept;
 
   // collects matching input pins from all cells
   // pair: 1st - nodeId, 2nd - pinIndex
