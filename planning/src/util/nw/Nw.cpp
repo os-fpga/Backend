@@ -38,6 +38,8 @@ uint NW::insK(uint64_t k) noexcept {
   }
 
   assert(nodeRef(newNid).key_ == k);
+  //if (newNid == 44)
+  //  lputs1();
   return newNid;
 }
 
@@ -267,6 +269,26 @@ uint NW::countClockNodes() const noexcept {
   if (empty()) return 0;
   for (cNI I(*this); I.valid(); ++I) {
     if (I->isClk())
+      cnt++;
+  }
+  return cnt;
+}
+
+uint NW::countNamedNodes() const noexcept {
+  uint cnt = 0;
+  if (empty()) return 0;
+  for (cNI I(*this); I.valid(); ++I) {
+    if (I->isNamed())
+      cnt++;
+  }
+  return cnt;
+}
+
+uint NW::countRedNodes() const noexcept {
+  uint cnt = 0;
+  if (empty()) return 0;
+  for (cNI I(*this); I.valid(); ++I) {
+    if (I->isRed())
       cnt++;
   }
   return cnt;

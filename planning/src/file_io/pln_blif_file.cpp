@@ -1476,6 +1476,7 @@ bool BLIF_file::linkNodes() noexcept {
 }
 
 bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
+  auto& ls = lout();
   if (::getenv("pln_dont_check_clock_separation"))
     return true;
   if (clocked.empty())
@@ -1491,13 +1492,21 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
   if (pg_.size() < 3)
     return true;
 
+  flush_out(true);
+
   if (trace_ >= 3) {
-    lprintf("    number of clock nodes = %u\n",
+    lprintf("   (Pin Graph)  number of clock nodes = %u\n",
             pg_.countClockNodes());
   }
 
   if (not pg_.hasClockNodes()) {
     return true;
+  }
+
+  if (trace_ >= 4) {
+    lputs("   (Pin Graph)  *** summary before coloring ***");
+    pg_.printSum(ls, 0);
+    lputs();
   }
 
   // -- paint clock nodes and their incoming edges Red
@@ -1511,23 +1520,53 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
       }
     }
   }
-  // -- paint nodes contacted by red edges
+
+  if (trace_ >= 6) {
+    lputs("   (Pin Graph)  *** summary after A ***");
+    pg_.printSum(ls, 0);
+    lputs();
+  }
+
+  // -- paint CLK_BUF and iport nodes contacted by red edges
   for (NW::cEI E(pg_); E.valid(); ++E) {
     const NW::Edge& ed = *E;
     if (ed.isRed()) {
-      pg_.nodeRef(ed.n1_).paintRed();
-      pg_.nodeRef(ed.n2_).paintRed();
+      NW::Node& nd1 = pg_.nodeRef(ed.n1_);
+      NW::Node& nd2 = pg_.nodeRef(ed.n2_);
+      assert(pg2blif_.count(nd1.id_));
+      assert(pg2blif_.count(nd2.id_));
+      const Node& bnd1 = bnodeRef(map_pg2blif(nd1.id_));
+      const Node& bnd2 = bnodeRef(map_pg2blif(nd2.id_));
+      if (bnd1.is_CLK_BUF() or bnd1.isTopInput())
+        nd1.paintRed();
+      if (bnd2.is_CLK_BUF() or bnd2.isTopInput())
+        nd2.paintRed();
     }
   }
+
+  if (trace_ >= 6) {
+    lputs("   (Pin Graph)  *** summary after B ***");
+    pg_.printSum(ls, 0);
+    lputs();
+  }
+
   // -- for red input ports, paint their outgoing edges Red
   for (const Node* p : topInputs_) {
     const Node& port = *p;
     assert(port.nw_id_);
     NW::Node& nw_node = pg_.nodeRefCk(port.nw_id_);
-    for (NW::OutgEI J(pg_, nw_node); J.valid(); ++J) {
-      uint eid = J->id_;
-      pg_.edgeRef(eid).paintRed();
+    if (nw_node.isRed()) {
+      for (NW::OutgEI J(pg_, nw_node); J.valid(); ++J) {
+        uint eid = J->id_;
+        pg_.edgeRef(eid).paintRed();
+      }
     }
+  }
+
+  if (trace_ >= 4) {
+    lputs("   (Pin Graph)  *** summary after coloring ***");
+    pg_.printSum(ls, 0);
+    lputs();
   }
 
   if (trace_ >= 4)
@@ -1751,7 +1790,6 @@ bool BLIF_file::createPinGraph() noexcept {
         ::snprintf(nm_buf, 510, "nd%u_L%u_cn",
                    kid, cn.lnum_);
         pg_.setNodeName(kid, nm_buf);
-
         pg2blif_.emplace(kid, cn.id_);
 
         const string& inet = cn.inSigs_[i];
@@ -1790,6 +1828,7 @@ bool BLIF_file::createPinGraph() noexcept {
         if (driver->ptype_ == prim::CLK_BUF)
           ::strcat(nm_buf, "CBUF");
         pg_.setNodeName(pid, nm_buf);
+        pg2blif_.emplace(pid, driver->id_);
 
         eid = pg_.linK(qk, key);
         assert(eid);
@@ -1811,11 +1850,12 @@ bool BLIF_file::createPinGraph() noexcept {
             lprintf( "\t\t    CLOCK_TRACE_inp1  %s\n",
                   inp1.c_str() );
           }
-    
+
           const Node& dn = *driver;
-          Node* drv_drv = findFabricDriver(dn.id_, inp1); // driver-of-driver
+          Node* drv_drv = findDriverNode(dn.id_, inp1); // driver-of-driver
 
           if (!drv_drv) {
+            lputs8();
             flush_out(true); err_puts();
             lprintf2("[Error] no driver for clock-buf node #%u %s  line:%u\n",
                      dn.id_, dn.cPrimType(), dn.lnum_);
@@ -1838,6 +1878,47 @@ bool BLIF_file::createPinGraph() noexcept {
             return false;
           }
 
+          qk = 0;
+
+          assert(dn.cell_hc_);
+          key = hashComb(dn.cell_hc_, inp);
+          assert(key);
+          kid = pg_.insK(key);
+          assert(kid);
+          pg_.nodeRef(kid).markClk(true);
+          pg2blif_.emplace(kid, dn.id_);
+
+          if (drv_drv->isTopInput()) {
+            assert(drv_drv->nw_id_);
+            uint nw_id = drv_drv->nw_id_;
+            assert(pg_.hasNode(nw_id));
+            assert(pg2blif_.count(nw_id));
+            assert(map_pg2blif(nw_id) == drv_drv->id_);
+            qk = pg_.nodeRefCk(nw_id).key_;
+            assert(qk);
+          }
+          else {
+
+            qk = hashComb(drv_drv->id_, drv_drv->out_);
+            assert(qk);
+            bool qk_inserted = not pg_.hasKey(qk);
+            pid = pg_.insK(qk);
+
+            if (qk_inserted) {
+              ::snprintf(nm_buf, 510, "nd%u_L%u_",
+                         pid, drv_drv->lnum_);
+              if (drv_drv->is_CLK_BUF())
+                ::strcat(nm_buf, "CBUF");
+              pg_.setNodeName(pid, nm_buf);
+            }
+            pg2blif_.emplace(pid, drv_drv->id_);
+          }
+
+          assert(qk);
+          eid = pg_.linK(qk, key);
+          assert(eid);
+          if (trace_ >= 11)
+            lprintf("\t\t\t eid= %u\n", eid);
         }
       }
     }
@@ -1846,6 +1927,20 @@ bool BLIF_file::createPinGraph() noexcept {
   pg_.setNwName("pin_graph");
 
   // writePinGraph("pin_graph_1.dot");
+
+#ifndef NDEBUG
+  // -- verify that all NW IDs are mapped to BNodes:
+  for (NW::cNI I(pg_); I.valid(); ++I) {
+    const NW::Node& nd = *I;
+    if (not pg2blif_.count(nd.id_)) {
+      lputs9("\n  !!!  ASSERT  !!!");
+      lprintf("  !!!  nd.id_= %u\n", nd.id_);
+      lprintf("  "); nd.print(lout());
+      flush_out(true);
+    }
+    assert(pg2blif_.count(nd.id_));
+  }
+#endif
 
   return true;
 }

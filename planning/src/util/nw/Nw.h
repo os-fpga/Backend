@@ -99,6 +99,9 @@ struct NW {
       key_ = 0;
     }
 
+    bool isNamed() const noexcept {
+      return not name_.empty();
+    }
     string getName() const noexcept {
       if (name_.empty()) {
         string nm{"nd_"};
@@ -264,10 +267,13 @@ struct NW {
   }
   uint numN() const noexcept { return size(); }
   inline uint numE() const noexcept;
+  inline uint countRedEdges() const noexcept;
 
   inline upair countRoots() const noexcept;
   bool hasClockNodes() const noexcept;
   uint countClockNodes() const noexcept;
+  uint countRedNodes() const noexcept;
+  uint countNamedNodes() const noexcept;
 
   void getNodes(vecu& V) const noexcept { V = nids_; }
 
@@ -828,6 +834,15 @@ inline void NW::getOutgE(const Node& nd, vecu& E) const noexcept {
 inline uint NW::numE() const noexcept {
   uint cnt = 0;
   for (cEI I(*this); I.valid(); ++I) cnt++;
+  return cnt;
+}
+
+inline uint NW::countRedEdges() const noexcept {
+  uint cnt = 0;
+  for (cEI I(*this); I.valid(); ++I) {
+    if (I->isRed())
+      cnt++;
+  }
   return cnt;
 }
 

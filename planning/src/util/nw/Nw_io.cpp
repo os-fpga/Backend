@@ -312,19 +312,25 @@ void NW::Node::print(ostream& os) const noexcept {
   os << endl;
 }
 
-static void replace_bus_for_dot(char* buf) noexcept {
+static void be_dot_friendly(char* buf) noexcept {
   assert(buf);
   // replace [] by __
+  // replace $ by S
   for (char* p = buf; *p; p++) {
-    if (*p == '[' or *p == ']')
+    if (*p == '[' or *p == ']') {
       *p = '_';
+      continue;
+    }
+    if (*p == '$') {
+      *p = 'S';
+    }
   }
 }
 
 void NW::Node::nprint_dot(ostream& os) const noexcept {
   char name_buf[2048] = {};
   getName(name_buf);
-  replace_bus_for_dot(name_buf);
+  be_dot_friendly(name_buf);
 
   char attrib[512] = {};
 
@@ -353,12 +359,12 @@ void NW::Edge::eprint_dot(ostream& os, char arrow, const NW& g) const noexcept {
   assert(arrow == '>' or arrow == '-');
   char buf[2048] = {};
   g.nodeRef(n1_).getName(buf);
-  replace_bus_for_dot(buf);
+  be_dot_friendly(buf);
   os_printf(os, "%s -%c ", buf, arrow);
 
   buf[0] = 0;
   g.nodeRef(n2_).getName(buf);
-  replace_bus_for_dot(buf);
+  be_dot_friendly(buf);
   os << buf;
 
   char attrib[512] = {};
@@ -451,6 +457,14 @@ uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
 
   os_printf(os, "  mm-deg: (%u,%u)", mmD.first, mmD.second);
   os_printf(os, "  mm-lbl: (%u,%u)\n", mmL.first, mmL.second);
+
+  uint numNamedNodes = countNamedNodes();
+  uint numRedNodes = countRedNodes();
+  uint numRedEdges = countRedEdges();
+
+  dot_comment(os, forDot);
+  os_printf(os, "#NamedNodes=%u  #RedNodes= %u  #RedEdges= %u\n",
+            numNamedNodes, numRedNodes, numRedEdges);
 
   dot_comment(os, forDot);
   os_printf(os, "nr=(%u,%u)\n", rcnt.first, rcnt.second);
