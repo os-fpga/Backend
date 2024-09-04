@@ -1291,6 +1291,27 @@ BLIF_file::Node* BLIF_file::findFabricDriver(uint of, const string& contact) noe
   return nullptr;
 }
 
+// finds TopInput or FabricDriver
+BLIF_file::Node* BLIF_file::findDriverNode(uint of, const string& contact) noexcept {
+  assert(not contact.empty());
+  if (fabricNodes_.empty()) return nullptr;
+
+  // TMP linear
+  size_t sz = topInputs_.size();
+  if (sz) {
+    Node** A = topInputs_.data();
+    for (size_t i = 0; i < sz; i++) {
+      Node* np = A[i];
+      assert(np);
+      if (np->out_ == contact) {
+        return np;
+      }
+    }
+  }
+
+  return findFabricDriver(of, contact);
+}
+
 void BLIF_file::link2(Node& from, Node& to) noexcept {
   assert(from.id_);
   assert(to.id_);
@@ -1455,7 +1476,7 @@ bool BLIF_file::linkNodes() noexcept {
 }
 
 bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
-  if (not ::getenv("pln_check_clock_separation"))
+  if (::getenv("pln_dont_check_clock_separation"))
     return true;
   if (clocked.empty())
     return true;
@@ -1463,9 +1484,9 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
   bool ok = createPinGraph();
   if (!ok) {
     flush_out(true); err_puts();
-    lprintf2("[Error] NOT createPinGraph()\n");
+    lprintf2("[Error] could not create Pin Graph\n");
     err_puts(); flush_out(true);
-    return true;
+    return false;
   }
   if (pg_.size() < 3)
     return true;
@@ -1707,12 +1728,13 @@ bool BLIF_file::createPinGraph() noexcept {
   if (trace_ >= 4)
     lprintf("  createPinGraph:  clocked.size()= %zu\n", clocked.size());
   if (not clocked.empty()) {
+    string inp1;
     for (const Node* cnp : clocked) {
       const Node& cn = *cnp;
       assert(cn.hasPrimType());
       if (cn.ptype_ == prim::CLK_BUF or cn.ptype_ == prim::FCLK_BUF)
         continue;
-      lputs9();
+      // lputs9();
       for (uint i = 0; i < cn.inPins_.size(); i++) {
         const string& inp = cn.inPins_[i];
         assert(not inp.empty());
@@ -1734,9 +1756,30 @@ bool BLIF_file::createPinGraph() noexcept {
 
         const string& inet = cn.inSigs_[i];
         assert(not inet.empty());
-        const Node* driver = findFabricDriver(cn.id_, inet);
-        if (!driver)
-          continue;
+        const Node* driver = findDriverNode(cn.id_, inet);
+        if (!driver) {
+          flush_out(true); err_puts();
+          lprintf2("[Error] no driver for clock node #%u %s  line:%u\n",
+                   cn.id_, cn.cPrimType(), cn.lnum_);
+          err_puts(); flush_out(true);
+          return false;
+        }
+
+        if (trace_ >= 5) {
+          lputs9();
+          lprintf(" from cn#%u %s ",
+                cn.id_, cn.cPrimType() );
+          lprintf( "  CLOCK_TRACE driver->  id_%u  %s  out_net %s\n",
+                driver->id_, driver->cPrimType(), driver->out_.c_str() );
+        }
+
+        if (not driver->is_CLK_BUF() and not driver->isTopInput()) {
+          flush_out(true); err_puts();
+          lprintf2("[Error] bad driver for clock node #%u  must be CLK_BUF or iport\n",
+                    cn.id_);
+          err_puts(); flush_out(true);
+          return false;
+        }
 
         uint64_t qk = hashComb(driver->id_, driver->out_);
         assert(qk);
@@ -1750,6 +1793,52 @@ bool BLIF_file::createPinGraph() noexcept {
 
         eid = pg_.linK(qk, key);
         assert(eid);
+
+        if (driver->is_CLK_BUF()) {
+          // step upward again
+
+          inp1 = driver->firstInputPin();
+          if (inp1.empty()) {
+            lprintf("\n\t\t\t return false at %s : %u\n", __FILE__, __LINE__);
+            return false;
+          }
+          if (inp1 == "$true" or inp1 == "$false" or inp1 == "$undef") {
+            lprintf("\n\t\t\t return false at %s : %u\n", __FILE__, __LINE__);
+            return false;
+          }
+
+          if (trace_ >= 5) {
+            lprintf( "\t\t    CLOCK_TRACE_inp1  %s\n",
+                  inp1.c_str() );
+          }
+    
+          const Node& dn = *driver;
+          Node* drv_drv = findFabricDriver(dn.id_, inp1); // driver-of-driver
+
+          if (!drv_drv) {
+            flush_out(true); err_puts();
+            lprintf2("[Error] no driver for clock-buf node #%u %s  line:%u\n",
+                     dn.id_, dn.cPrimType(), dn.lnum_);
+            err_puts(); flush_out(true);
+            return false;
+          }
+
+          if (trace_ >= 4) {
+            lputs();
+            lprintf("    CLOCK_TRACE drv_drv->  id_%u  %s  out_net %s  line:%u\n",
+                    drv_drv->id_, drv_drv->cPrimType(),
+                    drv_drv->out_.c_str(), drv_drv->lnum_);
+          }
+
+          if (not drv_drv->is_CLK_BUF() and not drv_drv->isTopInput()) {
+            flush_out(true); err_puts();
+            lprintf2("[Error] bad drv_drv for clock-buf node #%u line:%u  must be CLK_BUF or iport\n",
+                      dn.id_, dn.lnum_);
+            err_puts(); flush_out(true);
+            return false;
+          }
+
+        }
       }
     }
   }
