@@ -159,7 +159,7 @@ static inline bool starts_w_COUT_eq(CStr z) noexcept {
 }
 
 // sometimes in eblif the gate output is not the last token. correct it.
-void BLIF_file::Node::place_output_at_back(vector<string>& dat) noexcept {
+void BLIF_file::BNode::place_output_at_back(vector<string>& dat) noexcept {
   size_t dsz = dat.size();
   if (dsz < 3) return;
   CStr cs = dat.back().c_str();
@@ -410,7 +410,7 @@ bool BLIF_file::checkBlif() noexcept {
   }
 
   // 5. no undriven output ports
-  for (const Node* port : topOutputs_) {
+  for (const BNode* port : topOutputs_) {
     assert(port->isRoot());
     assert(port->inDeg() == 0);
     if (port->outDeg() == 0) {
@@ -422,7 +422,7 @@ bool BLIF_file::checkBlif() noexcept {
 
   // 6. clock-data separation
   if (!topInputs_.empty() and !topOutputs_.empty()) {
-    vector<const Node*> clocked;
+    vector<const BNode*> clocked;
     collectClockedNodes(clocked);
     uint clocked_sz = clocked.size();
     if (trace_ >= 3) {
@@ -534,7 +534,7 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
 
   os << "--- nodes (" << n << ") :" << endl;
   for (uint i = 1; i <= n; i++) {
-    const Node& nd = nodePool_[i];
+    const BNode& nd = nodePool_[i];
     CStr pts = nd.cPrimType();
     assert(pts);
 
@@ -623,7 +623,7 @@ uint BLIF_file::printPrimitives(std::ostream& os, bool instCounts) const noexcep
   return Prim_MAX_ID;
 }
 
-void BLIF_file::collectClockedNodes(vector<const Node*>& V) noexcept {
+void BLIF_file::collectClockedNodes(vector<const BNode*>& V) noexcept {
   V.clear();
   uint nn = numNodes();
   if (nn == 0)
@@ -631,7 +631,7 @@ void BLIF_file::collectClockedNodes(vector<const Node*>& V) noexcept {
 
   V.reserve(20);
   for (uint i = 1; i <= nn; i++) {
-    const Node& nd = nodePool_[i];
+    const BNode& nd = nodePool_[i];
     uint t = nd.ptype_;
     if (!t or t >= Prim_MAX_ID)
       continue;
@@ -650,7 +650,7 @@ std::array<uint, Prim_MAX_ID> BLIF_file::countTypes() const noexcept {
     return A;
 
   for (uint i = 1; i <= nn; i++) {
-    const Node& nd = nodePool_[i];
+    const BNode& nd = nodePool_[i];
     uint t = nd.ptype_;
     if (t > 0 and t < Prim_MAX_ID)
       A[t]++;
@@ -666,7 +666,7 @@ uint BLIF_file::countCarryNodes() const noexcept {
 
   uint cnt = 0;
   for (uint i = 1; i <= nn; i++) {
-    const Node& nd = nodePool_[i];
+    const BNode& nd = nodePool_[i];
     if (nd.ptype_ == CARRY)
       cnt++;
   }
@@ -690,7 +690,7 @@ uint BLIF_file::printCarryNodes(std::ostream& os) const noexcept {
   os << "--- CarryNodes (" << cnt << ") :" << endl;
 
   for (uint i = 1; i <= nn; i++) {
-    const Node& nd = nodePool_[i];
+    const BNode& nd = nodePool_[i];
     if (nd.ptype_ != CARRY)
       continue;
     CStr pts = nd.cPrimType();
@@ -715,7 +715,7 @@ uint BLIF_file::printCarryNodes(std::ostream& os) const noexcept {
   return cnt;
 }
 
-static bool s_is_MOG(const BLIF_file::Node& nd,
+static bool s_is_MOG(const BLIF_file::BNode& nd,
                      vector<string>& terms) noexcept {
   terms.clear();
   const vector<string>& data = nd.data_;
@@ -803,7 +803,7 @@ static bool s_is_MOG(const BLIF_file::Node& nd,
   return true;
 }
 
-static void s_remove_MOG_terms(BLIF_file::Node& nd) noexcept {
+static void s_remove_MOG_terms(BLIF_file::BNode& nd) noexcept {
   vector<string>& data = nd.data_;
   uint dsz = data.size();
   assert(dsz < 1000000);
@@ -929,7 +929,7 @@ bool BLIF_file::createNodes() noexcept {
       Fio::split_spa(lines_[L], V);
       if (V.size() > 1 and V.front() == ".names") {
         nodePool_.emplace_back(".names", L);
-        Node& nd = nodePool_.back();
+        BNode& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
       }
       continue;
@@ -940,7 +940,7 @@ bool BLIF_file::createNodes() noexcept {
       Fio::split_spa(lines_[L], V);
       if (V.size() > 1 and V.front() == ".latch") {
         nodePool_.emplace_back(".latch", L);
-        Node& nd = nodePool_.back();
+        BNode& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
       }
       continue;
@@ -951,7 +951,7 @@ bool BLIF_file::createNodes() noexcept {
       Fio::split_spa(lines_[L], V);
       if (V.size() > 1 and V.front() == ".subckt") {
         nodePool_.emplace_back(".subckt", L);
-        Node& nd = nodePool_.back();
+        BNode& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
         nd.ptype_ = pr_str2enum(nd.data_front());
         nd.place_output_at_back(nd.data_);
@@ -964,7 +964,7 @@ bool BLIF_file::createNodes() noexcept {
       Fio::split_spa(lines_[L], V);
       if (V.size() > 1 and V.front() == ".gate") {
         nodePool_.emplace_back(".gate", L);
-        Node& nd = nodePool_.back();
+        BNode& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
         nd.ptype_ = pr_str2enum(nd.data_front());
         nd.place_output_at_back(nd.data_);
@@ -987,7 +987,7 @@ bool BLIF_file::createNodes() noexcept {
   num_MOGs_ = 0;
   for (uint i = 1; i <= nn; i++) {
     V.clear();
-    Node& nd = nodePool_[i];
+    BNode& nd = nodePool_[i];
     if (nd.kw_ != ".subckt" and nd.kw_ != ".gate")
       continue;
     if (nd.data_.size() < 4)
@@ -1019,7 +1019,7 @@ bool BLIF_file::createNodes() noexcept {
       uint V_index = 1;
       for (uint k = startVirtual; k < nodePool_.size(); k++) {
         assert(V_index < V.size());
-        Node& k_node = nodePool_[k];
+        BNode& k_node = nodePool_[k];
         k_node.data_.push_back(V[V_index++]);
       }
       num_MOGs_++;
@@ -1034,7 +1034,7 @@ bool BLIF_file::createNodes() noexcept {
   // -- finish and index nodes:
   for (uint i = 1; i <= nn; i++) {
     V.clear();
-    Node& nd = nodePool_[i];
+    BNode& nd = nodePool_[i];
     if (nd.kw_ == ".names" or nd.kw_ == ".latch") {
       if (nd.data_.size() > 1) {
         if (nd.kw_ == ".names") {
@@ -1109,7 +1109,7 @@ bool BLIF_file::createNodes() noexcept {
     }
   }
 
-  std::sort(fabricNodes_.begin(), fabricNodes_.end(), Node::CmpOut{});
+  std::sort(fabricNodes_.begin(), fabricNodes_.end(), BNode::CmpOut{});
 
   V.clear();
   topInputs_.clear();
@@ -1120,32 +1120,32 @@ bool BLIF_file::createNodes() noexcept {
     topInputs_.reserve(inputs_.size());
     for (const string& inp : inputs_) {
       nodePool_.emplace_back("_topInput_", inputs_lnum_);
-      Node& nd = nodePool_.back();
+      BNode& nd = nodePool_.back();
       nd.data_.push_back(inp);
       nd.out_ = inp;
       nd.is_top_ = -1;
       topInputs_.push_back(&nd);
     }
-    std::sort(topInputs_.begin(), topInputs_.end(), Node::CmpOut{});
+    std::sort(topInputs_.begin(), topInputs_.end(), BNode::CmpOut{});
   }
   // put nodes for toplevel outputs:
   if (outputs_lnum_ and outputs_.size()) {
     topOutputs_.reserve(outputs_.size());
     for (const string& out : outputs_) {
       nodePool_.emplace_back("_topOutput_", outputs_lnum_);
-      Node& nd = nodePool_.back();
+      BNode& nd = nodePool_.back();
       nd.data_.push_back(out);
       nd.out_ = out;
       nd.is_top_ = 1;
       topOutputs_.push_back(&nd);
     }
-    std::sort(topOutputs_.begin(), topOutputs_.end(), Node::CmpOut{});
+    std::sort(topOutputs_.begin(), topOutputs_.end(), BNode::CmpOut{});
   }
 
   // index nd.id_
   nn = numNodes();
   for (uint i = 0; i <= nn; i++) {
-    Node& nd = nodePool_[i];
+    BNode& nd = nodePool_[i];
     nd.id_ = i;
   }
 
@@ -1153,7 +1153,7 @@ bool BLIF_file::createNodes() noexcept {
 }
 
 // returns pin index in data_ or -1
-int BLIF_file::Node::in_contact(const string& x) const noexcept {
+int BLIF_file::BNode::in_contact(const string& x) const noexcept {
   if (x.empty() or data_.empty()) return -1;
   size_t dsz = data_.size();
   if (dsz == 1) return x == data_.front();
@@ -1171,7 +1171,7 @@ int BLIF_file::Node::in_contact(const string& x) const noexcept {
   return -1;
 }
 
-string BLIF_file::Node::firstInputPin() const noexcept {
+string BLIF_file::BNode::firstInputNet() const noexcept {
   if (data_.size() < 2) return {};
   if (kw_ == ".names") {
     if (data_[0] != out_) return data_[0];
@@ -1189,7 +1189,7 @@ string BLIF_file::Node::firstInputPin() const noexcept {
   return {};
 }
 
-void BLIF_file::Node::allInputPins(vector<string>& V) const noexcept {
+void BLIF_file::BNode::allInputPins(vector<string>& V) const noexcept {
   V.clear();
 
   if (data_.size() < 2) return;
@@ -1216,38 +1216,38 @@ void BLIF_file::Node::allInputPins(vector<string>& V) const noexcept {
   return;
 }
 
-// void BLIF_file::Node:: allInputSignals(vector<string>& V) const noexcept;
+// void BLIF_file::BNode:: allInputSignals(vector<string>& V) const noexcept;
 
-BLIF_file::Node* BLIF_file::findOutputPort(const string& contact) noexcept {
+BLIF_file::BNode* BLIF_file::findOutputPort(const string& contact) noexcept {
   assert(not contact.empty());
   if (topOutputs_.empty()) return nullptr;
 
   // TMP linear
-  for (Node* x : topOutputs_) {
+  for (BNode* x : topOutputs_) {
     if (x->out_ == contact) return x;
   }
   return nullptr;
 }
 
-BLIF_file::Node* BLIF_file::findInputPort(const string& contact) noexcept {
+BLIF_file::BNode* BLIF_file::findInputPort(const string& contact) noexcept {
   assert(not contact.empty());
   if (topInputs_.empty()) return nullptr;
 
   // TMP linear
-  for (Node* x : topInputs_) {
+  for (BNode* x : topInputs_) {
     if (x->out_ == contact) return x;
   }
   return nullptr;
 }
 
 // searches inputs
-BLIF_file::Node* BLIF_file::findFabricParent(uint of, const string& contact, int& pin) noexcept {
+BLIF_file::BNode* BLIF_file::findFabricParent(uint of, const string& contact, int& pin) noexcept {
   pin = -1;
   assert(not contact.empty());
   if (fabricNodes_.empty()) return nullptr;
 
   // TMP linear
-  for (Node* x : fabricNodes_) {
+  for (BNode* x : fabricNodes_) {
     if (x->id_ == of) continue;
     int pinIdx = x->in_contact(contact);
     if (pinIdx >= 0) {
@@ -1263,9 +1263,9 @@ void BLIF_file::getFabricParents(uint of, const string& contact, vector<upair>& 
   if (fabricNodes_.empty()) return;
 
   // TMP linear
-  for (const Node* x : fabricNodes_) {
+  for (const BNode* x : fabricNodes_) {
     if (x->id_ == of) continue;
-    const Node& nx = *x;
+    const BNode& nx = *x;
     if (nx.inSigs_.empty())
       continue;
     size_t in_sz = nx.inSigs_.size();
@@ -1279,12 +1279,12 @@ void BLIF_file::getFabricParents(uint of, const string& contact, vector<upair>& 
 }
 
 // matches out_
-BLIF_file::Node* BLIF_file::findFabricDriver(uint of, const string& contact) noexcept {
+BLIF_file::BNode* BLIF_file::findFabricDriver(uint of, const string& contact) noexcept {
   assert(not contact.empty());
   if (fabricNodes_.empty()) return nullptr;
 
   // TMP linear
-  for (Node* x : fabricNodes_) {
+  for (BNode* x : fabricNodes_) {
     if (x->id_ == of) continue;
     if (x->out_contact(contact)) return x;
   }
@@ -1292,16 +1292,16 @@ BLIF_file::Node* BLIF_file::findFabricDriver(uint of, const string& contact) noe
 }
 
 // finds TopInput or FabricDriver
-BLIF_file::Node* BLIF_file::findDriverNode(uint of, const string& contact) noexcept {
+BLIF_file::BNode* BLIF_file::findDriverNode(uint of, const string& contact) noexcept {
   assert(not contact.empty());
   if (fabricNodes_.empty()) return nullptr;
 
   // TMP linear
   size_t sz = topInputs_.size();
   if (sz) {
-    Node** A = topInputs_.data();
+    BNode** A = topInputs_.data();
     for (size_t i = 0; i < sz; i++) {
-      Node* np = A[i];
+      BNode* np = A[i];
       assert(np);
       if (np->out_ == contact) {
         return np;
@@ -1312,7 +1312,7 @@ BLIF_file::Node* BLIF_file::findDriverNode(uint of, const string& contact) noexc
   return findFabricDriver(of, contact);
 }
 
-void BLIF_file::link2(Node& from, Node& to) noexcept {
+void BLIF_file::link2(BNode& from, BNode& to) noexcept {
   assert(from.id_);
   assert(to.id_);
   assert(!to.parent_);
@@ -1328,9 +1328,9 @@ bool BLIF_file::linkNodes() noexcept {
   err_msg_.clear();
 
   // 1. start with fabricNodes_ which are rooted at output ports
-  for (Node* fab_nd : fabricNodes_) {
+  for (BNode* fab_nd : fabricNodes_) {
     assert(fab_nd);
-    Node& nd = *fab_nd;
+    BNode& nd = *fab_nd;
     if (nd.out_.empty()) {
       err_msg_ = str::concat("incomplete fabric cell:  ", nd.kw_);
       if (!nd.data_.empty()) {
@@ -1339,7 +1339,7 @@ bool BLIF_file::linkNodes() noexcept {
       err_lnum_ = nd.lnum_;
       return false;
     }
-    Node* port = findOutputPort(nd.out_);
+    BNode* port = findOutputPort(nd.out_);
     if (port) {
       link2(*port, nd);
     }
@@ -1347,10 +1347,10 @@ bool BLIF_file::linkNodes() noexcept {
 
   // 1a. input ports should not contact fabric outputs
   if (not topInputs_.empty()) {
-    for (Node* in_nd : topInputs_) {
-      Node& nd = *in_nd;
+    for (BNode* in_nd : topInputs_) {
+      BNode& nd = *in_nd;
       assert(!nd.out_.empty());
-      Node* par = findFabricDriver(nd.id_, nd.out_);
+      BNode* par = findFabricDriver(nd.id_, nd.out_);
       if (par) {
         err_msg_.reserve(224);
         err_msg_ = "input port contacts fabric driver:  port= ",
@@ -1368,11 +1368,11 @@ bool BLIF_file::linkNodes() noexcept {
   if (::getenv("pln_check_output_port_loopback")) {
     // 1b. output ports should not contact fabric inputs
     if (not topOutputs_.empty()) {
-      for (Node* out_nd : topOutputs_) {
-        Node& nd = *out_nd;
+      for (BNode* out_nd : topOutputs_) {
+        BNode& nd = *out_nd;
         assert(!nd.out_.empty());
         int pinIndex = -1;
-        Node* par = findFabricParent(nd.id_, nd.out_, pinIndex);
+        BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
         if (par) {
           assert(pinIndex >= 0);
           assert(uint(pinIndex) < par->data_.size());
@@ -1397,12 +1397,12 @@ bool BLIF_file::linkNodes() noexcept {
   }
 
   // 2. every node except topOutputs_ should have parent_
-  for (Node* fab_nd : fabricNodes_) {
-    Node& nd = *fab_nd;
+  for (BNode* fab_nd : fabricNodes_) {
+    BNode& nd = *fab_nd;
     assert(!nd.out_.empty());
     if (nd.parent_) continue;
     int pinIndex = -1;
-    Node* par = findFabricParent(nd.id_, nd.out_, pinIndex);
+    BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
     if (!par) {
       err_msg_ = "dangling cell output: ";
       err_msg_ += nd.out_;
@@ -1418,11 +1418,11 @@ bool BLIF_file::linkNodes() noexcept {
 
   // 3. link input ports
   if (not topInputs_.empty()) {
-    for (Node* in_nd : topInputs_) {
-      Node& nd = *in_nd;
+    for (BNode* in_nd : topInputs_) {
+      BNode& nd = *in_nd;
       assert(!nd.out_.empty());
       int pinIndex = -1;
-      Node* par = findFabricParent(nd.id_, nd.out_, pinIndex);
+      BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
       if (!par) {
         err_msg_ = "dangling input port: ";
         err_msg_ += nd.out_;
@@ -1440,7 +1440,7 @@ bool BLIF_file::linkNodes() noexcept {
   // 4. set hashes
   uint nn = numNodes();
   for (uint i = 1; i <= nn; i++) {
-    Node& nd = nodePool_[i];
+    BNode& nd = nodePool_[i];
     assert(nd.id_ == i);
     nd.setCellHash();
     nd.setOutHash();
@@ -1448,18 +1448,18 @@ bool BLIF_file::linkNodes() noexcept {
 
   // 5. every node except topInputs_ should be driven
   string inp1;
-  for (Node* fab_nd : fabricNodes_) {
-    Node& nd = *fab_nd;
+  for (BNode* fab_nd : fabricNodes_) {
+    BNode& nd = *fab_nd;
     assert(!nd.out_.empty());
-    inp1 = nd.firstInputPin();
+    inp1 = nd.firstInputNet();
     if (inp1.empty())
       continue;
     if (inp1 == "$true" or inp1 == "$false" or inp1 == "$undef")
       continue;
-    Node* in_port = findInputPort(inp1);
+    BNode* in_port = findInputPort(inp1);
     if (in_port)
       continue;
-    Node* drv_cell = findFabricDriver(nd.id_, inp1);
+    BNode* drv_cell = findFabricDriver(nd.id_, inp1);
     if (!drv_cell) {
       err_msg_ = "undriven cell input: ";
       err_msg_ += inp1;
@@ -1475,7 +1475,7 @@ bool BLIF_file::linkNodes() noexcept {
   return true;
 }
 
-bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
+bool BLIF_file::checkClockSepar(vector<const BNode*>& clocked) noexcept {
   auto& ls = lout();
   if (::getenv("pln_dont_check_clock_separation"))
     return true;
@@ -1535,8 +1535,8 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
       NW::Node& nd2 = pg_.nodeRef(ed.n2_);
       assert(pg2blif_.count(nd1.id_));
       assert(pg2blif_.count(nd2.id_));
-      const Node& bnd1 = bnodeRef(map_pg2blif(nd1.id_));
-      const Node& bnd2 = bnodeRef(map_pg2blif(nd2.id_));
+      const BNode& bnd1 = bnodeRef(map_pg2blif(nd1.id_));
+      const BNode& bnd2 = bnodeRef(map_pg2blif(nd2.id_));
       if (bnd1.is_CLK_BUF() or bnd1.isTopInput())
         nd1.paintRed();
       if (bnd2.is_CLK_BUF() or bnd2.isTopInput())
@@ -1551,8 +1551,8 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
   }
 
   // -- for red input ports, paint their outgoing edges Red
-  for (const Node* p : topInputs_) {
-    const Node& port = *p;
+  for (const BNode* p : topInputs_) {
+    const BNode& port = *p;
     assert(port.nw_id_);
     NW::Node& nw_node = pg_.nodeRefCk(port.nw_id_);
     if (nw_node.isRed()) {
@@ -1589,8 +1589,8 @@ bool BLIF_file::checkClockSepar(vector<const Node*>& clocked) noexcept {
         uint b2 = map_pg2blif(p2.id_);
         string nm1 = p1.getName();
         string nm2 = p2.getName();
-        const Node& bnode1 = bnodeRef(b1);
-        const Node& bnode2 = bnodeRef(b2);
+        const BNode& bnode1 = bnodeRef(b1);
+        const BNode& bnode2 = bnodeRef(b2);
         err_lnum_  = bnode1.lnum_;
         err_lnum2_ = bnode2.lnum_;
         flush_out(true);
@@ -1649,8 +1649,8 @@ bool BLIF_file::createPinGraph() noexcept {
   pg2blif_.reserve(2 * nodePool_.size() + 1);
 
   // -- create pg-nodes for topInputs_
-  for (Node* p : topInputs_) {
-    Node& port = *p;
+  for (BNode* p : topInputs_) {
+    BNode& port = *p;
     assert(!port.out_.empty());
     nid = pg_.insK(port.id_);
     assert(nid);
@@ -1661,8 +1661,8 @@ bool BLIF_file::createPinGraph() noexcept {
   }
 
   // -- create pg-nodes for topOutputs_
-  for (Node* p : topOutputs_) {
-    Node& port = *p;
+  for (BNode* p : topOutputs_) {
+    BNode& port = *p;
     assert(!port.out_.empty());
     nid = pg_.insK(port.id_);
     assert(nid);
@@ -1676,9 +1676,9 @@ bool BLIF_file::createPinGraph() noexcept {
   Q.reserve(topInputs_.size());
 
   // -- link from input ports to fabric
-  for (Node* p : topInputs_) {
+  for (BNode* p : topInputs_) {
     INP.clear();
-    Node& port = *p;
+    BNode& port = *p;
     assert(!port.out_.empty());
 
     PAR.clear();
@@ -1693,7 +1693,7 @@ bool BLIF_file::createPinGraph() noexcept {
     for (const upair& pa : PAR) {
       if (pa.first == port.id_)
         continue;
-      const Node& par = bnodeRef(pa.first);
+      const BNode& par = bnodeRef(pa.first);
       uint pinIndex = pa.second;
 
       INP.clear();
@@ -1762,14 +1762,14 @@ bool BLIF_file::createPinGraph() noexcept {
   }
 
   // -- create pg-nodes for sequential input pins
-  vector<const Node*> clocked;
+  vector<const BNode*> clocked;
   collectClockedNodes(clocked);
   if (trace_ >= 4)
     lprintf("  createPinGraph:  clocked.size()= %zu\n", clocked.size());
   if (not clocked.empty()) {
     string inp1;
-    for (const Node* cnp : clocked) {
-      const Node& cn = *cnp;
+    for (const BNode* cnp : clocked) {
+      const BNode& cn = *cnp;
       assert(cn.hasPrimType());
       if (cn.ptype_ == prim::CLK_BUF or cn.ptype_ == prim::FCLK_BUF)
         continue;
@@ -1794,7 +1794,7 @@ bool BLIF_file::createPinGraph() noexcept {
 
         const string& inet = cn.inSigs_[i];
         assert(not inet.empty());
-        const Node* driver = findDriverNode(cn.id_, inet);
+        const BNode* driver = findDriverNode(cn.id_, inet);
         if (!driver) {
           flush_out(true); err_puts();
           lprintf2("[Error] no driver for clock node #%u %s  line:%u\n",
@@ -1819,24 +1819,41 @@ bool BLIF_file::createPinGraph() noexcept {
           return false;
         }
 
-        uint64_t qk = hashComb(driver->id_, driver->out_);
-        assert(qk);
-        uint pid = pg_.insK(qk);
+        uint64_t opin_key = hashComb(driver->id_, driver->out_);
+        assert(opin_key);
+        uint opin_nid = pg_.findNode(opin_key);
+        if (opin_nid) {
+          assert(pg_.nodeRef(opin_nid).isNamed());
+          assert(map_pg2blif(opin_nid) == driver->id_);
+        }
+        else {
+          opin_nid = pg_.insK(opin_key);
 
-        ::snprintf(nm_buf, 510, "nd%u_L%u_",
-                   pid, driver->lnum_);
-        if (driver->ptype_ == prim::CLK_BUF)
-          ::strcat(nm_buf, "CBUF");
-        pg_.setNodeName(pid, nm_buf);
-        pg2blif_.emplace(pid, driver->id_);
+          ::snprintf(nm_buf, 510, "nd%u_L%u_",
+                     opin_nid, driver->lnum_);
+          if (driver->ptype_ == prim::CLK_BUF) {
+            ::strcat(nm_buf, "CBUF_");
+            string outPin = pr_first_output(driver->ptype_);
+            assert(not outPin.empty());
+            ::strcat(nm_buf, outPin.c_str());
+          }
+          pg_.setNodeName(opin_nid, nm_buf);
+          pg2blif_.emplace(opin_nid, driver->id_);
+        }
 
-        eid = pg_.linK(qk, key);
+        assert(opin_nid and kid);
+        eid = pg_.linkNodes(opin_nid, kid, false);
         assert(eid);
 
         if (driver->is_CLK_BUF()) {
           // step upward again
 
-          inp1 = driver->firstInputPin();
+          const BNode& dn = *driver;
+
+          inp1 = dn.firstInputNet();
+          if (trace_ >= 5) {
+            lprintf("\t\t    CLOCK_TRACE_inp1  %s\n", inp1.c_str());
+          }
           if (inp1.empty()) {
             lprintf("\n\t\t\t return false at %s : %u\n", __FILE__, __LINE__);
             return false;
@@ -1846,13 +1863,37 @@ bool BLIF_file::createPinGraph() noexcept {
             return false;
           }
 
-          if (trace_ >= 5) {
-            lprintf( "\t\t    CLOCK_TRACE_inp1  %s\n",
-                  inp1.c_str() );
+          uint64_t ipin_key = hashComb(dn.id_, inp1);
+          assert(ipin_key);
+          uint ipin_nid = pg_.findNode(ipin_key);
+          if (ipin_nid) {
+            assert(pg_.nodeRef(ipin_nid).isNamed());
+            assert(map_pg2blif(ipin_nid) == dn.id_);
+          }
+          else {
+            ipin_nid = pg_.insK(ipin_key);
+
+            ::snprintf(nm_buf, 510, "nd%u_L%u_",
+                       ipin_nid, dn.lnum_);
+            if (dn.ptype_ == prim::CLK_BUF) {
+              ::strcat(nm_buf, "iCBUF_");
+              string inpPin = pr_first_input(dn.ptype_);
+              assert(not inpPin.empty());
+              ::strcat(nm_buf, inpPin.c_str());
+            }
+            pg_.setNodeName(ipin_nid, nm_buf);
+            pg2blif_.emplace(ipin_nid, dn.id_);
           }
 
-          const Node& dn = *driver;
-          Node* drv_drv = findDriverNode(dn.id_, inp1); // driver-of-driver
+          // connect input and output of 'dn' (cell-arc):
+          assert(ipin_nid and opin_nid);
+          assert(pg_.hasNode(ipin_nid));
+          assert(pg_.hasNode(opin_nid));
+          eid = pg_.linkNodes(ipin_nid, opin_nid, true);
+          pg_.edgeRef(eid).paintRed();
+
+          // driver-of-driver
+          BNode* drv_drv = findDriverNode(dn.id_, inp1);
 
           if (!drv_drv) {
             lputs8();
@@ -1878,46 +1919,60 @@ bool BLIF_file::createPinGraph() noexcept {
             return false;
           }
 
-          qk = 0;
+          // -- create NW-Node for drv_drv->out_
+          //    and connect it to the iput of CLK_BUF 'dn'
 
-          assert(dn.cell_hc_);
-          key = hashComb(dn.cell_hc_, inp);
-          assert(key);
-          kid = pg_.insK(key);
-          assert(kid);
-          pg_.nodeRef(kid).markClk(true);
-          pg2blif_.emplace(kid, dn.id_);
+          assert(drv_drv->out_ == inp1);
+          assert(drv_drv->cell_hc_);
+          uint64_t drv_drv_outKey = 0;
+          uint drv_drv_outNid = 0;
+          nid = kid = 0;
 
           if (drv_drv->isTopInput()) {
             assert(drv_drv->nw_id_);
-            uint nw_id = drv_drv->nw_id_;
-            assert(pg_.hasNode(nw_id));
-            assert(pg2blif_.count(nw_id));
-            assert(map_pg2blif(nw_id) == drv_drv->id_);
-            qk = pg_.nodeRefCk(nw_id).key_;
-            assert(qk);
+            drv_drv_outNid = drv_drv->nw_id_;
+            assert(pg_.hasNode(drv_drv_outNid));
+            assert(pg2blif_.count(drv_drv_outNid));
+            assert(map_pg2blif(drv_drv_outNid) == drv_drv->id_);
+            drv_drv_outKey = pg_.nodeRefCk(drv_drv_outNid).key_;
+            assert(drv_drv_outKey);
           }
           else {
 
-            qk = hashComb(drv_drv->id_, drv_drv->out_);
-            assert(qk);
-            bool qk_inserted = not pg_.hasKey(qk);
-            pid = pg_.insK(qk);
+            drv_drv_outKey = hashComb(drv_drv->cell_hc_, drv_drv->out_);
+            assert(drv_drv_outKey);
+            drv_drv_outNid = pg_.insK(drv_drv_outKey);
+            assert(drv_drv_outNid);
+            pg_.nodeRef(drv_drv_outNid).markClk(true);
+            pg2blif_.emplace(drv_drv_outNid, drv_drv->id_);
 
-            if (qk_inserted) {
+            if (not pg_.nodeRefCk(drv_drv_outNid).isNamed()) {
               ::snprintf(nm_buf, 510, "nd%u_L%u_",
-                         pid, drv_drv->lnum_);
-              if (drv_drv->is_CLK_BUF())
-                ::strcat(nm_buf, "CBUF");
-              pg_.setNodeName(pid, nm_buf);
+                         drv_drv_outNid, drv_drv->lnum_);
+              if (drv_drv->is_CLK_BUF()) {
+                ::strcat(nm_buf, "ddCBUF_");
+                string outPin = pr_first_output(driver->ptype_);
+                assert(not outPin.empty());
+                ::strcat(nm_buf, outPin.c_str());
+              }
+              pg_.setNodeName(drv_drv_outNid, nm_buf);
             }
-            pg2blif_.emplace(pid, drv_drv->id_);
+
           }
 
-          assert(qk);
-          eid = pg_.linK(qk, key);
+          assert(ipin_nid);
+          assert(pg_.hasNode(ipin_nid));
+          assert(pg_.nodeRefCk(ipin_nid).isNamed());
+
+          assert(drv_drv_outKey);
+          assert(drv_drv_outNid);
+          assert(pg_.nodeRefCk(drv_drv_outNid).isNamed());
+
+          // eid = pg_.linK(drv_drv_outKey, drv_drv_outKey);
+          eid = pg_.linkNodes(drv_drv_outNid, ipin_nid, false);
           assert(eid);
-          if (trace_ >= 11)
+          pg_.edgeRef(eid).paintRed();
+          if (trace_ >= 12)
             lprintf("\t\t\t eid= %u\n", eid);
         }
       }

@@ -532,6 +532,30 @@ void pr_get_outputs(Prim_t pt, vector<string>& OUT) noexcept {
   OUT = _id2outputs[i];
 }
 
+std::string pr_first_input(Prim_t pt) noexcept {
+  uint i = pt;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or i > Prim_MAX_ID)
+    return {};
+
+  const vector<string>& A = _id2inputs[i];
+  if (A.empty())
+    return {};
+  return A.front();
+}
+
+std::string pr_first_output(Prim_t pt) noexcept {
+  uint i = pt;
+  assert(i <= Prim_MAX_ID);
+  if (i == 0 or i > Prim_MAX_ID)
+    return {};
+
+  const vector<string>& A = _id2outputs[i];
+  if (A.empty())
+    return {};
+  return A.front();
+}
+
 // "A_"
 static inline bool starts_w_A(CStr z) noexcept {
   assert(z);

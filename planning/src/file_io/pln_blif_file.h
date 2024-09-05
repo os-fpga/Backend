@@ -19,7 +19,7 @@ struct BLIF_file : public fio::MMapReader
   // Nodes are rooted at output ports.
   // Input ports are leaves.
   // Output ports are roots of fanin cones.
-  struct Node {
+  struct BNode {
     uint id_ = 0;      // index+1 in pool
     uint nw_id_ = 0;   // node-id in NW, for ports only
 
@@ -34,7 +34,7 @@ struct BLIF_file : public fio::MMapReader
     vector<string> inPins_;  // input pins from Prim-DB
     vector<string> inSigs_;  // input signals from blif-file
 
-    string out_;             // SOG output (real or virtual)
+    string out_;             // SOG output net (=signal) (real or virtual)
 
     uint virtualOrigin_ = 0; // node-ID from which this virtual MOG is created
 
@@ -46,8 +46,8 @@ struct BLIF_file : public fio::MMapReader
     bool is_mog_ = false;
 
   public:
-    Node() noexcept = default;
-    Node(CStr keyword, uint L) noexcept : lnum_(L) {
+    BNode() noexcept = default;
+    BNode(CStr keyword, uint L) noexcept : lnum_(L) {
       if (keyword) kw_ = keyword;
     }
 
@@ -136,7 +136,7 @@ struct BLIF_file : public fio::MMapReader
       return ptype_ == prim::CLK_BUF;
     }
 
-    string firstInputPin() const noexcept;
+    string firstInputNet() const noexcept;
 
     void allInputPins(vector<string>& V) const noexcept;
 
@@ -149,7 +149,7 @@ struct BLIF_file : public fio::MMapReader
     }
 
     struct CmpOut {
-      bool operator()(const Node* a, const Node* b) const noexcept {
+      bool operator()(const BNode* a, const BNode* b) const noexcept {
         return a->out_ < b->out_;
       }
     };
@@ -183,13 +183,13 @@ struct BLIF_file : public fio::MMapReader
       }
     };
 
-  }; // Node
+  }; // BNode
 
-  Node& bnodeRef(uint id) noexcept {
+  BNode& bnodeRef(uint id) noexcept {
     assert(id > 0 and id < nodePool_.size());
     return nodePool_[id];
   }
-  const Node& bnodeRef(uint id) const noexcept {
+  const BNode& bnodeRef(uint id) const noexcept {
     assert(id > 0 and id < nodePool_.size());
     return nodePool_[id];
   }
@@ -225,7 +225,7 @@ public:
   uint numOutputs() const noexcept { return outputs_.size(); }
   uint numNodes() const noexcept { return nodePool_.empty() ? 0 : nodePool_.size() - 1; }
 
-  void collectClockedNodes(vector<const Node*>& V) noexcept;
+  void collectClockedNodes(vector<const BNode*>& V) noexcept;
   std::array<uint, prim::Prim_MAX_ID> countTypes() const noexcept;
 
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
@@ -239,21 +239,21 @@ public:
 private:
   bool createNodes() noexcept;
   bool linkNodes() noexcept;
-  void link2(Node& from, Node& to) noexcept;
+  void link2(BNode& from, BNode& to) noexcept;
 
   bool createPinGraph() noexcept;
   bool linkPinGraph() noexcept;
   bool writePinGraph(CStr fn) const noexcept;
 
-  bool checkClockSepar(vector<const Node*>& clocked) noexcept;
+  bool checkClockSepar(vector<const BNode*>& clocked) noexcept;
 
-  Node* findOutputPort(const string& contact) noexcept;
-  Node* findInputPort(const string& contact) noexcept;
+  BNode* findOutputPort(const string& contact) noexcept;
+  BNode* findInputPort(const string& contact) noexcept;
 
-  Node* findFabricParent(uint of, const string& contact, int& pinIndex) noexcept;  // searches inputs
-  Node* findFabricDriver(uint of, const string& contact) noexcept;                 // matches out_
+  BNode* findFabricParent(uint of, const string& contact, int& pinIndex) noexcept;  // searches inputs
+  BNode* findFabricDriver(uint of, const string& contact) noexcept;                 // matches out_
 
-  Node* findDriverNode(uint of, const string& contact) noexcept;
+  BNode* findDriverNode(uint of, const string& contact) noexcept;
 
   // collects matching input pins from all cells
   // pair: 1st - nodeId, 2nd - pinIndex
@@ -270,14 +270,14 @@ private:
   }
 
 // DATA:
-  std::vector<Node> nodePool_;  // nodePool_[0] is a fake node "parent of root"
+  std::vector<BNode> nodePool_;  // nodePool_[0] is a fake node "parent of root"
 
-  std::vector<Node*> topInputs_, topOutputs_;
-  std::vector<Node*> fabricNodes_, constantNodes_;
+  std::vector<BNode*> topInputs_, topOutputs_;
+  std::vector<BNode*> fabricNodes_, constantNodes_;
 
-  std::vector<Node*> latches_; // latches are not checked for now
+  std::vector<BNode*> latches_; // latches are not checked for now
 
-  std::unordered_map<uint, uint> pg2blif_; // map IDs from NW to BLIF_file::Node::id_
+  std::unordered_map<uint, uint> pg2blif_; // map IDs from NW to BLIF_file::BNode::id_
 
   NW pg_; // Pin Graph
 };
