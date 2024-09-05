@@ -97,6 +97,9 @@ bool pr_is_core_fabric(Prim_t t) noexcept;
 void pr_get_inputs(Prim_t pt, std::vector<std::string>& INP) noexcept;
 void pr_get_outputs(Prim_t pt, std::vector<std::string>& OUT) noexcept;
 
+std::string pr_first_input(Prim_t pt) noexcept;
+std::string pr_first_output(Prim_t pt) noexcept;
+
 bool is_I_SERDES_output_term(const std::string& term) noexcept;
 bool is_O_SERDES_output_term(const std::string& term) noexcept;
 

@@ -336,7 +336,7 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
 
   if (!inp_flag_ and !clk_flag_) {
     if (isRed())
-      ::strcpy(attrib, "[ shape=record, color=red, style=rounded ];");
+      ::strcpy(attrib, "[ shape=octagon, color=purple, fillcolor=pink, style=filled ];");
     else
       ::strcpy(attrib, "[ shape=record, style=rounded ];");
   }
