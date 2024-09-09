@@ -1052,7 +1052,7 @@ string PinPlacer::translatePinName(const string& pinName, bool is_input) const n
 
   if (is_input) {
     EditItem* buf = findIbufByOldPin(pinName);
-    if (buf) {
+    if (buf and buf->module_ != "FCLK_BUF") {
       assert(not buf->newPin_.empty());
       EditItem* root = buf->getRoot();
       assert(root);
