@@ -44,14 +44,18 @@ inline uint64_t hashComb(uint64_t a, const std::string& s) noexcept {
   return hashComb(a, str::hashf(s));
 }
 
-inline constexpr int protectedAdd(int a, int b) noexcept {
+inline constexpr uint64_t hashCantor(uint64_t a, uint64_t b) noexcept {
+  return ((a + b) >> 1) * (a + b + 1) + b;
+}
+
+inline constexpr int protAdd(int a, int b) noexcept {
   int64_t c = int64_t(a) + int64_t(b);
   if (c > INT_MAX) return INT_MAX;
   if (c < INT_MIN) return INT_MIN;
   return c;
 }
 
-inline constexpr int protectedSub(int a, int b) noexcept {
+inline constexpr int protSub(int a, int b) noexcept {
   int64_t c = int64_t(a) - int64_t(b);
   if (c > INT_MAX) return INT_MAX;
   if (c < INT_MIN) return INT_MIN;
@@ -66,7 +70,7 @@ inline constexpr int64_t sub64(int a, int b) noexcept {
   return int64_t(a) - int64_t(b);
 }
 
-inline constexpr int protectedRound(double x) noexcept {
+inline constexpr int protRound(double x) noexcept {
   if (x >= 0) {
     if (x >= double(INT_MAX) - 0.5) return INT_MAX;
     return x + 0.5;
@@ -75,15 +79,15 @@ inline constexpr int protectedRound(double x) noexcept {
   return x - 0.5;
 }
 
-inline constexpr int inlineRound(double x) noexcept {
+inline constexpr int fastRound(double x) noexcept {
   return x >= 0 ? x + 0.5 : x - 0.5;
 }
 
-inline constexpr int64_t inlineRound64(double x) noexcept {
+inline constexpr int64_t fastRound64(double x) noexcept {
   return x >= 0 ? int64_t(x + 0.5) : int64_t(x - 0.5);
 }
 
-inline constexpr int64_t protectedRound64(double x) noexcept {
+inline constexpr int64_t protRound64(double x) noexcept {
   if (x >= 0) {
     if (x >= double(LLONG_MAX) - 0.5) return LLONG_MAX;
     return int64_t(x + 0.5);

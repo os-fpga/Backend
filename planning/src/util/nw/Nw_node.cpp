@@ -96,12 +96,44 @@ void NW::setNodeName(uint id, CStr nm) noexcept {
   //  lputs1();
 
   if (nm) {
-    lprintf(" (setNodeName)   %u --> %s\n", id, nm);
+    if (trace_ >= 6)
+      lprintf(" (setNodeName)   %u --> %s\n", id, nm);
     nodeRefCk(id).name_ = nm;
     return;
   }
 
   nodeRefCk(id).name_.clear();
+}
+
+void NW::setNodeName3(uint id, uint B, uint L, CStr a) noexcept {
+  char buf[128];
+  Node& nd = nodeRefCk(id);
+  char c = 'n';
+  if (nd.inp_flag_)
+    c = 'i';
+  else if (nd.out_flag_)
+    c = 'o';
+  ::sprintf(buf, "%c%uB%uL%u_", c, id, B, L);
+  nd.name_ = str::concat(buf, a);
+
+  if (trace_ >= 6)
+    lprintf(" (setNodeName3)   %u --> %s\n", id, nd.name_.c_str());
+}
+
+void NW::setNodeName4(uint id, uint B, uint L, uint ipin, CStr a) noexcept {
+  char buf[128];
+  Node& nd = nodeRefCk(id);
+  char c = 'n';
+  if (nd.inp_flag_)
+    c = 'i';
+  else if (nd.out_flag_)
+    c = 'o';
+  ::sprintf(buf, "%c%uB%uL%u_p%u", c, id, B, L, ipin);
+
+  nd.name_ = str::concat(buf, a);
+
+  if (trace_ >= 6)
+    lprintf(" (setNodeName4)   %u --> %s\n", id, nd.name_.c_str());
 }
 
 uint NW::countRedEdges() const noexcept {

@@ -250,6 +250,8 @@ struct NW {
   NW(const NW& g) noexcept;
   NW& operator=(const NW& g) noexcept;
 
+  void setTrace(int t) noexcept;
+
   void reserve(uint cap) noexcept {
     if (!cap) return;
     assert(cap < uint(INT_MAX));
@@ -332,6 +334,13 @@ struct NW {
 
   void setNodeName(uint id, CStr nm) noexcept;
   void setNodeName(uint id, const string& nm) noexcept { setNodeName(id, nm.c_str()); }
+  void setNodeName3(uint id, uint B, uint L, CStr a = nullptr) noexcept;
+  void setNodeName4(uint id, uint B, uint L, uint ipin, CStr a = nullptr) noexcept;
+
+  CStr cnodeName(uint id) const noexcept {
+    assert(hasNode(id));
+    return nodeRef(id).name_.c_str();
+  }
 
   void setNwName(CStr nm) noexcept {
     if (nm and nm[0])
@@ -356,7 +365,7 @@ struct NW {
   void getIncoE(const Node& nd, vecu& E) const noexcept;
   void getOutgE(const Node& nd, vecu& E) const noexcept;
 
-  inline void clear() noexcept;
+  void clear() noexcept;
   void clearEdges() noexcept;
 
   const Node* parPtr(const Node& nd) const noexcept {
@@ -721,15 +730,6 @@ struct NW::ChldNI : public NW::OutgEI {
     return &(g_.ndStor_[nd.otherSide(e)]);
   }
 };
-
-inline void NW::clear() noexcept {
-  nids_.clear();
-  rids_.clear();
-  ndStor_.clear();
-  edStor_.clear();
-  ndStor_.emplace_back();
-  edStor_.emplace_back();
-}
 
 inline uint NW::addNode(const XY& p, uint64_t k) noexcept {
   if (ndStor_.empty()) ndStor_.emplace_back();
