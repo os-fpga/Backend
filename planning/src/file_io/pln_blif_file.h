@@ -63,18 +63,36 @@ struct BLIF_file : public fio::MMapReader
     }
 
     void setOutHash() noexcept {
-      out_hc_ = str::hashf(out_.c_str());
+      assert(id_);
+      out_hc_ = is_top_ ? id_ : str::hashf(out_.c_str());
     }
     uint64_t outHash() const noexcept {
+      assert(id_);
+      if (is_top_)
+        return id_;
       return out_hc_ ? out_hc_ : str::hashf(out_.c_str());
     }
 
     void setCellHash() noexcept {
-      cell_hc_ = hashComb(id_, is_top_, str::hashf(out_.c_str()));
+      assert(id_);
+      if (is_top_) {
+        cell_hc_ = id_;
+        return;
+      }
+      cell_hc_ = hashComb(id_, out_);
     }
     uint64_t cellHash() const noexcept {
+      assert(id_);
+      if (is_top_)
+        return id_;
       if (cell_hc_) return cell_hc_;
-      return hashComb(id_, is_top_, str::hashf(out_.c_str()));
+      return hashComb(id_, out_);
+    }
+    uint64_t cellHash0() const noexcept {
+      assert(id_);
+      if (is_top_)
+        return id_;
+      return hashComb(id_, out_);
     }
 
     bool isTopPort() const noexcept { return is_top_ != 0; }

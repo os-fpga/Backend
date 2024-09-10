@@ -140,14 +140,14 @@ struct NW {
     }
     bool edgeOutg(const Edge& e) const noexcept { return not edgeInco(e); }
 
-    inline void getFanout(const NW& g, vecu& A) const noexcept;
-    inline void getFanin(const NW& g, vecu& A) const noexcept;
-    inline void getAdj(const NW& g, vecu& A) const noexcept;
-    inline void getFanoutE(const NW& g, vecu& E) const noexcept;
+    void getFanout(const NW& g, vecu& A) const noexcept;
+    void getFanin(const NW& g, vecu& A) const noexcept;
+    void getAdj(const NW& g, vecu& A) const noexcept;
+    void getFanoutE(const NW& g, vecu& E) const noexcept;
 
     uint degree() const noexcept { return edges_.size(); }
-    inline uint outDeg(const NW& g) const noexcept;
-    inline uint inDeg(const NW& g) const noexcept;
+    uint outDeg(const NW& g) const noexcept;
+    uint inDeg(const NW& g) const noexcept;
 
     uint parent() const noexcept { return par_; }
     bool isTreeRoot() const noexcept { return !par_; }
@@ -267,7 +267,7 @@ struct NW {
   }
   uint numN() const noexcept { return size(); }
   inline uint numE() const noexcept;
-  inline uint countRedEdges() const noexcept;
+  uint countRedEdges() const noexcept;
 
   inline upair countRoots() const noexcept;
   bool hasClockNodes() const noexcept;
@@ -330,17 +330,8 @@ struct NW {
     nodeRef(id).markSink(val);
   }
 
-  void setNodeName(uint id, CStr nm) noexcept {
-    assert(hasNode(id));
-    if (nm)
-      nodeRefCk(id).name_ = nm;
-    else
-      nodeRefCk(id).name_.clear();
-  }
-  void setNodeName(uint id, const string& nm) noexcept {
-    assert(hasNode(id));
-    nodeRefCk(id).name_ = nm;
-  }
+  void setNodeName(uint id, CStr nm) noexcept;
+  void setNodeName(uint id, const string& nm) noexcept { setNodeName(id, nm.c_str()); }
 
   void setNwName(CStr nm) noexcept {
     if (nm and nm[0])
@@ -362,11 +353,11 @@ struct NW {
     return edStor_[i];
   }
 
-  inline void getIncoE(const Node& nd, vecu& E) const noexcept;
-  inline void getOutgE(const Node& nd, vecu& E) const noexcept;
+  void getIncoE(const Node& nd, vecu& E) const noexcept;
+  void getOutgE(const Node& nd, vecu& E) const noexcept;
 
   inline void clear() noexcept;
-  inline void clearEdges() noexcept;
+  void clearEdges() noexcept;
 
   const Node* parPtr(const Node& nd) const noexcept {
     return nd.par_ > 0 ? &nodeRefCk(nd.par_) : nullptr;
@@ -749,110 +740,10 @@ inline uint NW::addNode(const XY& p, uint64_t k) noexcept {
   return id;
 }
 
-inline uint NW::Node::outDeg(const NW& g) const noexcept {
-  if (edges_.empty()) return 0;
-
-  uint deg = 0;
-  for (uint eid : edges_) {
-    const Edge& ed = g.edgeRef(eid);
-    assert(ed.valid());
-    if (ed.n1_ == id_) deg++;
-  }
-
-  return deg;
-}
-
-inline uint NW::Node::inDeg(const NW& g) const noexcept {
-  if (edges_.empty()) return 0;
-
-  uint deg = 0;
-  for (uint eid : edges_) {
-    const Edge& ed = g.edgeRef(eid);
-    assert(ed.valid());
-    if (ed.n2_ == id_) deg++;
-  }
-
-  return deg;
-}
-
-inline void NW::Node::getFanoutE(const NW& g, vecu& E) const noexcept {
-  for (OutgEI I(g, id_); I.valid(); ++I) {
-    const Edge& e = *I;
-    assert(e.n1_ == id_);
-    E.push_back(e.id_);
-  }
-}
-
-inline void NW::Node::getFanout(const NW& g, vecu& A) const noexcept {
-  for (OutgEI I(g, id_); I.valid(); ++I) {
-    const Edge& e = *I;
-    assert(e.n1_ == id_);
-    uint v = otherSide(e);
-    assert(g.hasNode(v));
-    A.push_back(v);
-  }
-}
-
-inline void NW::Node::getFanin(const NW& g, vecu& A) const noexcept {
-  for (IncoEI I(g, id_); I.valid(); ++I) {
-    const Edge& e = *I;
-    assert(e.n2_ == id_);
-    uint v = otherSide(e);
-    assert(g.hasNode(v));
-    A.push_back(v);
-  }
-}
-
-inline void NW::Node::getAdj(const NW& g, vecu& A) const noexcept {
-  A.reserve(edges_.size());
-  getFanin(g, A);
-  getFanout(g, A);
-}
-
-inline void NW::getIncoE(const Node& nd, vecu& E) const noexcept {
-  E.clear();
-  if (empty()) return;
-  for (int i = nd.degree() - 1; i >= 0; i--) {
-    uint ei = nd.edges_[i];
-    const Edge& e = edgeRef(ei);
-    if (not nd.edgeInco(e)) continue;
-    E.push_back(ei);
-  }
-}
-
-inline void NW::getOutgE(const Node& nd, vecu& E) const noexcept {
-  E.clear();
-  if (empty()) return;
-  for (int i = nd.degree() - 1; i >= 0; i--) {
-    uint ei = nd.edges_[i];
-    const Edge& e = edgeRef(ei);
-    if (nd.edgeInco(e)) continue;
-    E.push_back(ei);
-  }
-}
-
 inline uint NW::numE() const noexcept {
   uint cnt = 0;
   for (cEI I(*this); I.valid(); ++I) cnt++;
   return cnt;
-}
-
-inline uint NW::countRedEdges() const noexcept {
-  uint cnt = 0;
-  for (cEI I(*this); I.valid(); ++I) {
-    if (I->isRed())
-      cnt++;
-  }
-  return cnt;
-}
-
-inline void NW::clearEdges() noexcept {
-  edStor_.clear();
-  edStor_.emplace_back();
-  if (empty()) return;
-  for (NI I(*this); I.valid(); ++I) {
-    I->edges_.clear();
-  }
 }
 
 inline uint NW::findEdge(uint a, uint b) const noexcept {
