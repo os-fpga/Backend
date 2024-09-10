@@ -13,6 +13,28 @@
 
 namespace pln {
 
+void NW::clear() noexcept {
+  nids_.clear();
+  rids_.clear();
+  ndStor_.clear();
+  edStor_.clear();
+  nw_name_.clear();
+  ndStor_.emplace_back();
+  edStor_.emplace_back();
+}
+
+void NW::setTrace(int t) noexcept {
+  if (t <= 0) { 
+    trace_ = 0;
+    return;
+  }
+  if (t >= USHRT_MAX) {
+    trace_ = USHRT_MAX;
+    return;
+  }
+  trace_ = t;
+}
+
 uint NW::insK(uint64_t k) noexcept {
   assert(k);
   if (empty()) return addNode(k);

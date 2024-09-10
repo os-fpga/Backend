@@ -422,6 +422,8 @@ bool BLIF_file::checkBlif() noexcept {
 
   // 6. clock-data separation
   if (!topInputs_.empty() and !topOutputs_.empty()) {
+    if (trace_ >= 5)
+      pg_.setTrace(trace_);
     vector<const BNode*> clocked;
     collectClockedNodes(clocked);
     uint clocked_sz = clocked.size();
@@ -1656,7 +1658,8 @@ bool BLIF_file::createPinGraph() noexcept {
     assert(nid);
     pg_.nodeRef(nid).markInp(true);
     assert(not pg_.nodeRef(nid).isNamed());
-    pg_.setNodeName(nid, port.out_);
+    //pg_.setNodeName(nid, port.out_);
+    pg_.setNodeName3(nid, port.id_, port.lnum_, port.out_.c_str());
     port.nw_id_ = nid;
     pg2blif_.emplace(nid, port.id_);
   }
@@ -1669,7 +1672,8 @@ bool BLIF_file::createPinGraph() noexcept {
     assert(nid);
     pg_.nodeRef(nid).markOut(true);
     assert(not pg_.nodeRef(nid).isNamed());
-    pg_.setNodeName(nid, port.out_);
+    //pg_.setNodeName(nid, port.out_);
+    pg_.setNodeName3(nid, port.id_, port.lnum_, port.out_.c_str());
     port.nw_id_ = nid;
     pg2blif_.emplace(nid, port.id_);
   }
@@ -1716,7 +1720,7 @@ bool BLIF_file::createPinGraph() noexcept {
       }
 
       assert(par.cell_hc_);
-      key = hashComb(par.cell_hc_, pinIndex);
+      key = hashCantor(par.id_, pinIndex+1);
       assert(key);
       assert(not pg_.hasKey(key));
       kid = pg_.insK(key);
@@ -1731,8 +1735,11 @@ bool BLIF_file::createPinGraph() noexcept {
                  par.lnum_, par.id_, pinIndex);
 
       assert(not pg_.nodeRef(kid).inp_flag_);
-      pg_.setNodeName(kid, nm_buf);
+      pg_.setNodeName3(kid, par.id_, par.lnum_);
       pg_.nodeRef(kid).markClk(is_clock);
+
+      if (trace_ >= 6)
+        lprintf(" ALT nodeName  %s  -->  %s\n", pg_.cnodeName(kid), nm_buf);
 
       eid = pg_.linK(port.id_, key);
       assert(eid);
@@ -1756,17 +1763,21 @@ bool BLIF_file::createPinGraph() noexcept {
       BNode& bnode = bnodeRef(q.cellId_);
       assert(not bnode.isTopPort());
 
-      uint64_t qk = bnode.cellHash0(); // hashComb(q.cellId_, q.outNet_);
+      uint64_t qk = bnode.cellHash0();
       assert(qk);
       kid = pg_.insK(qk);
       eid = pg_.linkNodes(q.inpNid_, kid, true);
 
       ::snprintf(nm_buf, 510, "nd%u_L%u_Q%u",
                 kid, bnode.lnum_, q.cellId_);
+
       assert(not pg_.nodeRef(kid).inp_flag_);
-      pg_.setNodeName(kid, nm_buf);
+      pg_.setNodeName3(kid, bnode.id_, bnode.lnum_);
       bnode.nw_id_ = kid;
       pg2blif_.emplace(kid, bnode.id_);
+
+      if (trace_ >= 6)
+        lprintf(" ALT nodeName  %s  -->  %s\n", pg_.cnodeName(kid), nm_buf);
     }
   }
 
@@ -1789,17 +1800,18 @@ bool BLIF_file::createPinGraph() noexcept {
         if (not pr_pin_is_clock(cn.ptype_, inp))
           continue;
         assert(cn.cell_hc_);
-        key = hashComb(cn.cell_hc_, inp);
+        key = hashCantor(cn.id_, i + 1);
         assert(key);
-        assert(not pg_.hasKey(key));
+        // assert(not pg_.hasKey(key));
         kid = pg_.insK(key);
         assert(kid);
         pg_.nodeRef(kid).markClk(true);
 
         ::snprintf(nm_buf, 510, "nd%u_L%u_cn",
                    kid, cn.lnum_);
+
         assert(not pg_.nodeRef(kid).inp_flag_);
-        pg_.setNodeName(kid, nm_buf);
+        pg_.setNodeName4(kid, cn.id_, cn.lnum_, i+1, cn.cPrimType());
         pg2blif_.emplace(kid, cn.id_);
 
         const string& inet = cn.inSigs_[i];
@@ -1829,7 +1841,7 @@ bool BLIF_file::createPinGraph() noexcept {
           return false;
         }
 
-        uint64_t opin_key = driver->cellHash0(); // hashComb(driver->id_, driver->out_);
+        uint64_t opin_key = driver->cellHash0();
         assert(opin_key);
         uint opin_nid = pg_.findNode(opin_key);
         if (opin_nid) {
@@ -1847,8 +1859,10 @@ bool BLIF_file::createPinGraph() noexcept {
             assert(not outPin.empty());
             ::strcat(nm_buf, outPin.c_str());
           }
+
           assert(not pg_.nodeRef(opin_nid).inp_flag_);
-          pg_.setNodeName(opin_nid, nm_buf);
+          pg_.setNodeName3(opin_nid, driver->id_,
+                           driver->lnum_, driver->out_.c_str());
           pg2blif_.emplace(opin_nid, driver->id_);
         }
 
@@ -1874,7 +1888,7 @@ bool BLIF_file::createPinGraph() noexcept {
             return false;
           }
 
-          uint64_t ipin_key = hashComb(dn.id_, inp1);
+          uint64_t ipin_key = hashCantor(dn.id_, 1);
           assert(ipin_key);
           uint ipin_nid = pg_.findNode(ipin_key);
           if (ipin_nid) {
@@ -1893,7 +1907,7 @@ bool BLIF_file::createPinGraph() noexcept {
               ::strcat(nm_buf, inpPin.c_str());
             }
             assert(not pg_.nodeRef(ipin_nid).inp_flag_);
-            pg_.setNodeName(ipin_nid, nm_buf);
+            pg_.setNodeName3(ipin_nid, dn.id_, dn.lnum_, dn.out_.c_str());
             pg2blif_.emplace(ipin_nid, dn.id_);
           }
 
@@ -1951,7 +1965,7 @@ bool BLIF_file::createPinGraph() noexcept {
           }
           else {
 
-            drv_drv_outKey = drv_drv->cellHash0(); // hashComb(drv_drv->cell_hc_, drv_drv->out_);
+            drv_drv_outKey = drv_drv->cellHash0();
             assert(drv_drv_outKey);
             drv_drv_outNid = pg_.insK(drv_drv_outKey);
             assert(drv_drv_outNid);
@@ -1967,8 +1981,10 @@ bool BLIF_file::createPinGraph() noexcept {
                 assert(not outPin.empty());
                 ::strcat(nm_buf, outPin.c_str());
               }
+
               assert(not pg_.nodeRef(drv_drv_outNid).inp_flag_);
-              pg_.setNodeName(drv_drv_outNid, nm_buf);
+              pg_.setNodeName3(drv_drv_outNid, drv_drv->id_,
+                               drv_drv->lnum_, drv_drv->out_.c_str());
             }
 
           }
