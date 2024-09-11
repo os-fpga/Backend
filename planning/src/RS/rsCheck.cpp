@@ -42,8 +42,11 @@ bool do_check_blif(CStr cfn) {
     return false;
   }
 
+  uint numInp = bfile.numInputs();
+  uint numOut = bfile.numOutputs();
+
   lprintf("  (blif_file)   #inputs= %u  #outputs= %u  topModel= %s\n",
-          bfile.numInputs(), bfile.numOutputs(), bfile.topModel_.c_str());
+          numInp, numOut, bfile.topModel_.c_str());
 
   if (tr >= 4) {
     flush_out(true);
@@ -58,14 +61,20 @@ bool do_check_blif(CStr cfn) {
   bool chk_ok = bfile.checkBlif();
   assert(chk_ok == bfile.chk_ok_);
 
-  lprintf("=====  passed: %s\n", chk_ok ? "YES" : "NO");
+  lprintf("=====   passed: %s\n", chk_ok ? "YES" : "NO");
 
-  ls << "-----  topModel: " << bfile.topModel_ << endl;
-  ls << "-----      file: " << bfile.fnm_ << endl;
-  ls << "-----  PinGraph: " << bfile.pinGraphFile_ << endl;
-  if (bfile.num_MOGs_ and tr >= 4) {
+  ls << "-----   topModel: " << bfile.topModel_ << endl;
+  ls << "-----       file: " << bfile.fnm_ << endl;
+  ls << "-----    #inputs= " << numInp << endl;
+  ls << "-----   #outputs= " << numOut << endl;
+  ls << "-----      #LUTs= " << bfile.countLUTs() << endl;
+  ls << "-----       #FFs= " << bfile.countFFs() << endl;
+  ls << "-----  #CLK_BUFs= " << bfile.countCBUFs() << endl;
+  ls << "-----   PinGraph: " << bfile.pinGraphFile_ << endl;
+  if (bfile.num_MOGs_ and tr >= 5) {
     ls << ">>>>> [NOTE] num_MOGs_ =  " << bfile.num_MOGs_ << endl;
   }
+  lprintf("=====   passed: %s\n", chk_ok ? "YES" : "NO");
 
   flush_out(true);
   if (chk_ok) {
@@ -81,8 +90,9 @@ bool do_check_blif(CStr cfn) {
   ls << "[Error] !!! " << bfile.err_msg_ << endl;
 
   flush_out(true);
+  uint errLnum = std::max(bfile.err_lnum_, bfile.err_lnum2_);
   lprintf2("ERROR: BLIF verification failed at %s:%u\n",
-            bfile.fnm_.c_str(), bfile.err_lnum_);
+            bfile.fnm_.c_str(), errLnum);
 
   return false;
 }

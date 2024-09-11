@@ -153,6 +153,12 @@ struct BLIF_file : public fio::MMapReader
     bool is_CLK_BUF() const noexcept {
       return ptype_ == prim::CLK_BUF;
     }
+    bool is_LUT() const noexcept {
+      return prim::pr_is_LUT(ptype_);
+    }
+    bool is_FF() const noexcept {
+      return prim::pr_is_DFF(ptype_);
+    }
 
     string firstInputNet() const noexcept;
 
@@ -243,6 +249,9 @@ public:
   uint numInputs() const noexcept { return inputs_.size(); }
   uint numOutputs() const noexcept { return outputs_.size(); }
   uint numNodes() const noexcept { return nodePool_.empty() ? 0 : nodePool_.size() - 1; }
+  uint countLUTs() const noexcept;
+  uint countFFs() const noexcept;
+  uint countCBUFs() const noexcept;
 
   void collectClockedNodes(vector<const BNode*>& V) noexcept;
   std::array<uint, prim::Prim_MAX_ID> countTypes() const noexcept;

@@ -157,6 +157,7 @@ struct NW {
     void markInp(bool val) noexcept { inp_flag_ = val; }
     void markOut(bool val) noexcept { out_flag_ = val; }
     void markClk(bool val) noexcept { clk_flag_ = val; }
+    void markViol(bool val) noexcept { viol_flag_ = val; }
     bool isClk() const noexcept { return clk_flag_; }
     bool terminal() const noexcept { return sink_flag_ or root_flag_; }
 
@@ -189,6 +190,7 @@ struct NW {
     bool inp_flag_ = false;
     bool out_flag_ = false;
     bool clk_flag_ = false;
+    bool viol_flag_ = false;
     string name_;
   };
 

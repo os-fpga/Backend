@@ -335,10 +335,14 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
   char attrib[512] = {};
 
   if (!inp_flag_ and !clk_flag_) {
-    if (isRed())
+    if (isRed()) {
       ::strcpy(attrib, "[ shape=octagon, color=purple, fillcolor=pink, style=filled ];");
-    else
+    }
+    else {
       ::strcpy(attrib, "[ shape=record, style=rounded ];");
+      if (viol_flag_)
+        ::strcpy(attrib, "[ shape=doubleoctagon, color=blueviolet, fillcolor=violet, style=filled ];");
+    }
   }
   else {
     if (inp_flag_) {
@@ -346,7 +350,7 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
       ::sprintf(attrib, "[ shape=box, color=%s, style=filled ];", cs);
     }
     else if (clk_flag_) {
-      CStr cs = isRed() ? "violet" : "orange";
+      CStr cs = isRed() ? "maroon" : "orange";
       ::sprintf(attrib, "[ shape=ellipse, color=%s, style=filled ];", cs);
     }
   }
@@ -358,12 +362,14 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
 void NW::Edge::eprint_dot(ostream& os, char arrow, const NW& g) const noexcept {
   assert(arrow == '>' or arrow == '-');
   char buf[2048] = {};
-  g.nodeRef(n1_).getName(buf);
+  const Node& nd1 = g.nodeRef(n1_);
+  nd1.getName(buf);
   be_dot_friendly(buf);
   os_printf(os, "%s -%c ", buf, arrow);
 
   buf[0] = 0;
-  g.nodeRef(n2_).getName(buf);
+  const Node& nd2 = g.nodeRef(n2_);
+  nd2.getName(buf);
   be_dot_friendly(buf);
   os << buf;
 
@@ -372,8 +378,12 @@ void NW::Edge::eprint_dot(ostream& os, char arrow, const NW& g) const noexcept {
       inCell_ ? "style=dashed" : "",
       color_ ? "color=" : ""
       );
-  if (color_)
-    ::strcat(attrib, i2color(color_));
+  if (color_) {
+    if (nd1.viol_flag_ and nd2.viol_flag_)
+      ::strcat(attrib, "cyan3");
+    else
+      ::strcat(attrib, i2color(color_));
+  }
   ::strcat(attrib, " ]");
 
   os_printf(os, "%s;\n", attrib);
@@ -593,7 +603,7 @@ static const char* _colorNames[] = {
 
 CStr NW::i2color(uint i) noexcept {
   if (i == c_Red)
-    return "darkviolet";
+    return "darkorange3";
   return _colorNames[ i % (c_MAX_COLOR + 1) ];
 }
 
