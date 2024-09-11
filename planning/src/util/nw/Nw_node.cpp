@@ -84,16 +84,17 @@ void NW::getOutgE(const Node& nd, vecu& E) const noexcept {
   }
 }
 
+static constexpr uint STOP_ON_NAMING_NODE = 29;
+
 void NW::setNodeName(uint id, CStr nm) noexcept {
   assert(hasNode(id));
+  // assert(nm);
 
-  assert(nm);
-
-  //if (nodeRef(id).isNamed())
-  //  lputs1();
-  // ---
-  //if (id == 17)
-  //  lputs1();
+  if (STOP_ON_NAMING_NODE) {
+    if (id == STOP_ON_NAMING_NODE) {
+      lputs1();
+    }
+  }
 
   if (nm) {
     if (trace_ >= 6)
@@ -118,6 +119,12 @@ void NW::setNodeName3(uint id, uint B, uint L, CStr a) noexcept {
 
   if (trace_ >= 6)
     lprintf(" (setNodeName3)   %u --> %s\n", id, nd.name_.c_str());
+
+  if (STOP_ON_NAMING_NODE) {
+    if (id == STOP_ON_NAMING_NODE) {
+      lputs1();
+    }
+  }
 }
 
 void NW::setNodeName4(uint id, uint B, uint L, uint ipin, CStr a) noexcept {
@@ -134,6 +141,12 @@ void NW::setNodeName4(uint id, uint B, uint L, uint ipin, CStr a) noexcept {
 
   if (trace_ >= 6)
     lprintf(" (setNodeName4)   %u --> %s\n", id, nd.name_.c_str());
+
+  if (STOP_ON_NAMING_NODE) {
+    if (id == STOP_ON_NAMING_NODE) {
+      lputs1();
+    }
+  }
 }
 
 uint NW::countRedEdges() const noexcept {
@@ -152,6 +165,26 @@ void NW::clearEdges() noexcept {
   for (NI I(*this); I.valid(); ++I) {
     I->edges_.clear();
   }
+}
+
+uint NW::getMaxNid() const noexcept {
+  if (empty()) return 0;
+  uint maxId = 0;
+  for (cNI I(*this); I.valid(); ++I) {
+    const Node& nd = *I;
+    if (nd.id_ > maxId) maxId = nd.id_;
+  }
+  return maxId;
+}
+
+uint64_t NW::getMaxKey() const noexcept {
+  if (empty()) return 0;
+  uint64_t maxK = 0;
+  for (cNI I(*this); I.valid(); ++I) {
+    const Node& nd = *I;
+    if (nd.key_ > maxK) maxK = nd.key_;
+  }
+  return maxK;
 }
 
 }

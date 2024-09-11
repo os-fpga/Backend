@@ -183,6 +183,9 @@ bool BLIF_file::readBlif() noexcept {
   fabricNodes_.clear();
   latches_.clear();
   constantNodes_.clear();
+  topModel_.clear();
+  pinGraphFile_.clear();
+
   rd_ok_ = chk_ok_ = false;
   err_msg_.clear();
   trace_ = 0;
@@ -459,7 +462,7 @@ bool BLIF_file::checkBlif() noexcept {
   }
 
   // -- write yaml file to check prim-DB:
-  if (trace_ >= 7) {
+  if (trace_ >= 8) {
     //string written = pr_write_yaml( DFFRE );
     //string written = pr_write_yaml( DSP19X2 );
     //string written = pr_write_yaml( DSP38 );
@@ -924,7 +927,7 @@ bool BLIF_file::createNodes() noexcept {
       continue;
     }
 
-    if (trace_ >= 6) lprintf("\t .....  line-%u  %s\n", L, cs);
+    if (trace_ >= 7) lprintf("\t .....  line-%u  %s\n", L, cs);
 
     // -- parse .names
     if (starts_w_names(cs + 1, len - 1)) {
@@ -1571,8 +1574,9 @@ bool BLIF_file::checkClockSepar(vector<const BNode*>& clocked) noexcept {
     lputs();
   }
 
-  if (trace_ >= 4)
-    writePinGraph("pin_graph_2.dot");
+  if (trace_ >= 3) {
+    pinGraphFile_ = writePinGraph("_PinGraph.dot");
+  }
 
   bool color_ok = true;
   CStr viol_prefix = "    ===>>> clock color violation";
@@ -1658,7 +1662,6 @@ bool BLIF_file::createPinGraph() noexcept {
     assert(nid);
     pg_.nodeRef(nid).markInp(true);
     assert(not pg_.nodeRef(nid).isNamed());
-    //pg_.setNodeName(nid, port.out_);
     pg_.setNodeName3(nid, port.id_, port.lnum_, port.out_.c_str());
     port.nw_id_ = nid;
     pg2blif_.emplace(nid, port.id_);
@@ -1672,11 +1675,22 @@ bool BLIF_file::createPinGraph() noexcept {
     assert(nid);
     pg_.nodeRef(nid).markOut(true);
     assert(not pg_.nodeRef(nid).isNamed());
-    //pg_.setNodeName(nid, port.out_);
     pg_.setNodeName3(nid, port.id_, port.lnum_, port.out_.c_str());
     port.nw_id_ = nid;
     pg2blif_.emplace(nid, port.id_);
   }
+
+  uint max_nid1 = pg_.getMaxNid();
+  uint64_t max_key1 = pg_.getMaxKey();
+  if (trace_ >= 4) {
+    if (trace_ >= 5) lputs();
+    lprintf(" (pg_ after inserting top-port nodes)");
+    lprintf("  max_nid= %u  max_key= %zu\n", max_nid1, max_key1);
+    if (trace_ >= 5) {
+      pg_.printNodes(lout(), " pg_ after inserting top-port nodes ", false);
+    }
+  }
+  max_key1++; // max_key1 is used to offset hashCantor
 
   vector<qTup> Q;
   Q.reserve(topInputs_.size());
@@ -1720,7 +1734,7 @@ bool BLIF_file::createPinGraph() noexcept {
       }
 
       assert(par.cell_hc_);
-      key = hashCantor(par.id_, pinIndex+1);
+      key = hashCantor(par.id_, pinIndex+1) + max_key1;
       assert(key);
       assert(not pg_.hasKey(key));
       kid = pg_.insK(key);
@@ -1735,7 +1749,7 @@ bool BLIF_file::createPinGraph() noexcept {
                  par.lnum_, par.id_, pinIndex);
 
       assert(not pg_.nodeRef(kid).inp_flag_);
-      pg_.setNodeName3(kid, par.id_, par.lnum_);
+      pg_.setNodeName4(kid, par.id_, par.lnum_, pinIndex+1, par.cPrimType());
       pg_.nodeRef(kid).markClk(is_clock);
 
       if (trace_ >= 6)
@@ -1772,7 +1786,7 @@ bool BLIF_file::createPinGraph() noexcept {
                 kid, bnode.lnum_, q.cellId_);
 
       assert(not pg_.nodeRef(kid).inp_flag_);
-      pg_.setNodeName3(kid, bnode.id_, bnode.lnum_);
+      pg_.setNodeName3(kid, bnode.id_, bnode.lnum_, bnode.out_.c_str());
       bnode.nw_id_ = kid;
       pg2blif_.emplace(kid, bnode.id_);
 
@@ -1800,7 +1814,7 @@ bool BLIF_file::createPinGraph() noexcept {
         if (not pr_pin_is_clock(cn.ptype_, inp))
           continue;
         assert(cn.cell_hc_);
-        key = hashCantor(cn.id_, i + 1);
+        key = hashCantor(cn.id_, i + 1) + max_key1;
         assert(key);
         // assert(not pg_.hasKey(key));
         kid = pg_.insK(key);
@@ -1888,7 +1902,7 @@ bool BLIF_file::createPinGraph() noexcept {
             return false;
           }
 
-          uint64_t ipin_key = hashCantor(dn.id_, 1);
+          uint64_t ipin_key = hashCantor(dn.id_, 1) + max_key1;
           assert(ipin_key);
           uint ipin_nid = pg_.findNode(ipin_key);
           if (ipin_nid) {
@@ -2029,32 +2043,39 @@ bool BLIF_file::createPinGraph() noexcept {
   return true;
 }
 
-bool BLIF_file::writePinGraph(CStr fn) const noexcept {
+string BLIF_file::writePinGraph(CStr fn0) const noexcept {
   auto& ls = lout();
-  flush_out(true);
-  pg_.print(ls, "\t *** pin_graph for clock-data separation ***");
-  lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
-  lputs();
-  pg_.printSum(ls, 0);
-  lputs();
-  pg_.printEdges(ls, "|edges|");
-  flush_out(true);
+  if (trace_ >= 5) {
+    flush_out(true);
+    pg_.print(ls, "\t *** pin_graph for clock-data separation ***");
+    lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
+    lputs();
+    pg_.printSum(ls, 0);
+    lputs();
+    pg_.printEdges(ls, "|edges|");
+    flush_out(true);
+  }
 
-  if (!fn or !fn[0])
-    fn = "pinGraph.dot";
+  if (!fn0 or !fn0[0])
+    fn0 = "pinGraph.dot";
 
-  bool wrDot_ok = pg_.writeDot(fn, nullptr, true, true);
+  string fn = str::concat(topModel_.c_str(), "_", fn0);
+
+  bool wrDot_ok = pg_.writeDot(fn.c_str(), nullptr, true, true);
   if (!wrDot_ok) {
     flush_out(true); err_puts();
-    lprintf2("[Error] could not write pin_graph to file '%s'\n", fn);
+    lprintf2("[Error] could not write pin_graph to file '%s'\n", fn.c_str());
     err_puts(); flush_out(true);
   }
 
-  lprintf("(writePinGraph)  status:%i  file: %s\n",
-          wrDot_ok, fn);
+  lprintf("(writePinGraph)  status:%s  file: %s\n",
+          wrDot_ok ? "OK" : "FAIL",
+          fn.c_str());
 
   flush_out(true);
-  return wrDot_ok;
+  if (wrDot_ok)
+    return fn;
+  return {};
 }
 
 }

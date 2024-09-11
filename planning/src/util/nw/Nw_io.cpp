@@ -346,8 +346,8 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
       ::sprintf(attrib, "[ shape=box, color=%s, style=filled ];", cs);
     }
     else if (clk_flag_) {
-      CStr cs = isRed() ? "red" : "orange";
-      ::sprintf(attrib, "[ shape=record, color=%s, style=filled ];", cs);
+      CStr cs = isRed() ? "violet" : "orange";
+      ::sprintf(attrib, "[ shape=ellipse, color=%s, style=filled ];", cs);
     }
   }
 
@@ -592,6 +592,8 @@ static const char* _colorNames[] = {
 };
 
 CStr NW::i2color(uint i) noexcept {
+  if (i == c_Red)
+    return "darkviolet";
   return _colorNames[ i % (c_MAX_COLOR + 1) ];
 }
 

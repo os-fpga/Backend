@@ -58,17 +58,18 @@ bool do_check_blif(CStr cfn) {
   bool chk_ok = bfile.checkBlif();
   assert(chk_ok == bfile.chk_ok_);
 
-  lprintf(">>>>>     passed: %s\n", chk_ok ? "YES" : "NO");
+  lprintf("=====  passed: %s\n", chk_ok ? "YES" : "NO");
 
-  ls << ">>>>>   topModel: " << bfile.topModel_ << endl;
-  ls << ">>>>>       file: " << bfile.fnm_ << endl;
-  if (bfile.num_MOGs_) {
+  ls << "-----  topModel: " << bfile.topModel_ << endl;
+  ls << "-----      file: " << bfile.fnm_ << endl;
+  ls << "-----  PinGraph: " << bfile.pinGraphFile_ << endl;
+  if (bfile.num_MOGs_ and tr >= 4) {
     ls << ">>>>> [NOTE] num_MOGs_ =  " << bfile.num_MOGs_ << endl;
   }
 
   flush_out(true);
   if (chk_ok) {
-    ls << " === BLIF is OK." << endl;
+    ls << "=====  BLIF is OK." << endl;
     if (tr >= 4 or bfile.trace_ >= 4) {
       flush_out(true);
       lprintf("     ltrace()= %u  pln_blif_trace= %u\n", tr, bfile.trace_);

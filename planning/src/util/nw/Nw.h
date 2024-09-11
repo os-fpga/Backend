@@ -282,7 +282,8 @@ struct NW {
   bool empty() const noexcept { return nids_.empty(); }
 
   inline uint getMaxLabel() const noexcept;
-  inline uint getMaxNid() const noexcept;
+  uint getMaxNid() const noexcept;
+  uint64_t getMaxKey() const noexcept;
 
   upair getMinMaxDeg() const noexcept;
   upair getMinMaxLbl() const noexcept;
@@ -810,16 +811,6 @@ inline uint NW::getMaxLabel() const noexcept {
     if (nd.lbl_ > maxLabel) maxLabel = nd.lbl_;
   }
   return maxLabel;
-}
-
-inline uint NW::getMaxNid() const noexcept {
-  if (empty()) return 0;
-  uint maxId = 0;
-  for (cNI I(*this); I.valid(); ++I) {
-    const Node& nd = *I;
-    if (nd.id_ > maxId) maxId = nd.id_;
-  }
-  return maxId;
 }
 
 inline void NW::sort_xy() noexcept {

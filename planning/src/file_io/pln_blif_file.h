@@ -213,6 +213,7 @@ struct BLIF_file : public fio::MMapReader
   }
 
   string topModel_;
+  string pinGraphFile_;
 
   vector<string> inputs_;
   vector<string> outputs_;
@@ -261,7 +262,8 @@ private:
 
   bool createPinGraph() noexcept;
   bool linkPinGraph() noexcept;
-  bool writePinGraph(CStr fn) const noexcept;
+
+  string writePinGraph(CStr fn0) const noexcept;
 
   bool checkClockSepar(vector<const BNode*>& clocked) noexcept;
 
