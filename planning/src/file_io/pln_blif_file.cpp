@@ -664,6 +664,51 @@ std::array<uint, Prim_MAX_ID> BLIF_file::countTypes() const noexcept {
   return A;
 }
 
+uint BLIF_file::countLUTs() const noexcept {
+  uint nn = numNodes();
+  if (nn == 0)
+    return 0;
+
+  uint cnt = 0;
+  for (uint i = 1; i <= nn; i++) {
+    const BNode& nd = nodePool_[i];
+    if (nd.is_LUT())
+      cnt++;
+  }
+
+  return cnt;
+}
+
+uint BLIF_file::countFFs() const noexcept {
+  uint nn = numNodes();
+  if (nn == 0)
+    return 0;
+
+  uint cnt = 0;
+  for (uint i = 1; i <= nn; i++) {
+    const BNode& nd = nodePool_[i];
+    if (nd.is_FF())
+      cnt++;
+  }
+
+  return cnt;
+}
+
+uint BLIF_file::countCBUFs() const noexcept {
+  uint nn = numNodes();
+  if (nn == 0)
+    return 0;
+
+  uint cnt = 0;
+  for (uint i = 1; i <= nn; i++) {
+    const BNode& nd = nodePool_[i];
+    if (nd.is_CLK_BUF())
+      cnt++;
+  }
+
+  return cnt;
+}
+
 uint BLIF_file::countCarryNodes() const noexcept {
   uint nn = numNodes();
   if (nn == 0)
@@ -1574,22 +1619,20 @@ bool BLIF_file::checkClockSepar(vector<const BNode*>& clocked) noexcept {
     lputs();
   }
 
-  if (trace_ >= 3) {
-    pinGraphFile_ = writePinGraph("_PinGraph.dot");
-  }
-
   bool color_ok = true;
-  CStr viol_prefix = "    ===>>> clock color violation";
+  CStr viol_prefix = "    ===!!! clock-data separation error";
 
   // -- check that end-points of red edges are red
   for (NW::cEI E(pg_); E.valid(); ++E) {
     const NW::Edge& ed = *E;
     if (not ed.isRed())
       continue;
-    const NW::Node& p1 = pg_.nodeRef(ed.n1_);
-    const NW::Node& p2 = pg_.nodeRef(ed.n2_);
+    NW::Node& p1 = pg_.nodeRef(ed.n1_);
+    NW::Node& p2 = pg_.nodeRef(ed.n2_);
     if (!p1.isRed() or !p2.isRed()) {
       color_ok = false;
+      p1.markViol(true);
+      p2.markViol(true);
       if (pg2blif_.count(p1.id_) and pg2blif_.count(p2.id_)) {
         uint b1 = map_pg2blif(p1.id_);
         uint b2 = map_pg2blif(p2.id_);
@@ -1614,6 +1657,22 @@ bool BLIF_file::checkClockSepar(vector<const BNode*>& clocked) noexcept {
       }
       break;
     }
+  }
+
+  if (color_ok)
+    pg_.setNwName("pin_graph_OK");
+  else
+    pg_.setNwName("pin_graph_VIOL");
+
+  if (trace_ >= 3) {
+    pinGraphFile_ = writePinGraph("_PinGraph.dot");
+  }
+
+  if (!color_ok) {
+    flush_out(true); err_puts();
+    lprintf2("[Error] clock-data separation error\n");
+    err_puts(); flush_out(true);
+    return false;
   }
 
   return color_ok;
@@ -1936,7 +1995,7 @@ bool BLIF_file::createPinGraph() noexcept {
           BNode* drv_drv = findDriverNode(dn.id_, inp1);
 
           if (!drv_drv) {
-            lputs8();
+            lputs();
             flush_out(true); err_puts();
             lprintf2("[Error] no driver for clock-buf node #%u %s  line:%u\n",
                      dn.id_, dn.cPrimType(), dn.lnum_);
@@ -1944,7 +2003,7 @@ bool BLIF_file::createPinGraph() noexcept {
             return false;
           }
 
-          if (trace_ >= 4) {
+          if (trace_ >= 5) {
             lputs();
             lprintf("    CLOCK_TRACE drv_drv->  id_%u  %s  out_net %s  line:%u\n",
                     drv_drv->id_, drv_drv->cPrimType(),
