@@ -234,6 +234,8 @@ struct BLIF_file : public fio::MMapReader
   bool chk_ok_ = false;
   uint num_MOGs_ = 0;
 
+  std::array<uint, prim::Prim_MAX_ID> typeHistogram_;
+
 public:
   BLIF_file() noexcept = default;
   BLIF_file(CStr nm) noexcept : fio::MMapReader(nm) {}
@@ -252,6 +254,9 @@ public:
   uint countLUTs() const noexcept;
   uint countFFs() const noexcept;
   uint countCBUFs() const noexcept;
+  void countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept;
+
+  uint typeHist(prim::Prim_t t) const noexcept { return typeHistogram_[t]; }
 
   void collectClockedNodes(vector<const BNode*>& V) noexcept;
   std::array<uint, prim::Prim_MAX_ID> countTypes() const noexcept;

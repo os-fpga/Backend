@@ -69,7 +69,12 @@ bool do_check_blif(CStr cfn) {
   ls << "-----   #outputs= " << numOut << endl;
   ls << "-----      #LUTs= " << bfile.countLUTs() << endl;
   ls << "-----       #FFs= " << bfile.countFFs() << endl;
-  ls << "-----  #CLK_BUFs= " << bfile.countCBUFs() << endl;
+  uint nIBUF = 0, nOBUF = 0, nCBUF = 0;
+  bfile.countBUFs(nIBUF, nOBUF, nCBUF);
+  ls << "-----    #I_BUFs= " << nIBUF << endl;
+  ls << "-----    #O_BUFs= " << nOBUF << endl;
+  ls << "-----  #CLK_BUFs= " << nCBUF << endl;
+  ls << "-----  #I_SERDES= " << bfile.typeHist(prim::I_SERDES) << endl;
   ls << "-----   PinGraph: " << bfile.pinGraphFile_ << endl;
   if (bfile.num_MOGs_ and tr >= 5) {
     ls << ">>>>> [NOTE] num_MOGs_ =  " << bfile.num_MOGs_ << endl;
