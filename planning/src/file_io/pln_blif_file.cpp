@@ -25,6 +25,9 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   err_msg_.clear();
   pg_.clear();
   pg2blif_.clear();
+
+  for (uint t = 0; t < Prim_MAX_ID; t++)
+    typeHistogram_[t] = 0;
 }
 
 // "model "
@@ -185,6 +188,9 @@ bool BLIF_file::readBlif() noexcept {
   constantNodes_.clear();
   topModel_.clear();
   pinGraphFile_.clear();
+
+  for (uint t = 0; t < prim::Prim_MAX_ID; t++)
+    typeHistogram_[t] = 0;
 
   rd_ok_ = chk_ok_ = false;
   err_msg_.clear();
@@ -369,6 +375,8 @@ bool BLIF_file::checkBlif() noexcept {
 
   // 4. create and link nodes
   createNodes();
+
+  typeHistogram_ = countTypes();
 
   if (trace_ >= 4) {
     printPrimitives(ls, false);
@@ -707,6 +715,28 @@ uint BLIF_file::countCBUFs() const noexcept {
   }
 
   return cnt;
+}
+
+void BLIF_file::countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept {
+  nIBUF = nOBUF = nCBUF = 0;
+  uint nn = numNodes();
+  if (nn == 0)
+    return;
+
+  for (uint i = 1; i <= nn; i++) {
+    const BNode& nd = nodePool_[i];
+    if (nd.is_IBUF()) {
+      nIBUF++;
+      continue;
+    }
+    if (nd.is_OBUF()) {
+      nOBUF++;
+      continue;
+    }
+    if (nd.is_CLK_BUF()) {
+      nCBUF++;
+    }
+  }
 }
 
 uint BLIF_file::countCarryNodes() const noexcept {
@@ -1999,6 +2029,7 @@ bool BLIF_file::createPinGraph() noexcept {
             flush_out(true); err_puts();
             lprintf2("[Error] no driver for clock-buf node #%u %s  line:%u\n",
                      dn.id_, dn.cPrimType(), dn.lnum_);
+            err_lnum_ = dn.lnum_;
             err_puts(); flush_out(true);
             return false;
           }
@@ -2012,9 +2043,11 @@ bool BLIF_file::createPinGraph() noexcept {
 
           if (not drv_drv->is_CLK_BUF() and not drv_drv->isTopInput()) {
             flush_out(true); err_puts();
-            lprintf2("[Error] bad drv_drv for clock-buf node #%u line:%u  must be CLK_BUF or iport\n",
-                      dn.id_, dn.lnum_);
+            lprintf2("[Error] bad driver (%s) for clock-buf node #%u line:%u  must be CLK_BUF or iport\n",
+                      drv_drv->cPrimType(), dn.id_, dn.lnum_);
             err_puts(); flush_out(true);
+            err_lnum_ = dn.lnum_;
+            err_lnum2_ = drv_drv->lnum_;
             return false;
           }
 
