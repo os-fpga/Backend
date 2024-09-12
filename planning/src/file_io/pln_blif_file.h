@@ -115,6 +115,12 @@ struct BLIF_file : public fio::MMapReader
       return pt > 0 and pt < prim::Prim_MAX_ID;
     }
 
+    uint realId(const BLIF_file& bf) const noexcept {
+      if (isVirtualMog())
+        return bf.bnodeRef(virtualOrigin_).id_;
+      return id_;
+    }
+
     uint deg() const noexcept { return uint(!isRoot()) + chld_.size(); }
     uint inDeg() const noexcept { return uint(!isRoot()); }
     uint outDeg() const noexcept { return chld_.size(); }
@@ -158,6 +164,10 @@ struct BLIF_file : public fio::MMapReader
     }
     bool is_FF() const noexcept {
       return prim::pr_is_DFF(ptype_);
+    }
+
+    bool canDriveClockNode() const noexcept {
+      return isTopInput() or is_CLK_BUF() or ptype_ == prim::I_SERDES;
     }
 
     string firstInputNet() const noexcept;
@@ -258,7 +268,7 @@ public:
 
   uint typeHist(prim::Prim_t t) const noexcept { return typeHistogram_[t]; }
 
-  void collectClockedNodes(vector<const BNode*>& V) noexcept;
+  void collectClockedNodes(vector<BNode*>& V) noexcept;
   std::array<uint, prim::Prim_MAX_ID> countTypes() const noexcept;
 
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
@@ -279,7 +289,7 @@ private:
 
   string writePinGraph(CStr fn0) const noexcept;
 
-  bool checkClockSepar(vector<const BNode*>& clocked) noexcept;
+  bool checkClockSepar(vector<BNode*>& clocked) noexcept;
 
   BNode* findOutputPort(const string& contact) noexcept;
   BNode* findInputPort(const string& contact) noexcept;

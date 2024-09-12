@@ -435,7 +435,7 @@ bool BLIF_file::checkBlif() noexcept {
   if (!topInputs_.empty() and !topOutputs_.empty()) {
     if (trace_ >= 5)
       pg_.setTrace(trace_);
-    vector<const BNode*> clocked;
+    vector<BNode*> clocked;
     collectClockedNodes(clocked);
     uint clocked_sz = clocked.size();
     if (trace_ >= 3) {
@@ -636,7 +636,7 @@ uint BLIF_file::printPrimitives(std::ostream& os, bool instCounts) const noexcep
   return Prim_MAX_ID;
 }
 
-void BLIF_file::collectClockedNodes(vector<const BNode*>& V) noexcept {
+void BLIF_file::collectClockedNodes(vector<BNode*>& V) noexcept {
   V.clear();
   uint nn = numNodes();
   if (nn == 0)
@@ -644,7 +644,7 @@ void BLIF_file::collectClockedNodes(vector<const BNode*>& V) noexcept {
 
   V.reserve(20);
   for (uint i = 1; i <= nn; i++) {
-    const BNode& nd = nodePool_[i];
+    BNode& nd = nodePool_[i];
     uint t = nd.ptype_;
     if (!t or t >= Prim_MAX_ID)
       continue;
@@ -1555,7 +1555,7 @@ bool BLIF_file::linkNodes() noexcept {
   return true;
 }
 
-bool BLIF_file::checkClockSepar(vector<const BNode*>& clocked) noexcept {
+bool BLIF_file::checkClockSepar(vector<BNode*>& clocked) noexcept {
   auto& ls = lout();
   if (::getenv("pln_dont_check_clock_separation"))
     return true;
@@ -1727,6 +1727,8 @@ struct qTup {
   }
 };
 
+static CStr s_possible_cdrivers = "{iport, CLK_BUF, I_SERDES}";
+
 bool BLIF_file::createPinGraph() noexcept {
   pg_.clear();
   pg2blif_.clear();
@@ -1822,32 +1824,40 @@ bool BLIF_file::createPinGraph() noexcept {
         lputs();
       }
 
-      assert(par.cell_hc_);
-      key = hashCantor(par.id_, pinIndex+1) + max_key1;
+      uint par_realId = par.realId(*this);
+      key = hashCantor(par_realId, pinIndex+1) + max_key1;
       assert(key);
-      assert(not pg_.hasKey(key));
+      kid = pg_.findNode(key);
+      if (kid) {
+        // virtual MOG effect
+        if (trace_ >= 7) {
+          lprintf(" (virtual MOG effect)  node exists:  key=%zu  nid=%u\n",
+                  key, kid);
+        }
+        continue;
+      }
       kid = pg_.insK(key);
       assert(kid);
       assert(key != port.id_);      // bc port.id_ is a key for port
       assert(pg_.hasKey(port.id_)); //
-      pg2blif_.emplace(kid, par.id_);
+      pg2blif_.emplace(kid, par_realId);
 
-      pg_.nodeRef(kid).setCid(par.id_);
+      pg_.nodeRef(kid).setCid(par_realId);
       ::snprintf(nm_buf, 510, "%s_%uL_%up%u",
                  par.hasPrimType() ? par.cPrimType() : "NP",
-                 par.lnum_, par.id_, pinIndex);
+                 par.lnum_, par_realId, pinIndex);
 
       assert(not pg_.nodeRef(kid).inp_flag_);
-      pg_.setNodeName4(kid, par.id_, par.lnum_, pinIndex+1, par.cPrimType());
+      pg_.setNodeName4(kid, par_realId, par.lnum_, pinIndex+1, par.cPrimType());
       pg_.nodeRef(kid).markClk(is_clock);
 
-      if (trace_ >= 6)
+      if (trace_ >= 7)
         lprintf(" ALT nodeName  %s  -->  %s\n", pg_.cnodeName(kid), nm_buf);
 
       eid = pg_.linK(port.id_, key);
       assert(eid);
 
-      Q.emplace_back(kid, par.id_, pinIndex, par.out_.c_str());
+      Q.emplace_back(kid, par_realId, pinIndex, par.out_.c_str());
     }
   }
 
@@ -1885,27 +1895,27 @@ bool BLIF_file::createPinGraph() noexcept {
   }
 
   // -- create pg-nodes for sequential input pins
-  vector<const BNode*> clocked;
+  vector<BNode*> clocked;
   collectClockedNodes(clocked);
   if (trace_ >= 4)
     lprintf("  createPinGraph:  clocked.size()= %zu\n", clocked.size());
   if (not clocked.empty()) {
     string inp1;
-    for (const BNode* cnp : clocked) {
-      const BNode& cn = *cnp;
+    for (BNode* cnp : clocked) {
+      BNode& cn = *cnp;
       assert(cn.hasPrimType());
       if (cn.ptype_ == prim::CLK_BUF or cn.ptype_ == prim::FCLK_BUF)
         continue;
-      // lputs9();
+
       for (uint i = 0; i < cn.inPins_.size(); i++) {
         const string& inp = cn.inPins_[i];
         assert(not inp.empty());
         if (not pr_pin_is_clock(cn.ptype_, inp))
           continue;
-        assert(cn.cell_hc_);
-        key = hashCantor(cn.id_, i + 1) + max_key1;
+
+        uint cn_realId = cn.realId(*this);
+        key = hashCantor(cn_realId, i + 1) + max_key1;
         assert(key);
-        // assert(not pg_.hasKey(key));
         kid = pg_.insK(key);
         assert(kid);
         pg_.nodeRef(kid).markClk(true);
@@ -1914,32 +1924,33 @@ bool BLIF_file::createPinGraph() noexcept {
                    kid, cn.lnum_);
 
         assert(not pg_.nodeRef(kid).inp_flag_);
-        pg_.setNodeName4(kid, cn.id_, cn.lnum_, i+1, cn.cPrimType());
-        pg2blif_.emplace(kid, cn.id_);
+        pg_.setNodeName4(kid, cn_realId, cn.lnum_, i+1, cn.cPrimType());
+        pg2blif_.emplace(kid, cn_realId);
 
         const string& inet = cn.inSigs_[i];
         assert(not inet.empty());
-        const BNode* driver = findDriverNode(cn.id_, inet);
+        const BNode* driver = findDriverNode(cn_realId, inet);
         if (!driver) {
           flush_out(true); err_puts();
           lprintf2("[Error] no driver for clock node #%u %s  line:%u\n",
-                   cn.id_, cn.cPrimType(), cn.lnum_);
+                   cn_realId, cn.cPrimType(), cn.lnum_);
           err_puts(); flush_out(true);
           return false;
         }
+        uint driver_realId = driver->realId(*this);
 
         if (trace_ >= 5) {
           lputs9();
           lprintf(" from cn#%u %s ",
-                cn.id_, cn.cPrimType() );
+                cn_realId, cn.cPrimType() );
           lprintf( "  CLOCK_TRACE driver->  id_%u  %s  out_net %s\n",
-                driver->id_, driver->cPrimType(), driver->out_.c_str() );
+                driver_realId, driver->cPrimType(), driver->out_.c_str() );
         }
 
-        if (not driver->is_CLK_BUF() and not driver->isTopInput()) {
+        if (not driver->canDriveClockNode()) {
           flush_out(true); err_puts();
-          lprintf2("[Error] bad driver for clock node #%u  must be CLK_BUF or iport\n",
-                    cn.id_);
+          lprintf2("[Error] bad driver (%s) for clock node #%u  must be %s\n",
+                    driver->cPrimType(), cn_realId, s_possible_cdrivers);
           err_puts(); flush_out(true);
           return false;
         }
@@ -1949,7 +1960,7 @@ bool BLIF_file::createPinGraph() noexcept {
         uint opin_nid = pg_.findNode(opin_key);
         if (opin_nid) {
           assert(pg_.nodeRef(opin_nid).isNamed());
-          assert(map_pg2blif(opin_nid) == driver->id_);
+          assert(map_pg2blif(opin_nid) == driver_realId);
         }
         else {
           opin_nid = pg_.insK(opin_key);
@@ -1964,9 +1975,9 @@ bool BLIF_file::createPinGraph() noexcept {
           }
 
           assert(not pg_.nodeRef(opin_nid).inp_flag_);
-          pg_.setNodeName3(opin_nid, driver->id_,
+          pg_.setNodeName3(opin_nid, driver_realId,
                            driver->lnum_, driver->out_.c_str());
-          pg2blif_.emplace(opin_nid, driver->id_);
+          pg2blif_.emplace(opin_nid, driver_realId);
         }
 
         assert(opin_nid and kid);
@@ -1991,7 +2002,7 @@ bool BLIF_file::createPinGraph() noexcept {
             return false;
           }
 
-          uint64_t ipin_key = hashCantor(dn.id_, 1) + max_key1;
+          uint64_t ipin_key = hashCantor(dn.realId(*this), 1) + max_key1;
           assert(ipin_key);
           uint ipin_nid = pg_.findNode(ipin_key);
           if (ipin_nid) {
@@ -2041,10 +2052,10 @@ bool BLIF_file::createPinGraph() noexcept {
                     drv_drv->out_.c_str(), drv_drv->lnum_);
           }
 
-          if (not drv_drv->is_CLK_BUF() and not drv_drv->isTopInput()) {
+          if (not drv_drv->canDriveClockNode()) {
             flush_out(true); err_puts();
-            lprintf2("[Error] bad driver (%s) for clock-buf node #%u line:%u  must be CLK_BUF or iport\n",
-                      drv_drv->cPrimType(), dn.id_, dn.lnum_);
+            lprintf2("[Error] bad driver (%s) for clock-buf node #%u line:%u  must be %s\n",
+                      drv_drv->cPrimType(), dn.id_, dn.lnum_, s_possible_cdrivers);
             err_puts(); flush_out(true);
             err_lnum_ = dn.lnum_;
             err_lnum2_ = drv_drv->lnum_;
@@ -2055,17 +2066,17 @@ bool BLIF_file::createPinGraph() noexcept {
           //    and connect it to the iput of CLK_BUF 'dn'
 
           assert(drv_drv->out_ == inp1);
-          assert(drv_drv->cell_hc_);
           uint64_t drv_drv_outKey = 0;
           uint drv_drv_outNid = 0;
           nid = kid = 0;
+          uint drv_drv_realId = drv_drv->realId(*this);
 
           if (drv_drv->isTopInput()) {
             assert(drv_drv->nw_id_);
             drv_drv_outNid = drv_drv->nw_id_;
             assert(pg_.hasNode(drv_drv_outNid));
             assert(pg2blif_.count(drv_drv_outNid));
-            assert(map_pg2blif(drv_drv_outNid) == drv_drv->id_);
+            assert(map_pg2blif(drv_drv_outNid) == drv_drv_realId);
             drv_drv_outKey = pg_.nodeRefCk(drv_drv_outNid).key_;
             assert(drv_drv_outKey);
           }
@@ -2076,7 +2087,7 @@ bool BLIF_file::createPinGraph() noexcept {
             drv_drv_outNid = pg_.insK(drv_drv_outKey);
             assert(drv_drv_outNid);
             pg_.nodeRef(drv_drv_outNid).markClk(true);
-            pg2blif_.emplace(drv_drv_outNid, drv_drv->id_);
+            pg2blif_.emplace(drv_drv_outNid, drv_drv_realId);
 
             if (not pg_.nodeRefCk(drv_drv_outNid).isNamed()) {
               ::snprintf(nm_buf, 510, "nd%u_L%u_",
@@ -2089,7 +2100,7 @@ bool BLIF_file::createPinGraph() noexcept {
               }
 
               assert(not pg_.nodeRef(drv_drv_outNid).inp_flag_);
-              pg_.setNodeName3(drv_drv_outNid, drv_drv->id_,
+              pg_.setNodeName3(drv_drv_outNid, drv_drv_realId,
                                drv_drv->lnum_, drv_drv->out_.c_str());
             }
 
@@ -2112,6 +2123,16 @@ bool BLIF_file::createPinGraph() noexcept {
         }
       }
     }
+  }
+
+  // mark prim-types in NW:
+  for (const auto I : pg2blif_) {
+    uint nw_id = I.first;
+    uint bl_id = I.second;
+    const BNode& bnode = bnodeRef(bl_id);
+    assert(not bnode.isVirtualMog());
+    if (bnode.hasPrimType())
+      pg_.nodeRefCk(nw_id).markPrim(bnode.ptype_);
   }
 
   pg_.setNwName("pin_graph");

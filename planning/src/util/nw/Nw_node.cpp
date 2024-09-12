@@ -84,7 +84,7 @@ void NW::getOutgE(const Node& nd, vecu& E) const noexcept {
   }
 }
 
-static constexpr uint STOP_ON_NAMING_NODE = 29;
+static constexpr uint STOP_ON_NAMING_NODE = 0;
 
 void NW::setNodeName(uint id, CStr nm) noexcept {
   assert(hasNode(id));
