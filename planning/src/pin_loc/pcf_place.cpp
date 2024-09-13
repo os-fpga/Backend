@@ -356,6 +356,13 @@ void PinPlacer::print_summary(const string& csv_name) const {
   CStr cmapVal = clk_map_file_.empty() ? "(NONE)" : clk_map_file_.c_str();
   lprintf("                clk_map_file : %s\n", cmapVal);
 
+  if (::getenv("pinc_dont_check_blif")) {
+    lprintf("           check BLIF status : (NOT DONE)\n");
+  } else {
+    lprintf("           check BLIF status : %s\n",
+            check_blif_ok_ ? "PASS" : "FAIL");
+  }
+
   lprintf("  pinc_trace verbosity= %u\n", tr);
 
   if (num_critical_warnings_) {

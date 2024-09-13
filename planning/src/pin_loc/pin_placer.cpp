@@ -154,6 +154,7 @@ PinPlacer::~PinPlacer() {
 
 void PinPlacer::resetState() noexcept {
   auto_pcf_created_ = false;
+  check_blif_ok_ = false;
   min_pt_row_ = UINT_MAX;
   max_pt_row_ = 0;
   no_more_inp_bumps_ = false;

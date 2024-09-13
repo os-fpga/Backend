@@ -326,10 +326,16 @@ static void be_dot_friendly(char* buf) noexcept {
     }
   }
 
+  // shorten too long names
+  size_t len = ::strlen(buf);
+  if (len > 32) {
+    size_t H = str::hashf(buf);
+    ::sprintf(buf + 28, "_%zX", H);
+  }
+
   // if buf has . then quote:
   if (::strpbrk(buf, ".:/!")) {
-   lputs1();
-    size_t len = ::strlen(buf);
+    len = ::strlen(buf);
     buf[len + 1] = 0;
     buf[len + 2] = 0;
     buf[len + 3] = 0;
@@ -384,7 +390,7 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
 
 void NW::Edge::eprint_dot(ostream& os, char arrow, const NW& g) const noexcept {
   assert(arrow == '>' or arrow == '-');
-  char buf[2048] = {};
+  char buf[4100] = {};
   const Node& nd1 = g.nodeRef(n1_);
   nd1.getName(buf);
   be_dot_friendly(buf);

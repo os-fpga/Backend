@@ -92,8 +92,8 @@ struct PinPlacer {
     vector<string> outputs_;
 
     BlifReader() noexcept = default;
-    BlifReader(const string& f) { read_blif(f); }
-    bool read_blif(const string& f);
+
+    bool read_blif(const string& f, bool& checked_ok) noexcept;
 
     const vector<string>& get_inputs() const noexcept { return inputs_; }
     const vector<string>& get_outputs() const noexcept { return outputs_; }
@@ -137,6 +137,7 @@ private:
   bool pin_assign_def_order_ = true;
 
   bool auto_pcf_created_ = false;
+  bool check_blif_ok_ = false;
   string user_pcf_;
   string blif_fn_;
   string has_edits_;
