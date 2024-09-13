@@ -152,12 +152,15 @@ struct NW {
     uint parent() const noexcept { return par_; }
     bool isTreeRoot() const noexcept { return !par_; }
     bool isFlagRoot() const noexcept { return root_flag_; }
+
     void markRoot(bool val) noexcept { root_flag_ = val; }
     void markSink(bool val) noexcept { sink_flag_ = val; }
     void markInp(bool val) noexcept { inp_flag_ = val; }
     void markOut(bool val) noexcept { out_flag_ = val; }
     void markClk(bool val) noexcept { clk_flag_ = val; }
     void markViol(bool val) noexcept { viol_flag_ = val; }
+    void markPrim(uint16_t pt) noexcept { prim_ = pt; }
+
     bool isClk() const noexcept { return clk_flag_; }
     bool terminal() const noexcept { return sink_flag_ or root_flag_; }
 
@@ -184,7 +187,8 @@ struct NW {
     uint lbl_ = 0;
     int rad_ = 0;
 
-    // DATA:
+    uint16_t prim_ = 0; // primitive code from pln_primitives.h
+
     bool root_flag_ = false;
     bool sink_flag_ = false;
     bool inp_flag_ = false;

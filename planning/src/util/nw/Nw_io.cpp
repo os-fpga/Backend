@@ -306,7 +306,7 @@ void NW::Node::print(ostream& os) const noexcept {
     os << " r-";
   }
   if (sink_flag_) os << " S";
-  os_printf(os, " par=%u lbl=%u", par_, lbl_);
+  os_printf(os, " par=%u lbl=%u prim=%u", par_, lbl_, prim_);
   if (not name_.empty())
     os << " nm= " << name_;
   os << endl;
@@ -325,6 +325,20 @@ static void be_dot_friendly(char* buf) noexcept {
       *p = 'S';
     }
   }
+
+  // if buf has . then quote:
+  if (::strpbrk(buf, ".:/!")) {
+   lputs1();
+    size_t len = ::strlen(buf);
+    buf[len + 1] = 0;
+    buf[len + 2] = 0;
+    buf[len + 3] = 0;
+    buf[len + 4] = 0;
+    ::memmove(buf + 1, buf, len);
+    buf[0] = '"';
+    len++;
+    buf[len] = '"';
+  }
 }
 
 void NW::Node::nprint_dot(ostream& os) const noexcept {
@@ -334,17 +348,8 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
 
   char attrib[512] = {};
 
-  if (!inp_flag_ and !clk_flag_) {
-    if (isRed()) {
-      ::strcpy(attrib, "[ shape=octagon, color=purple, fillcolor=pink, style=filled ];");
-    }
-    else {
-      ::strcpy(attrib, "[ shape=record, style=rounded ];");
-      if (viol_flag_)
-        ::strcpy(attrib, "[ shape=doubleoctagon, color=blueviolet, fillcolor=violet, style=filled ];");
-    }
-  }
-  else {
+  if (inp_flag_ or clk_flag_) {
+
     if (inp_flag_) {
       CStr cs = isRed() ? "red" : "gray";
       ::sprintf(attrib, "[ shape=box, color=%s, style=filled ];", cs);
@@ -352,7 +357,25 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
     else if (clk_flag_) {
       CStr cs = isRed() ? "maroon" : "orange";
       ::sprintf(attrib, "[ shape=ellipse, color=%s, style=filled ];", cs);
+      if (prim_ == 18) {
+        // I_SERDES
+        ::sprintf(attrib, "[ shape=polygon,sides=4,skew=.3, color=%s, style=filled ];", cs);
+      }
     }
+
+  }
+  else {
+
+    if (isRed()) {
+      ::strcpy(attrib, "[ shape=octagon, color=purple, fillcolor=pink, style=filled ];");
+    }
+    else {
+      ::strcpy(attrib, "[ shape=record, style=rounded ];");
+      if (viol_flag_) {
+        ::strcpy(attrib, "[ shape=doubleoctagon, color=blueviolet, fillcolor=violet, style=filled ];");
+      }
+    }
+
   }
 
   os_printf(os, "%s  %s  // deg= %u;\n",
