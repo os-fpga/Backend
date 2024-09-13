@@ -1113,7 +1113,7 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn, bool& checked_ok) n
     return false;
   }
 
-  if (0 /* not ::getenv("pinc_dont_check_blif") */ ) {
+  if (not ::getenv("pinc_dont_check_blif")) {
     lprintf("____ BEGIN pinc_check_blif:  %s\n", cfn);
     flush_out(true);
     checked_ok = do_check_blif(cfn);
