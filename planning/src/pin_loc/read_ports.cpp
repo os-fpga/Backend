@@ -108,7 +108,8 @@ bool PinPlacer::read_design_ports() {
       }
     }
     BlifReader rd_blif;
-    if (!rd_blif.read_blif(blif_fn_)) {
+    check_blif_ok_ = false;
+    if (!rd_blif.read_blif(blif_fn_, check_blif_ok_)) {
       flush_out(true);
       err_puts();
       CERROR << err_lookup("PORT_INFO_PARSE_ERROR") << endl;
@@ -1080,10 +1081,11 @@ string PinPlacer::translatePinName(const string& pinName, bool is_input) const n
   }
 }
 
-bool PinPlacer::BlifReader::read_blif(const string& blif_fn) {
+bool PinPlacer::BlifReader::read_blif(const string& blif_fn, bool& checked_ok) noexcept {
   flush_out(true);
   inputs_.clear();
   outputs_.clear();
+  checked_ok = false;
 
   CStr cfn = blif_fn.c_str();
   uint16_t tr = ltrace();
@@ -1111,13 +1113,13 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn) {
     return false;
   }
 
-  if (::getenv("pinc_check_blif")) {
-    flush_out(true);
+  if (0 /* not ::getenv("pinc_dont_check_blif") */ ) {
     lprintf("____ BEGIN pinc_check_blif:  %s\n", cfn);
-    bool check_blif_ok = do_check_blif(cfn);
+    flush_out(true);
+    checked_ok = do_check_blif(cfn);
     flush_out(true);
     lprintf("           pinc_check_blif STATUS = %s\n\n",
-            check_blif_ok ? "PASS" : "FAIL");
+            checked_ok ? "PASS" : "FAIL");
     lprintf("------ END pinc_check_blif:  %s\n", cfn);
     flush_out(true);
   }

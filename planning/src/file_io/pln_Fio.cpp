@@ -824,7 +824,7 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
       if (buf_[i] == '\n') num_lines_++;
     }
     if (!num_lines_) {
-      if (trace() >= 4) {
+      if (trace() >= 5) {
         lputs("MReader::makeLines-1 not_OK: num_lines_ == 0");
       }
       return false;
@@ -835,7 +835,7 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
     }
   } else {
     if (!num_lines_) {
-      if (trace() >= 4) {
+      if (trace() >= 5) {
         lputs("MReader::makeLines-2 not_OK: num_lines_ == 0");
       }
       return false;
@@ -872,7 +872,7 @@ bool MMapReader::makeLines(bool cutComments, bool cutNL) noexcept {
     }
   }
 
-  if (trace() >= 4) {
+  if (trace() >= 6) {
     lprintf("MReader::makeLines() OK:  lines_.size()= %zu  num_lines_= %zu\n", lines_.size(), num_lines_);
   }
 
