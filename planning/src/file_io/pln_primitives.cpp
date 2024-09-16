@@ -593,7 +593,7 @@ bool is_I_SERDES_output_term(const string& term) noexcept {
 
   static std::regex re_iserdes_out{
       R"(CLK_OUT=|Q=|DATA_VALID=|DPA_LOCK=|DPA_ERROR=|Q\[\d+\]=)" };
-  
+
   std::cmatch m;
   bool b = false;
 
@@ -707,6 +707,52 @@ R"(CLK_OUT=|CLK_OUT_DIV2=|CLK_OUT_DIV3=|CLK_OUT_DIV4=|SERDES_FAST_CLK=|LOCK=)";
 
   //if (b)
   //  lprintf("__PLL_output REGEX matched: %s\n", term.c_str());
+
+  return b;
+}
+
+bool is_DSP38_output_term(const string& term) noexcept {
+  assert(!term.empty());
+  if (term.empty()) return false;
+
+  static std::regex re_dsp38_out{
+      R"(Z\[\d+\]=|DLY_B\[\d+\]=)" };
+
+  std::cmatch m;
+  bool b = false;
+
+  try {
+    b = std::regex_search(term.c_str(), m, re_dsp38_out);
+  } catch (...) {
+    assert(0);
+    b = false;
+  }
+
+  //if (b)
+  //  lprintf("__DSP38_output REGEX matched: %s\n", term.c_str());
+
+  return b;
+}
+
+bool is_DSP19X2_output_term(const string& term) noexcept {
+  assert(!term.empty());
+  if (term.empty()) return false;
+
+  static std::regex re_dsp19_out{
+      R"(Z1\[\d+\]=|DLY_B1\[\d+\]=|Z2\[\d+\]=|DLY_B2\[\d+\]=)" };
+
+  std::cmatch m;
+  bool b = false;
+
+  try {
+    b = std::regex_search(term.c_str(), m, re_dsp19_out);
+  } catch (...) {
+    assert(0);
+    b = false;
+  }
+
+  //if (b)
+  //  lprintf("__DSP19X2_output REGEX matched: %s\n", term.c_str());
 
   return b;
 }

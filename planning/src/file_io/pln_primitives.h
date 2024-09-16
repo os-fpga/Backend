@@ -108,6 +108,9 @@ bool is_TDP_RAM18KX_output_term(const std::string& term) noexcept;
 
 bool is_PLL_output_term(const std::string& term) noexcept;
 
+bool is_DSP38_output_term(const std::string& term) noexcept;
+bool is_DSP19X2_output_term(const std::string& term) noexcept;
+
 // DEBUG:
 std::string pr_write_yaml(Prim_t pt) noexcept;
 
