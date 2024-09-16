@@ -1122,6 +1122,7 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn, bool& checked_ok) n
             checked_ok ? "PASS" : "FAIL");
     lprintf("------ END pinc_check_blif:  %s\n", cfn);
     flush_out(true);
+    //assert(checked_ok);
   }
 
   bool rd_ok = bfile.readBlif();

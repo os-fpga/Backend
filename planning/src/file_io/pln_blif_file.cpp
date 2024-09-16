@@ -390,6 +390,12 @@ bool BLIF_file::checkBlif() noexcept {
     flush_out(true);
   }
 
+  // confirm that all fab node have output:
+  // for (const BNode* fab_nd : fabricNodes_) {
+  //   assert(fab_nd);
+  //   assert(not fab_nd->out_.empty());
+  // }
+
   bool link_ok = linkNodes();
   if (not link_ok) {
     string tmp = err_msg_;
@@ -1017,10 +1023,10 @@ bool BLIF_file::createNodes() noexcept {
   if (not hasLines() or lsz < 3) return false;
   if (lsz >= UINT_MAX) return false;
 
-  nodePool_.reserve(2 * lsz + 8);
+  nodePool_.reserve(4 * lsz + 8);
   nodePool_.emplace_back();  // put a fake node
 
-  char buf[2048] = {};
+  char buf[4096] = {};
   vector<string> V;
   V.reserve(16);
   inputs_lnum_ = outputs_lnum_ = 0;
@@ -1111,9 +1117,9 @@ bool BLIF_file::createNodes() noexcept {
     BNode& nd = nodePool_[i];
     if (nd.kw_ != ".subckt" and nd.kw_ != ".gate")
       continue;
-    if (nd.data_.size() < 4)
+    if (nd.data_.size() < 3)
       continue;
-    if (nd.is_IBUF() or nd.is_OBUF())
+    if (nd.is_IBUF() or nd.is_OBUF() or nd.is_LUT())
       continue;
     assert(!nd.is_mog_);
 
@@ -1150,7 +1156,7 @@ bool BLIF_file::createNodes() noexcept {
   nn = numNodes();
   assert(nn);
 
-  fabricNodes_.reserve(nn);
+  fabricNodes_.reserve(nn + 4);
 
   // -- finish and index nodes:
   for (uint i = 1; i <= nn; i++) {
@@ -1172,9 +1178,11 @@ bool BLIF_file::createNodes() noexcept {
     }
     if (nd.kw_ == ".subckt" or nd.kw_ == ".gate") {
       if (nd.data_.size() > 1) {
+        if (nd.lnum_ == 47)
+          lputs8();
         const string& last = nd.data_.back();
         size_t llen = last.length();
-        if (!last.empty() and llen < 2047) {
+        if (!last.empty() and llen < 4095) {
           // replace '=' by 'space' and tokenize:
           ::strcpy(buf, last.c_str());
           for (uint k = 0; k < llen; k++) {
@@ -1453,6 +1461,7 @@ bool BLIF_file::linkNodes() noexcept {
     assert(fab_nd);
     BNode& nd = *fab_nd;
     if (nd.out_.empty()) {
+      //lputs8();
       err_msg_ = str::concat("incomplete fabric cell:  ", nd.kw_);
       if (!nd.data_.empty()) {
         err_msg_ += str::concat("  ", nd.data_.front());
