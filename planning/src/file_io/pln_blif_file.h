@@ -265,6 +265,7 @@ public:
   uint countFFs() const noexcept;
   uint countCBUFs() const noexcept;
   void countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept;
+  void countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X) const noexcept;
 
   uint typeHist(prim::Prim_t t) const noexcept { return typeHistogram_[t]; }
 

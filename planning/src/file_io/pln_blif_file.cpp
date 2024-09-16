@@ -725,6 +725,8 @@ void BLIF_file::countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept 
 
   for (uint i = 1; i <= nn; i++) {
     const BNode& nd = nodePool_[i];
+    if (nd.isTopPort())
+      continue;
     if (nd.is_IBUF()) {
       nIBUF++;
       continue;
@@ -735,6 +737,31 @@ void BLIF_file::countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept 
     }
     if (nd.is_CLK_BUF()) {
       nCBUF++;
+    }
+  }
+}
+
+void BLIF_file::countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X) const noexcept {
+  nISERD = nDSP38 = nDSP19X = 0;
+  uint nn = numNodes();
+  if (nn == 0)
+    return;
+
+  for (uint i = 1; i <= nn; i++) {
+    const BNode& nd = nodePool_[i];
+    if (nd.isTopPort() or nd.isVirtualMog())
+      continue;
+    Prim_t pt = nd.ptype_;
+    if (pt == I_SERDES) {
+      nISERD++;
+      continue;
+    }
+    if (pt == DSP38) {
+      nDSP38++;
+      continue;
+    }
+    if (pt == DSP19X2) {
+      nDSP19X++;
     }
   }
 }
@@ -842,6 +869,20 @@ static bool s_is_MOG(const BLIF_file::BNode& nd,
   if (nd.ptype_ == PLL) {
     for (const string& t : data) {
       if (is_PLL_output_term(t))
+        terms.push_back(t);
+    }
+    return true;
+  }
+  if (nd.ptype_ == DSP38) {
+    for (const string& t : data) {
+      if (is_DSP38_output_term(t))
+        terms.push_back(t);
+    }
+    return true;
+  }
+  if (nd.ptype_ == DSP19X2) {
+    for (const string& t : data) {
+      if (is_DSP19X2_output_term(t))
         terms.push_back(t);
     }
     return true;

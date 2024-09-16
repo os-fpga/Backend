@@ -69,14 +69,22 @@ bool do_check_blif(CStr cfn) {
   ls << "-----   #outputs= " << numOut << endl;
   ls << "-----      #LUTs= " << bfile.countLUTs() << endl;
   ls << "-----       #FFs= " << bfile.countFFs() << endl;
+  {
   uint nIBUF = 0, nOBUF = 0, nCBUF = 0;
   bfile.countBUFs(nIBUF, nOBUF, nCBUF);
   ls << "-----    #I_BUFs= " << nIBUF << endl;
   ls << "-----    #O_BUFs= " << nOBUF << endl;
   ls << "-----  #CLK_BUFs= " << nCBUF << endl;
-  ls << "-----  #I_SERDES= " << bfile.typeHist(prim::I_SERDES) << endl;
+  }
+  {
+  uint nISERD = 0, nDSP38 = 0, nDSP19X = 0;
+  bfile.countMOGs(nISERD, nDSP38, nDSP19X);
+  ls << "-----  #I_SERDES= " << nISERD << endl;
+  ls << "-----    #DSP19X= " << nDSP19X << endl;
+  ls << "-----     #DSP38= " << nDSP38 << endl;
+  }
   ls << "-----   PinGraph: " << bfile.pinGraphFile_ << endl;
-  if (bfile.num_MOGs_ and tr >= 5) {
+  if (bfile.num_MOGs_ and tr >= 6) {
     ls << ">>>>> [NOTE] num_MOGs_ =  " << bfile.num_MOGs_ << endl;
   }
   lprintf("=====   passed: %s\n", chk_ok ? "YES" : "NO");
