@@ -18,7 +18,7 @@ namespace fio {
 using namespace pln;
 using namespace std;
 
-static constexpr uint32_t fio_MAX_STACK_USE = 1048576;  // 1 MiB
+static constexpr uint32_t fio_MAX_STACK_USE = 2097152;  // 2 MiB
 
 Info::Info(CStr nm) noexcept {
   if (!nm) return;
@@ -1211,7 +1211,7 @@ bool LineReader::makeLines(bool cutComments, bool cutNL) noexcept {
   return false;
 }
 
-static constexpr size_t MAX_BUF_sz = 67108860;  // 64 MB
+static constexpr size_t MAX_BUF_sz = 134217720;  // 128 MB
 
 static inline CStr trim_left(CStr p) noexcept {
   if (p && *p)

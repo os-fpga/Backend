@@ -68,6 +68,9 @@ bool do_check_blif(CStr cfn) {
   ls << "-----    #inputs= " << numInp << endl;
   ls << "-----   #outputs= " << numOut << endl;
   ls << "-----      #LUTs= " << bfile.countLUTs() << endl;
+  ls << "-----      #LUT1= " << bfile.typeHist(prim::LUT1) << endl;
+  ls << "-----      #LUT5= " << bfile.typeHist(prim::LUT5) << endl;
+  ls << "-----      #LUT6= " << bfile.typeHist(prim::LUT6) << endl;
   ls << "-----       #FFs= " << bfile.countFFs() << endl;
   {
   uint nIBUF = 0, nOBUF = 0, nCBUF = 0;
