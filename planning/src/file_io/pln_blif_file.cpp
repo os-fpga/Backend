@@ -390,11 +390,13 @@ bool BLIF_file::checkBlif() noexcept {
     flush_out(true);
   }
 
+#ifndef NDEBUG
   // confirm that all fab node have output:
-  // for (const BNode* fab_nd : fabricNodes_) {
-  //   assert(fab_nd);
-  //   assert(not fab_nd->out_.empty());
-  // }
+  for (const BNode* fab_nd : fabricNodes_) {
+    assert(fab_nd);
+    assert(not fab_nd->out_.empty());
+  }
+#endif
 
   bool link_ok = linkNodes();
   if (not link_ok) {
@@ -477,11 +479,11 @@ bool BLIF_file::checkBlif() noexcept {
 
   // -- write yaml file to check prim-DB:
   if (trace_ >= 8) {
-    //string written = pr_write_yaml( DFFRE );
     //string written = pr_write_yaml( DSP19X2 );
     //string written = pr_write_yaml( DSP38 );
     //string written = pr_write_yaml( FIFO36K );
-    string written = pr_write_yaml( FIFO18KX2 );
+    //string written = pr_write_yaml( FIFO18KX2 );
+    string written = pr_write_yaml( TDP_RAM36K );
     flush_out(true);
     if (written.empty()) {
       lprintf("\t\t  FAIL: pr_write_yaml() FAILED\n\n");
@@ -489,8 +491,8 @@ bool BLIF_file::checkBlif() noexcept {
       lprintf("\t  written: %s\n\n", written.c_str());
       if (0) {
         lprintf("\n    ");
-        for (int bb = 18; bb >= 0; bb--) {
-          lprintf(" \"RD_DATA2[%i]\",", bb);
+        for (int bb = 30; bb >= 0; bb--) {
+          lprintf(" \"RDATA_A[%i]\",", bb);
         }
         lputs();
         lputs();
@@ -747,8 +749,9 @@ void BLIF_file::countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept 
   }
 }
 
-void BLIF_file::countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X) const noexcept {
-  nISERD = nDSP38 = nDSP19X = 0;
+void BLIF_file::countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X,
+                          uint& nTDP_RAM36K) const noexcept {
+  nISERD = nDSP38 = nDSP19X = nTDP_RAM36K = 0;
   uint nn = numNodes();
   if (nn == 0)
     return;
@@ -768,6 +771,10 @@ void BLIF_file::countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X) const noexc
     }
     if (pt == DSP19X2) {
       nDSP19X++;
+      continue;
+    }
+    if (pt == TDP_RAM36K) {
+      nTDP_RAM36K++;
     }
   }
 }
@@ -1023,12 +1030,46 @@ bool BLIF_file::createNodes() noexcept {
   if (not hasLines() or lsz < 3) return false;
   if (lsz >= UINT_MAX) return false;
 
-  nodePool_.reserve(4 * lsz + 8);
-  nodePool_.emplace_back();  // put a fake node
-
-  char buf[4096] = {};
   vector<string> V;
   V.reserve(16);
+  inputs_lnum_ = outputs_lnum_ = 0;
+  err_lnum_ = 0;
+
+  // estimate #MOG-bnodes to reserve memory
+  {
+    size_t MOG_bnodes = 0;
+
+    for (uint L = 1; L < lsz; L++) {
+      V.clear();
+      CStr cs = lines_[L];
+      if (!cs || !cs[0]) continue;
+      cs = str::trimFront(cs);
+      assert(cs);
+      size_t len = ::strlen(cs);
+      if (len < 3) continue;
+      if (cs[0] != '.') continue;
+      if (not starts_w_subckt(cs + 1, len - 1))
+        continue;
+      Fio::split_spa(lines_[L], V);
+      if (V.size() > 1 and V.front() == ".subckt") {
+        Prim_t pt = pr_str2enum( V[1].c_str() );
+        if (pr_is_MOG(pt)) {
+          MOG_bnodes++;
+          MOG_bnodes += pr_num_outputs(pt);
+        }
+      }
+    }
+
+    if (trace_ >= 5)
+      lprintf("  estimated #MOG bnodes = %zu\n", MOG_bnodes);
+
+    MOG_bnodes++;
+    nodePool_.reserve(lsz * 4 + MOG_bnodes * 8);
+    nodePool_.emplace_back();  // put a fake node
+  }
+
+  char buf[4096] = {};
+  V.clear();
   inputs_lnum_ = outputs_lnum_ = 0;
   err_lnum_ = 0;
   for (uint L = 1; L < lsz; L++) {
@@ -1049,7 +1090,7 @@ bool BLIF_file::createNodes() noexcept {
       continue;
     }
 
-    if (trace_ >= 7) lprintf("\t .....  line-%u  %s\n", L, cs);
+    if (trace_ >= 8) lprintf("\t .....  line-%u  %s\n", L, cs);
 
     // -- parse .names
     if (starts_w_names(cs + 1, len - 1)) {
@@ -1127,7 +1168,7 @@ bool BLIF_file::createNodes() noexcept {
     bool is_mog = V.size() > 1;
     if (is_mog) {
       if (trace_ >= 5) {
-        lprintf("\t\t .... MOG-type: %s\n", nd.cPrimType());
+        lprintf("\t\t ____ MOG-type: %s\n", nd.cPrimType());
         lprintf("\t\t .... [terms] V.size()= %zu\n", V.size());
         logVec(V, "  [V-terms] ");
         lputs();

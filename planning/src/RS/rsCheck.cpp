@@ -63,34 +63,36 @@ bool do_check_blif(CStr cfn) {
 
   lprintf("=====   passed: %s\n", chk_ok ? "YES" : "NO");
 
-  ls << "-----   topModel: " << bfile.topModel_ << endl;
-  ls << "-----       file: " << bfile.fnm_ << endl;
-  ls << "-----    #inputs= " << numInp << endl;
-  ls << "-----   #outputs= " << numOut << endl;
-  ls << "-----      #LUTs= " << bfile.countLUTs() << endl;
-  ls << "-----      #LUT1= " << bfile.typeHist(prim::LUT1) << endl;
-  ls << "-----      #LUT5= " << bfile.typeHist(prim::LUT5) << endl;
-  ls << "-----      #LUT6= " << bfile.typeHist(prim::LUT6) << endl;
-  ls << "-----       #FFs= " << bfile.countFFs() << endl;
+  ls << "-----    topModel: " << bfile.topModel_ << endl;
+  ls << "-----        file: " << bfile.fnm_ << endl;
+  ls << "-----     #inputs= " << numInp << endl;
+  ls << "-----    #outputs= " << numOut << endl;
+  ls << "-----       #LUTs= " << bfile.countLUTs() << endl;
+  ls << "-----       #LUT1= " << bfile.typeHist(prim::LUT1) << endl;
+  ls << "-----       #LUT5= " << bfile.typeHist(prim::LUT5) << endl;
+  ls << "-----       #LUT6= " << bfile.typeHist(prim::LUT6) << endl;
+  ls << "-----        #FFs= " << bfile.countFFs() << endl;
   {
   uint nIBUF = 0, nOBUF = 0, nCBUF = 0;
   bfile.countBUFs(nIBUF, nOBUF, nCBUF);
-  ls << "-----    #I_BUFs= " << nIBUF << endl;
-  ls << "-----    #O_BUFs= " << nOBUF << endl;
-  ls << "-----  #CLK_BUFs= " << nCBUF << endl;
+  ls << "-----     #I_BUFs= " << nIBUF << endl;
+  ls << "-----     #O_BUFs= " << nOBUF << endl;
+  ls << "-----   #CLK_BUFs= " << nCBUF << endl;
   }
   {
-  uint nISERD = 0, nDSP38 = 0, nDSP19X = 0;
-  bfile.countMOGs(nISERD, nDSP38, nDSP19X);
-  ls << "-----  #I_SERDES= " << nISERD << endl;
-  ls << "-----    #DSP19X= " << nDSP19X << endl;
-  ls << "-----     #DSP38= " << nDSP38 << endl;
+  uint nISERD = 0, nDSP38 = 0, nDSP19X = 0, nTDP_RAM36K = 0;
+  bfile.countMOGs(nISERD, nDSP38, nDSP19X, nTDP_RAM36K);
+  ls << "-----   #I_SERDES= " << nISERD << endl;
+  ls << "-----     #DSP19X= " << nDSP19X << endl;
+  ls << "-----      #DSP38= " << nDSP38 << endl;
+  ls << "----- #TDP_RAM36K= " << nTDP_RAM36K << endl;
   }
-  ls << "-----   PinGraph: " << bfile.pinGraphFile_ << endl;
+  ls << "-----\n";
+  ls << "-----    PinGraph: " << bfile.pinGraphFile_ << endl;
   if (bfile.num_MOGs_ and tr >= 6) {
     ls << ">>>>> [NOTE] num_MOGs_ =  " << bfile.num_MOGs_ << endl;
   }
-  lprintf("=====   passed: %s\n", chk_ok ? "YES" : "NO");
+  lprintf("=====    passed: %s\n", chk_ok ? "YES" : "NO");
 
   flush_out(true);
   if (chk_ok) {

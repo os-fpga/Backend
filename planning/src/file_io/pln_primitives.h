@@ -92,6 +92,14 @@ inline bool pr_is_RAM(Prim_t t) noexcept {
   return t == TDP_RAM18KX2 or t == TDP_RAM36K;
 }
 
+inline bool pr_is_MOG(Prim_t t) noexcept {
+  if (pr_is_LUT(t) or pr_is_DFF(t))
+    return false;
+  if (pr_is_DSP(t) or pr_is_RAM(t))
+    return true;
+  return pr_num_outputs(t) > 1;
+}
+
 bool pr_is_core_fabric(Prim_t t) noexcept;
 
 void pr_get_inputs(Prim_t pt, std::vector<std::string>& INP) noexcept;
