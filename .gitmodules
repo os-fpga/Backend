@@ -4,3 +4,6 @@
 [submodule "Raptor_Tools"]
 	path = Raptor_Tools
 	url = https://github.com/os-fpga/Raptor_Tools.git
+[submodule "vpr_latest"]
+	path = vpr_latest/vtr
+	url = https://github.com/verilog-to-routing/vtr-verilog-to-routing.git
