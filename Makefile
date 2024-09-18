@@ -63,10 +63,16 @@ checkout:
 # Available variables
 # 
 # - SUBMODULE: Specify the submodule to checkout. For example, SUBMODULE=OpenFPGA
-	git submodule update --init Raptor_Tools OpenFPGA
+	@echo "Backend make checkout: pulling submodules"
+	git submodule update --init Raptor_Tools OpenFPGA vpr_latest
+	@echo "  submodule init/update in OpenFPGA"
 	cd OpenFPGA && git submodule update --init
+	@echo "  submodule init/update in OpenFPGA/vtr-verilog-to-routing"
 	cd OpenFPGA/vtr-verilog-to-routing && git submodule update --init
+	@echo "  submodule init/update in Raptor_Tools"
 	cd Raptor_Tools && git submodule update --init --recursive
+	@echo "  submodule init/update in vpr_latest/vtr"
+	cd vpr_latest/vtr && git submodule update --init
 
 compile:
 # This command will compile the codebase
