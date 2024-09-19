@@ -311,3 +311,18 @@ set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
 add_subdirectory(planning)
 add_dependencies(planning vpr)
 
+# Script to build vpr_latest.
+# We cannot add vpr_latest as cmake dependency because VPR external utilities
+# cmake-targets conflict with OpenFPGA versions of the same targets.
+message(STATUS "\n------------\n")
+message(STATUS "-- begin vpr_latest build script: VPR_LATEST_DEST_DIR= ${VPR_LATEST_DEST_DIR}\n")
+set(SCRIPT_STATUS 111)
+execute_process(
+  COMMAND bash build_vpr_latest.sh
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/vpr_latest
+  RESULT_VARIABLE SCRIPT_STATUS
+  )
+message(STATUS "")
+message(STATUS "-- end vpr_latest build script: SCRIPT_STATUS= ${SCRIPT_STATUS}\n")
+message(STATUS "--------------\n")
+
