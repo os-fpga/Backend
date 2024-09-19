@@ -19,7 +19,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set (CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}" CACHE PATH "default install path" FORCE)
 endif()
 
-set(VTR_IPO_BUILD "auto" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations?")
+set(VTR_IPO_BUILD "off" CACHE STRING "Should VTR be compiled with interprocedural compiler optimizations?")
 set_property(CACHE VTR_IPO_BUILD PROPERTY STRINGS auto on off)
 
 #Allow the user to configure how much assertion checking should occur
@@ -37,7 +37,7 @@ option(SPEC_CPU "Enable SPEC CPU v8 support" OFF)
 #Allow the user to decide whether to compile the graphics library
 set(VPR_USE_EZGL "auto" CACHE STRING "Specify whether vpr uses the graphics library")
 set_property(CACHE VPR_USE_EZGL PROPERTY STRINGS auto off on)
-option(VTR_ENABLE_CAPNPROTO "Enable capnproto binary serialization support in VPR." ON)
+option(VTR_ENABLE_CAPNPROTO "Enable capnproto binary serialization support in VPR." OFF)
 
 #Allow the user to decide whether to compile the server module
 option(VPR_USE_SERVER "Specify whether vpr enables the server mode" ON)
@@ -45,12 +45,12 @@ option(VPR_USE_SERVER "Specify whether vpr enables the server mode" ON)
 #Allow the user to enable/disable VPR analytic placement
 #VPR option --enable_analytic_placer is also required for Analytic Placement
 option(VPR_ANALYTIC_PLACE "Enable analytic placement in VPR." ON)
-option(VPR_ENABLE_INTERCHANGE "Enable FPGA interchange." ON)
+option(VPR_ENABLE_INTERCHANGE "Enable FPGA interchange." OFF)
 option(VPR_ENABLE_NOC_SAT_ROUTING "Enable NoC SAT routing." OFF)
 
 option(WITH_BLIFEXPLORER "Enable build with blifexplorer" OFF)
 
-option(WITH_ABC "Enable building abc" ON)
+option(WITH_ABC "Enable building abc" OFF)
 option(WITH_ODIN "Enable building odin" OFF)
 option(ODIN_DEBUG "Enable building odin with debug flags" OFF)
 option(ODIN_WARN "Enable building odin with extra warning flags" OFF)
@@ -59,7 +59,7 @@ option(ODIN_TIDY "Enable building odin with clang tidy" OFF)
 option(ODIN_SANITIZE "Enable building odin with sanitize flags" OFF)
 
 # Allow the user to enable building Yosys
-option(WITH_PARMYS "Enable Yosys as elaborator and parmys-plugin as partial mapper" ON)
+option(WITH_PARMYS "Enable Yosys as elaborator and parmys-plugin as partial mapper" OFF)
 option(YOSYS_F4PGA_PLUGINS "Enable building and installing Yosys SystemVerilog and UHDM plugins" OFF)
 
 set(VTR_VERSION_MAJOR 8)
@@ -104,27 +104,7 @@ set(CMAKE_CXX_EXTENSIONS OFF) #No compiler specific extensions
 #
 #   Note that we manually clear the INTERPROCEDURAL_OPTIMIZATION flag on ABC later
 #   to avoid cmake warnings
-include(CheckIPOSupported)
-check_ipo_supported(RESULT IPO_SUPPORTED)
-if (VTR_IPO_BUILD STREQUAL "on")
-    if (IPO_SUPPORTED)
-        message(STATUS "Building with IPO: on")
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-    else()
-        message(ERROR "Building with IPO unsupported with this compiler!")
-    endif()
-elseif(VTR_IPO_BUILD STREQUAL "auto")
-    if (IPO_SUPPORTED AND NOT CMAKE_BUILD_TYPE STREQUAL "debug")
-        message(STATUS "Building with IPO: on (auto)")
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-    else()
-        message(STATUS "Building with IPO: off (auto)")
-        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fPIC")
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC")
-    endif()
-else()
-    message(STATUS "Building with IPO: off")
-endif()
+message(STATUS "Building with IPO: off")
 
 #
 # Build type flags
@@ -136,8 +116,8 @@ if(NOT MSVC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3 -mavx2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -O3 -mavx2")
 
 #
 # Warning flags
@@ -204,13 +184,13 @@ endif()
 
 #Check and see if the compiler supports the various warning flags,
 #and add valid flags
-foreach(flag ${WARN_FLAGS_TO_CHECK})
-    CHECK_CXX_COMPILER_FLAG(${flag} CXX_COMPILER_SUPPORTS_${flag})
-    if(CXX_COMPILER_SUPPORTS_${flag})
-        #Flag supported, so enable it
-        set(WARN_FLAGS "${WARN_FLAGS} ${flag}")
-    endif()
-endforeach()
+#foreach(flag ${WARN_FLAGS_TO_CHECK})
+#    CHECK_CXX_COMPILER_FLAG(${flag} CXX_COMPILER_SUPPORTS_${flag})
+#    if(CXX_COMPILER_SUPPORTS_${flag})
+#        #Flag supported, so enable it
+#        set(WARN_FLAGS "${WARN_FLAGS} ${flag}")
+#    endif()
+#endforeach()
 
 #The flex/bison code is not warning clean so we need to suppress some warnings
 set(FLEX_BISON_WARN_SUPPRESS_FLAGS "")
@@ -232,17 +212,17 @@ foreach(flag ${FLEX_BISON_WARN_SUPPRESS_FLAGS_TO_CHECK})
 endforeach()
 
 #Suppress IPO link warnings
-set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
-set(IPO_LINK_WARN_SUPRESS_FLAGS_TO_CHECK
-    "-Wno-null-dereference"
-    )
-foreach(flag ${IPO_LINK_WARN_SUPRESS_FLAGS_TO_CHECK})
-    CHECK_CXX_COMPILER_FLAG(${flag} CXX_COMPILER_SUPPORTS_${flag})
-    if(CXX_COMPILER_SUPPORTS_${flag})
-        #Flag supported, so enable it
-        set(IPO_LINK_WARN_SUPRESS_FLAGS "${IPO_LINK_WARN_SUPRESS_FLAGS} ${flag}")
-    endif()
-endforeach()
+#set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
+#set(IPO_LINK_WARN_SUPRESS_FLAGS_TO_CHECK
+#    "-Wno-null-dereference"
+#    )
+#foreach(flag ${IPO_LINK_WARN_SUPRESS_FLAGS_TO_CHECK})
+#    CHECK_CXX_COMPILER_FLAG(${flag} CXX_COMPILER_SUPPORTS_${flag})
+#    if(CXX_COMPILER_SUPPORTS_${flag})
+#        #Flag supported, so enable it
+#        set(IPO_LINK_WARN_SUPRESS_FLAGS "${IPO_LINK_WARN_SUPRESS_FLAGS} ${flag}")
+#    endif()
+#endforeach()
 
 #
 # Sanitizer flags
@@ -410,23 +390,23 @@ if(${WITH_ABC})
     add_subdirectory(abc)
 endif()
 
-if(${WITH_PARMYS}) # define cmake params to compile Yosys
-    add_definitions("-D_YOSYS_")
-
-    set(MAKE_PROGRAM "$(MAKE)")
-    if(${CMAKE_GENERATOR} STREQUAL "Ninja")
-        set(MAKE_PROGRAM "make")
-    endif()
-
-    # Commented out since a make file should not call another make command with
-    # threads. It should pass this information from the parent automatically.
-    # if(NOT DEFINED "${CMAKE_BUILD_PARALLEL_LEVEL}")
-    #     set(CUSTOM_BUILD_PARALLEL_LEVEL 16)
-    # else()
-    #     set(CUSTOM_BUILD_PARALLEL_LEVEL "${CMAKE_BUILD_PARALLEL_LEVEL}")
-    # endif()
-    add_subdirectory(yosys)
-endif()
+#if(${WITH_PARMYS}) # define cmake params to compile Yosys
+#    add_definitions("-D_YOSYS_")
+#
+#    set(MAKE_PROGRAM "$(MAKE)")
+#    if(${CMAKE_GENERATOR} STREQUAL "Ninja")
+#        set(MAKE_PROGRAM "make")
+#    endif()
+#
+#    # Commented out since a make file should not call another make command with
+#    # threads. It should pass this information from the parent automatically.
+#    # if(NOT DEFINED "${CMAKE_BUILD_PARALLEL_LEVEL}")
+#    #     set(CUSTOM_BUILD_PARALLEL_LEVEL 16)
+#    # else()
+#    #     set(CUSTOM_BUILD_PARALLEL_LEVEL "${CMAKE_BUILD_PARALLEL_LEVEL}")
+#    # endif()
+#    add_subdirectory(yosys)
+#endif()
 
 add_subdirectory(libs) #libs/CMakeLists.txt handles adding warnings flags to non-external libraries
 
@@ -444,21 +424,21 @@ if(${WITH_ABC})
 endif()
 add_subdirectory(utils)
 
-if(${WITH_ODIN})
-    add_subdirectory(odin_ii)
-    # blifexplorer depends on odin
-    if(${WITH_BLIFEXPLORER})
-        add_subdirectory(blifexplorer)
-    endif()
-endif()
+#if(${WITH_ODIN})
+#    add_subdirectory(odin_ii)
+#    # blifexplorer depends on odin
+#    if(${WITH_BLIFEXPLORER})
+#        add_subdirectory(blifexplorer)
+#    endif()
+#endif()
 
 # handle cmake params to compile Yosys SystemVerilog/UHDM plugins
-if(${YOSYS_F4PGA_PLUGINS})
-    # avoid compiling plugins in case the Parmys frontend is not active
-    if(NOT ${WITH_PARMYS})
-        message(SEND_ERROR "Utilizing SystemVerilog/UHDM plugins requires activating Parmys frontend. Please set WITH_PARMYS.")
-    endif()
-endif()
+#if(${YOSYS_F4PGA_PLUGINS})
+#    # avoid compiling plugins in case the Parmys frontend is not active
+#    if(NOT ${WITH_PARMYS})
+#        message(SEND_ERROR "Utilizing SystemVerilog/UHDM plugins requires activating Parmys frontend. Please set WITH_PARMYS.")
+#    endif()
+#endif()
 
 #Add extra compilation flags to suppress warnings from some libraries/tools
 # Note that target_compile_options() *appends* to the current compilation options of
