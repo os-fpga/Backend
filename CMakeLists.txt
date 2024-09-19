@@ -52,6 +52,7 @@ else()
  	set(ENCRYPTION_CONFIG_PATH ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libdecrypt)
 endif()
 set(VPR_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/vpr)
+set(VPR_LATEST_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vpr_latest/vtr)
 set(OPENFPGA_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/)
 set(XML_DEC_KEY_DEST ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/)
 set(LIB_RRG_DEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/librrgraph)
@@ -231,6 +232,12 @@ file(COPY
   ${PATCH_DIR}/CMAKE_fix/PATCHED_VPR/CMakeLists.txt
   DESTINATION
   ${VPR_DEST_DIR})
+
+message(STATUS "NOTE: COPY-PATCHING vpr_latest CMakefile..")
+file(COPY
+  ${PATCH_DIR}/CMAKE_fix/PATCHED_vpr_latest/CMakeLists.txt
+  DESTINATION
+  ${VPR_LATEST_DEST_DIR})
 
 #FILE(COPY ${PLACER_SRC_DIR}/move_generator.h
 #          ## ${PLACER_SRC_DIR}/place.cpp
