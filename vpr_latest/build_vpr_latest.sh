@@ -2,6 +2,11 @@
 
 cur_dir=$(pwd)
 printf "\n   building vpr_latest in $cur_dir\n"
+arg1="(none)"
+if (( $# > 0 )); then
+  arg1=$1
+fi
+printf "   argc= $#  arg1= $arg1\n"
 
 hw_num_cores=`grep -F "model name" /proc/cpuinfo | wc -l`
 
