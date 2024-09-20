@@ -72,7 +72,7 @@ checkout:
 	@echo "  submodule init/update in Raptor_Tools"
 	cd Raptor_Tools && git submodule update --init --recursive
 	@echo "  submodule init/update in vpr_latest/vtr"
-	cd vpr_latest/vtr && git submodule update --init
+	cd vpr_latest/vtr && git submodule update --init --recursive
 
 compile:
 # This command will compile the codebase
