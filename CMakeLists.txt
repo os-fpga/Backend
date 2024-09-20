@@ -314,7 +314,7 @@ set(IPO_LINK_WARN_SUPRESS_FLAGS " ")
 add_custom_target(build_vpr_latest)
 add_custom_command(
   TARGET build_vpr_latest
-  COMMAND bash build_vpr_latest.sh
+  COMMAND bash build_vpr_latest.sh ${PATCH_DIR}/CMAKE_fix/PATCHED_vpr_latest/CMakeLists.txt
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/vpr_latest
 )
 

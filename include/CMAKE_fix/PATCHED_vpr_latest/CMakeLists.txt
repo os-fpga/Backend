@@ -411,9 +411,9 @@ endif()
 
 add_subdirectory(libs) #libs/CMakeLists.txt handles adding warnings flags to non-external libraries
 
-if(${WITH_PARMYS})
-    add_subdirectory(parmys)
-endif()
+#if(${WITH_PARMYS})
+#    add_subdirectory(parmys)
+#endif()
 
 #Add the various tools
 add_compile_options(${WARN_FLAGS}) #Add warn flags for VTR tools
