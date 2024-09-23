@@ -165,6 +165,9 @@ struct BLIF_file : public fio::MMapReader
     bool is_FF() const noexcept {
       return prim::pr_is_DFF(ptype_);
     }
+    bool is_RAM() const noexcept {
+      return prim::pr_is_RAM(ptype_);
+    }
 
     bool canDriveClockNode() const noexcept {
       return isTopInput() or is_CLK_BUF() or ptype_ == prim::I_SERDES;
