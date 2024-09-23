@@ -1571,10 +1571,17 @@ bool BLIF_file::linkNodes() noexcept {
   for (BNode* fab_nd : fabricNodes_) {
     BNode& nd = *fab_nd;
     assert(!nd.out_.empty());
-    if (nd.parent_) continue;
+    if (nd.parent_)
+      continue;
     int pinIndex = -1;
     BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
     if (!par) {
+      if (nd.is_RAM()) {
+        // RAM output bits may be unused
+        if (trace_ >= 6)
+          lprintf("skipping dangling cell output issue for RAM");
+        continue;
+      }
       err_msg_ = "dangling cell output: ";
       err_msg_ += nd.out_;
       if (trace_ >= 2) {
