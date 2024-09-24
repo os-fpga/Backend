@@ -1326,18 +1326,19 @@ bool BLIF_file::createNodes() noexcept {
 int BLIF_file::BNode::in_contact(const string& x) const noexcept {
   if (x.empty() or data_.empty()) return -1;
   size_t dsz = data_.size();
-  if (dsz == 1) return x == data_.front();
-  for (size_t i = 0; i < dsz - 1; i++) {
-    assert(not data_[i].empty());
-    CStr cs = data_[i].c_str();
-    CStr p = ::strrchr(cs, '=');
-    if (p)
-      p++;
-    else
-      p = cs;
-    if (x == p)  // compare the part afer '='
+  if (dsz == 1)
+    return x == data_.front();
+  size_t ssz =inSigs_.size();
+  if (!ssz)
+    return -1;
+  assert(ssz < dsz);
+  for (size_t i = 0; i < ssz; i++) {
+    const string& sig = inSigs_[i];
+    assert(not sig.empty());
+    if (x == sig)
       return i;
   }
+
   return -1;
 }
 
