@@ -17,6 +17,7 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   topInputs_.clear();
   topOutputs_.clear();
   fabricNodes_.clear();
+  fabricRealNodes_.clear();
   latches_.clear();
   constantNodes_.clear();
   rd_ok_ = chk_ok_ = false;
@@ -184,6 +185,7 @@ bool BLIF_file::readBlif() noexcept {
   topInputs_.clear();
   topOutputs_.clear();
   fabricNodes_.clear();
+  fabricRealNodes_.clear();
   latches_.clear();
   constantNodes_.clear();
   topModel_.clear();
@@ -417,11 +419,12 @@ bool BLIF_file::checkBlif() noexcept {
       lprintf("==== node summary after linking ====\n");
       uint nn = numNodes();
       ls << "==== nodes (" << nn << ") :" << endl;
-      ls << "====    #topInputs_= " << topInputs_.size() << '\n';
-      ls << "       #topOutputs_= " << topOutputs_.size() << '\n';
-      ls << "      #fabricNodes_= " << fabricNodes_.size() << '\n';
-      ls << "          #latches_= " << latches_.size() << '\n';
-      ls << "    #constantNodes_= " << constantNodes_.size() << '\n';
+      ls << "====      #topInputs_= " << topInputs_.size() << '\n';
+      ls << "         #topOutputs_= " << topOutputs_.size() << '\n';
+      ls << "        #fabricNodes_= " << fabricNodes_.size() << '\n';
+      ls << "    #fabricRealNodes_= " << fabricRealNodes_.size() << '\n';
+      ls << "            #latches_= " << latches_.size() << '\n';
+      ls << "      #constantNodes_= " << constantNodes_.size() << '\n';
       flush_out(true);
     }
     printPrimitives(ls, true);
@@ -541,11 +544,12 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
     return 0;
   }
   os << "--- nodes (" << n << ") :" << endl;
-  os << "---    #topInputs_= " << topInputs_.size() << '\n';
-  os << "      #topOutputs_= " << topOutputs_.size() << '\n';
-  os << "     #fabricNodes_= " << fabricNodes_.size() << '\n';
-  os << "         #latches_= " << latches_.size() << '\n';
-  os << "   #constantNodes_= " << constantNodes_.size() << '\n';
+  os << "---      #topInputs_= " << topInputs_.size() << '\n';
+  os << "        #topOutputs_= " << topOutputs_.size() << '\n';
+  os << "       #fabricNodes_= " << fabricNodes_.size() << '\n';
+  os << "   #fabricRealNodes_= " << fabricRealNodes_.size() << '\n';
+  os << "           #latches_= " << latches_.size() << '\n';
+  os << "     #constantNodes_= " << constantNodes_.size() << '\n';
   os << endl;
 
   if (trace_ < 4) {
@@ -749,17 +753,21 @@ void BLIF_file::countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept 
   }
 }
 
-void BLIF_file::countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X,
-                          uint& nTDP_RAM36K) const noexcept {
-  nISERD = nDSP38 = nDSP19X = nTDP_RAM36K = 0;
+void BLIF_file::countMOGs(uint& nISERD,
+                          uint& nDSP38, uint& nDSP19,
+                          uint& nRAM36, uint& nRAM18
+                          ) const noexcept {
+  nISERD = nDSP38 = nDSP19 = nRAM36 = nRAM18 = 0;
   uint nn = numNodes();
   if (nn == 0)
     return;
 
-  for (uint i = 1; i <= nn; i++) {
-    const BNode& nd = nodePool_[i];
-    if (nd.isTopPort() or nd.isVirtualMog())
-      continue;
+  assert(not fabricRealNodes_.empty());
+
+  for (const BNode* x : fabricRealNodes_) {
+    const BNode& nd = *x;
+    assert(not nd.isTopPort());
+    assert(not nd.isVirtualMog());
     Prim_t pt = nd.ptype_;
     if (pt == I_SERDES) {
       nISERD++;
@@ -770,11 +778,15 @@ void BLIF_file::countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X,
       continue;
     }
     if (pt == DSP19X2) {
-      nDSP19X++;
+      nDSP19++;
       continue;
     }
     if (pt == TDP_RAM36K) {
-      nTDP_RAM36K++;
+      nRAM36++;
+      continue;
+    }
+    if (pt == TDP_RAM18KX2) {
+      nRAM18++;
     }
   }
 }
@@ -1021,6 +1033,7 @@ bool BLIF_file::createNodes() noexcept {
   topInputs_.clear();
   topOutputs_.clear();
   fabricNodes_.clear();
+  fabricRealNodes_.clear();
   latches_.clear();
   constantNodes_.clear();
   if (!rd_ok_) return false;
@@ -1281,6 +1294,14 @@ bool BLIF_file::createNodes() noexcept {
 
   std::sort(fabricNodes_.begin(), fabricNodes_.end(), BNode::CmpOut{});
 
+  fabricRealNodes_.clear();
+  fabricRealNodes_.reserve(fabricNodes_.size());
+  for (BNode* x : fabricNodes_) {
+    if (not x->isVirtualMog()) {
+      fabricRealNodes_.push_back(x);
+    }
+  }
+
   V.clear();
   topInputs_.clear();
   topOutputs_.clear();
@@ -1417,8 +1438,10 @@ BLIF_file::BNode* BLIF_file::findFabricParent(uint of, const string& contact, in
   assert(not contact.empty());
   if (fabricNodes_.empty()) return nullptr;
 
+  assert(not fabricRealNodes_.empty());
+
   // TMP linear
-  for (BNode* x : fabricNodes_) {
+  for (BNode* x : fabricRealNodes_) {
     if (x->id_ == of) continue;
     int pinIdx = x->in_contact(contact);
     if (pinIdx >= 0) {
@@ -1433,8 +1456,10 @@ void BLIF_file::getFabricParents(uint of, const string& contact, vector<upair>& 
   assert(not contact.empty());
   if (fabricNodes_.empty()) return;
 
+  assert(not fabricRealNodes_.empty());
+
   // TMP linear
-  for (const BNode* x : fabricNodes_) {
+  for (const BNode* x : fabricRealNodes_) {
     if (x->id_ == of) continue;
     const BNode& nx = *x;
     if (nx.inSigs_.empty())
@@ -1577,10 +1602,11 @@ bool BLIF_file::linkNodes() noexcept {
     int pinIndex = -1;
     BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
     if (!par) {
-      if (nd.is_RAM()) {
-        // RAM output bits may be unused
-        if (trace_ >= 6)
+      if (nd.is_RAM() or nd.is_DSP()) {
+        // RAM or DSP output bits may be unused
+        if (trace_ >= 6) {
           lprintf("skipping dangling cell output issue for RAM");
+        }
         continue;
       }
       err_msg_ = "dangling cell output: ";

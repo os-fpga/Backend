@@ -67,25 +67,38 @@ bool do_check_blif(CStr cfn) {
   ls << "-----        file: " << bfile.fnm_ << endl;
   ls << "-----     #inputs= " << numInp << endl;
   ls << "-----    #outputs= " << numOut << endl;
-  ls << "-----       #LUTs= " << bfile.countLUTs() << endl;
+  ls << "-----\n";
+  ls << "-----   #ALL_LUTs= " << bfile.countLUTs() << endl;
   ls << "-----       #LUT1= " << bfile.typeHist(prim::LUT1) << endl;
+  ls << "-----       #LUT2= " << bfile.typeHist(prim::LUT2) << endl;
+  ls << "-----       #LUT3= " << bfile.typeHist(prim::LUT3) << endl;
+  ls << "-----       #LUT4= " << bfile.typeHist(prim::LUT4) << endl;
   ls << "-----       #LUT5= " << bfile.typeHist(prim::LUT5) << endl;
   ls << "-----       #LUT6= " << bfile.typeHist(prim::LUT6) << endl;
-  ls << "-----        #FFs= " << bfile.countFFs() << endl;
+  ls << "-----    #FFs= " << bfile.countFFs() << endl;
+
+  ls << "-----\n";
   {
   uint nIBUF = 0, nOBUF = 0, nCBUF = 0;
   bfile.countBUFs(nIBUF, nOBUF, nCBUF);
-  ls << "-----     #I_BUFs= " << nIBUF << endl;
-  ls << "-----     #O_BUFs= " << nOBUF << endl;
+  ls << "-----     #I_BUFs= " << nIBUF
+     << "   #I_FABs= " << bfile.typeHist(prim::I_FAB) << endl;
+
+  ls << "-----     #O_BUFs= " << nOBUF
+     << "   #O_FABs= " << bfile.typeHist(prim::O_FAB) << endl;
+
   ls << "-----   #CLK_BUFs= " << nCBUF << endl;
   }
+
+  ls << "-----\n";
   {
-  uint nISERD = 0, nDSP38 = 0, nDSP19X = 0, nTDP_RAM36K = 0;
-  bfile.countMOGs(nISERD, nDSP38, nDSP19X, nTDP_RAM36K);
-  ls << "-----   #I_SERDES= " << nISERD << endl;
-  ls << "-----     #DSP19X= " << nDSP19X << endl;
-  ls << "-----      #DSP38= " << nDSP38 << endl;
-  ls << "----- #TDP_RAM36K= " << nTDP_RAM36K << endl;
+  uint nISERD = 0, nDSP38 = 0, nDSP19X = 0, nTDP_RAM36K = 0, nTDP_RAM18K = 0;
+  bfile.countMOGs(nISERD, nDSP38, nDSP19X, nTDP_RAM36K, nTDP_RAM18K);
+  ls << "-----     #I_SERDES= " << nISERD << endl;
+  ls << "-----       #DSP19X= " << nDSP19X << endl;
+  ls << "-----        #DSP38= " << nDSP38 << endl;
+  ls << "-----   #TDP_RAM36K= " << nTDP_RAM36K << endl;
+  ls << "----- #TDP_RAM18KX2= " << nTDP_RAM18K << endl;
   }
   ls << "-----\n";
   ls << "-----    PinGraph: " << bfile.pinGraphFile_ << endl;
