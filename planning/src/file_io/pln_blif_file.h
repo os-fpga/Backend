@@ -168,6 +168,9 @@ struct BLIF_file : public fio::MMapReader
     bool is_RAM() const noexcept {
       return prim::pr_is_RAM(ptype_);
     }
+    bool is_DSP() const noexcept {
+      return prim::pr_is_DSP(ptype_);
+    }
 
     bool canDriveClockNode() const noexcept {
       return isTopInput() or is_CLK_BUF() or ptype_ == prim::I_SERDES;
@@ -270,7 +273,7 @@ public:
   void countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept;
 
   void countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X,
-                 uint& nTDP_RAM36K) const noexcept;
+                 uint& nRAM36, uint& nRAM18) const noexcept;
 
   uint typeHist(prim::Prim_t t) const noexcept { return typeHistogram_[t]; }
 
@@ -324,6 +327,7 @@ private:
 
   std::vector<BNode*> topInputs_, topOutputs_;
   std::vector<BNode*> fabricNodes_, constantNodes_;
+  std::vector<BNode*> fabricRealNodes_; // skip virtual SOGs
 
   std::vector<BNode*> latches_; // latches are not checked for now
 
