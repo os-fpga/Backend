@@ -1605,7 +1605,8 @@ bool BLIF_file::linkNodes() noexcept {
       if (nd.is_RAM() or nd.is_DSP()) {
         // RAM or DSP output bits may be unused
         if (trace_ >= 6) {
-          lprintf("skipping dangling cell output issue for RAM");
+          lprintf("skipping dangling cell output issue for %s\n",
+                  nd.is_RAM() ? "RAM" : "DSP" );
         }
         continue;
       }
