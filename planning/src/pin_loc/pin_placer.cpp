@@ -382,7 +382,7 @@ bool PinPlacer::read_and_write() {
         }
       }
 
-      if (tr >= 3) {
+      if (tr >= 4) {
         flush_out(true);
         uint sz = user_design_inputs_.size();
         lprintf(" ---- dumping user_design_inputs_ after translation (%u) --\n", sz);

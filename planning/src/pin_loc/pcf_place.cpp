@@ -170,6 +170,11 @@ void PinPlacer::print_stats(const PcCsvReader& csv) const {
         }
       }
       flush_out(true);
+      if (tr < 4 and i > 20) {
+        lputs("\t  ... ...");
+        flush_out(true);
+        break;
+      }
     }
     flush_out(true);
     lprintf(" ---- outputs(%zu): ---- \n", outputs.size());
@@ -194,8 +199,13 @@ void PinPlacer::print_stats(const PcCsvReader& csv) const {
         }
       }
       flush_out(true);
+      if (tr < 4 and i > 20) {
+        lputs("\t  ... ...");
+        flush_out(true);
+        break;
+      }
     }
-    flush_out(true); 
+    flush_out(true);
     ls << " <----- pin_c got " << inputs.size() << " inputs and "
        << outputs.size() << " outputs" << endl;
     ls << " <-- pin_c placed " << placed_inputs_.size() << " inputs and "
@@ -1235,27 +1245,27 @@ DevPin PinPlacer::get_available_bump_ipin(PcCsvReader& csv,
 
   uint iteration = 1;
   for (; iteration <= 100; iteration++) {
-    if (tr >= 4) {
+    if (tr >= 5) {
       lprintf("  start iteration %u\n", iteration);
       flush_out(false);
     }
     PcCsvReader::Tile* tile = csv.getUnusedTile(true, except, itile_overlap_level_);
     if (!tile) {
-      if (tr >= 3) {
+      if (tr >= 4) {
         lputs("  no i-tile");
-        if (tr >= 5)
+        if (tr >= 6)
           printTileUsage(csv);
       }
       goto ret;
     }
-    if (tr >= 4) {
+    if (tr >= 5) {
       ls << "  got i-tile " << tile->key2() << endl;
-      if (tr >= 6) tile->dump();
+      if (tr >= 7) tile->dump();
     }
     assert(tile->num_used_ < itile_overlap_level_);
     site = tile->bestInputSite();
     if (!site) {
-      if (tr >= 3) lputs("  no i-site");
+      if (tr >= 4) lputs("  no i-site");
       except.insert(tile->id_);
       continue;
     }
@@ -1366,25 +1376,25 @@ DevPin PinPlacer::get_available_bump_opin(PcCsvReader& csv,
 
   uint iteration = 1;
   for (; iteration <= 100; iteration++) {
-    if (tr >= 4)
+    if (tr >= 5)
       lprintf("  start iteration %u\n", iteration);
     PcCsvReader::Tile* tile = csv.getUnusedTile(false, except, otile_overlap_level_);
     if (!tile) {
-      if (tr >= 3) {
+      if (tr >= 4) {
         lputs("  no o-tile");
-        if (tr >= 5)
+        if (tr >= 6)
           printTileUsage(csv);
       }
       goto ret;
     }
-    if (tr >= 4) {
+    if (tr >= 5) {
       ls << "  got o-tile " << tile->key2() << endl;
-      if (tr >= 6) tile->dump();
+      if (tr >= 7) tile->dump();
     }
     assert(tile->num_used_ < otile_overlap_level_);
     site = tile->bestOutputSite();
     if (!site) {
-      if (tr >= 3) lputs("  no o-site");
+      if (tr >= 4) lputs("  no o-site");
       except.insert(tile->id_);
       continue;
     }
@@ -1401,7 +1411,7 @@ DevPin PinPlacer::get_available_bump_opin(PcCsvReader& csv,
         used_bump_pins_.insert(site->bump_B_);
         used_XYs_.insert(site->xy());
         used_tiles_.insert(tile->id_);
-        if (tr >= 6) {
+        if (tr >= 7) {
           lprintf("\t\t ==1==TX GABO used_bump_pins_.insert( %s )  row_= %u\n",
               site->bump_B_.c_str(), site->row_);
         }
@@ -1420,7 +1430,7 @@ DevPin PinPlacer::get_available_bump_opin(PcCsvReader& csv,
         used_bump_pins_.insert(site->bump_B_);
         used_XYs_.insert(site->xy());
         used_tiles_.insert(tile->id_);
-        if (tr >= 6) {
+        if (tr >= 7) {
           lprintf("\t\t ==2==GPIO_tx GABO used_bump_pins_.insert( %s )  row_= %u\n",
               site->bump_B_.c_str(), site->row_);
         }
@@ -1429,7 +1439,7 @@ DevPin PinPlacer::get_available_bump_opin(PcCsvReader& csv,
       }
     }
     // not found => try another tile
-    if (tr >= 4)
+    if (tr >= 5)
       lprintf("  not found => disabling tile %s\n", tile->key2().c_str());
     except.insert(tile->id_);
   } // iteration
