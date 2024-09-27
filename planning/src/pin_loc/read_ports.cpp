@@ -12,7 +12,7 @@ using fio::Fio;
 #define CERROR std::cerr << "[Error] "
 #define OUT_ERROR lout() << "[Error] "
 
-static bool s_is_fabric_eblif(const string& fn) noexcept {
+static bool s_is_fabric_blif(const string& fn) noexcept {
   size_t len = fn.length();
   if (len < 12 or len > 5000)
     return false;
@@ -130,7 +130,7 @@ bool PinPlacer::read_design_ports() {
       return false;
     }
 
-    is_fabric_eblif_ = s_is_fabric_eblif(blif_fn_);
+    is_fabric_blif_ = s_is_fabric_blif(blif_fn_);
   }
 
   size_t sz = raw_design_inputs_.size();
@@ -159,7 +159,7 @@ bool PinPlacer::read_design_ports() {
       "DONE read_design_ports()  #udes_inputs= %zu  #udes_outputs= %zu\n",
       raw_design_inputs_.size(), raw_design_outputs_.size());
     if (tr >= 4)
-      lprintf("is_fabric_eblif_: %s\n", is_fabric_eblif_ ? "TRUE" : "FALSE");
+      lprintf("is_fabric_BLIF: %s\n", is_fabric_blif_ ? "TRUE" : "FALSE");
   }
 
   if (tr >= 5) {
@@ -988,7 +988,7 @@ void PinPlacer::finalize_edits() noexcept {
     dump_edits("final");
   }
 
-  translatePinNames("(finalize_edits)");
+  transCnt_ = translatePinNames("(finalize_edits)");
 
   if (tr >= 5) {
     flush_out(true);
@@ -1058,6 +1058,10 @@ string PinPlacer::translatePinName(const string& pinName, bool is_input) const n
       EditItem* root = buf->getRoot();
       assert(root);
       assert(not root->newPin_.empty());
+      if (isTopDesInput(root->newPin_)) {
+        // never translate a top-input to another top-input. EDA-3270
+        return pinName;
+      }
       return root->newPin_;
     } else {
       return pinName;

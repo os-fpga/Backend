@@ -11,8 +11,6 @@
 
 namespace pln {
 
-using ipair = std::pair<int, int>;
-
 struct XY {
   int x_ = INT_MIN, y_ = INT_MIN;
 

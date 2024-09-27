@@ -24,9 +24,6 @@ using std::string;
 using std::ostream;
 using veci = std::vector<int>;
 using vecu = std::vector<uint>;
-using ipair = std::pair<int, int>;
-using upair = std::pair<uint, uint>;
-using uspair = std::pair<uint, string>;
 
 struct NW {
   struct Node;

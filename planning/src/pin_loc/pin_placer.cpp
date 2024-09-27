@@ -159,8 +159,9 @@ void PinPlacer::resetState() noexcept {
   max_pt_row_ = 0;
   no_more_inp_bumps_ = false;
   no_more_out_bumps_ = false;
-  is_fabric_eblif_ = false;
+  is_fabric_blif_ = false;
   pin_names_translated_ = false;
+  transCnt_ = {0u, 0u};
   num_warnings_ = 0;
   num_critical_warnings_ = 0;
   user_pcf_.clear();
@@ -318,11 +319,12 @@ bool PinPlacer::read_and_write() {
   if (usage_requirement_2 || (usage_requirement_0 && user_pcf_ == "")) {
     flush_out(true);
     if (has_edits_.size()) {
+
       // if auto-PCF and has_edits_, translate and de-duplicate
       // user-design ports now, since edits.json could remove some design ports.
       if (not pin_names_translated_)
-        translatePinNames("(auto-PCF)");
-      //
+        transCnt_ = translatePinNames("(auto-PCF)");
+
       // de-duplicate inputs
       vector<string> dups;
       if (user_design_inputs_.size() > 1) {
@@ -489,9 +491,9 @@ bool PinPlacer::read_and_write() {
   return true;
 }
 
-uint PinPlacer::translatePinNames(CStr memo) noexcept {
+upair PinPlacer::translatePinNames(CStr memo) noexcept {
   uint16_t tr = ltrace();
-  uint cnt = 0;
+  uint icnt = 0, ocnt = 0;
   CStr mem = memo ? memo : "";
 
   flush_out((tr >= 5));
@@ -511,7 +513,7 @@ uint PinPlacer::translatePinNames(CStr memo) noexcept {
                pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
     }
     pin.udes_pin_name_ = pin.trans_pin_name_;
-    cnt++;
+    icnt++;
   }
 
   flush_out(true);
@@ -527,16 +529,17 @@ uint PinPlacer::translatePinNames(CStr memo) noexcept {
                pin.udes_pin_name_.c_str(), pin.trans_pin_name_.c_str());
     }
     pin.udes_pin_name_ = pin.trans_pin_name_;
-    cnt++;
+    ocnt++;
   }
 
   if (tr >= 3) {
     lprintf("DONE translatePinNames() @ %s\n", mem);
-    lprintf("     number of translated pins = %u\n", cnt);
+    lprintf("     number of translated pins = %u  (inp:%u out:%u)\n",
+            icnt + ocnt, icnt, ocnt);
   }
 
   pin_names_translated_ = true;
-  return cnt;
+  return {icnt, ocnt};
 }
 
 } // namespace pln
