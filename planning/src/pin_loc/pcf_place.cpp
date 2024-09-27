@@ -362,6 +362,15 @@ void PinPlacer::print_summary(const string& csv_name) const {
 
   CStr editsVal = has_edits_.empty() ? "FALSE" : has_edits_.c_str();
   lprintf("     has edits (config.json) : %s\n", editsVal);
+  if (not has_edits_.empty()) {
+    if (tr >= 4) {
+      lprintf("       pin_names_translated_ : %s\n",
+               pin_names_translated_ ? "TRUE" : "FALSE");
+    }
+    uint icnt = transCnt_.first, ocnt = transCnt_.second;
+    lprintf("     number of translated pins = %u  (input: %u  output: %u)\n",
+            icnt + ocnt, icnt, ocnt);
+  }
 
   CStr cmapVal = clk_map_file_.empty() ? "(NONE)" : clk_map_file_.c_str();
   lprintf("                clk_map_file : %s\n", cmapVal);
@@ -747,15 +756,6 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
 
     bool is_out_pin =
         is_in_pin ? false : (find_udes_output(udes_pn1) >= 0);
-
-    ////// OBSOLETE CODE: translation is done in translate_PCF_names()
-    // udes_pn2 = translatePinName(udes_pn1, is_in_pin);
-    // if (udes_pn2 != udes_pn1) {
-    //  if (tr >= 3) {
-    //    lprintf("  %s pin TRANSLATED: %s --> %s\n",
-    //            is_in_pin ? "input" : "output", udes_pn1.c_str(), udes_pn2.c_str());
-    //  }
-    // }
 
     const string& udes_pin_name = udes_pn2;
     const string& device_pin_name = pcf_cmd[2];  // bump or ball

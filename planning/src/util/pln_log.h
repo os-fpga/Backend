@@ -50,6 +50,10 @@
 namespace pln {
 
 using CStr = const char*;
+using ipair = std::pair<int, int>;
+using upair = std::pair<uint, uint>;
+using uspair = std::pair<uint, std::string>;
+
 struct LOut;
 
 // log-trace value (debug print verbosity)

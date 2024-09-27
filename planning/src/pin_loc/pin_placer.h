@@ -268,8 +268,10 @@ public:
   bool no_more_inp_bumps_ = false; // state for get_available_device_pin()
   bool no_more_out_bumps_ = false; //
 
-  bool is_fabric_eblif_ = false;
+  bool is_fabric_blif_ = false;
+
   bool pin_names_translated_ = false;
+  upair transCnt_ = {0u, 0u};
 
   mutable uint num_warnings_ = 0, num_critical_warnings_ = 0;
   void incrCriticalWarnings() const noexcept { num_critical_warnings_++; }
@@ -304,7 +306,7 @@ private:
 
   string translatePinName(const string& pinName, bool is_input) const noexcept;
 
-  uint translatePinNames(CStr memo) noexcept;
+  upair translatePinNames(CStr memo) noexcept;
   uint translate_PCF_names() noexcept;
 
   const EditItem* findTerminalLink(const string& pinName) const noexcept;
