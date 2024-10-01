@@ -166,7 +166,10 @@ void PinPlacer::print_stats(const PcCsvReader& csv) const {
         ls << "  Fullchip_N: " << bcd.fullchipName_;
         if (tr >= 4) {
           ls << "  isInp:" << int(bcd.isInput());
-          ls << "  colM_dir: " << bcd.str_colM_dir();
+          ls << "  colM: " << bcd.str_colM_dir();
+          if (tr >= 5) {
+            ls << "  pp->origPN: " << pp->orig_pin_name_;
+          }
         }
       }
       flush_out(true);
