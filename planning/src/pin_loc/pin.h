@@ -19,6 +19,7 @@ struct Pin {
   string orig_pin_name_;  // never translated
   string udes_pin_name_;  // maybe translated
   string trans_pin_name_; // translated due to netlist edits
+  string placed_pin_name_;
 
   string device_pin_name_;
 

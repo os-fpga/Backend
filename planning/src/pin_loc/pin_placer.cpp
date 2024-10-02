@@ -322,7 +322,7 @@ bool PinPlacer::read_and_write() {
 
       // if auto-PCF and has_edits_, translate and de-duplicate
       // user-design ports now, since edits.json could remove some design ports.
-      if (not pin_names_translated_)
+      if (!pin_names_translated_ and !is_fabric_blif_)
         transCnt_ = translatePinNames("(auto-PCF)");
 
       // de-duplicate inputs
