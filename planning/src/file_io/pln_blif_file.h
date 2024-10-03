@@ -46,6 +46,8 @@ struct BLIF_file : public fio::MMapReader
     bool is_mog_ = false;
     bool isClockLess_ = false;
 
+    bool is_wire_ = false, is_const_ = false;  // .names
+
   public:
     BNode() noexcept = default;
     BNode(CStr keyword, uint L) noexcept : lnum_(L) {
@@ -188,9 +190,7 @@ struct BLIF_file : public fio::MMapReader
 
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
 
-    CStr cPrimType() const noexcept {
-      return ptype_ == prim::A_ZERO ? "{e}" : pr_enum2str(ptype_);
-    }
+    CStr cPrimType() const noexcept;
 
     struct CmpOut {
       bool operator()(const BNode* a, const BNode* b) const noexcept {
@@ -284,12 +284,15 @@ public:
   void collectClockedNodes(vector<BNode*>& V) noexcept;
   std::array<uint, prim::Prim_MAX_ID> countTypes() const noexcept;
 
+  uint countCarryNodes() const noexcept;
+  uint countWireNodes() const noexcept;
+  uint countConstNodes() const noexcept;
+
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printOutputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printNodes(std::ostream& os) const noexcept;
   uint printPrimitives(std::ostream& os, bool instCounts) const noexcept;
 
-  uint countCarryNodes() const noexcept;
   uint printCarryNodes(std::ostream& os) const noexcept;
 
 private:
