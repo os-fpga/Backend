@@ -187,6 +187,14 @@ void BLIF_file::BNode::place_output_at_back(vector<string>& dat) noexcept {
   }
 }
 
+CStr BLIF_file::BNode::cPrimType() const noexcept {
+  if (is_wire_)
+    return "WIRE";
+  if (is_const_)
+    return "CONST";
+  return ptype_ == prim::A_ZERO ? "{e}" : pr_enum2str(ptype_);
+}
+
 bool BLIF_file::readBlif() noexcept {
   inputs_.clear();
   outputs_.clear();
@@ -558,7 +566,9 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
   os << "       #fabricNodes_= " << fabricNodes_.size() << '\n';
   os << "   #fabricRealNodes_= " << fabricRealNodes_.size() << '\n';
   os << "           #latches_= " << latches_.size() << '\n';
-  os << "     #constantNodes_= " << constantNodes_.size() << '\n';
+  os << "     #constantNodes_= " << constantNodes_.size()
+     << "  cnt " << countConstNodes() << '\n';
+  os << "         #wireNodes_= " << countWireNodes() << '\n';
   os << endl;
 
   if (trace_ < 4) {
@@ -811,6 +821,36 @@ uint BLIF_file::countCarryNodes() const noexcept {
   for (uint i = 1; i <= nn; i++) {
     const BNode& nd = nodePool_[i];
     if (nd.ptype_ == CARRY)
+      cnt++;
+  }
+
+  return cnt;
+}
+
+uint BLIF_file::countWireNodes() const noexcept {
+  uint nn = numNodes();
+  if (nn == 0)
+    return 0;
+
+  uint cnt = 0;
+  for (uint i = 1; i <= nn; i++) {
+    const BNode& nd = nodePool_[i];
+    if (nd.is_wire_)
+      cnt++;
+  }
+
+  return cnt;
+}
+
+uint BLIF_file::countConstNodes() const noexcept {
+  uint nn = numNodes();
+  if (nn == 0)
+    return 0;
+
+  uint cnt = 0;
+  for (uint i = 1; i <= nn; i++) {
+    const BNode& nd = nodePool_[i];
+    if (nd.is_const_)
       cnt++;
   }
 
@@ -1120,9 +1160,18 @@ bool BLIF_file::createNodes() noexcept {
     if (starts_w_names(cs + 1, len - 1)) {
       Fio::split_spa(lines_[L], V);
       if (V.size() > 1 and V.front() == ".names") {
+        lputs9();
         nodePool_.emplace_back(".names", L);
         BNode& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
+        nd.out_ = nd.data_.back();
+        if (V.size() == 2) {
+          nd.is_const_ = true;
+        } else if (V.size() == 3) {
+          nd.is_wire_ = true;
+          nd.inSigs_.push_back(V[1]);
+          nd.inPins_.push_back("wire_in");
+        }
       }
       continue;
     }
