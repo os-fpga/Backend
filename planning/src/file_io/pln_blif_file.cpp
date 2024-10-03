@@ -1160,7 +1160,7 @@ bool BLIF_file::createNodes() noexcept {
     if (starts_w_names(cs + 1, len - 1)) {
       Fio::split_spa(lines_[L], V);
       if (V.size() > 1 and V.front() == ".names") {
-        lputs9();
+        //lputs9();
         nodePool_.emplace_back(".names", L);
         BNode& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
