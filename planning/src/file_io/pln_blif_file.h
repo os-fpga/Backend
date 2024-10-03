@@ -44,6 +44,7 @@ struct BLIF_file : public fio::MMapReader
 
     int16_t is_top_ = 0;     // -1:top input  1:top output
     bool is_mog_ = false;
+    bool isClockLess_ = false;
 
   public:
     BNode() noexcept = default;
@@ -170,6 +171,9 @@ struct BLIF_file : public fio::MMapReader
     }
     bool is_DSP() const noexcept {
       return prim::pr_is_DSP(ptype_);
+    }
+    bool is_clockLess_DSP() const noexcept {
+      return isClockLess_ and prim::pr_is_DSP(ptype_);
     }
 
     bool canDriveClockNode() const noexcept {

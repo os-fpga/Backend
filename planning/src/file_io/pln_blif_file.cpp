@@ -69,6 +69,15 @@ static inline bool starts_w_names(CStr z, size_t len) noexcept {
          z[3] == 'e' and z[4] == 's' and ::isspace(z[5]);
 }
 
+// "param "
+static inline bool starts_w_param(CStr z, size_t len) noexcept {
+  assert(z);
+  if (len < 6)
+    return false;
+  return z[0] == 'p' and z[1] == 'a' and z[2] == 'r' and
+         z[3] == 'a' and z[4] == 'm' and ::isspace(z[5]);
+}
+
 // "latch "
 static inline bool starts_w_latch(CStr z, size_t len) noexcept {
   assert(z);
@@ -444,7 +453,7 @@ bool BLIF_file::checkBlif() noexcept {
 
   // 6. clock-data separation
   if (!topInputs_.empty() and !topOutputs_.empty()) {
-    if (trace_ >= 5)
+    if (trace_ >= 6)
       pg_.setTrace(trace_);
     vector<BNode*> clocked;
     collectClockedNodes(clocked);
@@ -659,6 +668,8 @@ void BLIF_file::collectClockedNodes(vector<BNode*>& V) noexcept {
     BNode& nd = nodePool_[i];
     uint t = nd.ptype_;
     if (!t or t >= Prim_MAX_ID)
+      continue;
+    if (nd.is_clockLess_DSP())
       continue;
     uint n_clocks = pr_num_clocks(nd.ptype_);
     if (n_clocks)
@@ -1136,6 +1147,42 @@ bool BLIF_file::createNodes() noexcept {
         nd.data_.assign(V.begin() + 1, V.end());
         nd.ptype_ = pr_str2enum(nd.data_front());
         nd.place_output_at_back(nd.data_);
+        if (pr_is_DSP(nd.ptype_)) {
+          //lputs9();
+          vector<string> TK;
+          // search for .param DSP_MODE "MULTIPLY"
+          // to flag clock-less DSP
+          uint m = 0;
+          for (uint L2 = L + 1; L2 < lines_.size(); L2++, m++) {
+            if (m > 50)
+              break;
+            CStr ps = lines_[L2];
+            if (!ps || !ps[0]) continue;
+            ps = str::trimFront(ps);
+            assert(ps);
+            size_t ps_len = ::strlen(ps);
+            if (ps_len < 3) continue;
+            if (ps[0] != '.') continue;
+            if (starts_w_subckt(ps + 1, ps_len - 1))
+              break;
+            if (starts_w_names(ps + 1, ps_len - 1))
+              break;
+            if (starts_w_param(ps + 1, ps_len - 1)) {
+              Fio::split_spa(ps, TK);
+              if (TK.size() == 3 and TK[1] == "DSP_MODE" and TK[2].length() > 3) {
+                CStr tk = TK[2].c_str();
+                if (tk[0] == '"')
+                  tk++;
+                if (::memcmp(tk, "MULTIPLY", 8) == 0) {
+                  nd.isClockLess_ = true;
+                  if (trace_ >= 5)
+                    lprintf("\t  marked clock-less DSP at line %u\n", L);
+                  break;
+                }
+              }
+            }
+          }
+        }
       }
       continue;
     }
@@ -1186,6 +1233,7 @@ bool BLIF_file::createNodes() noexcept {
         logVec(V, "  [V-terms] ");
         lputs();
       }
+      //lputs9();
 
       s_remove_MOG_terms(nd);
       uint startVirtual = nodePool_.size();
@@ -2058,15 +2106,17 @@ bool BLIF_file::createPinGraph() noexcept {
         const BNode* driver = findDriverNode(cn_realId, inet);
         if (!driver) {
           flush_out(true); err_puts();
-          lprintf2("[Error] no driver for clock node #%u %s  line:%u\n",
-                   cn_realId, cn.cPrimType(), cn.lnum_);
+          lprintf2("[Error] no driver for clock node #%u %s pin:%s  line:%u\n",
+                   cn_realId, cn.cPrimType(), inp.c_str(), cn.lnum_);
           err_puts(); flush_out(true);
+          err_lnum_ = cn.lnum_;
+          err_lnum2_ = cn.lnum_;
           return false;
         }
         uint driver_realId = driver->realId(*this);
 
         if (trace_ >= 5) {
-          lputs9();
+          lputs();
           lprintf(" from cn#%u %s ",
                 cn_realId, cn.cPrimType() );
           lprintf( "  CLOCK_TRACE driver->  id_%u  %s  out_net %s\n",
@@ -2168,6 +2218,8 @@ bool BLIF_file::createPinGraph() noexcept {
                      dn.id_, dn.cPrimType(), dn.lnum_);
             err_lnum_ = dn.lnum_;
             err_puts(); flush_out(true);
+            err_lnum_ = dn.lnum_;
+            err_lnum2_ = dn.lnum_;
             return false;
           }
 
