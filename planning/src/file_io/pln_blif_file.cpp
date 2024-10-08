@@ -343,9 +343,13 @@ bool BLIF_file::readBlif() noexcept {
   return true;
 }
 
-bool BLIF_file::checkBlif() noexcept {
+bool BLIF_file::checkBlif(vector<string>& badInputs,
+                          vector<string>& badOutputs) noexcept {
   chk_ok_ = false;
   err_msg_.clear();
+  badInputs.clear();
+  badOutputs.clear();
+
   auto& ls = lout();
 
   if (inputs_.empty() and outputs_.empty()) {
@@ -499,8 +503,6 @@ bool BLIF_file::checkBlif() noexcept {
 
   // -- write yaml file to check prim-DB:
   if (trace_ >= 8) {
-    //string written = pr_write_yaml( DSP19X2 );
-    //string written = pr_write_yaml( DSP38 );
     //string written = pr_write_yaml( FIFO36K );
     //string written = pr_write_yaml( FIFO18KX2 );
     string written = pr_write_yaml( TDP_RAM36K );
@@ -1329,8 +1331,8 @@ bool BLIF_file::createNodes() noexcept {
     }
     if (nd.kw_ == ".subckt" or nd.kw_ == ".gate") {
       if (nd.data_.size() > 1) {
-        if (nd.lnum_ == 47)
-          lputs8();
+        // if (nd.lnum_ == 47)
+        //   lputs8();
         const string& last = nd.data_.back();
         size_t llen = last.length();
         if (!last.empty() and llen < 4095) {

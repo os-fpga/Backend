@@ -4,13 +4,18 @@
 
 namespace pln {
 
+using std::vector;
 using std::string;
 using std::endl;
 
-bool do_check_blif(CStr cfn) {
+bool do_check_blif(CStr cfn,
+                   vector<string>& badInputs,
+                   vector<string>& badOutputs) {
   assert(cfn);
   uint16_t tr = ltrace();
   auto& ls = lout();
+  badInputs.clear();
+  badOutputs.clear();
 
   BLIF_file bfile(string{cfn});
 
@@ -58,7 +63,7 @@ bool do_check_blif(CStr cfn) {
   flush_out(true);
   ls << ">>>>> checking BLIF " << cfn << "  ..." << endl;
 
-  bool chk_ok = bfile.checkBlif();
+  bool chk_ok = bfile.checkBlif(badInputs, badOutputs);
   assert(chk_ok == bfile.chk_ok_);
 
   lprintf("=====   passed: %s\n", chk_ok ? "YES" : "NO");
@@ -193,10 +198,12 @@ bool do_check(const rsOpts& opts, bool blif_vs_csv) {
   lprintf("  checking %s file: %s\n", fileType, cfn);
 
   bool status;
-  if (blif_vs_csv)
-    status = do_check_blif(cfn);
-  else
+  if (blif_vs_csv) {
+    vector<string> badInp, badOut;
+    status = do_check_blif(cfn, badInp, badOut);
+  } else {
     status = do_check_csv(cfn);
+  }
 
   flush_out(true);
 

@@ -647,7 +647,7 @@ void PinPlacer::get_pcf_directions(
   }
 }
 
-bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
+bool PinPlacer::write_placement(const PcCsvReader& csv) {
   flush_out(true);
   placed_inputs_.clear();
   placed_outputs_.clear();
@@ -657,7 +657,7 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
   if (tr >= 3) {
     ls << "pin_c: writing .place output file: " << out_fn << endl;
     if (tr >= 7) {
-      ls << "write_dot_place() __ Creating .place file  get_param(--output) : "
+      ls << "write_placement() __ Creating .place file  get_param(--output) : "
          << out_fn << endl;
     }
     if (tr >= 5) {
@@ -686,7 +686,7 @@ bool PinPlacer::write_dot_place(const PcCsvReader& csv) {
     if (tr >= 1) {
       flush_out(true);
       err_puts();
-      lprintf2("[Error] pin_c: write_dot_place() output file is not writable: %s\n",
+      lprintf2("[Error] pin_c: write_placement() output file is not writable: %s\n",
                out_fn.c_str());
       flush_out(true);
     }

@@ -240,35 +240,14 @@ bool PinPlacer::read_and_write() {
       !(csv_name.empty() || no_b_json || output_name.empty()) &&
       user_pcf_.empty();
 
-  if (tr >= 4) {
+  if (tr >= 5) {
     ls << "\t usage_requirement_1 : " << boolalpha << usage_requirement_1 << endl;
     ls << "\t usage_requirement_2 : " << boolalpha << usage_requirement_2 << endl;
   }
 
   if (usage_requirement_0) {
-    /*
-    // generate new csv file with information from xml
-    // and csv for os flow
-    if (tr >= 2) {
-      ls << "(usage_requirement_0)\n"
-         << "generate new csv file with info from xml and csv for os flow"
-         << endl;
-    }
-    if (!generate_csv_file_for_os_flow()) {
-      CERROR << err_lookup("GENERATE_CSV_FILE_FOR_OS_FLOW") << endl;
-      return false;
-    }
-    // in os mode, the pcf does not contains any "-mode"
-    // we need to generate a temp pcf file with "-mode" option, which selects
-    // mode "Mode_GPIO"
-    if (user_pcf_.size()) {
-      if (!convert_pcf_for_os_flow(user_pcf_)) {
-        CERROR << err_lookup("GENERATE_PCF_FILE_FOR_OS_FLOW") << endl;
-        return false;
-      }
-    }
-    */
-  } else if (!usage_requirement_1 && !usage_requirement_2) {
+  }
+  else if (!usage_requirement_1 && !usage_requirement_2) {
     flush_out(true);
     if (tr >= 2)
       lputs("[Error] pin_c: !usage_requirement_1 && !usage_requirement_2\n");
@@ -454,13 +433,13 @@ bool PinPlacer::read_and_write() {
   finalize_edits();
 
   // --7. create .place file
-  if (!write_dot_place(csv_rd)) {
+  if (!write_placement(csv_rd)) {
     // error messages will be issued in callee
     if (tr) {
       flush_out(true);
-      ls << "[Error] pin_c: !write_dot_place(csv_rd)" << endl;
+      ls << "[Error] pin_c: !write_placement()" << endl;
       err_puts();
-      CERROR << "write_dot_place() failed" << endl;
+      CERROR << "write_placement() failed" << endl;
       flush_out(true);
     }
     return false;
