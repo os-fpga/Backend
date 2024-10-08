@@ -115,36 +115,36 @@ void rsOpts::print(CStr label) const noexcept {
     cout << label;
   else
     cout << endl;
-  printf("  argc_ = %i\n", argc_);
+  ::printf("  argc_ = %i\n", argc_);
   if (argv_) {
-    for (int i = 1; i < argc_; i++) printf("  argv[%i] = %s", i, argv_[i]);
+    for (int i = 1; i < argc_; i++) ::printf("  argv[%i] = %s", i, argv_[i]);
   } else {
     lputs("\n\t !!! no argv_");
   }
   lputs();
 
   bool exi = input_file_exists(deviceXML_);
-  printf("  deviceXML_: %s  exists:%i\n", nns(deviceXML_), exi);
+  ::printf("  deviceXML_: %s  exists:%i\n", nns(deviceXML_), exi);
 
   exi = input_file_exists(csvFile_);
-  printf("  csvFile_: %s  exists:%i\n", nns(csvFile_), exi);
+  ::printf("  csvFile_: %s  exists:%i\n", nns(csvFile_), exi);
 
-  printf("  pcfFile_: %s\n", nns(pcfFile_));
-  printf("  blifFile_: %s\n", nns(blifFile_));
-  printf("  jsonFile_: %s\n", nns(jsonFile_));
-  printf("  editsFile_: %s\n", nns(editsFile_));
-  printf("  output_: %s\n", nns(output_));
-  printf("  assignOrder_: %s\n", nns(assignOrder_));
+  ::printf("  pcfFile_: %s\n", nns(pcfFile_));
+  ::printf("  blifFile_: %s\n", nns(blifFile_));
+  ::printf("  jsonFile_: %s\n", nns(jsonFile_));
+  ::printf("  editsFile_: %s\n", nns(editsFile_));
+  ::printf("  output_: %s\n", nns(output_));
+  ::printf("  assignOrder_: %s\n", nns(assignOrder_));
 
-  printf("  input_: %s\n", nns(input_));
+  ::printf("  input_: %s\n", nns(input_));
 
-  printf("  test_id_ = %i\n", test_id_);
-  printf("  trace_ = %i  traceIndex_ = %i\n", trace_, traceIndex_);
+  ::printf("  test_id_ = %i\n", test_id_);
+  ::printf("  trace_ = %i  traceIndex_ = %i\n", trace_, traceIndex_);
   cout << "  trace_specified: " << std::boolalpha << trace_specified() << '\n';
   cout << "   unit_specified: " << std::boolalpha << unit_specified() << endl;
 
-  printf("  help_:%i  check_:%i\n", help_, check_);
-  printf("  ver:%i  det_ver_:%i\n", version_, det_ver_);
+  ::printf("  help_:%i  check_:%i\n", help_, check_);
+  ::printf("  ver:%i  det_ver_:%i\n", version_, det_ver_);
 
   lputs();
 #endif  // RSBE_UNIT_TEST_ON
@@ -168,10 +168,13 @@ void rsOpts::printHelp() const noexcept {
     CStr hlp = tab1[i+1];
     if (!hlp)
       break;
-    printf("%30s : %s\n", opt, hlp);
+    ::printf("%30s : %s\n", opt, hlp);
   }
 
-  flush_out(true);
+  cout << endl;
+  ::printf("Logfile can be specified by env variable RS_PLN_LOGFILE\n");
+  ::printf("Default logfile is 'rs_planner.log'\n");
+  cout << endl;
 }
 
 static char* make_file_name(CStr arg) noexcept {

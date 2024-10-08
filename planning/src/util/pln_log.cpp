@@ -49,6 +49,19 @@ bool open_pln_logfile(CStr fn) noexcept {
   assert(fn and fn[0]);
   if (_plnLF.is_open())
     return false;
+
+  CStr env_fn = ::getenv("RS_PLN_LOGFILE");
+  if (env_fn and env_fn[0]) {
+    if (fn and ::strcmp(fn, env_fn)) {
+      cout << endl;
+      ::printf("PLN: using logfile name '%s' from env variable %s\n",
+               env_fn, "RS_PLN_LOGFILE");
+      cout << endl; cout.flush();
+      fflush(stdout);
+    }
+    fn = env_fn;
+  }
+
   if (!fn or !fn[0])
     return false;
 
