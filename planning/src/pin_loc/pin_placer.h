@@ -242,7 +242,7 @@ public:
 
   bool read_PCF(const PcCsvReader&);
 
-  bool write_dot_place(const PcCsvReader&);
+  bool write_placement(const PcCsvReader&);
 
   bool create_temp_pcf(PcCsvReader&);
 

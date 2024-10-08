@@ -266,7 +266,7 @@ public:
   virtual void reset(CStr nm, uint16_t tr = 0) noexcept override;
 
   bool readBlif() noexcept;
-  bool checkBlif() noexcept;
+  bool checkBlif(vector<string>& badInputs, vector<string>& badOutputs) noexcept;
 
   uint numInputs() const noexcept { return inputs_.size(); }
   uint numOutputs() const noexcept { return outputs_.size(); }

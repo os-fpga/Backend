@@ -14,7 +14,7 @@ using fio::Fio;
 
 static bool s_is_fabric_blif(const string& fn) noexcept {
   size_t len = fn.length();
-  if (len < 12 or len > 5000)
+  if (len < 8 or len > 5000)
     return false;
   char buf[len + 2] = {};
   ::strcpy(buf, fn.c_str());
@@ -29,7 +29,7 @@ static bool s_is_fabric_blif(const string& fn) noexcept {
   Fio::split_spa(buf, W);
   if (W.size() < 2)
     return false;
-  if (W.back() != "eblif")
+  if (W.back() != "eblif" and W.back() != "blif")
     return false;
 
   const string& f = W[W.size() - 2];
@@ -1098,7 +1098,7 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn, bool& checked_ok) n
   BLIF_file bfile(blif_fn);
 
   if (tr >= 4)
-    bfile.setTrace(3);
+    bfile.setTrace(4);
 
   bool exi = false;
   exi = bfile.fileExists();
@@ -1117,10 +1117,12 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn, bool& checked_ok) n
     return false;
   }
 
+  vector<string> badInputs, badOutputs;
+
   if (not ::getenv("pinc_dont_check_blif")) {
     lprintf("____ BEGIN pinc_check_blif:  %s\n", cfn);
     flush_out(true);
-    checked_ok = do_check_blif(cfn);
+    checked_ok = do_check_blif(cfn, badInputs, badOutputs);
     flush_out(true);
     lprintf("           pinc_check_blif STATUS = %s\n\n",
             checked_ok ? "PASS" : "FAIL");
