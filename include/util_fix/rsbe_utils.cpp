@@ -20,7 +20,6 @@
 #include "pack_types.h"
 #include "device_grid.h"
 #include "timing_fail_error.h"
-#include "re_cluster_util.h"
 
 
 namespace rsbe {
