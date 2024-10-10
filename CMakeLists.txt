@@ -131,24 +131,24 @@ FILE(COPY ${EBLIF_TRANSFORM_SRC_H}
            ${EBLIF_TRANSFORM_DEST})
 
 # patch VPR
-FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
-          ${PACKER_SRC_DIR}/cluster_util.cpp
-          ${PACKER_SRC_DIR}/cluster_util.h
-          ${PACKER_SRC_DIR}/output_clustering.cpp
-          ${PACKER_SRC_DIR}/output_clustering.h
-          ${PACKER_SRC_DIR}/cluster_router.cpp
-          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/pack)
+#FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.cpp
+#          ${PACKER_SRC_DIR}/cluster_util.h
+#          ${PACKER_SRC_DIR}/output_clustering.cpp
+#          ${PACKER_SRC_DIR}/output_clustering.h
+#          ${PACKER_SRC_DIR}/cluster_router.cpp
+#          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/pack)
 
 # add to VPR/pack
-FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
-          ${PACKER_SRC_DIR}/nl_Par.cpp
-          ${PACKER_SRC_DIR}/pinc_log.h
-          ${PACKER_SRC_DIR}/pinc_log.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/pack)
-message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
+#FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
+#          ${PACKER_SRC_DIR}/nl_Par.cpp
+#          ${PACKER_SRC_DIR}/pinc_log.h
+#          ${PACKER_SRC_DIR}/pinc_log.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/pack)
+#message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 
 # add to VPR/base
 file(COPY
@@ -169,20 +169,20 @@ message(STATUS "NOTE: OVERWRITING netlist_writer.cpp")
 file(COPY ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED  ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
 
-message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
-set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
-apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
+#message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
+#set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
+#apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
 
 message(STATUS "NOTE: OVERWRITING base/read_.*")
 file(COPY
     ${PATCH_DIR}/base_fix/PATCHED/read_blif.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_circuit.h
-    ${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
-    ${PATCH_DIR}/base_fix/PATCHED/vpr_context.h
+    #${PATCH_DIR}/base_fix/PATCHED/vpr_types.h
+    #${PATCH_DIR}/base_fix/PATCHED/vpr_context.h
     ${PATCH_DIR}/base_fix/PATCHED/read_options.cpp
     ${PATCH_DIR}/base_fix/PATCHED/read_options.h
-    ${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
+    #${PATCH_DIR}/base_fix/PATCHED/SetupVPR.cpp
     DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED ${PATCH_DIR}/base_fix/PATCHED/read_.*\n       to ${TARGET_DIR}/\n")
 
@@ -268,26 +268,26 @@ file(COPY ${ENCRYPTION_CONFIG_PATH}/config.txt
 #          ${LIB_RRG_DEST_DIR}/src/io)
 
 # Logical Levels
-message(STATUS "NOTE: PATCHING TimingReporter")
-FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
-          ${TATUM_SRC_DIR}/TimingReporter.cpp
-          DESTINATION
-          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
-)
+#message(STATUS "NOTE: PATCHING TimingReporter")
+#FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
+#          ${TATUM_SRC_DIR}/TimingReporter.cpp
+#          DESTINATION
+#          ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
+#)
 
 ## Logical Levels
-FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
-          ${UTIL_SRC_DIR}/rsbe_utils.h
-          DESTINATION
-          ${VPR_DEST_DIR}/src/util/
-)
-message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
+#FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
+#          ${UTIL_SRC_DIR}/rsbe_utils.h
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/util/
+#)
+#message(STATUS "NOTE: ADDED to VPR src/util: rsbe_utils.cpp,h")
 
 # Logical Levels
-FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
-          DESTINATION
-          ${VPR_DEST_DIR}/src/analysis
-)
+#FILE(COPY ${ANALYSIS_SRC_DIR}/timing_reports.cpp
+#          DESTINATION
+#          ${VPR_DEST_DIR}/src/analysis
+#)
 
 message(STATUS "NOTE: DONE PATCHING\n")
 
