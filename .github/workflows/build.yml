@@ -3,8 +3,8 @@ name: Build Compatibility
 # Only run for pull requests as we care contribution to the master
 on:
   push:
-    branches:
-      - main
+    #    branches:
+    #  - main
   pull_request:
     branches:
       - main
