@@ -51,6 +51,8 @@ jobs:
 
       - name: Build
         run: |
+          python3 -m venv venv
+          source venv/bin/activate
           make release PRODUCTION_BUILD=1
 
   centos7-gcc:
