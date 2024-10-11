@@ -39,5 +39,6 @@ apt-get update && apt-get install -y \
     valgrind \
     wget \
     zip \
+    zlib1g-dev \
     libhwloc-dev \
     g++-11
