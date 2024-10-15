@@ -1,0 +1,12 @@
+diff --git a/openfpga/CMakeLists.txt b/openfpga/CMakeLists.txt
+index f77e79139..b477e83e5 100644
+--- a/openfpga/CMakeLists.txt
++++ b/openfpga/CMakeLists.txt
+@@ -45,7 +45,6 @@ target_link_libraries(libopenfpga
+                       libtileconfig
+                       libpugixml
+                       libvpr
+-                      libopenfpgacapnproto
+                       )
+ 
+ #Create the test executable
