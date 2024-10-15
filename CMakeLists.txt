@@ -208,9 +208,11 @@ set(DIFF_FILE ${PATCH_DIR}/libpugiutil_fix/DIFF/pugixml_util_cpp.diff)
 apply_patch(${DIFF_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil/src "pugixml_util.cpp")
 
 # copy RS additions and patch CMakefiles
-message(STATUS "NOTE: COPYING OpenFPGA CMakefile..")
+message(STATUS "NOTE: COPYING/PATCHING OpenFPGA CMakefiles..")
 #set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
 #apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
+set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/PATCHED_OpenFPGA/libs_cmakefile.diff)
+apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/libs  "OpenFPGA/libs CMakefile")
 
 # temporarily swithed to copying because of "partial patch" issue in Raptor build.
 file(COPY
