@@ -214,6 +214,21 @@ message(STATUS "NOTE: COPYING/PATCHING OpenFPGA CMakefiles..")
 set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/PATCHED_OpenFPGA/libs_cmakefile.diff)
 apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/libs  "OpenFPGA/libs CMakefile")
 
+set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/PATCHED_OpenFPGA/openfpga_src_CMakefile.diff)
+apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/openfpga  "OpenFPGA/openfpga CMakefile")
+
+file(COPY
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.capnp
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.capnp.c++
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.capnp.h
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx_capnp.h
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx_capnp_impl.h
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.cpp
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.h
+ ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx_interface.h
+  DESTINATION
+  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/openfpga/src/annotation)
+
 # temporarily swithed to copying because of "partial patch" issue in Raptor build.
 file(COPY
   ${PATCH_DIR}/CMAKE_fix/PATCHED_OpenFPGA/CMakeLists.txt
