@@ -101,6 +101,14 @@ struct ParseCircuitFormat {
             conv_value.set_value(e_circuit_format::BLIF);
         else if (str == "eblif")
             conv_value.set_value(e_circuit_format::EBLIF);
+        else if (str == "verilog")
+            conv_value.set_value(e_circuit_format::VERILOG);
+        else if (str == "edif")
+            conv_value.set_value(e_circuit_format::EDIF);
+         else if (str == "edf")
+            conv_value.set_value(e_circuit_format::EDIF);
+        else if (str == "edn")
+            conv_value.set_value(e_circuit_format::EDIF);
         else if (str == "fpga-interchange")
             conv_value.set_value(e_circuit_format::FPGA_INTERCHANGE);
         else {
@@ -120,6 +128,10 @@ struct ParseCircuitFormat {
             conv_value.set_value("blif");
         else if (val == e_circuit_format::EBLIF)
             conv_value.set_value("eblif");
+        else if (val == e_circuit_format::VERILOG)
+            conv_value.set_value("verilog");
+        else if (val == e_circuit_format::EDIF)
+            conv_value.set_value("edif");
         else {
             VTR_ASSERT(val == e_circuit_format::FPGA_INTERCHANGE);
             conv_value.set_value("fpga-interchange");
@@ -129,7 +141,7 @@ struct ParseCircuitFormat {
     }
 
     std::vector<std::string> default_choices() {
-        return {"auto", "blif", "eblif", "fpga-interchange"};
+        return {"auto", "blif", "eblif", "verilog", "edif", "edn", "edf", "fpga-interchange"};
     }
 };
 struct ParseRoutePredictor {
@@ -398,6 +410,8 @@ struct ParsePlaceAlgorithm {
             conv_value.set_value(CRITICALITY_TIMING_PLACE);
         } else if (str == "slack_timing") {
             conv_value.set_value(SLACK_TIMING_PLACE);
+        } else if (str == "congestion_aware") {
+            conv_value.set_value(CONGESTION_AWARE_PLACE);
         } else {
             std::stringstream msg;
             msg << "Invalid conversion from '" << str << "' to e_place_algorithm (expected one of: " << argparse::join(default_choices(), ", ") << ")";
@@ -419,6 +433,8 @@ struct ParsePlaceAlgorithm {
             conv_value.set_value("bounding_box");
         } else if (val == CRITICALITY_TIMING_PLACE) {
             conv_value.set_value("criticality_timing");
+        } else if (val == CONGESTION_AWARE_PLACE) {
+            conv_value.set_value("congestion_aware");
         } else {
             VTR_ASSERT(val == SLACK_TIMING_PLACE);
             conv_value.set_value("slack_timing");
@@ -427,7 +443,7 @@ struct ParsePlaceAlgorithm {
     }
 
     std::vector<std::string> default_choices() {
-        return {"bounding_box", "criticality_timing", "slack_timing"};
+        return {"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"};
     }
 };
 
@@ -1432,6 +1448,10 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
         .help("Show this help message then exit")
         .action(argparse::Action::HELP);
 
+    gen_grp.add_argument(args.top_mod, "--top", "-t")
+        .help("Top module name")
+        .default_value("");
+
     gen_grp.add_argument<bool, ParseOnOff>(args.show_version, "--version")
         .help("Show version information then exit")
         .action(argparse::Action::VERSION);
@@ -1909,6 +1929,16 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
         .default_value("semiDirectedSwap")
         .show_in(argparse::ShowIn::HELP_ONLY);
 
+    pack_grp.add_argument<bool, ParseOnOff>(args.use_partitioning_in_pack, "--use_partitioning_in_pack")
+        .help("Whether to use partitioning in pack.")
+        .default_value("off")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    pack_grp.add_argument<int>(args.number_of_molecules_in_partition, "--number_of_molecules_in_partition")
+        .help("Average number of molecules in each cluster. It should be used when --use_partitioning_in_pack is on.")
+        .default_value("64")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
     auto& place_grp = parser.add_argument_group("placement options");
 
     place_grp.add_argument(args.Seed, "--seed")
@@ -2014,7 +2044,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
             " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
-        .choices({"bounding_box", "criticality_timing", "slack_timing"})
+        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument<e_place_algorithm, ParsePlaceAlgorithm>(args.PlaceQuenchAlgorithm, "--place_quench_algorithm")
@@ -2026,7 +2056,7 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
             " * criticality_timing: Focuses on minimizing both the wirelength and the connection timing costs (criticality * delay).\n"
             " * slack_timing: Focuses on improving the circuit slack values to reduce critical path delay.\n")
         .default_value("criticality_timing")
-        .choices({"bounding_box", "criticality_timing", "slack_timing"})
+        .choices({"bounding_box", "criticality_timing", "slack_timing", "congestion_aware"})
         .show_in(argparse::ShowIn::HELP_ONLY);
 
     place_grp.add_argument(args.PlaceChanWidth, "--place_chan_width")
@@ -2061,6 +2091,14 @@ argparse::ArgumentParser create_arg_parser(const std::string& prog_name, t_optio
         .help(
             "Enables the analytic placer. "
             "Once analytic placement is done, the result is passed through the quench phase of the annealing placer for local improvement")
+        .default_value("false")
+        .show_in(argparse::ShowIn::HELP_ONLY);
+
+    // Cascade Placer
+    place_grp.add_argument(args.enable_cascade_placer, "--enable_cascade_placer")
+        .help(
+            "Enables the cascade placer. "
+            "Once analytic placement is done, the result is passed through the annealing (SA) placer")
         .default_value("false")
         .show_in(argparse::ShowIn::HELP_ONLY);
 

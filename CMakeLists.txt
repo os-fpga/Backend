@@ -130,6 +130,11 @@ FILE(COPY ${EBLIF_TRANSFORM_SRC_H}
            DESTINATION
            ${EBLIF_TRANSFORM_DEST})
 
+message(STATUS "NOTE: PATCHING VPR pack/pb_pin_fixup\n")
+FILE(COPY ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/pack)
+
 # patch VPR
 #FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
 #          ${PACKER_SRC_DIR}/cluster_util.cpp
