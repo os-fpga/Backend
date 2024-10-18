@@ -110,6 +110,13 @@ bool do_check_blif(CStr cfn,
   if (bfile.num_MOGs_ and tr >= 6) {
     ls << ">>>>> [NOTE] num_MOGs_ =  " << bfile.num_MOGs_ << endl;
   }
+  if (chk_ok) {
+    uint numWarn = bfile.numWarnings();
+    lprintf("=====    has warnings: %s", numWarn ? "YES" : "NO");
+    if (numWarn)
+      lprintf("  # WARNINGS= %u", numWarn);
+    lputs();
+  }
   lprintf("=====    passed: %s\n", chk_ok ? "YES" : "NO");
 
   flush_out(true);
@@ -122,8 +129,8 @@ bool do_check_blif(CStr cfn,
     return true;
   }
 
-  ls << "[Error] !!! BLIF is not OK !!!" << endl;
-  ls << "[Error] !!! " << bfile.err_msg_ << endl;
+  ls << "[Error]  ERROR  BLIF is not OK  ERROR" << endl;
+  ls << "[Error]  ERROR  " << bfile.err_msg_ << endl;
 
   flush_out(true);
   uint errLnum = std::max(bfile.err_lnum_, bfile.err_lnum2_);

@@ -18,6 +18,8 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   topOutputs_.clear();
   fabricNodes_.clear();
   fabricRealNodes_.clear();
+  dang_RAM_outputs_.clear();
+  dang_DSP_outputs_.clear();
   latches_.clear();
   constantNodes_.clear();
   rd_ok_ = chk_ok_ = false;
@@ -859,6 +861,12 @@ uint BLIF_file::countConstNodes() const noexcept {
   return cnt;
 }
 
+uint BLIF_file::numWarnings() const noexcept {
+  assert(dang_RAM_outputs_.size() < size_t(INT_MAX));
+  assert(dang_DSP_outputs_.size() < size_t(INT_MAX));
+  return dang_RAM_outputs_.size() + dang_DSP_outputs_.size();
+}
+
 uint BLIF_file::printCarryNodes(std::ostream& os) const noexcept {
   uint nn = numNodes();
   if (!nn) {
@@ -1087,6 +1095,8 @@ bool BLIF_file::createNodes() noexcept {
   topOutputs_.clear();
   fabricNodes_.clear();
   fabricRealNodes_.clear();
+  dang_RAM_outputs_.clear();
+  dang_DSP_outputs_.clear();
   latches_.clear();
   constantNodes_.clear();
   if (!rd_ok_) return false;
@@ -1702,11 +1712,16 @@ bool BLIF_file::linkNodes() noexcept {
     BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
     if (!par) {
       if (nd.is_RAM() or nd.is_DSP()) {
+        bool is_ram = nd.is_RAM();
         // RAM or DSP output bits may be unused
-        if (trace_ >= 6) {
-          lprintf("skipping dangling cell output issue for %s\n",
-                  nd.is_RAM() ? "RAM" : "DSP" );
+        if (trace_ >= 5) {
+          lprintf("skipping dangling cell output issue for %s at line %u\n",
+                  is_ram ? "RAM" : "DSP", nd.lnum_);
         }
+        if (is_ram)
+          dang_RAM_outputs_.emplace_back(nd.id_);
+        else
+          dang_DSP_outputs_.emplace_back(nd.id_);
         continue;
       }
       err_msg_ = "dangling cell output: ";
