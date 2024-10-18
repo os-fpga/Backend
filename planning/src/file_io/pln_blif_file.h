@@ -288,6 +288,8 @@ public:
   uint countWireNodes() const noexcept;
   uint countConstNodes() const noexcept;
 
+  uint numWarnings() const noexcept;
+
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printOutputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printNodes(std::ostream& os) const noexcept;
@@ -335,6 +337,9 @@ private:
   std::vector<BNode*> topInputs_, topOutputs_;
   std::vector<BNode*> fabricNodes_, constantNodes_;
   std::vector<BNode*> fabricRealNodes_; // skip virtual SOGs
+
+  std::vector<uint> dang_RAM_outputs_;
+  std::vector<uint> dang_DSP_outputs_;
 
   std::vector<BNode*> latches_; // latches are not checked for now
 
