@@ -116,9 +116,9 @@ bool do_check_blif(CStr cfn,
     if (numWarn)
       lprintf("  # WARNINGS= %u", numWarn);
     lputs();
-    if (::getenv("pln_always_write_blif")) {
-      string outFn = str::concat("PLN_", cfn);
-      string wr_ok = bfile.writeBlif(outFn, false);
+    if (numWarn or ::getenv("pln_always_write_blif")) {
+      string outFn = str::concat("PLN_W", std::to_string(numWarn), "_", cfn);
+      string wr_ok = bfile.writeBlif(outFn, numWarn);
       if (wr_ok.empty())
         lprintf("---!!  FAILED writeBlif to '%s'\n", outFn.c_str());
       else

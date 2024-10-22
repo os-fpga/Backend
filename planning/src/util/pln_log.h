@@ -150,6 +150,18 @@ inline string concat(const string& a, const string& b, const string& c, const st
   z += d;
   return z;
 }
+inline string concat(CStr a, const string& b, CStr c, CStr d) noexcept {
+  string z;
+  z.reserve(p_strlen(a) + b.length() + p_strlen(c) + p_strlen(d) + 1);
+  if (a)
+    z = a;
+  z += b;
+  if (c)
+    z += c;
+  if (d)
+    z += d;
+  return z;
+}
 inline string concat(const string& a, CStr b) noexcept { return b ? a + b : a; }
 
 inline string concat(CStr a, const string& b, CStr c = nullptr) noexcept {
