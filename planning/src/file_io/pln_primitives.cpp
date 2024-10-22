@@ -184,13 +184,49 @@ using std::string;
       "CLK_OUT_DIV3", "CLK_OUT_DIV4",
       "SERDES_FAST_CLK", "LOCK" },
 
-    // TDP_RAM18KX2
-    { "RDATA_A1", "RDATA_B1", "RDATA_A2", "RDATA_B2",
-      "RPARITY_A1", "RPARITY_B1", "RPARITY_A2", "RPARITY_B2" },
+    // ---- TDP_RAM18KX2
+    {
+      // RDATA_A1[15:0]:
+      "RDATA_A1[15]", "RDATA_A1[14]", "RDATA_A1[13]", "RDATA_A1[12]", "RDATA_A1[11]", "RDATA_A1[10]",
+      "RDATA_A1[9]", "RDATA_A1[8]", "RDATA_A1[7]", "RDATA_A1[6]", "RDATA_A1[5]", "RDATA_A1[4]",
+      "RDATA_A1[3]", "RDATA_A1[2]", "RDATA_A1[1]", "RDATA_A1[0]",
+
+       // RPARITY_A1[1:0]:
+       //  default: "{2{1'b0}}"
+      "RPARITY_A1[1]", "RPARITY_A1[0]",
+
+      // RDATA_B1[15:0]:
+      "RDATA_B1[15]", "RDATA_B1[14]", "RDATA_B1[13]", "RDATA_B1[12]", "RDATA_B1[11]", "RDATA_B1[10]",
+      "RDATA_B1[9]", "RDATA_B1[8]", "RDATA_B1[7]", "RDATA_B1[6]", "RDATA_B1[5]", "RDATA_B1[4]",
+      "RDATA_B1[3]", "RDATA_B1[2]", "RDATA_B1[1]", "RDATA_B1[0]",
+
+       // RPARITY_B1[1:0]:
+       //  default: "{2{1'b0}}"
+      "RPARITY_B1[1]", "RPARITY_B1[0]",
+
+      // RDATA_A2[15:0]:
+      "RDATA_A2[15]", "RDATA_A2[14]", "RDATA_A2[13]", "RDATA_A2[12]", "RDATA_A2[11]", "RDATA_A2[10]",
+      "RDATA_A2[9]", "RDATA_A2[8]", "RDATA_A2[7]", "RDATA_A2[6]", "RDATA_A2[5]", "RDATA_A2[4]",
+      "RDATA_A2[3]", "RDATA_A2[2]", "RDATA_A2[1]", "RDATA_A2[0]",
+
+       // RPARITY_A2[1:0]:
+       //  default: "{2{1'b0}}"
+      "RPARITY_A2[1]", "RPARITY_A2[0]",
+
+      // RDATA_B2[15:0]:
+      "RDATA_B2[15]", "RDATA_B2[14]", "RDATA_B2[13]", "RDATA_B2[12]", "RDATA_B2[11]", "RDATA_B2[10]",
+      "RDATA_B2[9]", "RDATA_B2[8]", "RDATA_B2[7]", "RDATA_B2[6]", "RDATA_B2[5]", "RDATA_B2[4]",
+      "RDATA_B2[3]", "RDATA_B2[2]", "RDATA_B2[1]", "RDATA_B2[0]",
+
+       // RPARITY_B2[1:0]:
+       //  default: "{2{1'b0}}"
+      "RPARITY_B2[1]", "RPARITY_B2[0]"
+    },
 
     // TDP_RAM36K
     {
       // RDATA_A[31:0]
+      "RDATA_A[31]",
       "RDATA_A[30]", "RDATA_A[29]", "RDATA_A[28]", "RDATA_A[27]", "RDATA_A[26]", "RDATA_A[25]",
       "RDATA_A[24]", "RDATA_A[23]", "RDATA_A[22]", "RDATA_A[21]", "RDATA_A[20]", "RDATA_A[19]",
       "RDATA_A[18]", "RDATA_A[17]", "RDATA_A[16]", "RDATA_A[15]", "RDATA_A[14]", "RDATA_A[13]",
@@ -199,6 +235,7 @@ using std::string;
       "RDATA_A[1]", "RDATA_A[0]",
 
       // RDATA_B[31:0]
+      "RDATA_B[31]",
       "RDATA_B[30]", "RDATA_B[29]", "RDATA_B[28]", "RDATA_B[27]", "RDATA_B[26]", "RDATA_B[25]",
       "RDATA_B[24]", "RDATA_B[23]", "RDATA_B[22]", "RDATA_B[21]", "RDATA_B[20]", "RDATA_B[19]",
       "RDATA_B[18]", "RDATA_B[17]", "RDATA_B[16]", "RDATA_B[15]", "RDATA_B[14]", "RDATA_B[13]",
@@ -379,7 +416,27 @@ using std::string;
     // PLL
     { "PLL_EN", "CLK_IN" },
 
-    // TDP_RAM18KX2  // TMP. INCOMPLETE
+    // ---- TDP_RAM18KX2  // TMP. INCOMPLETE
+    // WEN_A1:
+    //   dir: input
+    //   desc: Write-enable port A, RAM 1
+    // WEN_B1:
+    //   dir: input
+    //   desc: Write-enable port B, RAM 1
+    // REN_A1:
+    //   dir: input
+    //   desc: Read-enable port A, RAM 1
+    // REN_B1:
+    //   dir: input
+    //   desc: Read-enable port B, RAM 1
+    // CLK_A1:
+    //   dir: input
+    //   desc: Clock port A, RAM 1
+    //   bb_attributes: clkbuf_sink
+    // CLK_B1:
+    //   dir: input
+    //   desc: Clock port B, RAM 1
+    //   bb_attributes: clkbuf_sink
     { "WEN_A1", "WEN_B1", "REN_A1", "REN_B1",
       "CLK_A1", "CLK_B1" },
 
