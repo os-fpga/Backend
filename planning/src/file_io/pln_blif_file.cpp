@@ -306,7 +306,7 @@ bool BLIF_file::readBlif() noexcept {
   }
 
   size_t num_escaped = escapeNL();
-  if (trace_ >= 4) {
+  if (trace_ >= 6) {
     lprintf(" ....\\ ...  num_escaped= %zu\n", num_escaped);
   }
 
@@ -2509,7 +2509,12 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
   if (not hasLines())
     return {};
 
-  string fn2 = (toFn == fnm_ ? str::concat("2_", toFn) : toFn);
+  string fn2 = toFn; // (toFn == fnm_ ? str::concat("2_", toFn) : toFn);
+
+  if (trace_ >= 4) {
+    lout() << "pln_blif_file: writing BLIF to " << fn2
+           << "\n  CWD= " << get_CWD() << endl;
+  }
 
   CStr cnm = fn2.c_str();
   FILE* f = ::fopen(cnm, "w");
@@ -2562,7 +2567,7 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
         buf[0] = 0; buf[1] = 0;
         size_t rdsz = dNode.realData_.size();
         if (trace_ >= 4) {
-          lprintf("wrBlif: cell %s at line %zu has dangling bit, filtering..\n",
+          lprintf("  wrBlif: cell %s at line %zu has dangling bit, filtering..\n",
                   dNode.cPrimType(), lineNum);
           if (trace_ >= 5) {
             lprintf("    dangling cell realData_.size()= %zu\n", rdsz);
@@ -2581,7 +2586,7 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
           tail = ::stpcpy(tail, ts);
         }
         if (trace_ >= 4) {
-          lprintf("wrBlif: filtered dangling bits (%u) for cell %s at line %zu\n",
+          lprintf("  wrBlif: filtered dangling bits (%u) for cell %s at line %zu\n",
                   skipCnt, dNode.cPrimType(), lineNum);
         }
       }
@@ -2617,6 +2622,8 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
 
   flush_out(trace_ >= 5);
 
+  if (error)
+    return {};
   return fn2;
 }
 

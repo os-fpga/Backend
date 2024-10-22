@@ -1,6 +1,7 @@
 #include "RS/rsCheck.h"
 #include "file_io/pln_blif_file.h"
 #include "file_io/pln_csv_reader.h"
+#include <filesystem>
 
 namespace pln {
 
@@ -117,8 +118,13 @@ bool do_check_blif(CStr cfn,
       lprintf("  # WARNINGS= %u", numWarn);
     lputs();
     if (numWarn or ::getenv("pln_always_write_blif")) {
-      string outFn = str::concat("PLN_W", std::to_string(numWarn), "_", cfn);
+      std::filesystem::path full_path{bfile.fnm_};
+      std::filesystem::path base_path = full_path.filename();
+      std::string base = base_path.string();
+      string outFn = str::concat("PLN_W", std::to_string(numWarn), "_", base);
+
       string wr_ok = bfile.writeBlif(outFn, numWarn);
+
       if (wr_ok.empty())
         lprintf("---!!  FAILED writeBlif to '%s'\n", outFn.c_str());
       else
