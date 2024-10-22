@@ -18,8 +18,7 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   topOutputs_.clear();
   fabricNodes_.clear();
   fabricRealNodes_.clear();
-  dang_RAM_outputs_.clear();
-  dang_DSP_outputs_.clear();
+  dangOutputs_.clear();
   latches_.clear();
   constantNodes_.clear();
   rd_ok_ = chk_ok_ = false;
@@ -195,6 +194,17 @@ CStr BLIF_file::BNode::cPrimType() const noexcept {
   if (is_const_)
     return "CONST";
   return ptype_ == prim::A_ZERO ? "{e}" : pr_enum2str(ptype_);
+}
+
+bool BLIF_file::BNode::isDanglingTerm(uint term) const noexcept {
+  if (dangTerms_.empty())
+    return false;
+  const uint* A = dangTerms_.data();
+  for (int64_t i = int64_t(dangTerms_.size()) - 1; i >= 0; i--) {
+    if (A[i] == term)
+      return true;
+  }
+  return false;
 }
 
 int BLIF_file::findTermByNet(const vector<string>& D, const string& net) noexcept {
@@ -885,9 +895,24 @@ uint BLIF_file::countConstNodes() const noexcept {
 }
 
 uint BLIF_file::numWarnings() const noexcept {
-  assert(dang_RAM_outputs_.size() < size_t(INT_MAX));
-  assert(dang_DSP_outputs_.size() < size_t(INT_MAX));
-  return dang_RAM_outputs_.size() + dang_DSP_outputs_.size();
+  assert(dangOutputs_.size() < size_t(INT_MAX));
+  return dangOutputs_.size();
+}
+
+BLIF_file::NodeDescriptor BLIF_file::hasDanglingBit(uint lnum) const noexcept {
+  assert(dangOutputs_.size() < size_t(INT_MAX));
+  NodeDescriptor ret;
+  if (!lnum or dangOutputs_.empty())
+    return ret;
+
+  // TMP linear
+  for (const NodeDescriptor& desc : dangOutputs_) {
+    if (desc.lnum_ == lnum) {
+      ret = desc;
+      break;
+    }
+  }
+  return ret;
 }
 
 uint BLIF_file::printCarryNodes(std::ostream& os) const noexcept {
@@ -1118,8 +1143,7 @@ bool BLIF_file::createNodes() noexcept {
   topOutputs_.clear();
   fabricNodes_.clear();
   fabricRealNodes_.clear();
-  dang_RAM_outputs_.clear();
-  dang_DSP_outputs_.clear();
+  dangOutputs_.clear();
   latches_.clear();
   constantNodes_.clear();
   if (!rd_ok_) return false;
@@ -1173,7 +1197,7 @@ bool BLIF_file::createNodes() noexcept {
     nodePool_.emplace_back();  // put a fake node
   }
 
-  char buf[4096] = {};
+  char buf[8192] = {};
   V.clear();
   inputs_lnum_ = outputs_lnum_ = 0;
   err_lnum_ = 0;
@@ -1550,8 +1574,6 @@ void BLIF_file::BNode::allInputPins(vector<string>& V) const noexcept {
   return;
 }
 
-// void BLIF_file::BNode:: allInputSignals(vector<string>& V) const noexcept;
-
 BLIF_file::BNode* BLIF_file::findOutputPort(const string& contact) noexcept {
   assert(not contact.empty());
   if (topOutputs_.empty()) return nullptr;
@@ -1765,10 +1787,7 @@ bool BLIF_file::linkNodes() noexcept {
           lputs();
         }
         realNd.dangTerms_.push_back(dataTerm);
-        if (nd.is_RAM())
-          dang_RAM_outputs_.emplace_back(realNd.id_, dataTerm);
-        else
-          dang_DSP_outputs_.emplace_back(realNd.id_, dataTerm);
+        dangOutputs_.emplace_back(realNd.lnum_, realNd.id_, dataTerm);
         continue;
       }
       err_msg_ = "dangling cell output: ";
@@ -2228,7 +2247,7 @@ bool BLIF_file::createPinGraph() noexcept {
         }
         uint driver_realId = driver->realId(*this);
 
-        if (trace_ >= 5) {
+        if (trace_ >= 6) {
           lputs();
           lprintf(" from cn#%u %s ",
                 cn_realId, cn.cPrimType() );
@@ -2503,18 +2522,81 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
     return {};
   }
 
+  constexpr uint buf_CAP = 1048574; // 1 MiB
+  char buf[buf_CAP + 2] = {};
   size_t cnt = 0, n = lines_.size();
-  for (size_t i = 0; i < n; i++) {
-    CStr cs = lines_[i];
-    if (!cs || !cs[0]) continue;
-    ::fputs(cs, f);
+  if (n < 2) {
+    ::fclose(f);
+    return {};
+  }
+  bool error = false;
+
+  ::fprintf(f, "### written by PLN %s\n\n", pln_get_version());
+  if (::ferror(f)) {
+    if (trace_ >= 3) {
+      flush_out(true);
+      lprintf("ERROR writeBlif() error during writing: %s\n", cnm);
+      flush_out(true);
+    }
+    error = true;
+    n = 0; // skips the loop
+  }
+
+  for (size_t lineNum = 0; lineNum < n; lineNum++) {
+    CStr cs = lines_[lineNum];
+    if (!cs || !cs[0])
+      continue;
+
+    ::strncpy(buf, cs, buf_CAP);
+
+    if (cleanUp) {
+      NodeDescriptor ddesc = hasDanglingBit(lineNum);
+      if (ddesc.valid()) {
+        assert(ddesc.nid_ > 0);
+        const BNode& dNode = bnodeRef(ddesc.nid_);
+        assert(not dNode.isVirtualMog());
+        assert(not dNode.realData_.empty());
+        assert(not dNode.dangTerms_.empty());
+        // build 'buf' skipping dangling terms
+        uint skipCnt = 0;
+        buf[0] = 0; buf[1] = 0;
+        size_t rdsz = dNode.realData_.size();
+        if (trace_ >= 4) {
+          lprintf("wrBlif: cell %s at line %zu has dangling bit, filtering..\n",
+                  dNode.cPrimType(), lineNum);
+          if (trace_ >= 5) {
+            lprintf("    dangling cell realData_.size()= %zu\n", rdsz);
+          }
+        }
+        char* tail = ::stpcpy(buf, ".subckt");
+        for (size_t i = 0; i < rdsz; i++) {
+          if (dNode.isDanglingTerm(i)) {
+            if (trace_ >= 6)
+              lprintf("\t    (wrBlif) skipping dangling term %zu\n", i);
+            skipCnt++;
+            continue;
+          }
+          CStr ts = dNode.realData_[i].c_str();
+          tail = ::stpcpy(tail, " ");
+          tail = ::stpcpy(tail, ts);
+        }
+        if (trace_ >= 4) {
+          lprintf("wrBlif: filtered dangling bits (%u) for cell %s at line %zu\n",
+                  skipCnt, dNode.cPrimType(), lineNum);
+        }
+      }
+    }
+
+    ::fputs(buf, f);
     ::fputc('\n', f);
+
     if (::ferror(f)) {
       if (trace_ >= 3) {
         flush_out(true);
         lprintf("ERROR writeBlif() error during writing: %s\n", cnm);
         flush_out(true);
       }
+      error = true;
       break;
     }
     cnt++;
@@ -2522,10 +2604,17 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
 
   ::fclose(f);
 
-  if (trace_ >= 4) {
-    flush_out(trace_ >= 5);
+  flush_out(trace_ >= 5);
+
+  if (error) {
+    flush_out(true); err_puts();
+    lprintf2("[Error] writeBlif ERROR writing: %s\n", cnm);
+    err_puts(); flush_out(true);
+  }
+  else if (trace_ >= 4) {
     lprintf("  writeBlif OK written #lines= %zu\n", cnt);
   }
+
   flush_out(trace_ >= 5);
 
   return fn2;

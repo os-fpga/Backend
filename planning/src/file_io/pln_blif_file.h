@@ -16,6 +16,21 @@ using std::vector;
 
 struct BLIF_file : public fio::MMapReader
 {
+  struct NodeDescriptor {
+    uint lnum_ = 0;
+    uint  nid_ = 0;
+    int  term_ = -1; // index in realData_
+
+    NodeDescriptor() noexcept = default;
+    NodeDescriptor(uint l, uint n, int t) noexcept
+      : lnum_(l), nid_(n), term_(t)
+    {}
+
+    bool valid() const noexcept { return lnum_; }
+    void inval() noexcept { lnum_ = 0; term_ = -1; }
+    void reset() noexcept { lnum_ = 0; nid_ = 0; term_ = -1; }
+  };
+
   // Nodes are rooted at output ports.
   // Input ports are leaves.
   // Output ports are roots of fanin cones.
@@ -198,6 +213,8 @@ struct BLIF_file : public fio::MMapReader
 
     CStr cPrimType() const noexcept;
 
+    bool isDanglingTerm(uint term) const noexcept;
+
     struct CmpOut {
       bool operator()(const BNode* a, const BNode* b) const noexcept {
         return a->out_ < b->out_;
@@ -298,6 +315,7 @@ public:
   uint countConstNodes() const noexcept;
 
   uint numWarnings() const noexcept;
+  NodeDescriptor hasDanglingBit(uint lnum) const noexcept;
 
   uint printInputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
   uint printOutputs(std::ostream& os, CStr spacer = nullptr) const noexcept;
@@ -349,8 +367,7 @@ private:
   std::vector<BNode*> fabricNodes_, constantNodes_;
   std::vector<BNode*> fabricRealNodes_; // skip virtual SOGs
 
-  std::vector<upair> dang_RAM_outputs_; // (nid, dataTerm)
-  std::vector<upair> dang_DSP_outputs_; // (nid, dataTerm)
+  std::vector<NodeDescriptor> dangOutputs_; // (lnum, nid, term)
 
   std::vector<BNode*> latches_; // latches are not checked for now
 
