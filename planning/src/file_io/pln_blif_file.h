@@ -28,15 +28,19 @@ struct BLIF_file : public fio::MMapReader
     uint depth_ = 0;
     vector<uint> chld_;
 
-    string kw_;              // keyword: .names, .latch, .subckt, .gate, etc.
-    vector<string> data_;    // everything on the line ater kw, tokenized
+    string kw_;               // keyword: .names, .latch, .subckt, .gate, etc.
 
-    vector<string> inPins_;  // input pins from Prim-DB
-    vector<string> inSigs_;  // input signals from blif-file
+    vector<string> realData_; // everything on the line ater kw, tokenized.
+                              // populated only for real MOGs, otherwise use data_
 
-    string out_;             // SOG output net (=signal) (real or virtual)
+    vector<string> data_;     // like realData_, but has only 1 output term (virtual SOG)
 
-    uint virtualOrigin_ = 0; // node-ID from which this virtual MOG is created
+    vector<string> inPins_;   // input pins from Prim-DB
+    vector<string> inSigs_;   // input signals from blif-file
+
+    string out_;              // SOG output net (=signal) (real or virtual)
+
+    uint virtualOrigin_ = 0;  // node-ID from which this virtual MOG is created
 
     prim::Prim_t  ptype_ = prim::A_ZERO;
 
@@ -331,6 +335,8 @@ private:
     return F->second;
   }
 
+  static int findTermByNet(const vector<string>& D, const string& net) noexcept; // index in BNode::data_
+
 // DATA:
   std::vector<BNode> nodePool_;  // nodePool_[0] is a fake node "parent of root"
 
@@ -338,8 +344,8 @@ private:
   std::vector<BNode*> fabricNodes_, constantNodes_;
   std::vector<BNode*> fabricRealNodes_; // skip virtual SOGs
 
-  std::vector<uint> dang_RAM_outputs_;
-  std::vector<uint> dang_DSP_outputs_;
+  std::vector<upair> dang_RAM_outputs_; // (nid, dataTerm)
+  std::vector<upair> dang_DSP_outputs_; // (nid, dataTerm)
 
   std::vector<BNode*> latches_; // latches are not checked for now
 

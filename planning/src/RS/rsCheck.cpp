@@ -19,7 +19,7 @@ bool do_check_blif(CStr cfn,
 
   BLIF_file bfile(string{cfn});
 
-  if (tr >= 4)
+  if (tr >= 3)
     bfile.setTrace(tr);
 
   bool exi = false;

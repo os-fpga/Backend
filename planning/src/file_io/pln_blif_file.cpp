@@ -197,6 +197,28 @@ CStr BLIF_file::BNode::cPrimType() const noexcept {
   return ptype_ == prim::A_ZERO ? "{e}" : pr_enum2str(ptype_);
 }
 
+int BLIF_file::findTermByNet(const vector<string>& D, const string& net) noexcept {
+  assert(not net.empty());
+  assert(not D.empty());
+  if (net.empty() or D.empty())
+    return -1;
+
+  int64_t sz = D.size();
+  assert(sz < INT_MAX);
+
+  //lputs();
+  //logVec(D, " _bnode.D ");
+  //lputs();
+
+  for (int i = sz - 1; i >= 0; i--) {
+    CStr term = D[i].c_str();
+    CStr p = ::strchr(term, '=');
+    if (p and net == p+1)
+      return i;
+  }
+  return -1;
+}
+
 bool BLIF_file::readBlif() noexcept {
   inputs_.clear();
   outputs_.clear();
@@ -507,7 +529,8 @@ bool BLIF_file::checkBlif(vector<string>& badInputs,
   if (trace_ >= 8) {
     //string written = pr_write_yaml( FIFO36K );
     //string written = pr_write_yaml( FIFO18KX2 );
-    string written = pr_write_yaml( TDP_RAM36K );
+    //string written = pr_write_yaml( TDP_RAM36K );
+    string written = pr_write_yaml( TDP_RAM18KX2 );
     flush_out(true);
     if (written.empty()) {
       lprintf("\t\t  FAIL: pr_write_yaml() FAILED\n\n");
@@ -515,7 +538,7 @@ bool BLIF_file::checkBlif(vector<string>& badInputs,
       lprintf("\t  written: %s\n\n", written.c_str());
       if (0) {
         lprintf("\n    ");
-        for (int bb = 30; bb >= 0; bb--) {
+        for (int bb = 15; bb >= 0; bb--) {
           lprintf(" \"RDATA_A[%i]\",", bb);
         }
         lputs();
@@ -1127,6 +1150,12 @@ bool BLIF_file::createNodes() noexcept {
       if (not starts_w_subckt(cs + 1, len - 1))
         continue;
       Fio::split_spa(lines_[L], V);
+      //if (L == 48) {
+      //  string delWire1151 = "$delete_wire$1151";
+      //  lputs8();
+      //  int dTerm = findTermByNet(V, delWire1151);
+      //  lprintf("  dTerm= %i\n", dTerm);
+      //}
       if (V.size() > 1 and V.front() == ".subckt") {
         Prim_t pt = pr_str2enum( V[1].c_str() );
         if (pr_is_MOG(pt)) {
@@ -1172,7 +1201,6 @@ bool BLIF_file::createNodes() noexcept {
     if (starts_w_names(cs + 1, len - 1)) {
       Fio::split_spa(lines_[L], V);
       if (V.size() > 1 and V.front() == ".names") {
-        //lputs9();
         nodePool_.emplace_back(".names", L);
         BNode& nd = nodePool_.back();
         nd.data_.assign(V.begin() + 1, V.end());
@@ -1209,7 +1237,6 @@ bool BLIF_file::createNodes() noexcept {
         nd.ptype_ = pr_str2enum(nd.data_front());
         nd.place_output_at_back(nd.data_);
         if (pr_is_DSP(nd.ptype_)) {
-          //lputs9();
           vector<string> TK;
           // search for .param DSP_MODE "MULTIPLY"
           // to flag clock-less DSP
@@ -1285,6 +1312,13 @@ bool BLIF_file::createNodes() noexcept {
       continue;
     assert(!nd.is_mog_);
 
+    //if (nd.lnum_ == 48) {
+    //  string delWire1151 = "$delete_wire$1151";
+    //  lputs8();
+    //  int dTerm = findTermByNet(nd.data_, delWire1151);
+    //  lprintf("  dTerm= %i\n", dTerm);
+    //}
+
     s_is_MOG(nd, V);
     bool is_mog = V.size() > 1;
     if (is_mog) {
@@ -1294,8 +1328,8 @@ bool BLIF_file::createNodes() noexcept {
         logVec(V, "  [V-terms] ");
         lputs();
       }
-      //lputs9();
 
+      vector<string> dataCopy { nd.data_ };
       s_remove_MOG_terms(nd);
       uint startVirtual = nodePool_.size();
       for (uint j = 1; j < V.size(); j++) {
@@ -1303,6 +1337,7 @@ bool BLIF_file::createNodes() noexcept {
         nodePool_.back().virtualOrigin_ = i;
         nodePool_.back().is_mog_ = true;
       }
+      nd.realData_.swap(dataCopy);
       nd.data_.push_back(V.front());
       nd.is_mog_ = true;
       // give one output term to each virtual MOG:
@@ -1341,8 +1376,6 @@ bool BLIF_file::createNodes() noexcept {
     }
     if (nd.kw_ == ".subckt" or nd.kw_ == ".gate") {
       if (nd.data_.size() > 1) {
-        // if (nd.lnum_ == 47)
-        //   lputs8();
         const string& last = nd.data_.back();
         size_t llen = last.length();
         if (!last.empty() and llen < 4095) {
@@ -1637,7 +1670,6 @@ bool BLIF_file::linkNodes() noexcept {
     assert(fab_nd);
     BNode& nd = *fab_nd;
     if (nd.out_.empty()) {
-      //lputs8();
       err_msg_ = str::concat("incomplete fabric cell:  ", nd.kw_);
       if (!nd.data_.empty()) {
         err_msg_ += str::concat("  ", nd.data_.front());
@@ -1708,20 +1740,35 @@ bool BLIF_file::linkNodes() noexcept {
     assert(!nd.out_.empty());
     if (nd.parent_)
       continue;
+    // if (nd.lnum_ == 48)
+    //   lputs7();
     int pinIndex = -1;
     BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
     if (!par) {
       if (nd.is_RAM() or nd.is_DSP()) {
+        const string& net = nd.out_;
         bool is_ram = nd.is_RAM();
+        uint rid = nd.realId(*this);
+        const BNode& realNd = bnodeRef(rid);
+        const vector<string>& realData = realNd.realData_;
+        assert(not realData.empty());
+        int dataTerm = findTermByNet(realData, net);
+        assert(dataTerm >= 0);
+        assert(dataTerm < int64_t(realData.size()));
+        if (dataTerm < 0)
+          continue;
         // RAM or DSP output bits may be unused
-        if (trace_ >= 5) {
+        if (trace_ >= 4) {
           lprintf("skipping dangling cell output issue for %s at line %u\n",
-                  is_ram ? "RAM" : "DSP", nd.lnum_);
+                  is_ram ? "RAM" : "DSP", realNd.lnum_);
+          lprintf("  dangling net: %s  term# %i %s\n",
+                  net.c_str(), dataTerm, realData[dataTerm].c_str());
+          lputs();
         }
         if (is_ram)
-          dang_RAM_outputs_.emplace_back(nd.id_);
+          dang_RAM_outputs_.emplace_back(realNd.id_, dataTerm);
         else
-          dang_DSP_outputs_.emplace_back(nd.id_);
+          dang_DSP_outputs_.emplace_back(realNd.id_, dataTerm);
         continue;
       }
       err_msg_ = "dangling cell output: ";
@@ -1934,7 +1981,7 @@ bool BLIF_file::checkClockSepar(vector<BNode*>& clocked) noexcept {
   else
     pg_.setNwName("pin_graph_VIOL");
 
-  if (trace_ >= 3) {
+  if (not ::getenv("pln_blif_dont_write_pinGraph")) {
     pinGraphFile_ = writePinGraph("_PinGraph.dot");
   }
 
