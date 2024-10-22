@@ -1747,9 +1747,8 @@ bool BLIF_file::linkNodes() noexcept {
     if (!par) {
       if (nd.is_RAM() or nd.is_DSP()) {
         const string& net = nd.out_;
-        bool is_ram = nd.is_RAM();
         uint rid = nd.realId(*this);
-        const BNode& realNd = bnodeRef(rid);
+        BNode& realNd = bnodeRef(rid);
         const vector<string>& realData = realNd.realData_;
         assert(not realData.empty());
         int dataTerm = findTermByNet(realData, net);
@@ -1760,12 +1759,13 @@ bool BLIF_file::linkNodes() noexcept {
         // RAM or DSP output bits may be unused
         if (trace_ >= 4) {
           lprintf("skipping dangling cell output issue for %s at line %u\n",
-                  is_ram ? "RAM" : "DSP", realNd.lnum_);
+                  realNd.cPrimType(), realNd.lnum_);
           lprintf("  dangling net: %s  term# %i %s\n",
                   net.c_str(), dataTerm, realData[dataTerm].c_str());
           lputs();
         }
-        if (is_ram)
+        realNd.dangTerms_.push_back(dataTerm);
+        if (nd.is_RAM())
           dang_RAM_outputs_.emplace_back(realNd.id_, dataTerm);
         else
           dang_DSP_outputs_.emplace_back(realNd.id_, dataTerm);
@@ -2480,6 +2480,55 @@ string BLIF_file::writePinGraph(CStr fn0) const noexcept {
   if (wrDot_ok)
     return fn;
   return {};
+}
+
+string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
+  if (toFn.empty())
+    return {};
+  if (!fsz_ || !sz_ || !buf_ || fnm_.empty())
+    return {};
+  if (not hasLines())
+    return {};
+
+  string fn2 = (toFn == fnm_ ? str::concat("2_", toFn) : toFn);
+
+  CStr cnm = fn2.c_str();
+  FILE* f = ::fopen(cnm, "w");
+  if (!f) {
+    if (trace_ >= 3) {
+      flush_out(true);
+      lprintf("ERROR writeBlif() could not open file for writing: %s\n", cnm);
+      flush_out(true);
+    }
+    return {};
+  }
+
+  size_t cnt = 0, n = lines_.size();
+  for (size_t i = 0; i < n; i++) {
+    CStr cs = lines_[i];
+    if (!cs || !cs[0]) continue;
+    ::fputs(cs, f);
+    ::fputc('\n', f);
+    if (::ferror(f)) {
+      if (trace_ >= 3) {
+        flush_out(true);
+        lprintf("ERROR writeBlif() error during writing: %s\n", cnm);
+        flush_out(true);
+      }
+      break;
+    }
+    cnt++;
+  }
+
+  ::fclose(f);
+
+  if (trace_ >= 4) {
+    flush_out(trace_ >= 5);
+    lprintf("  writeBlif OK written #lines= %zu\n", cnt);
+  }
+  flush_out(trace_ >= 5);
+
+  return fn2;
 }
 
 }

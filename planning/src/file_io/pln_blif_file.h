@@ -35,6 +35,8 @@ struct BLIF_file : public fio::MMapReader
 
     vector<string> data_;     // like realData_, but has only 1 output term (virtual SOG)
 
+    vector<uint> dangTerms_;  // realData_ indexes of dangling bits
+
     vector<string> inPins_;   // input pins from Prim-DB
     vector<string> inSigs_;   // input signals from blif-file
 
@@ -270,6 +272,9 @@ public:
   virtual void reset(CStr nm, uint16_t tr = 0) noexcept override;
 
   bool readBlif() noexcept;
+
+  string writeBlif(const string& toFn, bool cleanUp) noexcept;
+
   bool checkBlif(vector<string>& badInputs, vector<string>& badOutputs) noexcept;
 
   uint numInputs() const noexcept { return inputs_.size(); }
