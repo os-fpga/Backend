@@ -703,7 +703,7 @@ int64_t MMapReader::writeFile(const string& nm) noexcept {
   if (nm == fnm_)
     return -1;
 
-  auto tr = trace();
+  uint16_t tr = trace();
   CStr cnm = nm.c_str();
   FILE* f = ::fopen(cnm, "w");
   if (!f) {

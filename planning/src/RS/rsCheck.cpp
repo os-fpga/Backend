@@ -66,7 +66,7 @@ bool do_check_blif(CStr cfn,
   bool chk_ok = bfile.checkBlif(badInputs, badOutputs);
   assert(chk_ok == bfile.chk_ok_);
 
-  lprintf("=====   passed: %s\n", chk_ok ? "YES" : "NO");
+  lprintf("=====  passed: %s\n", chk_ok ? "YES" : "NO");
 
   ls << "-----    topModel: " << bfile.topModel_ << endl;
   ls << "-----        file: " << bfile.fnm_ << endl;
@@ -116,8 +116,16 @@ bool do_check_blif(CStr cfn,
     if (numWarn)
       lprintf("  # WARNINGS= %u", numWarn);
     lputs();
+    if (::getenv("pln_always_write_blif")) {
+      string outFn = str::concat("PLN_", cfn);
+      string wr_ok = bfile.writeBlif(outFn, false);
+      if (wr_ok.empty())
+        lprintf("---!!  FAILED writeBlif to '%s'\n", outFn.c_str());
+      else
+        lprintf("+++++  WRITTEN '%s'\n", wr_ok.c_str());
+    }
   }
-  lprintf("=====    passed: %s\n", chk_ok ? "YES" : "NO");
+  lprintf("=====  passed: %s\n", chk_ok ? "YES" : "NO");
 
   flush_out(true);
   if (chk_ok) {
