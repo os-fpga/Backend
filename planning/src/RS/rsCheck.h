@@ -13,6 +13,11 @@ bool do_check_blif(CStr cfn,
                    std::vector<std::string>& badInputs,
                    std::vector<std::string>& badOutputs);
 
+bool do_cleanup_blif(
+                  CStr cfn,
+                  std::vector<uspair>& corrected // (lnum, removed_net)
+                  );
+
 }
 
 #endif

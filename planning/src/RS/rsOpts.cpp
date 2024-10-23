@@ -15,17 +15,24 @@ namespace alias {
 
 static CStr _ver_[] = {"V", "v", "ver", "vers", "version", nullptr};
 
-static CStr _det_ver_[] = {"VV", "vv", "VVV", "vvv", "det_ver", "detailed_version", nullptr};
+static CStr _det_ver_[] = { "VV", "vv", "VVV", "vvv", "det_ver",
+                            "detailed_version", nullptr };
 
-static CStr _help_[] = {"H", "h", "help", "hel", "hlp", "he", nullptr};
+static CStr _help_[] = { "H", "HH", "h", "hh", "help",
+                         "hel", "hlp", "he", nullptr };
 
-static CStr _fun_[] = {"F", "fu", "fun", "func", "funct", "function", nullptr};
+static CStr _fun_[] = { "F", "FF", "ff", "fu", "fun", "func",
+                        "funct", "function", nullptr };
 
-static CStr _check_[] = {"CH", "ch", "CC", "cc", "che", "chec", "check", nullptr};
+static CStr _check_[] = { "CH", "CHECK", "ch", "CC", "cc", "che", "chec",
+                          "check", "check_blif", nullptr };
 
-static CStr _csv_[] = {"CSV", "cs", "csv", nullptr};
+static CStr _clean_[] = { "CLEAN", "CLEANUP", "clean", "cleanup", "clean_up",
+                          "cleanup_blif", "cleanupblif", "clean_up_blif", nullptr };
 
-static CStr _xml_[] = {"XM", "xm", "xml", "XML", nullptr};
+static CStr _csv_[] = {"CSV", "cs", "csv", "Csv", nullptr};
+
+static CStr _xml_[] = {"XM", "xm", "xml", "Xml", "XML", nullptr};
 
 static CStr _pcf_[] = {"PCF", "pcf", nullptr};
 
@@ -38,14 +45,12 @@ static CStr _json_[] = {"JS", "js", "jsf", "json", "port_info", "port_i", "PI", 
 
 static CStr _output_[] = {"OU", "ou", "out", "outp", "output", nullptr};
 
-static CStr _assOrd_[] = {"ASS", "ass", "assign", "assign_unconstrained", "assign_unconstrained_pins", nullptr};
+static CStr _assOrd_[] = { "ASS", "ass", "assign", "assign_unconstrained",
+                           "assign_unconstrained_pins", nullptr };
 
 static CStr _trace_[] = {"TR", "T", "TT", "tt", "trace", "Trace", "Tr", "tr", "tra", "trac", nullptr};
 
 static CStr _test_[] = {"TE", "TC", "test", "te", "tc", "tes", "tst", "test_case", "test_c", nullptr};
-
-#ifdef RSBE_UNIT_TEST_ON
-#endif  // RSBE_UNIT_TEST_ON
 
 }
 
@@ -158,6 +163,7 @@ void rsOpts::printHelp() const noexcept {
     "--version,-V", "Version",
     "--trace,-T <number>", "Trace level, default 3",
     "--check <blif_file_name>", "BLIF or EBLIF file to check",
+    "--clean_up <blif_file_name>", "BLIF or EBLIF file to clean up",
     "--csv <csv_file_name>", "CSV file (pin table) to check",
     nullptr, nullptr, nullptr };
 
@@ -323,9 +329,12 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
       check_ = true;
       continue;
     }
+    if (op_match(arg, _clean_)) {
+      cleanup_ = true;
+      continue;
+    }
 
-#ifdef RSBE_UNIT_TEST_ON
-#endif  // RSBE_UNIT_TEST_ON
+    // --
 
     if (op_match(arg, _csv_)) {
       i++;
