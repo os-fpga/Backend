@@ -9,14 +9,22 @@ namespace pln {
 
 bool do_check(const rsOpts& opts, bool blif_vs_csv);
 
-bool do_check_blif(CStr cfn,
-                   std::vector<std::string>& badInputs,
-                   std::vector<std::string>& badOutputs);
+bool do_check_blif(
+                  CStr fileName,
+                  std::vector<std::string>& badInputs,
+                  std::vector<std::string>& badOutputs,
+                  std::vector<uspair>& corrected,
+
+                  bool cleanup = false // cleanup => checker may modify the blif
+
+                  );
+
 
 bool do_cleanup_blif(
-                  CStr cfn,
+                  CStr fileName,
                   std::vector<uspair>& corrected // (lnum, removed_net)
                   );
+
 
 }
 

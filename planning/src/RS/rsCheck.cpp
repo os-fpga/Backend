@@ -9,14 +9,19 @@ using std::vector;
 using std::string;
 using std::endl;
 
+// in 'cleanup' mode checker may modify the blif
 bool do_check_blif(CStr cfn,
                    vector<string>& badInputs,
-                   vector<string>& badOutputs) {
+                   vector<string>& badOutputs,
+                   vector<uspair>& corrected,
+                   bool cleanup) {
   assert(cfn);
   uint16_t tr = ltrace();
   auto& ls = lout();
   badInputs.clear();
   badOutputs.clear();
+  corrected.clear();
+  flush_out(false);
 
   BLIF_file bfile(string{cfn});
 
@@ -25,26 +30,26 @@ bool do_check_blif(CStr cfn,
 
   bool exi = false;
   exi = bfile.fileExists();
-  if (tr >= 7)
-    ls << int(exi) << endl;
   if (not exi) {
+    err_puts(); flush_out(true);
     lprintf2("[Error] file '%s' does not exist\n", cfn); 
+    flush_out(true); err_puts();
     return false;
   }
 
   exi = bfile.fileAccessible();
-  if (tr >= 7)
-    ls << int(exi) << endl;
   if (not exi) {
+    err_puts(); flush_out(true);
     lprintf2("[Error] file '%s' is not accessible\n", cfn); 
+    flush_out(true); err_puts();
     return false;
   }
 
   bool rd_ok = bfile.readBlif();
-  if (tr >= 7)
-    ls << int(rd_ok) << endl;
   if (not rd_ok) {
+    err_puts(); flush_out(true);
     lprintf2("[Error] failed reading file '%s'\n", cfn); 
+    flush_out(true); err_puts();
     return false;
   }
 
@@ -122,14 +127,32 @@ bool do_check_blif(CStr cfn,
       std::filesystem::path base_path = full_path.filename();
       std::string base = base_path.string();
       //lputs9();
-      string outFn = str::concat("PLN_W", std::to_string(numWarn), "_", base);
+      string outFn;
+      if (cleanup) {
+        flush_out(true);
+        lprintf("[PLANNER BLIF-CLEANER] : replacing file '%s' ...\n", cfn);
+        flush_out(true);
+        // cannot write to the currently mem-mapped file,
+        // write to a temproray and rename later.
+        outFn = str::concat(full_path.lexically_normal().string(),
+                    "+BLIF_CLEANER.tmp_", std::to_string(get_PID()));
+      } else {
+        outFn = str::concat("PLN_WARN", std::to_string(numWarn), "_", base);
+      }
 
-      string wr_ok = bfile.writeBlif(outFn, numWarn);
+      string wr_ok = bfile.writeBlif(outFn, bool(numWarn), corrected);
 
-      if (wr_ok.empty())
+      if (wr_ok.empty()) {
         lprintf("---!!  FAILED writeBlif to '%s'\n", outFn.c_str());
-      else
+        if (cleanup) {
+          lprintf("[PLANNER BLIF-CLEANER] : FAILED\n");
+        }
+      } else {
         lprintf("+++++  WRITTEN '%s'\n", wr_ok.c_str());
+        if (cleanup) {
+          lprintf("[PLANNER BLIF-CLEANER] : replaced file '%s'\n", cfn);
+        }
+      }
     }
   }
   lprintf("=====  passed: %s\n", chk_ok ? "YES" : "NO");
@@ -156,11 +179,27 @@ bool do_check_blif(CStr cfn,
 }
 
 // 'corrected' : (lnum, removed_net)
-bool do_cleanup_blif(CStr cfn, std::vector<uspair>& corrected) {
+bool do_cleanup_blif(CStr cfn, vector<uspair>& corrected) {
   assert(cfn);
   corrected.clear();
 
-  return false;
+  vector<string> badInp, badOut;
+  bool status = do_check_blif(cfn, badInp, badOut, corrected, true);
+
+  size_t cor_sz = corrected.size();
+  if (status and cor_sz) {
+    flush_out(true);
+    lprintf("[PLANNER BLIF-CLEANER] : corrected netlist '%s'\n", cfn);
+    lprintf("-- removed dangling nets (%zu):\n", cor_sz);
+    for (size_t i = 0; i < cor_sz; i++) {
+      const uspair& cor = corrected[i];
+      lprintf("    line %u  net %s\n", cor.first, cor.second.c_str());
+    }
+    lprintf("-- removed dangling nets (%zu).\n", cor_sz);
+    flush_out(true);
+  }
+
+  return status;
 }
 
 static bool do_check_csv(CStr cfn) {
@@ -230,7 +269,8 @@ bool do_check(const rsOpts& opts, bool blif_vs_csv) {
   bool status;
   if (blif_vs_csv) {
     vector<string> badInp, badOut;
-    status = do_check_blif(cfn, badInp, badOut);
+    vector<uspair> corrected;
+    status = do_check_blif(cfn, badInp, badOut, corrected, false);
   } else {
     status = do_check_csv(cfn);
   }

@@ -2501,7 +2501,10 @@ string BLIF_file::writePinGraph(CStr fn0) const noexcept {
   return {};
 }
 
-string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
+
+string BLIF_file::writeBlif(const string& toFn, bool cleanUp,
+                            vector<uspair>& corrected) noexcept {
+  corrected.clear();
   if (toFn.empty())
     return {};
   if (!fsz_ || !sz_ || !buf_ || fnm_.empty())
@@ -2513,7 +2516,8 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
 
   if (trace_ >= 4) {
     lout() << "pln_blif_file: writing BLIF to " << fn2
-           << "\n  CWD= " << get_CWD() << endl;
+           << "\n  CWD= " << get_CWD()
+           << "\n  clean-up mode : " << int(cleanUp) << endl;
   }
 
   CStr cnm = fn2.c_str();
@@ -2521,7 +2525,7 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
   if (!f) {
     if (trace_ >= 3) {
       flush_out(true);
-      lprintf("ERROR writeBlif() could not open file for writing: %s\n", cnm);
+      lprintf2("[Error] writeBlif() could not open file for writing: %s\n", cnm);
       flush_out(true);
     }
     return {};
@@ -2540,7 +2544,7 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
   if (::ferror(f)) {
     if (trace_ >= 3) {
       flush_out(true);
-      lprintf("ERROR writeBlif() error during writing: %s\n", cnm);
+      lprintf2("ERROR writeBlif() error during writing: %s\n", cnm);
       flush_out(true);
     }
     error = true;
@@ -2578,6 +2582,7 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
           if (dNode.isDanglingTerm(i)) {
             if (trace_ >= 6)
               lprintf("\t    (wrBlif) skipping dangling term %zu\n", i);
+            corrected.emplace_back(lineNum, dNode.realData_[i]);
             skipCnt++;
             continue;
           }
@@ -2598,7 +2603,7 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp) noexcept {
     if (::ferror(f)) {
       if (trace_ >= 3) {
         flush_out(true);
-        lprintf("ERROR writeBlif() error during writing: %s\n", cnm);
+        lprintf2("ERROR writeBlif() error during writing: %s\n", cnm);
         flush_out(true);
       }
       error = true;
