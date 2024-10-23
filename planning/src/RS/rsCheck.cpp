@@ -10,10 +10,12 @@ using std::string;
 using std::endl;
 
 // in 'cleanup' mode checker may modify the blif
+// if checker wrote blif, 'outFn' is the file name
 bool do_check_blif(CStr cfn,
                    vector<string>& badInputs,
                    vector<string>& badOutputs,
                    vector<uspair>& corrected,
+                   string& outFn,
                    bool cleanup) {
   assert(cfn);
   uint16_t tr = ltrace();
@@ -21,6 +23,7 @@ bool do_check_blif(CStr cfn,
   badInputs.clear();
   badOutputs.clear();
   corrected.clear();
+  outFn.clear();
   flush_out(false);
 
   BLIF_file bfile(string{cfn});
@@ -127,13 +130,12 @@ bool do_check_blif(CStr cfn,
       std::filesystem::path base_path = full_path.filename();
       std::string base = base_path.string();
       //lputs9();
-      string outFn;
       if (cleanup) {
         flush_out(true);
         lprintf("[PLANNER BLIF-CLEANER] : replacing file '%s' ...\n", cfn);
         flush_out(true);
         // cannot write to the currently mem-mapped file,
-        // write to a temproray and rename later.
+        // write to a temporary and rename later.
         outFn = str::concat(full_path.lexically_normal().string(),
                     "+BLIF_CLEANER.tmp_", std::to_string(get_PID()));
       } else {
@@ -144,9 +146,9 @@ bool do_check_blif(CStr cfn,
 
       if (wr_ok.empty()) {
         lprintf("---!!  FAILED writeBlif to '%s'\n", outFn.c_str());
-        if (cleanup) {
+        if (cleanup)
           lprintf("[PLANNER BLIF-CLEANER] : FAILED\n");
-        }
+        outFn.clear();
       } else {
         lprintf("+++++  WRITTEN '%s'\n", wr_ok.c_str());
         if (cleanup) {
@@ -180,23 +182,88 @@ bool do_check_blif(CStr cfn,
 
 // 'corrected' : (lnum, removed_net)
 bool do_cleanup_blif(CStr cfn, vector<uspair>& corrected) {
+  using namespace fio;
+  using namespace std;
   assert(cfn);
   corrected.clear();
+  uint16_t tr = ltrace();
 
   vector<string> badInp, badOut;
-  bool status = do_check_blif(cfn, badInp, badOut, corrected, true);
+  string outFn;
+
+  bool status = do_check_blif(cfn, badInp, badOut, corrected, outFn, true);
 
   size_t cor_sz = corrected.size();
   if (status and cor_sz) {
+
     flush_out(true);
     lprintf("[PLANNER BLIF-CLEANER] : corrected netlist '%s'\n", cfn);
     lprintf("-- removed dangling nets (%zu):\n", cor_sz);
-    for (size_t i = 0; i < cor_sz; i++) {
-      const uspair& cor = corrected[i];
-      lprintf("    line %u  net %s\n", cor.first, cor.second.c_str());
+    if (tr >= 3) {
+      for (size_t i = 0; i < cor_sz; i++) {
+        const uspair& cor = corrected[i];
+        lprintf("    line %u  net %s\n", cor.first, cor.second.c_str());
+        if (tr < 4 and i > 40 and cor_sz > 50) {
+          lputs("    ...");
+          break;
+        }
+      }
+      lprintf("-- removed dangling nets (%zu).\n", cor_sz);
     }
-    lprintf("-- removed dangling nets (%zu).\n", cor_sz);
     flush_out(true);
+
+    bool outFn_exists = Fio::nonEmptyFileExists(outFn);
+    bool cfn_exists = Fio::nonEmptyFileExists(cfn);
+    //assert(cfn_exists);
+    if (outFn_exists and cfn_exists) {
+
+      bool error1 = false, error2 = false;
+
+      // -- 1. add prefix 'orig_' to the original BLIF
+      {
+        string newName = str::concat("orig_", cfn);
+        filesystem::path newPath{newName};
+        filesystem::path oldPath{cfn};
+        error_code ec;
+        filesystem::rename(oldPath, newPath, ec);
+        if (ec) {
+          error1 = true;
+          lout() << endl
+            << "BLIF-CLEANER: [Error] renaming original BLIF to "
+            << newPath << endl
+            << "       ERROR: " << ec.message() << '\n' << endl;
+        }
+        else if (tr >= 3) {
+          lprintf("[PLANNER BLIF-CLEANER] :   original BLIF saved as '%s'\n",
+                  newName.c_str());
+        }
+      }
+
+      // -- 2. rename 'outFn' to 'cfn'
+      if (not error1) {
+        filesystem::path oldPath{outFn};
+        filesystem::path newPath{cfn};
+        error_code ec;
+        filesystem::rename(oldPath, newPath, ec);
+        if (ec) {
+          error2 = true;
+          lout() << endl
+            << "BLIF-CLEANER: [Error] renaming temporary BLIF to "
+            << newPath << endl
+            << "       ERROR: " << ec.message() << '\n' << endl;
+        }
+        else if (tr >= 3) {
+          string newName = newPath.lexically_normal().string();
+          lprintf("[PLANNER BLIF-CLEANER] :  corrected BLIF written : %s\n",
+                  newName.c_str());
+        }
+      }
+  
+      if (error1 or error2) {
+        status = false;
+        lputs("[PLANNER BLIF-CLEANER] : FAILED due to filesystem errors\n");
+      }
+    }
   }
 
   return status;
@@ -270,7 +337,8 @@ bool do_check(const rsOpts& opts, bool blif_vs_csv) {
   if (blif_vs_csv) {
     vector<string> badInp, badOut;
     vector<uspair> corrected;
-    status = do_check_blif(cfn, badInp, badOut, corrected, false);
+    string outFn;
+    status = do_check_blif(cfn, badInp, badOut, corrected, outFn, false);
   } else {
     status = do_check_csv(cfn);
   }

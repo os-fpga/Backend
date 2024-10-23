@@ -15,7 +15,9 @@ bool do_check_blif(
                   std::vector<std::string>& badOutputs,
                   std::vector<uspair>& corrected,
 
-                  bool cleanup = false // cleanup => checker may modify the blif
+                  std::string& outFn,   // if checker wrote blif, outFn is the file name
+
+                  bool cleanup = false  // cleanup => checker may modify the blif
 
                   );
 
