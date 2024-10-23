@@ -2540,7 +2540,7 @@ string BLIF_file::writeBlif(const string& toFn, bool cleanUp,
   }
   bool error = false;
 
-  ::fprintf(f, "### written by PLN %s\n\n", pln_get_version());
+  ::fprintf(f, "### written by PLANNER %s\n\n", pln_get_version());
   if (::ferror(f)) {
     if (trace_ >= 3) {
       flush_out(true);

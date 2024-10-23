@@ -1119,11 +1119,13 @@ bool PinPlacer::BlifReader::read_blif(const string& blif_fn, bool& checked_ok) n
 
   vector<string> badInputs, badOutputs;
   vector<uspair> corrected;
+  string outFn;
 
   if (not ::getenv("pinc_dont_check_blif")) {
     lprintf("____ BEGIN pinc_check_blif:  %s\n", cfn);
     flush_out(true);
-    checked_ok = do_check_blif(cfn, badInputs, badOutputs, corrected, false);
+    checked_ok = do_check_blif(cfn, badInputs, badOutputs,
+                               corrected, outFn, false);
     flush_out(true);
     lprintf("           pinc_check_blif STATUS = %s\n\n",
             checked_ok ? "PASS" : "FAIL");

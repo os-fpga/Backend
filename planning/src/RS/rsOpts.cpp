@@ -28,7 +28,8 @@ static CStr _check_[] = { "CH", "CHECK", "ch", "CC", "cc", "che", "chec",
                           "check", "check_blif", nullptr };
 
 static CStr _clean_[] = { "CLEAN", "CLEANUP", "clean", "cleanup", "clean_up",
-                          "cleanup_blif", "cleanupblif", "clean_up_blif", nullptr };
+                          "cleanup_blif", "cleanupblif", "clean_up_blif",
+                          "cle", "clea", nullptr };
 
 static CStr _csv_[] = {"CSV", "cs", "csv", "Csv", nullptr};
 
