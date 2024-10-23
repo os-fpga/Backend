@@ -72,6 +72,7 @@ struct rsOpts {
 
   bool help_ = false;
   bool check_ = false;
+  bool cleanup_ = false;
 
   bool unit1_ = false;
   bool unit2_ = false;

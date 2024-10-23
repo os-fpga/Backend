@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0356";
+static const char* _pln_VERSION_STR = "pln0357";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -57,6 +57,45 @@ static bool deal_check(const rsOpts& opts) {
 
   if (tr >= 3)
     lprintf("(deal_check status) %s\n", status ? "TRUE" : "FALSE");
+
+  flush_out(true);
+  return status;
+}
+
+static bool deal_cleanup(const rsOpts& opts) {
+  bool status = false;
+  uint16_t tr = ltrace();
+
+  if (tr >= 4) {
+    flush_out(true);
+    lprintf("[PLANNER BLIF-CLEANER] deal_cleanup()\n");
+  }
+
+  if (not opts.hasInputFile()) {
+    err_puts("\n[PLANNER BLIF-CLEANER] : something wrong with input file\n");
+    if (!opts.input_) {
+      lputs("[PLANNER BLIF-CLEANER] : input file is not specified");
+    } else {
+      lprintf("[PLANNER BLIF-CLEANER] : input file '%s'\n", opts.input_);
+      lprintf("                  : does not exist or not readable\n");
+    }
+    flush_out(true);
+    return false;
+  }
+
+  std::vector<uspair> corrected;
+  status = do_cleanup_blif(opts.input_, corrected);
+
+  if (tr >= 3) {
+    lprintf("  deal_cleanup status: %s\n", status ? "TRUE" : "FALSE");
+    if (corrected.empty()) {
+      if (status)
+        lprintf("    deal_cleanup: BLIF was not modified (NOP)\n");
+    } else {
+      lprintf("    deal_cleanup: modified BLIF, #changes= %zu\n",
+              corrected.size());
+    }
+  }
 
   flush_out(true);
   return status;
@@ -494,6 +533,13 @@ int main(int argc, char** argv) {
   if (opts.check_ or opts.is_implicit_check()) {
     bool check_ok = deal_check(opts);
     if (check_ok)
+      ::exit(0);
+    else
+      ::exit(1);
+  }
+  if (opts.cleanup_) {
+    bool cleanup_ok = deal_cleanup(opts);
+    if (cleanup_ok)
       ::exit(0);
     else
       ::exit(1);

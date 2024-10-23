@@ -121,6 +121,7 @@ bool do_check_blif(CStr cfn,
       std::filesystem::path full_path{bfile.fnm_};
       std::filesystem::path base_path = full_path.filename();
       std::string base = base_path.string();
+      //lputs9();
       string outFn = str::concat("PLN_W", std::to_string(numWarn), "_", base);
 
       string wr_ok = bfile.writeBlif(outFn, numWarn);
@@ -150,6 +151,14 @@ bool do_check_blif(CStr cfn,
   uint errLnum = std::max(bfile.err_lnum_, bfile.err_lnum2_);
   lprintf2("ERROR: BLIF verification failed at %s:%u\n",
             bfile.fnm_.c_str(), errLnum);
+
+  return false;
+}
+
+// 'corrected' : (lnum, removed_net)
+bool do_cleanup_blif(CStr cfn, std::vector<uspair>& corrected) {
+  assert(cfn);
+  corrected.clear();
 
   return false;
 }
