@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0357";
+static const char* _pln_VERSION_STR = "pln0358";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -87,7 +87,8 @@ static bool deal_cleanup(const rsOpts& opts) {
   status = do_cleanup_blif(opts.input_, corrected);
 
   if (tr >= 3) {
-    lprintf("  deal_cleanup status: %s\n", status ? "TRUE" : "FALSE");
+    flush_out(true);
+    lprintf("    deal_cleanup: status= %s\n", status ? "TRUE" : "FALSE");
     if (corrected.empty()) {
       if (status)
         lprintf("    deal_cleanup: BLIF was not modified (NOP)\n");

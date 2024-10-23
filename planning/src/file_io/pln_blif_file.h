@@ -290,7 +290,8 @@ public:
 
   bool readBlif() noexcept;
 
-  string writeBlif(const string& toFn, bool cleanUp) noexcept;
+  string writeBlif(const string& toFn, bool cleanUp,
+                   std::vector<uspair>& corrected) noexcept;
 
   bool checkBlif(vector<string>& badInputs, vector<string>& badOutputs) noexcept;
 
