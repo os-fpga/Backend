@@ -130,30 +130,25 @@ FILE(COPY ${EBLIF_TRANSFORM_SRC_H}
            DESTINATION
            ${EBLIF_TRANSFORM_DEST})
 
-message(STATUS "NOTE: PATCHING VPR pack/pb_pin_fixup\n")
-FILE(COPY ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
+# patch VPR
+FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
+          ${PACKER_SRC_DIR}/cluster_util.cpp
+          ${PACKER_SRC_DIR}/cluster_util.h
+          ${PACKER_SRC_DIR}/output_clustering.cpp
+          ${PACKER_SRC_DIR}/output_clustering.h
+          ${PACKER_SRC_DIR}/cluster_router.cpp
+          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
           DESTINATION
           ${VPR_DEST_DIR}/src/pack)
 
-# patch VPR
-#FILE(COPY ${PACKER_SRC_DIR}/cluster.cpp
-#          ${PACKER_SRC_DIR}/cluster_util.cpp
-#          ${PACKER_SRC_DIR}/cluster_util.h
-#          ${PACKER_SRC_DIR}/output_clustering.cpp
-#          ${PACKER_SRC_DIR}/output_clustering.h
-#          ${PACKER_SRC_DIR}/cluster_router.cpp
-#          ${PACKER_SRC_DIR}/post_routing_pb_pin_fixup.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/pack)
-
 # add to VPR/pack
-#FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
-#          ${PACKER_SRC_DIR}/nl_Par.cpp
-#          ${PACKER_SRC_DIR}/pinc_log.h
-#          ${PACKER_SRC_DIR}/pinc_log.cpp
-#          DESTINATION
-#          ${VPR_DEST_DIR}/src/pack)
-#message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
+FILE(COPY ${PACKER_SRC_DIR}/nl_Par.h
+          ${PACKER_SRC_DIR}/nl_Par.cpp
+          ${PACKER_SRC_DIR}/pinc_log.h
+          ${PACKER_SRC_DIR}/pinc_log.cpp
+          DESTINATION
+          ${VPR_DEST_DIR}/src/pack)
+message(STATUS "NOTE: ADDED to VPR src/pack: nl_Par.cpp,h pinc_log.cpp,h")
 
 # add to VPR/base
 file(COPY
@@ -174,7 +169,7 @@ message(STATUS "NOTE: OVERWRITING netlist_writer.cpp")
 file(COPY ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp DESTINATION ${TARGET_DIR})
 message(STATUS "NOTE: COPIED  ${PATCH_DIR}/base_fix/PATCHED/netlist_writer.cpp\n       to ${TARGET_DIR}/\n")
 
-#message(STATUS "NOTE: PATCHING base/vpr_api.cpp ..")
+message(STATUS "NOTE: PATCHING-COPYING base/vpr_api.cpp ..")
 #set(DIFF_FILE ${PATCH_DIR}/base_fix/DIFF/vpr_api_cpp.diff)
 #apply_patch(${DIFF_FILE}  ${TARGET_DIR}  "base/vpr_api.cpp")
 
@@ -213,26 +208,9 @@ set(DIFF_FILE ${PATCH_DIR}/libpugiutil_fix/DIFF/pugixml_util_cpp.diff)
 apply_patch(${DIFF_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/vtr-verilog-to-routing/libs/libpugiutil/src "pugixml_util.cpp")
 
 # copy RS additions and patch CMakefiles
-message(STATUS "NOTE: COPYING/PATCHING OpenFPGA CMakefiles..")
+message(STATUS "NOTE: COPYING OpenFPGA CMakefile..")
 #set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/OpenFPGA_CMake.diff)
 #apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA  "OpenFPGA CMakefile")
-set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/PATCHED_OpenFPGA/libs_cmakefile.diff)
-apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/libs  "OpenFPGA/libs CMakefile")
-
-set(DIFF_FILE ${PATCH_DIR}/CMAKE_fix/PATCHED_OpenFPGA/openfpga_src_CMakefile.diff)
-apply_patch(${DIFF_FILE}  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/openfpga  "OpenFPGA/openfpga CMakefile")
-
-file(COPY
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.capnp
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.capnp.c++
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.capnp.h
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx_capnp.h
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx_capnp_impl.h
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.cpp
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx.h
- ${PATCH_DIR}/openfpga/annotation/unique_blocks_uxsdcxx_interface.h
-  DESTINATION
-  ${CMAKE_CURRENT_SOURCE_DIR}/OpenFPGA/openfpga/src/annotation)
 
 # temporarily swithed to copying because of "partial patch" issue in Raptor build.
 file(COPY
@@ -298,7 +276,7 @@ FILE(COPY ${TATUM_SRC_DIR}/TimingReporter.hpp
           ${OPENFPGA_DEST_DIR}/vtr-verilog-to-routing/libs/EXTERNAL/libtatum/libtatum/tatum
 )
 
-# Logical Levels
+## Logical Levels
 FILE(COPY ${UTIL_SRC_DIR}/rsbe_utils.cpp
           ${UTIL_SRC_DIR}/rsbe_utils.h
           DESTINATION

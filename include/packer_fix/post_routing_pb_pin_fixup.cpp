@@ -80,7 +80,7 @@ static bool check_pb_route_for_block(ClusterBlockId clb_id,
                                      PB_route_error& err) {
   err.reset();
   err.clb_id_ = clb_id;
-  err.clbLoc_ = plCon.block_locs()[clb_id];
+  err.clbLoc_ = plCon.block_locs[clb_id];
 
   const t_pb& clb = *clCon.clb_nlist.block_pb(clb_id);
   VTR_ASSERT(clb.name);
@@ -260,7 +260,7 @@ static void update_cluster_pin_with_post_routing_results(const Netlist<>& net_li
      * Deposit all the sides
      */
     if (wanted_sides.empty()) {
-        for (e_side side : TOTAL_2D_SIDES) {
+        for (e_side side : {TOP, BOTTOM, LEFT, RIGHT}) {
             wanted_sides.push_back(side);
         }
     }
@@ -309,49 +309,55 @@ static void update_cluster_pin_with_post_routing_results(const Netlist<>& net_li
         ParentNetId routing_net_id = ParentNetId::INVALID();
         std::vector<RRNodeId> visited_rr_nodes;
         short valid_routing_net_cnt = 0;
-        for (const e_side& pin_side : pin_sides) {
-            /* Find the net mapped to this pin in routing results */
-            RRNodeId rr_node = node_lookup.find_node(coord_layer, coord_x, coord_y, rr_node_type, physical_pin, pin_side);
+        int addToY = 0, addToX = 0;
+        addToY = physical_tile->height;
+        addToX = physical_tile->width;
+        for (int ix = 0; ix < addToX; ix++) {
+            for (int iy = 0; iy < addToY; iy++) {
+                for (const e_side& pin_side : pin_sides) {
+                    /* Find the net mapped to this pin in routing results */
+                    RRNodeId rr_node = node_lookup.find_node(coord_layer, coord_x + ix, coord_y + iy, rr_node_type, physical_pin, pin_side);
 
-            /* Bypass invalid nodes, after that we must have a valid rr_node id */
-            if (!rr_node) {
-                continue;
-            }
-            VTR_ASSERT((size_t)rr_node < device_ctx.rr_graph.num_nodes());
-
-            /* If the node has been visited on the other side, we just skip it */
-            if (visited_rr_nodes.end() != std::find(visited_rr_nodes.begin(), visited_rr_nodes.end(), RRNodeId(rr_node))) {
-                continue;
-            }
-
-            /* Get the cluster net id which has been mapped to this net
-             * In general, there is only one valid rr_node among all the sides.
-             * However, we have an exception in the Stratix-IV arch modeling,
-             * where a pb_pin may exist in two different sides but
-             * router will only map to 1 rr_node 
-             * Therefore, it is better to compare the routing nets
-             * for all the sides and pick
-             * - The unique valid net id (others should be all invalid)
-             *   assume that this pin is used by router
-             * - A invalid net id (others should be all invalid as well)
-             *   assume that this pin is not used by router
-             */
-            if (rr_node_nets[rr_node]) {
-                if (routing_net_id) {
-                    if (routing_net_id != rr_node_nets[rr_node]) {
-                        VTR_LOG_ERROR("Pin '%s' is mapped to two nets: '%s' and '%s'\n",
-                                      pb_graph_pin->to_string().c_str(),
-                                      net_list.net_name(routing_net_id).c_str(),
-                                      net_list.net_name(rr_node_nets[rr_node]).c_str());
+                    /* Bypass invalid nodes, after that we must have a valid rr_node id */
+                    if (!rr_node) {
+                        continue;
                     }
-                    VTR_ASSERT(routing_net_id == rr_node_nets[rr_node]);
+                    VTR_ASSERT((size_t)rr_node < device_ctx.rr_graph.num_nodes());
+
+                    /* If the node has been visited on the other side, we just skip it */
+                    if (visited_rr_nodes.end() != std::find(visited_rr_nodes.begin(), visited_rr_nodes.end(), RRNodeId(rr_node))) {
+                        continue;
+                    }
+
+                    /* Get the cluster net id which has been mapped to this net
+                     * In general, there is only one valid rr_node among all the sides.
+                     * However, we have an exception in the Stratix-IV arch modeling,
+                     * where a pb_pin may exist in two different sides but
+                     * router will only map to 1 rr_node 
+                     * Therefore, it is better to compare the routing nets
+                     * for all the sides and pick
+                     * - The unique valid net id (others should be all invalid)
+                     *   assume that this pin is used by router
+                     * - A invalid net id (others should be all invalid as well)
+                     *   assume that this pin is not used by router
+                     */
+                    if (rr_node_nets[rr_node]) {
+                        if (routing_net_id) {
+                            if (routing_net_id != rr_node_nets[rr_node]) {
+                                VTR_LOG_ERROR("Pin '%s' is mapped to two nets: '%s' and '%s'\n",
+                                              pb_graph_pin->to_string().c_str(),
+                                              net_list.net_name(routing_net_id).c_str(),
+                                              net_list.net_name(rr_node_nets[rr_node]).c_str());
+                            }
+                            VTR_ASSERT(routing_net_id == rr_node_nets[rr_node]);
+                        }
+                        routing_net_id = rr_node_nets[rr_node];
+                        valid_routing_net_cnt++;
+                        visited_rr_nodes.push_back(rr_node);
+                    }
                 }
-                routing_net_id = rr_node_nets[rr_node];
-                valid_routing_net_cnt++;
-                visited_rr_nodes.push_back(rr_node);
             }
         }
-
         VTR_ASSERT((0 == valid_routing_net_cnt) || (1 == valid_routing_net_cnt));
 
         /* Find the net mapped to this pin in clustering results*/
@@ -929,7 +935,8 @@ static void update_cluster_regular_routing_traces_with_post_routing_results(Atom
                  */
                 VTR_ASSERT(sink_pb_route == sink_pb_pin_to_add->pin_count_in_cluster);
                 t_pb_graph_pin* new_sink_pb_pin_to_add = sink_pb_pin_to_add;
-                VTR_ASSERT(is_single_fanout_pb_pin(const_cast<const t_pb_graph_pin*>(new_sink_pb_pin_to_add)));
+                //VTR_ASSERT(is_single_fanout_pb_pin(const_cast<const t_pb_graph_pin*>(new_sink_pb_pin_to_add)));
+                VTR_ASSERT(new_sink_pb_pin_to_add->output_edges[0]->num_output_pins == 1);
                 int new_driver_pb_pin = pb_graph_pin->pin_count_in_cluster;
                 while (1) {
                     int new_sink_pb_route_id = new_sink_pb_pin_to_add->pin_count_in_cluster;
@@ -1038,7 +1045,7 @@ static void update_cluster_regular_routing_traces_with_post_routing_results(Atom
         for (int& sink_pb_route : new_pb_route.sink_pb_pin_ids) {
             usedItems.push_back(sink_pb_route);
         }
-
+        
         VTR_LOGV(verbose,
                  "Remap clustered block '%s' routing trace[%d] to net '%s'\n",
                  clustering_ctx.clb_nlist.block_pb(blk_id)->name,
@@ -1257,6 +1264,8 @@ void sync_netlists_to_routing(const Netlist<>& net_list,
             clb_blk_id = convert_to_cluster_block_id(blk_id);
         }
         VTR_ASSERT(clb_blk_id != ClusterBlockId::INVALID());
+        // vtr::Point<size_t> grid_coord(placement_ctx.block_locs[clb_blk_id].loc.x,
+        //                               placement_ctx.block_locs[clb_blk_id].loc.y);
 
         if (seen_block_ids.insert(clb_blk_id).second) {
             update_cluster_pin_with_post_routing_results(net_list,
@@ -1264,8 +1273,9 @@ void sync_netlists_to_routing(const Netlist<>& net_list,
                                                          device_ctx,
                                                          clustering_ctx,
                                                          rr_node_nets,
-                                                         placement_ctx.block_locs()[clb_blk_id].loc,
+                                                         placement_ctx.block_locs[clb_blk_id].loc,
                                                          clb_blk_id,
+                                                        //  placement_ctx.block_locs[clb_blk_id].loc.sub_tile,
                                                          num_mismatches,
                                                          verbose,
                                                          is_flat);
