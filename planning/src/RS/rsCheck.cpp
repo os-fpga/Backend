@@ -125,7 +125,7 @@ bool do_check_blif(CStr cfn,
     if (numWarn)
       lprintf("  # WARNINGS= %u", numWarn);
     lputs();
-    if (numWarn or ::getenv("pln_always_write_blif")) {
+    if (0&& (numWarn or ::getenv("pln_always_write_blif"))) {
       std::filesystem::path full_path{bfile.fnm_};
       std::filesystem::path base_path = full_path.filename();
       std::string base = base_path.string();
@@ -221,9 +221,13 @@ bool do_cleanup_blif(CStr cfn, vector<uspair>& corrected) {
 
       // -- 1. add prefix 'orig_' to the original BLIF
       {
-        string newName = str::concat("orig_", cfn);
-        filesystem::path newPath{newName};
+        // string newName = str::concat("orig_", cfn);
         filesystem::path oldPath{cfn};
+        filesystem::path newPath = oldPath.lexically_normal();
+        assert(newPath.has_filename());
+        string path_fn = newPath.filename().string();
+        string new_fn = str::concat("orig_", path_fn);
+        newPath.replace_filename(new_fn);
         error_code ec;
         filesystem::rename(oldPath, newPath, ec);
         if (ec) {
@@ -234,6 +238,7 @@ bool do_cleanup_blif(CStr cfn, vector<uspair>& corrected) {
             << "       ERROR: " << ec.message() << '\n' << endl;
         }
         else if (tr >= 3) {
+          string newName = newPath.string();
           lprintf("[PLANNER BLIF-CLEANER] :   original BLIF saved as '%s'\n",
                   newName.c_str());
         }

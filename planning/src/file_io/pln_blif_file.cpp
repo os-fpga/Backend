@@ -1506,6 +1506,55 @@ bool BLIF_file::createNodes() noexcept {
     nd.id_ = i;
   }
 
+  // possibly adjust "clockness" flag of some RAM18KX2 clock inputs.
+  // RAM18KX2 instances may have unused halves with clock inputs
+  // (CLK_A1/2, CLK_B1/2) connected to $false.
+  // This seems to be allowed. EDA-3235.
+  uint RAM18KX2_cnt_total = 0, RAM18KX2_cnt_disabled = 0;
+  for (BNode* x : fabricRealNodes_) {
+    BNode& nd = *x;
+    assert(not nd.isTopPort());
+    assert(not nd.isVirtualMog());
+    if (nd.ptype_ != prim::TDP_RAM18KX2)
+      continue;
+    RAM18KX2_cnt_total++;
+    if (trace_ >= 5) {
+      lprintf("\nRAM18KX2 instance #%u L=%u  dat_sz= %zu\n",
+        nd.id_, nd.lnum_, nd.realData_.size());
+      if (trace_ >= 6)
+        logVec(nd.realData_, " dat ");
+    }
+    for (const string& term : nd.realData_) {
+      if (term == "CLK_A1=$false") {
+        nd.disabledClocks_.emplace_back("CLK_A1");
+        continue;
+      }
+      if (term == "CLK_B1=$false") {
+        nd.disabledClocks_.emplace_back("CLK_B1");
+        continue;
+      }
+      if (term == "CLK_A2=$false") {
+        nd.disabledClocks_.emplace_back("CLK_A2");
+        continue;
+      }
+      if (term == "CLK_B2=$false") {
+        nd.disabledClocks_.emplace_back("CLK_B2");
+      }
+    }
+    if (not nd.disabledClocks_.empty())
+      RAM18KX2_cnt_disabled++;
+  }
+
+  if (trace_ >= 4) {
+    lprintf("DONE BLIF_file::createNodes()");
+    lprintf("   total #RAM18KX2 instances = %u", RAM18KX2_cnt_total);
+    if (RAM18KX2_cnt_total) {
+      lprintf("   #RAM18KX2 instances w disabled clocks = %u",
+              RAM18KX2_cnt_disabled);
+    }
+    flush_out(true);
+  }
+
   return true;
 }
 
@@ -2117,7 +2166,8 @@ bool BLIF_file::createPinGraph() noexcept {
       pr_get_inputs(par.ptype_, INP);
 
       const string& pinName = par.getInPin(pinIndex);
-      bool is_clock = pr_pin_is_clock(par.ptype_, pinName);
+      bool is_clock = pr_pin_is_clock(par.ptype_, pinName)
+                        and not par.isDisabledClock(pinName, *this);
 
       if (trace_ >= 5) {
         lprintf("      FabricParent par:  lnum_= %u  kw_= %s  ptype_= %s  pin[%u nm= %s%s]\n",
@@ -2218,6 +2268,12 @@ bool BLIF_file::createPinGraph() noexcept {
         assert(not inp.empty());
         if (not pr_pin_is_clock(cn.ptype_, inp))
           continue;
+        if (cn.isDisabledClock(inp, *this)) {
+          if (trace_ >= 6)
+            lprintf("    createPinGraph: skipping disabled clock-input-pin %s\n",
+                    inp.c_str());
+          continue;
+        }
 
         uint cn_realId = cn.realId(*this);
         key = hashCantor(cn_realId, i + 1) + max_key1;

@@ -55,6 +55,9 @@ struct BLIF_file : public fio::MMapReader
     vector<string> inPins_;   // input pins from Prim-DB
     vector<string> inSigs_;   // input signals from blif-file
 
+    vector<string> disabledClocks_; // clock input pins of RAM18KX2 that are connected to $false
+                                    // and should not participate in pinGraph
+
     string out_;              // SOG output net (=signal) (real or virtual)
 
     uint virtualOrigin_ = 0;  // node-ID from which this virtual MOG is created
@@ -214,6 +217,20 @@ struct BLIF_file : public fio::MMapReader
     CStr cPrimType() const noexcept;
 
     bool isDanglingTerm(uint term) const noexcept;
+
+    bool isDisabledClock(const string& pinName, const BLIF_file& bf) const noexcept {
+      assert(not pinName.empty());
+      if (pinName.empty())
+        return false;
+      if (ptype_ != prim::TDP_RAM18KX2)
+        return false;
+      const BNode* base = isVirtualMog() ? &bf.bnodeRef(virtualOrigin_) : this;
+      for (const string& x : base->disabledClocks_) {
+        if (x == pinName)
+          return true;
+      }
+      return false;
+    }
 
     struct CmpOut {
       bool operator()(const BNode* a, const BNode* b) const noexcept {
