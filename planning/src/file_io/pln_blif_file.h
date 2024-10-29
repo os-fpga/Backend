@@ -215,6 +215,7 @@ struct BLIF_file : public fio::MMapReader
     CStr cOut() const noexcept { return out_.empty() ? "{e}" : out_.c_str(); }
 
     CStr cPrimType() const noexcept;
+    CStr cPortName() const noexcept;
 
     bool isDanglingTerm(uint term) const noexcept;
 
@@ -350,7 +351,7 @@ private:
   bool createPinGraph() noexcept;
   bool linkPinGraph() noexcept;
 
-  string writePinGraph(CStr fn0) const noexcept;
+  string writePinGraph(CStr fn0, bool nodeTable=true, bool noDeg0=true) const noexcept;
 
   bool checkClockSepar(vector<BNode*>& clocked) noexcept;
 

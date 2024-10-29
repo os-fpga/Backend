@@ -483,6 +483,8 @@ struct NW {
   uint printEdges(ostream& os, CStr msg = nullptr) const noexcept;
   uint dumpEdges(CStr msg = nullptr) const noexcept;
 
+  bool printEdge(uint eid) const noexcept;
+
   uint printSum(ostream& os, uint16_t forDot) const noexcept;
 
   uint printMetis(ostream& os, bool nodeTable) const noexcept;

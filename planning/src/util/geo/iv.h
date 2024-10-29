@@ -44,10 +44,6 @@ inline uint64_t hashComb(uint64_t a, const std::string& s) noexcept {
   return hashComb(a, str::hashf(s));
 }
 
-inline constexpr uint64_t hashCantor(uint64_t a, uint64_t b) noexcept {
-  return ((a + b) >> 1) * (a + b + 1) + b;
-}
-
 inline constexpr int protAdd(int a, int b) noexcept {
   int64_t c = int64_t(a) + int64_t(b);
   if (c > INT_MAX) return INT_MAX;
@@ -96,6 +92,11 @@ inline constexpr int64_t protRound64(double x) noexcept {
   return int64_t(x - 0.5);
 }
 
+inline constexpr uint64_t hashCantor(uint64_t a, uint64_t b) noexcept {
+  double apb = double(a + b);
+  return protRound64(0.5 * apb * (apb + 1) + b);
+}
+
 struct Iv {
   int a_ = INT_MIN, b_ = INT_MIN;
 
@@ -119,7 +120,7 @@ struct Iv {
   bool valid() const noexcept { return b_ != INT_MIN; }
   bool normal() const noexcept { return a_ <= b_; }
   static bool normal(int a, int b) noexcept { return a <= b; }
-  void invalidate() noexcept { b_ = INT_MIN; }
+  void inval() noexcept { b_ = INT_MIN; }
   void normalize() noexcept {
     if (a_ > b_) std::swap(a_, b_);
   }
