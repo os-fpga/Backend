@@ -477,6 +477,22 @@ uint NW::printEdges(ostream& os, CStr msg) const noexcept {
 }
 uint NW::dumpEdges(CStr msg) const noexcept { return printEdges(lout(), msg); }
 
+bool NW::printEdge(uint eid) const noexcept {
+  lprintf(" (graph edge) eid= %u", eid);
+  if (not hasEdge(eid)) {
+    lputs(" <not_present>");
+    return false;
+  }
+  const Edge& e = edgeRef(eid);
+  uint n1 = e.n1_;
+  uint n2 = e.n2_;
+
+  lprintf("  fr %u '%s'  to  %u '%s'\n",
+          n1, cnodeName(n1), n2, cnodeName(n2));
+
+  return true;
+}
+
 uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
   dot_comment(os, forDot);
   if (empty()) {

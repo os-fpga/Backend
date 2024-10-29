@@ -196,6 +196,12 @@ CStr BLIF_file::BNode::cPrimType() const noexcept {
   return ptype_ == prim::A_ZERO ? "{e}" : pr_enum2str(ptype_);
 }
 
+CStr BLIF_file::BNode::cPortName() const noexcept {
+  if (isTopPort() and not data_.empty())
+    return data_.front().c_str();
+  return "{np}";
+}
+
 bool BLIF_file::BNode::isDanglingTerm(uint term) const noexcept {
   if (dangTerms_.empty())
     return false;
@@ -1336,13 +1342,6 @@ bool BLIF_file::createNodes() noexcept {
       continue;
     assert(!nd.is_mog_);
 
-    //if (nd.lnum_ == 48) {
-    //  string delWire1151 = "$delete_wire$1151";
-    //  lputs8();
-    //  int dTerm = findTermByNet(nd.data_, delWire1151);
-    //  lprintf("  dTerm= %i\n", dTerm);
-    //}
-
     s_is_MOG(nd, V);
     bool is_mog = V.size() > 1;
     if (is_mog) {
@@ -2152,9 +2151,14 @@ bool BLIF_file::createPinGraph() noexcept {
 
     if (trace_ >= 5) {
       lputs();
-      lprintf("    TopInput:  lnum_= %u   %s   PAR.size()= %zu\n",
-              port.lnum_, port.out_.c_str(), PAR.size());
+      lprintf("  TopInput:  id_= %u  lnum_= %u   %s   PAR.size()= %zu\n",
+              port.id_, port.lnum_, port.out_.c_str(), PAR.size());
+      if (trace_ >= 6)
+        lprintf("      %s\n", port.cPortName());
     }
+
+    // if (port.id_ == 24)
+    //  lputs1();
 
     for (const upair& pa : PAR) {
       if (pa.first == port.id_)
@@ -2213,9 +2217,16 @@ bool BLIF_file::createPinGraph() noexcept {
       eid = pg_.linK(port.id_, key);
       assert(eid);
 
+      if (trace_ >= 8)
+        pg_.printEdge(eid);
+
       Q.emplace_back(kid, par_realId, pinIndex, par.out_.c_str());
     }
   }
+
+  // if (0) {
+  //  writePinGraph("111_G_afterLinkTopInp.dot", true, false);
+  // }
 
   // -- link cell-edges and next level
   if (trace_ >= 5) {
@@ -2278,8 +2289,19 @@ bool BLIF_file::createPinGraph() noexcept {
         uint cn_realId = cn.realId(*this);
         key = hashCantor(cn_realId, i + 1) + max_key1;
         assert(key);
-        kid = pg_.insK(key);
-        assert(kid);
+        // if (key == 110)
+        //  lputs3();
+        kid = pg_.findNode(key);
+        if (kid) {
+          if (trace_ >= 8) {
+            lprintf("\t\t ___ found   nid %u '%s'   for key %zu",
+                    kid, pg_.cnodeName(kid), key);
+          }
+        }
+        else {
+          kid = pg_.insK(key);
+          assert(kid);
+        }
         pg_.nodeRef(kid).markClk(true);
 
         ::snprintf(nm_buf, 510, "nd%u_L%u_cn",
@@ -2522,16 +2544,20 @@ bool BLIF_file::createPinGraph() noexcept {
   return true;
 }
 
-string BLIF_file::writePinGraph(CStr fn0) const noexcept {
+string BLIF_file::writePinGraph(CStr fn0, bool nodeTable, bool noDeg0) const noexcept {
   auto& ls = lout();
   if (trace_ >= 5) {
     flush_out(true);
-    pg_.print(ls, "\t *** pin_graph for clock-data separation ***");
+    if (trace_ >= 6)
+      pg_.print(ls, "\t *** pin_graph for clock-data separation ***");
+    else
+      lputs("\t --- pin_graph for clock-data separation ---");
     lprintf("\t  pg_. numN()= %u   numE()= %u\n", pg_.numN(), pg_.numE());
     lputs();
     pg_.printSum(ls, 0);
     lputs();
-    pg_.printEdges(ls, "|edges|");
+    if (trace_ >= 6)
+      pg_.printEdges(ls, "|edges|");
     flush_out(true);
   }
 
@@ -2540,7 +2566,7 @@ string BLIF_file::writePinGraph(CStr fn0) const noexcept {
 
   string fn = str::concat(topModel_.c_str(), "_", fn0);
 
-  bool wrDot_ok = pg_.writeDot(fn.c_str(), nullptr, true, true);
+  bool wrDot_ok = pg_.writeDot(fn.c_str(), nullptr, nodeTable, noDeg0);
   if (!wrDot_ok) {
     flush_out(true); err_puts();
     lprintf2("[Error] could not write pin_graph to file '%s'\n", fn.c_str());

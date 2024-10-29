@@ -51,6 +51,8 @@ uint NW::insK(uint64_t k) noexcept {
     newNid = nid_at(I - nids_.begin());
     ndStor_.pop_back();
     nids_.pop_back();
+    // if (newNid == 36)
+    //  lputs4();
   } else {
     newNid = p->id_;
     nids_.pop_back();
@@ -60,8 +62,8 @@ uint NW::insK(uint64_t k) noexcept {
   }
 
   assert(nodeRef(newNid).key_ == k);
-  //if (newNid == 27)
-  //  lputs1();
+  //if (newNid == 36)
+  //  lputs4();
   return newNid;
 }
 
