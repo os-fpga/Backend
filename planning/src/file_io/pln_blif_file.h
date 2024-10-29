@@ -201,6 +201,9 @@ struct BLIF_file : public fio::MMapReader
     bool is_clockLess_DSP() const noexcept {
       return isClockLess_ and prim::pr_is_DSP(ptype_);
     }
+    bool is_CARRY() const noexcept {
+      return ptype_ == prim::CARRY;
+    }
 
     bool canDriveClockNode() const noexcept {
       return isTopInput() or is_CLK_BUF() or ptype_ == prim::I_SERDES;
@@ -322,7 +325,7 @@ public:
   void countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept;
 
   void countMOGs(uint& nISERD, uint& nDSP38, uint& nDSP19X,
-                 uint& nRAM36, uint& nRAM18) const noexcept;
+                 uint& nRAM36, uint& nRAM18, uint& nCARRY) const noexcept;
 
   uint typeHist(prim::Prim_t t) const noexcept { return typeHistogram_[t]; }
 

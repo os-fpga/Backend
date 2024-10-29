@@ -106,13 +106,15 @@ bool do_check_blif(CStr cfn,
 
   ls << "-----\n";
   {
-  uint nISERD = 0, nDSP38 = 0, nDSP19X = 0, nTDP_RAM36K = 0, nTDP_RAM18K = 0;
-  bfile.countMOGs(nISERD, nDSP38, nDSP19X, nTDP_RAM36K, nTDP_RAM18K);
+  uint nISERD = 0, nDSP38 = 0, nDSP19X = 0,
+       nTDP_RAM36K = 0, nTDP_RAM18K = 0, nCARRY = 0;
+  bfile.countMOGs(nISERD, nDSP38, nDSP19X, nTDP_RAM36K, nTDP_RAM18K, nCARRY);
   ls << "-----     #I_SERDES= " << nISERD << endl;
   ls << "-----       #DSP19X= " << nDSP19X << endl;
   ls << "-----        #DSP38= " << nDSP38 << endl;
   ls << "-----   #TDP_RAM36K= " << nTDP_RAM36K << endl;
   ls << "----- #TDP_RAM18KX2= " << nTDP_RAM18K << endl;
+  ls << "-----        #CARRY= " << nCARRY << endl;
   }
   ls << "-----\n";
   ls << "-----    PinGraph: " << bfile.pinGraphFile_ << endl;
