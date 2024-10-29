@@ -619,7 +619,7 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
     return n;
   }
 
-  os << "--- nodes (" << n << ") :" << endl;
+  os << "----- nodes (" << n << ") :" << endl;
   for (uint i = 1; i <= n; i++) {
     const BNode& nd = nodePool_[i];
     CStr pts = nd.cPrimType();
@@ -641,7 +641,8 @@ uint BLIF_file::printNodes(std::ostream& os) const noexcept {
       prnArray(os, A, sz, "  ");
     }
 
-    if (trace_ >= 5) {
+    bool hasSigs = bool(nd.inPins_.size()) or bool(nd.inSigs_.size());
+    if (trace_ >= 5 and hasSigs) {
       const string* A = nd.inPins_.data();
       size_t sz = nd.inPins_.size();
       os_printf(os, "    ##inPins=%zu  ", sz);
@@ -819,9 +820,10 @@ void BLIF_file::countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept 
 
 void BLIF_file::countMOGs(uint& nISERD,
                           uint& nDSP38, uint& nDSP19,
-                          uint& nRAM36, uint& nRAM18
+                          uint& nRAM36, uint& nRAM18,
+                          uint& nCARRY
                           ) const noexcept {
-  nISERD = nDSP38 = nDSP19 = nRAM36 = nRAM18 = 0;
+  nISERD = nDSP38 = nDSP19 = nRAM36 = nRAM18 = nCARRY = 0;
   uint nn = numNodes();
   if (nn == 0)
     return;
@@ -851,6 +853,10 @@ void BLIF_file::countMOGs(uint& nISERD,
     }
     if (pt == TDP_RAM18KX2) {
       nRAM18++;
+      continue;
+    }
+    if (pt == CARRY) {
+      nCARRY++;
     }
   }
 }
@@ -1815,7 +1821,7 @@ bool BLIF_file::linkNodes() noexcept {
     int pinIndex = -1;
     BNode* par = findFabricParent(nd.id_, nd.out_, pinIndex);
     if (!par) {
-      if (nd.is_RAM() or nd.is_DSP()) {
+      if (nd.is_RAM() or nd.is_DSP() or nd.is_CARRY()) {
         const string& net = nd.out_;
         uint rid = nd.realId(*this);
         BNode& realNd = bnodeRef(rid);
@@ -1826,7 +1832,7 @@ bool BLIF_file::linkNodes() noexcept {
         assert(dataTerm < int64_t(realData.size()));
         if (dataTerm < 0)
           continue;
-        // RAM or DSP output bits may be unused
+        // RAM or DSP or CARRY output bits may be unused
         if (trace_ >= 4) {
           lprintf("skipping dangling cell output issue for %s at line %u\n",
                   realNd.cPrimType(), realNd.lnum_);
@@ -2293,10 +2299,8 @@ bool BLIF_file::createPinGraph() noexcept {
         //  lputs3();
         kid = pg_.findNode(key);
         if (kid) {
-          if (trace_ >= 8) {
-            lprintf("\t\t ___ found   nid %u '%s'   for key %zu",
-                    kid, pg_.cnodeName(kid), key);
-          }
+          lprintf("\t\t ___ found   nid %u '%s'   for key %zu",
+                  kid, pg_.cnodeName(kid), key);
         }
         else {
           kid = pg_.insK(key);
