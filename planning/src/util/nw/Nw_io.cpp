@@ -372,13 +372,19 @@ void NW::Node::nprint_dot(ostream& os) const noexcept {
   }
   else {
 
-    if (isRed()) {
-      ::strcpy(attrib, "[ shape=octagon, color=purple, fillcolor=pink, style=filled ];");
+    if (out_flag_) {
+      CStr cs = isRed() ? "red" : "brown";
+      ::sprintf(attrib, "[ shape=box, color=%s, style=filled ];", cs);
     }
     else {
-      ::strcpy(attrib, "[ shape=record, style=rounded ];");
-      if (viol_flag_) {
-        ::strcpy(attrib, "[ shape=doubleoctagon, color=blueviolet, fillcolor=violet, style=filled ];");
+      if (isRed()) {
+        ::strcpy(attrib, "[ shape=octagon, color=purple, fillcolor=pink, style=filled ];");
+      }
+      else {
+        ::strcpy(attrib, "[ shape=record, style=rounded ];");
+        if (viol_flag_) {
+          ::strcpy(attrib, "[ shape=doubleoctagon, color=blueviolet, fillcolor=violet, style=filled ];");
+        }
       }
     }
 
@@ -504,6 +510,7 @@ uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
   upair mmD = getMinMaxDeg();
   upair mmL = getMinMaxLbl();
   upair rcnt = countRoots();
+  upair pcnt = countPorts();
   uint numClkNodes = countClockNodes();
 
   dot_comment(os, forDot);
@@ -522,7 +529,9 @@ uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
             numNamedNodes, numRedNodes, numRedEdges);
 
   dot_comment(os, forDot);
-  os_printf(os, "nr=(%u,%u)\n", rcnt.first, rcnt.second);
+  os_printf(os, "nr=(%u,%u) #Inp=%u #Out=%u\n",
+            rcnt.first, rcnt.second,
+            pcnt.first, pcnt.second);
 
   return size();
 }

@@ -158,6 +158,28 @@ uint NW::countRedEdges() const noexcept {
   return cnt;
 }
 
+upair NW::countRoots() const noexcept {
+  uint cnt = 0, mark_cnt = 0;
+  if (empty()) return {cnt, mark_cnt};
+  for (cNI I(*this); I.valid(); ++I) {
+    const Node& nd = *I;
+    if (nd.isTreeRoot()) cnt++;
+    if (nd.isFlagRoot()) mark_cnt++;
+  }
+  return {cnt, mark_cnt};
+}
+
+upair NW::countPorts() const noexcept {
+  uint inp_cnt = 0, out_cnt = 0;
+  if (empty()) return {inp_cnt, out_cnt};
+  for (cNI I(*this); I.valid(); ++I) {
+    const Node& nd = *I;
+    inp_cnt += uint(nd.inp_flag_);
+    out_cnt += uint(nd.out_flag_);
+  }
+  return {inp_cnt, out_cnt};
+}
+
 void NW::clearEdges() noexcept {
   edStor_.clear();
   edStor_.emplace_back();

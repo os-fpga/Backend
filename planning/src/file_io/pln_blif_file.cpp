@@ -25,6 +25,7 @@ void BLIF_file::reset(CStr nm, uint16_t tr) noexcept {
   inputs_lnum_ = outputs_lnum_ = 0;
   err_lnum_ = err_lnum2_ = 0;
   err_msg_.clear();
+  err_info2_.clear();
   pg_.clear();
   pg2blif_.clear();
 
@@ -253,6 +254,7 @@ bool BLIF_file::readBlif() noexcept {
 
   rd_ok_ = chk_ok_ = false;
   err_msg_.clear();
+  err_info2_.clear();
   trace_ = 0;
 
   {
@@ -776,6 +778,17 @@ uint BLIF_file::countFFs() const noexcept {
       cnt++;
   }
 
+  return cnt;
+}
+
+uint BLIF_file::countWires() const noexcept {
+  if (numNodes() == 0 or fabricRealNodes_.empty())
+    return 0;
+  uint cnt = 0;
+  for (const BNode* x : fabricRealNodes_) {
+    if (x->is_WIRE())
+      cnt++;
+  }
   return cnt;
 }
 
@@ -1628,24 +1641,24 @@ void BLIF_file::BNode::allInputPins(vector<string>& V) const noexcept {
   return;
 }
 
-BLIF_file::BNode* BLIF_file::findOutputPort(const string& contact) noexcept {
-  assert(not contact.empty());
+BLIF_file::BNode* BLIF_file::findOutputPort(const string& sig) noexcept {
+  assert(not sig.empty());
   if (topOutputs_.empty()) return nullptr;
 
   // TMP linear
   for (BNode* x : topOutputs_) {
-    if (x->out_ == contact) return x;
+    if (x->out_ == sig) return x;
   }
   return nullptr;
 }
 
-BLIF_file::BNode* BLIF_file::findInputPort(const string& contact) noexcept {
-  assert(not contact.empty());
+BLIF_file::BNode* BLIF_file::findInputPort(const string& sig) noexcept {
+  assert(not sig.empty());
   if (topInputs_.empty()) return nullptr;
 
   // TMP linear
   for (BNode* x : topInputs_) {
-    if (x->out_ == contact) return x;
+    if (x->out_ == sig) return x;
   }
   return nullptr;
 }
@@ -2010,7 +2023,7 @@ bool BLIF_file::checkClockSepar(vector<BNode*>& clocked) noexcept {
   }
 
   bool color_ok = true;
-  CStr viol_prefix = "    ===!!! clock-data separation error";
+  CStr viol_prefix = "  [Error] clock-data separation ERROR";
 
   // -- check that end-points of red edges are red
   for (NW::cEI E(pg_); E.valid(); ++E) {
@@ -2039,11 +2052,18 @@ bool BLIF_file::checkClockSepar(vector<BNode*>& clocked) noexcept {
         lprintf("%s: blif lines:  %u - %u\n",
                 viol_prefix, err_lnum_, err_lnum2_);
         char B[512] = {};
-        ::sprintf(B, "      line %u :  %s  ", err_lnum_, bnode1.kw_.c_str());
+        ::sprintf(B, "   ERROR  line %u :  %s  ", err_lnum_, bnode1.kw_.c_str());
         logVec(bnode1.data_, B);
-        ::sprintf(B, "      line %u :  %s  ", err_lnum2_, bnode2.kw_.c_str());
+        ::sprintf(B, "   ERROR  line %u :  %s  ", err_lnum2_, bnode2.kw_.c_str());
         logVec(bnode2.data_, B);
         flush_out(true);
+        if (bnode1.isTopInput() and bnode2.is_WIRE()) {
+          err_info2_ = str::concat( "clock input port ", bnode1.out_,
+                                    " drives feedthrough wire at line ",
+                                    std::to_string(err_lnum2_) );
+          lprintf("error-info: %s\n", err_info2_.c_str());
+          flush_out(true);
+        }
       }
       break;
     }
@@ -2060,7 +2080,8 @@ bool BLIF_file::checkClockSepar(vector<BNode*>& clocked) noexcept {
 
   if (!color_ok) {
     flush_out(true); err_puts();
-    lprintf2("[Error] clock-data separation error\n");
+    lprintf2("[Error] clock-data separation error: lines %u - %u\n",
+             err_lnum_,  err_lnum2_);
     err_puts(); flush_out(true);
     return false;
   }
@@ -2097,6 +2118,7 @@ bool BLIF_file::createPinGraph() noexcept {
   if (fabricNodes_.empty()) return false;
 
   err_msg_.clear();
+  err_info2_.clear();
   uint64_t key = 0;
   uint nid = 0, kid = 0, eid = 0;
   vector<string> INP;
@@ -2146,6 +2168,54 @@ bool BLIF_file::createPinGraph() noexcept {
   vector<qTup> Q;
   Q.reserve(topInputs_.size());
 
+  // -- link in-ports to out-ports via feedthrough wires
+  for (BNode* x : fabricRealNodes_) {
+    if (x->is_WIRE()) {
+      BNode& w = *x;
+      assert(w.data_.size() == 2);
+      const string& w_inp = w.data_.front();
+      const string& w_out = w.data_.back();
+      BNode* iport = findInputPort(w_inp);
+      if (!iport)
+        continue;
+      BNode* oport = findOutputPort(w_out);
+      if (!oport)
+        continue;
+      assert(iport->isTopInput());
+      assert(oport->isTopOutput());
+      // NW-nodes for i/o ports should exist already
+      assert(iport->nw_id_);
+      assert(oport->nw_id_);
+      assert(pg_.hasNode(iport->nw_id_));
+      assert(pg_.hasNode(oport->nw_id_));
+      assert(map_pg2blif(iport->nw_id_) == iport->id_);
+      assert(map_pg2blif(oport->nw_id_) == oport->id_);
+
+      // NW keys and nodes for wire pseudo-cell:
+      uint64_t w_k1 = hashCantor(w.id_, 1) + max_key1;
+      uint64_t w_k2 = hashCantor(w.id_, 2) + max_key1;
+      assert(w_k1);
+      assert(w_k2);
+      assert(w_k1 != w_k2);
+      uint w_n1 = pg_.insK(w_k1);
+      assert(w_n1);
+      uint w_n2 = pg_.insK(w_k2);
+      assert(w_n2);
+      pg2blif_.emplace(w_n1, w.id_);
+      pg2blif_.emplace(w_n2, w.id_);
+      pg_.setNodeName4(w_n1, w.id_, w.lnum_, 1, "FTwireI");
+      pg_.setNodeName4(w_n2, w.id_, w.lnum_, 2, "FTwireO");
+
+      // link feedthrough:
+      uint ee;
+      ee = pg_.linkNodes(iport->nw_id_, w_n1, false);
+      ee = pg_.linkNodes(w_n1, w_n2, true);
+      ee = pg_.linkNodes(w_n2, oport->nw_id_, false);
+      if (trace_ >= 11)
+        lprintf("\t\t ee = %u\n", ee);
+    }
+  }
+
   // -- link from input ports to fabric
   for (BNode* p : topInputs_) {
     INP.clear();
@@ -2162,9 +2232,6 @@ bool BLIF_file::createPinGraph() noexcept {
       if (trace_ >= 6)
         lprintf("      %s\n", port.cPortName());
     }
-
-    // if (port.id_ == 24)
-    //  lputs1();
 
     for (const upair& pa : PAR) {
       if (pa.first == port.id_)
@@ -2295,12 +2362,12 @@ bool BLIF_file::createPinGraph() noexcept {
         uint cn_realId = cn.realId(*this);
         key = hashCantor(cn_realId, i + 1) + max_key1;
         assert(key);
-        // if (key == 110)
-        //  lputs3();
         kid = pg_.findNode(key);
         if (kid) {
-          lprintf("\t\t ___ found   nid %u '%s'   for key %zu",
-                  kid, pg_.cnodeName(kid), key);
+          if (trace_ >= 8) {
+            lprintf("\t\t ___ found   nid %u '%s'   for key %zu",
+                    kid, pg_.cnodeName(kid), key);
+          }
         }
         else {
           kid = pg_.insK(key);
@@ -2529,7 +2596,8 @@ bool BLIF_file::createPinGraph() noexcept {
 
   pg_.setNwName("pin_graph");
 
-  // writePinGraph("pin_graph_1.dot");
+  if (trace_ >= 8)
+    writePinGraph("Dpin_graph_1.dot", true, false);
 
 #ifndef NDEBUG
   // -- verify that all NW IDs are mapped to BNodes:
@@ -2577,11 +2645,13 @@ string BLIF_file::writePinGraph(CStr fn0, bool nodeTable, bool noDeg0) const noe
     err_puts(); flush_out(true);
   }
 
-  lprintf("(writePinGraph)  status:%s  file: %s\n",
-          wrDot_ok ? "OK" : "FAIL",
-          fn.c_str());
+  if (not wrDot_ok or trace_ >= 4) {
+    lprintf("(writePinGraph)  status:%s  file: %s\n\n",
+            wrDot_ok ? "OK" : "FAIL",
+            fn.c_str());
+  }
 
-  flush_out(true);
+  flush_out(false);
   if (wrDot_ok)
     return fn;
   return {};

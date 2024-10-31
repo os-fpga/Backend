@@ -204,6 +204,11 @@ struct BLIF_file : public fio::MMapReader
     bool is_CARRY() const noexcept {
       return ptype_ == prim::CARRY;
     }
+    bool is_WIRE() const noexcept {
+      if (ptype_ != prim::A_ZERO or kw_ != ".names")
+        return false;
+      return data_.size() == 2;
+    }
 
     bool canDriveClockNode() const noexcept {
       return isTopInput() or is_CLK_BUF() or ptype_ == prim::I_SERDES;
@@ -291,7 +296,7 @@ struct BLIF_file : public fio::MMapReader
   size_t inputs_lnum_ = 0, outputs_lnum_ = 0;
   mutable uint err_lnum_ = 0, err_lnum2_ = 0;
 
-  string err_msg_;
+  string err_msg_, err_info2_;
   uint16_t trace_ = 0;
 
   bool rd_ok_ = false;
@@ -321,6 +326,7 @@ public:
   uint numNodes() const noexcept { return nodePool_.empty() ? 0 : nodePool_.size() - 1; }
   uint countLUTs() const noexcept;
   uint countFFs() const noexcept;
+  uint countWires() const noexcept;
   uint countCBUFs() const noexcept;
   void countBUFs(uint& nIBUF, uint& nOBUF, uint& nCBUF) const noexcept;
 
@@ -358,8 +364,8 @@ private:
 
   bool checkClockSepar(vector<BNode*>& clocked) noexcept;
 
-  BNode* findOutputPort(const string& contact) noexcept;
-  BNode* findInputPort(const string& contact) noexcept;
+  BNode* findOutputPort(const string& sig) noexcept;
+  BNode* findInputPort(const string& sig) noexcept;
 
   BNode* findFabricParent(uint of, const string& contact, int& pinIndex) noexcept;  // searches inputs
   BNode* findFabricDriver(uint of, const string& contact) noexcept;                 // matches out_

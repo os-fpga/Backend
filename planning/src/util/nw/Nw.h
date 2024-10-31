@@ -274,7 +274,9 @@ struct NW {
   inline uint numE() const noexcept;
   uint countRedEdges() const noexcept;
 
-  inline upair countRoots() const noexcept;
+  upair countRoots() const noexcept;
+  upair countPorts() const noexcept;
+
   bool hasClockNodes() const noexcept;
   uint countClockNodes() const noexcept;
   uint countRedNodes() const noexcept;
@@ -793,17 +795,6 @@ inline uint NW::linK(uint64_t k1, uint64_t k2) noexcept {
 
   assert(n1 and n2);
   return linkNodes(n1, n2);
-}
-
-inline upair NW::countRoots() const noexcept {
-  uint cnt = 0, mark_cnt = 0;
-  if (empty()) return {cnt, mark_cnt};
-  for (cNI I(*this); I.valid(); ++I) {
-    const Node& nd = *I;
-    if (nd.isTreeRoot()) cnt++;
-    if (nd.isFlagRoot()) mark_cnt++;
-  }
-  return {cnt, mark_cnt};
 }
 
 inline uint NW::getMaxLabel() const noexcept {
