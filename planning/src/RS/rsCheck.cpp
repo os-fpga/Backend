@@ -59,7 +59,7 @@ bool do_check_blif(CStr cfn,
   uint numInp = bfile.numInputs();
   uint numOut = bfile.numOutputs();
 
-  lprintf("  (blif_file)   #inputs= %u  #outputs= %u  topModel= %s\n",
+  lprintf("  (blif_file)  #inputs= %u  #outputs= %u  topModel= %s\n",
           numInp, numOut, bfile.topModel_.c_str());
 
   if (tr >= 4) {
@@ -115,6 +115,7 @@ bool do_check_blif(CStr cfn,
   ls << "-----   #TDP_RAM36K= " << nTDP_RAM36K << endl;
   ls << "----- #TDP_RAM18KX2= " << nTDP_RAM18K << endl;
   ls << "-----        #CARRY= " << nCARRY << endl;
+  ls << "-----        #WIREs= " << bfile.countWires() << endl;
   }
   ls << "-----\n";
   ls << "-----    PinGraph: " << bfile.pinGraphFile_ << endl;
@@ -173,6 +174,8 @@ bool do_check_blif(CStr cfn,
 
   ls << "[Error]  ERROR  BLIF is not OK  ERROR" << endl;
   ls << "[Error]  ERROR  " << bfile.err_msg_ << endl;
+  if (not bfile.err_info2_.empty())
+    ls << "[Error]  ERROR  " << bfile.err_info2_ << endl;
 
   flush_out(true);
   uint errLnum = std::max(bfile.err_lnum_, bfile.err_lnum2_);
