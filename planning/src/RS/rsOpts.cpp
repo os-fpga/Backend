@@ -203,43 +203,67 @@ static char* make_file_name(CStr arg) noexcept {
 void rsOpts::setFunction(CStr fun) noexcept {
   function_ = nullptr;
   if (!fun) return;
+
+  uint16_t tr = ltrace();
+
   static CStr s_funList[] = {"cmd",        // 0
                              "pinc",       // 1
                              "stars",      // 2
                              "partition",  // 3
                              "pack",       // 4
                              "route",      // 5
+                             "shell",      // 6
                              nullptr};
   string f = str::s2lower(fun);
   if (f.empty()) return;
   if (f == "cmd") {
     function_ = s_funList[0];
+    if (tr >= 5)
+      lprintf("Opts::setFunction: %s\n", function_);
     assert(is_fun_cmd());
     return;
   }
   if (f == "pin" or f == "pinc" or f == "pin_c") {
     function_ = s_funList[1];
+    if (tr >= 5)
+      lprintf("Opts::setFunction: %s\n", function_);
     assert(is_fun_pinc());
     return;
   }
   if (f == "sta" or f == "star" or f == "stars") {
     function_ = s_funList[2];
+    if (tr >= 5)
+      lprintf("Opts::setFunction: %s\n", function_);
     assert(is_fun_stars());
     return;
   }
   if (f == "par" or f == "part" or f == "partition") {
     function_ = s_funList[3];
+    if (tr >= 5)
+      lprintf("Opts::setFunction: %s\n", function_);
     assert(is_fun_partition());
     return;
   }
   if (f == "pac" or f == "pack" or f == "packing") {
     function_ = s_funList[4];
+    if (tr >= 5)
+      lprintf("Opts::setFunction: %s\n", function_);
     assert(is_fun_pack());
     return;
   }
   if (f == "rt" or f == "route" or f == "routing") {
     function_ = s_funList[5];
+    if (tr >= 5)
+      lprintf("Opts::setFunction: %s\n", function_);
     assert(is_fun_route());
+    return;
+  }
+  if (f == "sh" or f == "SH" or f == "shell" or
+      f == "shel" or f == "Shell") {
+    function_ = s_funList[6];
+    if (tr >= 5)
+      lprintf("Opts::setFunction: %s\n", function_);
+    assert(is_fun_shell());
     return;
   }
 }
