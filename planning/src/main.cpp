@@ -1,4 +1,4 @@
-static const char* _pln_VERSION_STR = "pln0363";
+static const char* _pln_VERSION_STR = "pln0364";
 
 #include "RS/rsEnv.h"
 #include "util/pln_log.h"
@@ -470,14 +470,18 @@ static void deal_help(const rsOpts& opts) {
 static void deal_units(const rsOpts& opts) {
 #ifdef PLN_UNIT_TEST_ON
   using namespace tes;
-  if (opts.unit1_) tes::run_U1();
-  if (opts.unit2_) tes::run_U2();
-  if (opts.unit3_) tes::run_U3();
-  if (opts.unit4_) tes::run_U4();
-  if (opts.unit5_) tes::run_U5();
-  if (opts.unit6_) tes::run_U6();
-  if (opts.unit7_) tes::run_U7();
+  if (opts.units_[1]) tes::run_U1();
+  if (opts.units_[2]) tes::run_U2();
+  if (opts.units_[3]) tes::run_U3();
+  if (opts.units_[4]) tes::run_U4();
+  if (opts.units_[5]) tes::run_U5();
+  if (opts.units_[6]) tes::run_U6();
+  if (opts.units_[7]) tes::run_U7();
 #endif
+}
+
+static bool deal_shell(const rsOpts& opts) {
+  return true;
 }
 
 }  // NS pln
@@ -503,13 +507,14 @@ int main(int argc, char** argv) {
   if (opts.trace_specified())
     set_ltrace(opts.trace_);
 
-  if (opts.trace_ >= 8 or ltrace() >= 9 or ::getenv("pln_trace_env")) {
+  uint16_t tr = ltrace();
+  if (opts.trace_ >= 8 or tr >= 9 or ::getenv("pln_trace_env")) {
     s_env.dump("\n----env----\n");
     lout() << "-----------" << endl;
   }
 
   if (opts.ver_or_help()) {
-    if (ltrace() >= 2) {
+    if (tr >= 2) {
       printf("\t %s\n", _pln_VERSION_STR);
       printf("\t compiled:    %s\n", s_env.compTimeCS());
     }
@@ -518,12 +523,12 @@ int main(int argc, char** argv) {
     std::quick_exit(0);
   }
 
-  if (ltrace() >= 2) {
+  if (tr >= 2) {
     lprintf("\t %s\n", _pln_VERSION_STR);
     lprintf("\t compiled:  %s\n", s_env.compTimeCS());
   }
-  if (ltrace() >= 4) {
-    lprintf("ltrace()= %u  cmd.argc= %i\n", ltrace(), argc);
+  if (tr >= 4) {
+    lprintf("ltrace= %u  cmd.argc= %i\n", tr, argc);
   }
 
   if (opts.unit_specified()) {
@@ -552,10 +557,10 @@ int main(int argc, char** argv) {
   if (opts.is_fun_cmd()) {
     ok = deal_cmd(opts);
     if (ok) {
-      if (ltrace() >= 2) lputs("deal_cmd() succeeded.");
+      if (tr >= 2) lputs("deal_cmd() succeeded.");
       status = 0;
     } else {
-      if (ltrace() >= 2) lputs("deal_cmd() failed.");
+      if (tr >= 2) lputs("deal_cmd() failed.");
     }
     goto ret;
   }
@@ -563,10 +568,10 @@ int main(int argc, char** argv) {
   if (opts.is_fun_pinc() or opts.is_arg0_pinc() or opts.is_implicit_pinc()) {
     ok = deal_pinc(opts, true);
     if (ok) {
-      if (ltrace() >= 2) lputs("deal_pinc() succeeded.");
+      if (tr >= 2) lputs("deal_pinc() succeeded.");
       status = 0;
     } else {
-      if (ltrace() >= 2) lputs("deal_pinc() failed.");
+      if (tr >= 2) lputs("deal_pinc() failed.");
     }
     goto ret;
   }
@@ -575,7 +580,7 @@ int main(int argc, char** argv) {
     lputs("======== PARTITION MODE specified ========");
     ok = validate_partition_opts(opts);
     if (!ok) {
-      if (ltrace() >= 4) lputs("validate_partition_opts() failed.");
+      if (tr >= 4) lputs("validate_partition_opts() failed.");
       status = 2;
       goto ret;
     }
@@ -584,10 +589,28 @@ int main(int argc, char** argv) {
   if (opts.is_fun_partition() or opts.is_fun_pack()) {
     ok = deal_vpr(opts, true);
     if (ok) {
-      if (ltrace() >= 2) lputs("deal_vpr() succeeded.");
+      if (tr >= 2) lputs("deal_vpr() succeeded.");
       status = 0;
     } else {
-      if (ltrace() >= 2) lputs("deal_vpr() failed.");
+      if (tr >= 2) lputs("deal_vpr() failed.");
+    }
+    goto ret;
+  }
+
+  if (opts.is_fun_shell()) {
+    lputs("======== SHELL MODE specified ========");
+    ok = true; // validate_shell_opts(opts);
+    if (!ok) {
+      if (tr >= 4) lputs("validate_shell_opts() failed.");
+      status = 2;
+      goto ret;
+    }
+    ok = deal_shell(opts);
+    if (ok) {
+      if (tr >= 2) lputs("deal_shell() succeeded.");
+      status = 0;
+    } else {
+      if (tr >= 2) lputs("deal_shell() failed.");
     }
     goto ret;
   }
@@ -595,14 +618,14 @@ int main(int argc, char** argv) {
   // default function is stars
   ok = deal_stars(opts, true);
   if (ok) {
-    if (ltrace() >= 2) lputs("deal_stars() succeeded.");
+    if (tr >= 2) lputs("deal_stars() succeeded.");
     status = 0;
   } else {
-    if (ltrace() >= 2) lputs("deal_stars() failed.");
+    if (tr >= 2) lputs("deal_stars() failed.");
   }
 
 ret:
-  if (ltrace() >= 4)
+  if (tr >= 4)
     lprintf("(planner main status) %i\n", status);
   pln::flush_out(true);
   return status;

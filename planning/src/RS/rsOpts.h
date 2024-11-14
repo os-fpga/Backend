@@ -3,6 +3,9 @@
 #define __pln_Opts_H__e91c943c16c2d_
 
 #include "util/pln_log.h"
+#include <bitset>
+
+#undef MAX_UNITS
 
 namespace pln {
 
@@ -12,30 +15,39 @@ using CStr = const char*;
 
 struct rsOpts {
 
+  static constexpr uint MAX_UNITS = 64;
+
   CStr shortVer_ = nullptr;
 
   int argc_ = 0;
   const char** argv_ = nullptr;
 
-  CStr function_ = nullptr; // {cmd, pinc, stars, partition, pack, route}
+  CStr function_ = nullptr; // {cmd, pinc, stars, partition, pack, route, shell}
   bool have_function() const noexcept { return function_; }
+  bool function_is(CStr x) const noexcept {
+    if (!x) return !function_;
+    return function_ and ::strcmp(function_, x) == 0;
+  }
   bool is_fun_cmd() const noexcept {
-    return function_ && !strcmp(function_, "cmd");
+    return function_is("cmd");
   }
   bool is_fun_pinc() const noexcept {
-    return function_ && !strcmp(function_, "pinc");
+    return function_is("pinc");
   }
   bool is_fun_stars() const noexcept {
-    return function_ && !strcmp(function_, "stars");
+    return function_is("stars");
   }
   bool is_fun_partition() const noexcept {
-    return function_ && !strcmp(function_, "partition");
+    return function_is("partition");
   }
   bool is_fun_pack() const noexcept {
-    return function_ && !strcmp(function_, "pack");
+    return function_is("pack");
   }
   bool is_fun_route() const noexcept {
-    return function_ && !strcmp(function_, "route");
+    return function_is("route");
+  }
+  bool is_fun_shell() const noexcept {
+    return function_is("shell");
   }
   bool is_arg0_pinc() const noexcept;
   bool is_implicit_pinc() const noexcept;
@@ -74,13 +86,7 @@ struct rsOpts {
   bool check_ = false;
   bool cleanup_ = false;
 
-  bool unit1_ = false;
-  bool unit2_ = false;
-  bool unit3_ = false;
-  bool unit4_ = false;
-  bool unit5_ = false;
-  bool unit6_ = false;
-  bool unit7_ = false;
+  std::bitset<MAX_UNITS> units_;
 
   rsOpts() noexcept = default;
   rsOpts(int argc, const char** argv) noexcept { parse(argc, argv); }
@@ -92,13 +98,13 @@ struct rsOpts {
   void print(CStr label = nullptr) const noexcept;
   void printHelp() const noexcept;
 
-  bool unit_specified() const noexcept {
-    return unit1_ or unit2_ or unit3_ or unit4_ or unit5_ or unit6_
-           or unit7_;
-  }
+  bool unit_specified() const noexcept { return units_.any(); }
+
   bool ver_or_help() const noexcept { return version_ or det_ver_ or help_; }
 
-  bool trace_specified() const noexcept { return traceIndex_ > 0 and trace_ > 0; }
+  bool trace_specified() const noexcept {
+    return traceIndex_ > 0 and trace_ > 0;
+  }
   bool test_id_specified() const noexcept { return test_id_ > 0; }
 
   bool set_STA_testCase(int TC_id) noexcept;
