@@ -111,6 +111,8 @@ inline void p_free(void* p) noexcept {
 }
 
 int get_PID() noexcept;
+inline std::string str_PID() noexcept { return std::to_string(get_PID()); }
+
 std::string get_CWD() noexcept;
 void traceEnv(int argc = 0, CStr* argv = nullptr) noexcept;
 
@@ -264,6 +266,14 @@ inline string concat(const string& a, const string& b, const string& c,
   if (f) z.append(f);
   if (g) z.append(g);
   return z;
+}
+
+inline string concat(CStr a) noexcept {
+  // workaround bug in C++ standard.
+  // string construction from null should produce 'empty', not 'throw'
+  if (!a or !a[0])
+    return {};
+  return a;
 }
 
 inline CStr trimFront(CStr z) noexcept {
