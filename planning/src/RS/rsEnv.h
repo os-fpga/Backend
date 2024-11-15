@@ -29,6 +29,8 @@ struct rsEnv {
   rsEnv(int argc, char** argv) noexcept { parse(argc, argv); }
   ~rsEnv() { opts_.reset(); }
 
+  static const rsEnv& inst() noexcept;
+
   int argCount(bool orig = true) const noexcept { return orig ? orig_argV_.size() : filtered_argV_.size(); }
 
   void parse(int argc, char** argv) noexcept;
