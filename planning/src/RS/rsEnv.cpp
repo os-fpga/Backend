@@ -292,11 +292,17 @@ void rsEnv::listDevEnv() const noexcept {
 
   cout << endl;
 
-#ifdef _PLN_VEC_BOUNDS_CHECK
-  printf("\t  _PLN_VEC_BOUNDS_CHECK :   ON  => stl_vector BC enabled\n");
+#ifdef PLN_ENABLE_TCL
+  printf("\t  PLN_ENABLE_TCL :   ON  => Tcl shell enabled\n");
 #else
-  printf("\t  _PLN_VEC_BOUNDS_CHECK :   OFF => std_vector BC disabled\n");
+  printf("\t  PLN_ENABLE_TCL :   OFF => Tcl shell disabled\n");
 #endif
+
+// #ifdef _PLN_VEC_BOUNDS_CHECK
+//   printf("\t  _PLN_VEC_BOUNDS_CHECK :   ON  => stl_vector BC enabled\n");
+// #else
+//   printf("\t  _PLN_VEC_BOUNDS_CHECK :   OFF => std_vector BC disabled\n");
+// #endif
 
 #ifdef PLN_JEMALLOC
     LIST_DEC(PLN_JEMALLOC);

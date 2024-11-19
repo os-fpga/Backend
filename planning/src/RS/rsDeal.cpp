@@ -426,10 +426,6 @@ void deal_units(const rsOpts& opts) {
 #endif
 }
 
-bool deal_shell(const rsOpts& opts) {
-  return true;
-}
-
 bool validate_partition_opts(const rsOpts& opts) {
   using namespace fio;
   uint16_t tr = ltrace();
