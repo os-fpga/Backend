@@ -7,7 +7,17 @@
 #ifndef _pln_Shell_H_0df6e17bc86545_
 #define _pln_Shell_H_0df6e17bc86545_
 
-#include <tcl.h>
+#ifdef PLN_ENABLE_TCL
+  #include <tcl.h>
+#else
+  struct Tcl_Interp;
+  struct Tcl_Obj;
+  using Tcl_CmdProc = void*;
+  using Tcl_CmdDeleteProc = void*;
+  using ClientData = void*;
+  #define TCL_OK 0
+#endif
+
 #include "RS/rsEnv.h"
 
 namespace pln {
