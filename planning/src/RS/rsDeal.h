@@ -1,3 +1,4 @@
+#pragma once
 //
 //  'planning' exec modes - entry points to various operations.
 //  'planning' main() calls one of these deal_ functions.

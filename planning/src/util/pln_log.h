@@ -277,10 +277,19 @@ inline string concat(CStr a) noexcept {
 }
 
 inline CStr trimFront(CStr z) noexcept {
-  if (z && *z) {
+  if (z and z[0]) {
     while (std::isspace(*z)) z++;
   }
   return z;
+}
+
+// remove '\n' at the end
+inline void chomp(char* z) noexcept {
+  if (z and z[0]) {
+    size_t len = ::strlen(z);
+    if (z[len-1] == '\n')
+      z[len-1] = 0;
+  }
 }
 
 inline size_t hashf(CStr z) noexcept {

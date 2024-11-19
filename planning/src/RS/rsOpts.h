@@ -74,7 +74,7 @@ struct rsOpts {
   char* output_ = nullptr;
   char* assignOrder_ = nullptr;
 
-  int test_id_ = 0;  // TestCase ID
+  int test_id_ = 0;       // TestCase ID
 
   int trace_ = 0;
   int traceIndex_ = 0;
@@ -85,6 +85,7 @@ struct rsOpts {
   bool help_ = false;
   bool check_ = false;
   bool cleanup_ = false;
+  bool shell_ = false;    // shortcut for --function shell
 
   std::bitset<MAX_UNITS> units_;
 

@@ -21,7 +21,7 @@ static CStr _det_ver_[] = { "VV", "vv", "VVV", "vvv", "det_ver",
 static CStr _help_[] = { "H", "HH", "h", "hh", "help",
                          "hel", "hlp", "he", nullptr };
 
-static CStr _fun_[] = { "F", "FF", "ff", "fu", "fun", "func",
+static CStr _fun_[] = { "F", "FF", "ff", "fn", "fu", "fun", "func",
                         "funct", "function", nullptr };
 
 static CStr _check_[] = { "CH", "CHECK", "ch", "CC", "cc", "che", "chec",
@@ -30,6 +30,9 @@ static CStr _check_[] = { "CH", "CHECK", "ch", "CC", "cc", "che", "chec",
 static CStr _clean_[] = { "CLEAN", "CLEANUP", "clean", "cleanup", "clean_up",
                           "cleanup_blif", "cleanupblif", "clean_up_blif",
                           "cle", "clea", nullptr };
+
+static CStr _shell_[] = { "SHELL", "SH", "shell", "sh", "she", "shel"
+                          "Shell", nullptr };
 
 static CStr _csv_[] = {"CSV", "cs", "csv", "Csv", nullptr};
 
@@ -202,7 +205,6 @@ static char* make_file_name(CStr arg) noexcept {
 
 void rsOpts::setFunction(CStr fun) noexcept {
   function_ = nullptr;
-  if (!fun) return;
 
   uint16_t tr = ltrace();
 
@@ -215,7 +217,15 @@ void rsOpts::setFunction(CStr fun) noexcept {
                              "shell",      // 6
                              nullptr};
   string f = str::s2lower(fun);
-  if (f.empty()) return;
+  if (f.empty()) {
+    if (shell_) {
+      function_ = s_funList[6];
+      if (tr >= 5)
+        lprintf("Opts::setFunction: %s\n", function_);
+      assert(is_fun_shell());
+    }
+    return;
+  }
   if (f == "cmd") {
     function_ = s_funList[0];
     if (tr >= 5)
@@ -258,8 +268,8 @@ void rsOpts::setFunction(CStr fun) noexcept {
     assert(is_fun_route());
     return;
   }
-  if (f == "sh" or f == "SH" or f == "shell" or
-      f == "shel" or f == "Shell") {
+  if (f == "sh" or f == "shell" or
+      f == "shel" or f == "ss") {
     function_ = s_funList[6];
     if (tr >= 5)
       lprintf("Opts::setFunction: %s\n", function_);
@@ -356,6 +366,10 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
     }
     if (op_match(arg, _clean_)) {
       cleanup_ = true;
+      continue;
+    }
+    if (op_match(arg, _shell_)) {
+      shell_ = true;
       continue;
     }
 
@@ -482,7 +496,7 @@ void rsOpts::parse(int argc, const char** argv) noexcept {
   editsFile_ = p_strdup(edtf);
   cmapFile_ = p_strdup(cmapf);
 
-  if (fun)
+  if (fun or shell_)
     setFunction(fun);
   else if (isCmdInput())
     setFunction("cmd");
