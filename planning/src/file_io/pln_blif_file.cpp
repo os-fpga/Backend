@@ -1199,12 +1199,6 @@ bool BLIF_file::createNodes() noexcept {
       if (not starts_w_subckt(cs + 1, len - 1))
         continue;
       Fio::split_spa(lines_[L], V);
-      //if (L == 48) {
-      //  string delWire1151 = "$delete_wire$1151";
-      //  lputs8();
-      //  int dTerm = findTermByNet(V, delWire1151);
-      //  lprintf("  dTerm= %i\n", dTerm);
-      //}
       if (V.size() > 1 and V.front() == ".subckt") {
         Prim_t pt = pr_str2enum( V[1].c_str() );
         if (pr_is_MOG(pt)) {
@@ -1997,7 +1991,35 @@ bool BLIF_file::checkClockSepar(vector<BNode*>& clocked) noexcept {
     }
   }
 
-  if (trace_ >= 6) {
+  // -- paint top-output nodes (and their incoming wires) Black
+  for (BNode* p : topOutputs_) {
+    const BNode& port = *p;
+    assert(!port.out_.empty());
+    assert(port.nw_id_);
+    if (!port.nw_id_)
+      continue;
+    NW::Node& nd = pg_.nodeRefCk(port.nw_id_);
+    nd.paintBlack();
+    uint par = port.parent_;
+    while (par) {
+      const BNode& parBn = bnodeRef(par);
+      assert(parBn.nw_id_);
+      if (!parBn.nw_id_)
+        break;
+      if (!parBn.is_WIRE())
+        break;
+      NW::Node& nwn = pg_.nodeRefCk(parBn.nw_id_);
+      nwn.paintBlack();
+      if (nwn.parent()) {
+        NW::Node& nwp = pg_.nodeRefCk(nwn.parent());
+        if (map_pg2blif(nwp.id_) == parBn.id_)
+          nwp.paintBlack();
+      }
+      par = parBn.parent_;
+    }
+  }
+
+  if (trace_ >= 5) {
     lputs("   (Pin Graph)  *** summary after B ***");
     pg_.printSum(ls, 0);
     lputs();
@@ -2025,13 +2047,16 @@ bool BLIF_file::checkClockSepar(vector<BNode*>& clocked) noexcept {
   bool color_ok = true;
   CStr viol_prefix = "  [Error] clock-data separation ERROR";
 
-  // -- check that end-points of red edges are red
+  // -- check that end-points of red edges are red,
+  //    the destination node may be black (output port)
   for (NW::cEI E(pg_); E.valid(); ++E) {
     const NW::Edge& ed = *E;
     if (not ed.isRed())
       continue;
     NW::Node& p1 = pg_.nodeRef(ed.n1_);
     NW::Node& p2 = pg_.nodeRef(ed.n2_);
+    if (p2.isBlack())
+      continue;
     if (!p1.isRed() or !p2.isRed()) {
       color_ok = false;
       p1.markViol(true);
@@ -2170,50 +2195,57 @@ bool BLIF_file::createPinGraph() noexcept {
 
   // -- link in-ports to out-ports via feedthrough wires
   for (BNode* x : fabricRealNodes_) {
-    if (x->is_WIRE()) {
-      BNode& w = *x;
-      assert(w.data_.size() == 2);
-      const string& w_inp = w.data_.front();
-      const string& w_out = w.data_.back();
-      BNode* iport = findInputPort(w_inp);
-      if (!iport)
-        continue;
-      BNode* oport = findOutputPort(w_out);
-      if (!oport)
-        continue;
-      assert(iport->isTopInput());
-      assert(oport->isTopOutput());
-      // NW-nodes for i/o ports should exist already
-      assert(iport->nw_id_);
-      assert(oport->nw_id_);
-      assert(pg_.hasNode(iport->nw_id_));
-      assert(pg_.hasNode(oport->nw_id_));
-      assert(map_pg2blif(iport->nw_id_) == iport->id_);
-      assert(map_pg2blif(oport->nw_id_) == oport->id_);
+    BNode& w = *x;
+    if (not w.is_WIRE())
+      continue;
+    assert(w.data_.size() == 2);
+    const string& w_inp = w.data_.front();
+    const string& w_out = w.data_.back();
+    BNode* iport = findInputPort(w_inp);
+    if (!iport)
+      continue;
+    BNode* oport = findOutputPort(w_out);
+    if (!oport)
+      continue;
+    assert(iport->isTopInput());
+    assert(oport->isTopOutput());
+    // NW-nodes for i/o ports should exist already
+    assert(iport->nw_id_);
+    assert(oport->nw_id_);
+    assert(pg_.hasNode(iport->nw_id_));
+    assert(pg_.hasNode(oport->nw_id_));
+    assert(map_pg2blif(iport->nw_id_) == iport->id_);
+    assert(map_pg2blif(oport->nw_id_) == oport->id_);
 
-      // NW keys and nodes for wire pseudo-cell:
-      uint64_t w_k1 = hashCantor(w.id_, 1) + max_key1;
-      uint64_t w_k2 = hashCantor(w.id_, 2) + max_key1;
-      assert(w_k1);
-      assert(w_k2);
-      assert(w_k1 != w_k2);
-      uint w_n1 = pg_.insK(w_k1);
-      assert(w_n1);
-      uint w_n2 = pg_.insK(w_k2);
-      assert(w_n2);
-      pg2blif_.emplace(w_n1, w.id_);
-      pg2blif_.emplace(w_n2, w.id_);
-      pg_.setNodeName4(w_n1, w.id_, w.lnum_, 1, "FTwireI");
-      pg_.setNodeName4(w_n2, w.id_, w.lnum_, 2, "FTwireO");
+    // NW keys and nodes for wire pseudo-cell:
+    uint64_t w_k1 = hashCantor(w.id_, 1) + max_key1;
+    uint64_t w_k2 = hashCantor(w.id_, 2) + max_key1;
+    assert(w_k1);
+    assert(w_k2);
+    assert(w_k1 != w_k2);
+    uint w_n1 = pg_.insK(w_k1);
+    assert(w_n1);
+    uint w_n2 = pg_.insK(w_k2);
+    assert(w_n2);
+    pg2blif_.emplace(w_n1, w.id_);
+    pg2blif_.emplace(w_n2, w.id_);
+    w.nw_id_ = w_n2;
+    pg_.nodeRef(w_n1).markWire(true);
+    pg_.nodeRef(w_n2).markWire(true);
+    pg_.setNodeName4(w_n1, w.id_, w.lnum_, 1, "FTwireI");
+    pg_.setNodeName4(w_n2, w.id_, w.lnum_, 2, "FTwireO");
 
-      // link feedthrough:
-      uint ee;
-      ee = pg_.linkNodes(iport->nw_id_, w_n1, false);
-      ee = pg_.linkNodes(w_n1, w_n2, true);
-      ee = pg_.linkNodes(w_n2, oport->nw_id_, false);
-      if (trace_ >= 11)
-        lprintf("\t\t ee = %u\n", ee);
-    }
+    // make sure BNode::parent_ links are set
+    oport->parent_ = w.id_;
+    w.parent_ = iport->id_;
+
+    // link feedthrough:
+    uint ee;
+    ee = pg_.linkNodes(iport->nw_id_, w_n1, false);
+    ee = pg_.linkNodes(w_n1, w_n2, true);
+    ee = pg_.linkNodes(w_n2, oport->nw_id_, false);
+    if (trace_ >= 11)
+      lprintf("\t\t ee = %u\n", ee);
   }
 
   // -- link from input ports to fabric

@@ -44,7 +44,8 @@ struct NW {
   static constexpr uint c_darkorchid4 = 13;
   static constexpr uint c_cyan = 14;
   static constexpr uint c_goldenrod3 = 15;
-  static constexpr uint c_MAX_COLOR = 15;
+  static constexpr uint c_Black = 16;
+  static constexpr uint c_MAX_COLOR = 16;
 
   struct Edge {
     uint id_ = 0;
@@ -64,6 +65,8 @@ struct NW {
     void paint(uint col) noexcept { color_ = col; }
     void paintRed() noexcept { color_ = c_Red; }
     bool isRed() const noexcept { return color_ == c_Red; }
+    void paintBlack() noexcept { color_ = c_Black; }
+    bool isBlack() const noexcept { return color_ == c_Black; }
 
     bool valid() const noexcept { return n1_; }
     void inval() noexcept { ::memset(this, 0, sizeof(*this)); }
@@ -156,6 +159,7 @@ struct NW {
     void markOut(bool val) noexcept { out_flag_ = val; }
     void markClk(bool val) noexcept { clk_flag_ = val; }
     void markViol(bool val) noexcept { viol_flag_ = val; }
+    void markWire(bool val) noexcept { wire_flag_ = val; }
     void markPrim(uint16_t pt) noexcept { prim_ = pt; }
 
     bool isClk() const noexcept { return clk_flag_; }
@@ -170,6 +174,8 @@ struct NW {
     void paint(uint col) noexcept { color_ = col; }
     void paintRed() noexcept { color_ = c_Red; }
     bool isRed() const noexcept { return color_ == c_Red; }
+    void paintBlack() noexcept { color_ = c_Black; }
+    bool isBlack() const noexcept { return color_ == c_Black; }
 
     // DATA:
     vecu edges_;
@@ -192,6 +198,7 @@ struct NW {
     bool out_flag_ = false;
     bool clk_flag_ = false;
     bool viol_flag_ = false;
+    bool wire_flag_ = false;
     string name_;
   };
 
@@ -280,6 +287,8 @@ struct NW {
   bool hasClockNodes() const noexcept;
   uint countClockNodes() const noexcept;
   uint countRedNodes() const noexcept;
+  uint countBlackNodes() const noexcept;
+  uint countWireNodes() const noexcept;
   uint countNamedNodes() const noexcept;
 
   void getNodes(vecu& V) const noexcept { V = nids_; }
