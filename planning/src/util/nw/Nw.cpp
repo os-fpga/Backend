@@ -318,6 +318,26 @@ uint NW::countRedNodes() const noexcept {
   return cnt;
 }
 
+uint NW::countBlackNodes() const noexcept {
+  uint cnt = 0;
+  if (empty()) return 0;
+  for (cNI I(*this); I.valid(); ++I) {
+    if (I->isBlack())
+      cnt++;
+  }
+  return cnt;
+}
+
+uint NW::countWireNodes() const noexcept {
+  uint cnt = 0;
+  if (empty()) return 0;
+  for (cNI I(*this); I.valid(); ++I) {
+    if (I->wire_flag_)
+      cnt++;
+  }
+  return cnt;
+}
+
 bool NW::hasClockNodes() const noexcept {
   if (empty()) return false;
   for (cNI I(*this); I.valid(); ++I) {

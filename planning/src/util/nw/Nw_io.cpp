@@ -523,10 +523,13 @@ uint NW::printSum(ostream& os, uint16_t forDot) const noexcept {
   uint numNamedNodes = countNamedNodes();
   uint numRedNodes = countRedNodes();
   uint numRedEdges = countRedEdges();
+  uint numBlackNodes = countBlackNodes();
+  uint numWireNodes = countWireNodes();
 
   dot_comment(os, forDot);
-  os_printf(os, "#NamedNodes=%u  #RedNodes= %u  #RedEdges= %u\n",
-            numNamedNodes, numRedNodes, numRedEdges);
+  os_printf(os,
+        "#NamedNodes=%u  #RedN= %u  #RedE= %u  #BlackN= %u  #WireN= %u\n",
+        numNamedNodes, numRedNodes, numRedEdges, numBlackNodes, numWireNodes);
 
   dot_comment(os, forDot);
   os_printf(os, "nr=(%u,%u) #Inp=%u #Out=%u\n",
