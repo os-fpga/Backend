@@ -60,6 +60,19 @@ void Info::init() noexcept {
   }
 }
 
+void Info::inval() noexcept {
+  absName_.clear();
+  type_.clear();
+  size_ = 0;
+  exists_ = false;
+  accessible_ = false;
+  absolute_ = false;
+  numLines_ = -1;
+  numWords_ = -1;
+  maxLlen_ = -1;
+  numTextChars_ = -1;
+}
+
 string Info::get_abs_name(const string& nm) noexcept {
   namespace fs = std::filesystem;
   if (nm.empty()) return {};
@@ -549,7 +562,9 @@ int64_t MMapReader::countWC(int64_t& numWords) const noexcept {
 }
 
 // unix command 'wc'
-int64_t MMapReader::printWC(std::ostream& os) const noexcept {
+int64_t MMapReader::printWC(std::ostream& os, Info* infRet) const noexcept {
+  if (infRet)
+    infRet->inval();
   assert(fsz_ == sz_);
   if (!fsz_ || !sz_ || !buf_ || fnm_.empty()) return -1;
 
@@ -557,6 +572,10 @@ int64_t MMapReader::printWC(std::ostream& os) const noexcept {
   numLines = countWC(numWords);
 
   os << numLines << ' ' << numWords << ' ' << sz_ << ' ' << fnm_ << endl;
+  if (infRet) {
+    infRet->numLines_ = numLines;
+    infRet->numWords_ = numWords;
+  }
 
   return numLines;
 }
@@ -571,8 +590,9 @@ static void print_byte(std::ostream& os, CStr prefix, int b) noexcept {
   os.flush();
 }
 
-bool MMapReader::is_text_file(string& label) const noexcept {
-  label.clear();
+bool MMapReader::is_text_file(Info& typeRet, bool scan) const noexcept {
+  typeRet.inval();
+  typeRet.size_ = sz_;
   if (!buf_ or sz_ < 4)
     return false;
 
@@ -582,39 +602,65 @@ bool MMapReader::is_text_file(string& label) const noexcept {
   // lprintf("\t ....... sig= %u   hex %x\n", sig, sig);
 
   if (sig == 0x464c457f) {
-    label = "ELF";
+    typeRet.type_ = "ELF";
     return false;
   }
   if (sig == 0x21726152) {
-    label = "RAR";
+    typeRet.type_ = "RAR";
     return false;
   }
   if (sig == 0x587a37fd) {
-    label = "XZ";
+    typeRet.type_ = "XZ";
     return false;
   }
   if (sig == 0xfd2fb528) {
-    label = "ZST";
+    typeRet.type_ = "ZST";
     return false;
   }
   if (sig == 0x425a6839) {
-    label = "BZ2";
+    typeRet.type_ = "BZ2";
     return false;
   }
   if (sig == 0x1f8b0808) {
-    label = "GZ";
+    typeRet.type_ = "GZ";
     return false;
   }
   if (sig == 0x46445025) {
-    label = "PDF";
+    typeRet.type_ = "PDF";
     return false;
   }
   if (sig == 0x213c6172) {
-    label = "AR";
+    typeRet.type_ = "AR";
     return false;
   }
 
-  return true;
+  size_t numLines = 0, numText = 0;
+  if (scan) {
+    for (size_t i = 0; i < sz_; i++) {
+      char c = buf_[i];
+      if (!c) {
+        numText++;
+        continue;
+      }
+      if (c == '\n') {
+        numLines++;
+        numText++;
+        continue;
+      }
+      numText += int(str::c_is_text(c));
+    }
+  }
+  else {
+    return true;
+  }
+
+  if (sz_ - numText < 3) {
+    typeRet.type_ = "TXT";
+    return true;
+  }
+
+  typeRet.type_ = "BIN";
+  return false;
 }
 
 bool MMapReader::printMagic(std::ostream& os) const noexcept {
@@ -645,12 +691,12 @@ bool MMapReader::printMagic(std::ostream& os) const noexcept {
       if (i > 8)
         break;
     }
-    string label;
-    bool is_txt = is_text_file(label);
+    Info inf;
+    bool is_txt = is_text_file(inf, true);
     if (is_txt) {
       os << "(guessed TEXT)" << endl;
-    } else if (!label.empty()) {
-      os << "(guessed BINARY) : " << label << endl;
+    } else if (!inf.type_.empty()) {
+      os << "(guessed BINARY) : " << inf.type_ << endl;
     }
     os.flush();
     return true;
@@ -668,8 +714,8 @@ bool MMapReader::isGoodForParsing() const noexcept {
     return false;
 
   if (sz_ < UINT_MAX) {
-    string label;
-    bool is_txt = is_text_file(label);
+    Info inf;
+    bool is_txt = is_text_file(inf);
     return is_txt;
   }
 

@@ -16,7 +16,7 @@ struct XY {
 
   XY() noexcept = default;
   XY(int a, int b) noexcept : x_(a), y_(b) {}
-  XY(ipair p) noexcept : x_(p.first), y_(p.second) {}
+  explicit XY(ipair p) noexcept : x_(p.first), y_(p.second) {}
 
   bool valid() const noexcept { return x_ != INT_MIN; }
   bool nonNeg() const noexcept { return x_ >= 0; }
@@ -32,11 +32,17 @@ struct XY {
     y_ = 0;
   }
 
-  void moveRel(int dx, int dy) noexcept {
+  XY translated(int dx, int dy) const noexcept {
+    XY ret(*this);
+    ret.x_ += dx;
+    ret.y_ += dy;
+    return ret;
+  }
+  void translate(int dx, int dy) noexcept {
     x_ += dx;
     y_ += dy;
   }
-  void moveRel(XY d) noexcept { moveRel(d.x_, d.y_); }
+  void translate(XY d) noexcept { translate(d.x_, d.y_); }
 
   void negate() noexcept {
     x_ = -x_;

@@ -3,27 +3,6 @@
 #ifndef _PLN_util_geo_IV_h_b6e76e5fa705cfb_
 #define _PLN_util_geo_IV_h_b6e76e5fa705cfb_
 
-#include <algorithm>
-#include <cassert>
-#include <cctype>
-#include <cfloat>
-#include <climits>
-#include <cmath>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iomanip>
-#include <iostream>
-#include <limits>
-#include <memory>
-#include <numeric>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
-#include <vector>
-
 #include "util/pln_log.h"
 
 namespace pln {
@@ -102,6 +81,7 @@ struct Iv {
 
   Iv() noexcept = default;
   Iv(int a, int b) noexcept : a_(a), b_(b) {}
+  explicit Iv(ipair p) noexcept : a_(p.first), b_(p.second) {}
 
   void set(Iv i) noexcept { *this = i; }
   void set(int a, int b) noexcept {
@@ -147,10 +127,17 @@ struct Iv {
     a_ = t;
     b_ = t + l;
   }
-  void moveRel(int dt) noexcept {
+  void translate(int dt) noexcept {
     assert(valid() and normal());
     a_ += dt;
     b_ += dt;
+  }
+  Iv translated(int dt) const noexcept {
+    assert(valid() and normal());
+    Iv ret(*this);
+    ret.a_ += dt;
+    ret.b_ += dt;
+    return ret;
   }
 
   inline void unite(Iv i) noexcept;
