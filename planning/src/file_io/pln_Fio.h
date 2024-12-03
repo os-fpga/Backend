@@ -40,17 +40,24 @@ inline char* p_strdup(CStr p) noexcept {
 
 struct Info {
   string name_, absName_;
+  string type_;
   size_t size_ = 0;
+  int64_t numLines_ = 0;
+  int64_t numWords_ = 0;
+  int64_t maxLlen_ = 0;
+  int64_t numTextChars_ = 0;
+
   bool exists_ = false;
   bool accessible_ = false;
   bool absolute_ = false;
 
 public:
   Info() noexcept = default;
+  explicit Info(CStr nm) noexcept;
+  explicit Info(const string& nm) noexcept;
 
-  Info(CStr nm) noexcept;
-  Info(const string& nm) noexcept;
   void init() noexcept;
+  void inval() noexcept;
 
   static string get_abs_name(const string& nm) noexcept;
   static string get_realpath(const string& nm) noexcept;
@@ -215,9 +222,9 @@ public:
 public:
   MMapReader() noexcept = default;
 
-  MMapReader(CStr nm) noexcept : Fio(nm) {}
+  explicit MMapReader(CStr nm) noexcept : Fio(nm) {}
 
-  MMapReader(const string& nm) noexcept : Fio(nm) {}
+  explicit MMapReader(const string& nm) noexcept : Fio(nm) {}
 
   virtual ~MMapReader();
 
@@ -242,7 +249,7 @@ public:
   }
 
   int64_t countWC(int64_t& numWords) const noexcept;  // ~ wc command
-  int64_t printWC(std::ostream& os) const noexcept;   // ~ wc command
+  int64_t printWC(std::ostream& os, Info* inf = nullptr) const noexcept;
 
   size_t printLines(std::ostream& os) noexcept;
   int64_t writeFile(const string& nm) noexcept;
@@ -257,9 +264,9 @@ public:
   int dprint1() const noexcept;
   int dprint2() const noexcept;
 
-private:
-  bool is_text_file(string& label) const noexcept;
+  bool is_text_file(Info& typeRet, bool scan = false) const noexcept;
 
+private:
   vector<char*> get_backslashed_block(size_t fromLine) noexcept;
 
 }; // MMapReader
@@ -276,9 +283,9 @@ struct LineReader : public Fio
   size_t cap_ = lr_DEFAULT_CAP;
 
 public:
-  LineReader(size_t iniCap = 0) noexcept;
-  LineReader(CStr nm, size_t iniCap = 0) noexcept;
-  LineReader(const string& nm, size_t iniCap = 0) noexcept;
+  explicit LineReader(size_t iniCap = 0) noexcept;
+  explicit LineReader(CStr nm, size_t iniCap = 0) noexcept;
+  explicit LineReader(const string& nm, size_t iniCap = 0) noexcept;
 
   virtual ~LineReader() { p_free(buf_); }
 
@@ -349,7 +356,7 @@ public:
 
   CSV_Reader(CStr nm) noexcept : MMapReader(nm) {}
 
-  CSV_Reader(const string& nm) noexcept : MMapReader(nm) {}
+  explicit CSV_Reader(const string& nm) noexcept : MMapReader(nm) {}
 
   virtual ~CSV_Reader();
 
@@ -437,8 +444,8 @@ public:
 
 public:
   XML_Reader() noexcept;
-  XML_Reader(CStr nm) noexcept;
-  XML_Reader(const string& nm) noexcept;
+  explicit XML_Reader(CStr nm) noexcept;
+  explicit XML_Reader(const string& nm) noexcept;
 
   virtual ~XML_Reader();
 
@@ -462,9 +469,6 @@ private:
 };  // XML_Reader
 
 bool addIncludeGuards(LineReader& lr) noexcept;
-
-inline bool c_is_digit(char c) noexcept { return uint32_t(c) - '0' < 10u; }
-inline bool c_is_dot_digit(char c) noexcept { return uint32_t(c) - '0' < 10u or c == '.'; }
 
 inline bool has_digit(CStr z) noexcept {
   if (!z || !z[0]) return false;

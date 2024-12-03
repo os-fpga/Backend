@@ -82,6 +82,22 @@ static bool input_file_exists(CStr fn) noexcept {
   return sz > 1;  // require non-empty file
 }
 
+static inline bool ends_with_dot_cmd(CStr z, size_t len) noexcept {
+  assert(z);
+  if (len < 5) return false;
+  return z[len - 1] == 'd' and z[len - 2] == 'm' and z[len - 3] == 'c' and z[len - 4] == '.';
+  // .cmd
+  // dmc.
+}
+
+static inline bool ends_with_dot_tcl(CStr z, size_t len) noexcept {
+  assert(z);
+  if (len < 5) return false;
+  return z[len - 1] == 'l' and z[len - 2] == 'c' and z[len - 3] == 't' and z[len - 4] == '.';
+  // .tcl
+  // lct.
+}
+
 static bool op_match(CStr op, CStr* aliases) noexcept {
   assert(op and aliases);
   if (!op || !aliases) return false;
@@ -322,6 +338,23 @@ bool rsOpts::is_implicit_check() const noexcept {
     return false;
 
   return true;
+}
+
+bool rsOpts::isTclInput() const noexcept {
+  assert(argv_);
+  assert(argv_[0]);
+  assert(argc_ > 0);
+  if (!argv_ or !argv_[0])
+    return false;
+  if (argc_ > 5 or assignOrder_)
+    return false;
+
+  if (!input_ || !input_[0]) return false;
+  size_t len = ::strlen(input_);
+  if (len < 5 || len > UNIX_Path_Max) return false;
+  if (!ends_with_dot_tcl(input_, len)) return false;
+
+  return input_file_exists(input_);
 }
 
 void rsOpts::parse(int argc, const char** argv) noexcept {
@@ -566,14 +599,6 @@ bool rsOpts::createVprArgv(vector<string>& W) noexcept {
   vprArgc_ = cnt;
 
   return true;
-}
-
-static inline bool ends_with_dot_cmd(CStr z, size_t len) noexcept {
-  assert(z);
-  if (len < 5) return false;
-  return z[len - 1] == 'd' and z[len - 2] == 'm' and z[len - 3] == 'c' and z[len - 4] == '.';
-  // .cmd
-  // dmc.
 }
 
 bool rsOpts::isCmdInput() const noexcept {

@@ -120,6 +120,28 @@ namespace str {
 
 using std::string;
 
+inline constexpr bool c_is_digit(char c) noexcept {
+  return uint32_t(c) - '0' < 10u;
+}
+inline constexpr bool c_is_dot_digit(char c) noexcept {
+  return uint32_t(c) - '0' < 10u or c == '.';
+}
+inline constexpr bool c_is_space(char c) noexcept {
+  return c == ' ' or uint32_t(c) - 9u < 5u;
+}
+inline constexpr bool c_is_7bit(char c) noexcept {
+  return uint32_t(c) < 128u;
+}
+inline constexpr bool i_is_7bit(int i) noexcept {
+  return uint32_t(i) < 128u;
+}
+inline constexpr bool c_is_text(char c) noexcept {
+  // for text/binary file classification
+  if (not c_is_7bit(c))
+    return false;
+  return uint32_t(c) > 31u or c_is_space(c);
+}
+
 string s2lower(const string& s) noexcept;
 string s2upper(const string& s) noexcept;
 
@@ -278,7 +300,7 @@ inline string concat(CStr a) noexcept {
 
 inline CStr trimFront(CStr z) noexcept {
   if (z and z[0]) {
-    while (std::isspace(*z)) z++;
+    while (c_is_space(*z)) z++;
   }
   return z;
 }

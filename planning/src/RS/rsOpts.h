@@ -115,6 +115,7 @@ struct rsOpts {
   bool hasInputFile() const noexcept;
   bool hasCsvFile() const noexcept;
   bool isCmdInput() const noexcept;
+  bool isTclInput() const noexcept;
 
 private:
   bool set_VPR_TC_args(CStr raw_tc) noexcept;
